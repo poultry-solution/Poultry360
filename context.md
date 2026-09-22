@@ -6,13 +6,15 @@
 
 | Tier | Role | Key Features |
 |------|------|--------------|
-| **Company** | Top | Product catalog, dealer management, company sales & ledger |
-| **Dealer** | Middle | Inventory, customer (farmer) management, consignments, payments |
-| **Farmer** | Bottom | Farm operations, batch tracking, consignment requests |
+| **Company** | Independent business | Product catalog, company sales, supplier and dealer records |
+| **Dealer** | Independent business | Inventory, manual customers and suppliers, product sales, Broiler settlement |
+| **Farmer** | Independent business | Farm operations, batch tracking, sales and expenses |
 | **Doctor** | Service | Consultations with farmers via real-time chat |
 | **Admin** | System | Cross-tier management and reporting |
 
-The system supports consignments, sales/payment requests, inventory, vaccinations, reminders, and real-time notifications.
+Each business account owns its own data. The system supports inventory, sales, payments,
+vaccinations, reminders, staff access, and real-time notifications without automatic cross-account
+sales, payment requests, or balance updates.
 
 ---
 
@@ -48,24 +50,18 @@ Poultry360/
 
 ---
 
-## Consignment Workflow (Critical)
+## Independent Business Accounts (Critical)
 
-Consignments are the core business workflow. The state machine is enforced in `ConsignmentService`.
+The current product direction is independent accounts. A Company, Dealer, Farmer, Hatchery, or
+other business account must not automatically create, update, or settle records in another
+account.
 
-```mermaid
-flowchart TD
-    S0["CREATED"] -->|Accept| S1["ACCEPTED_PENDING_DISPATCH"]
-    S0 -->|Reject| REJ[REJECTED]
-    S0 -->|Cancel| CAN[CANCELLED]
-    S1 -->|Dispatch| S2["DISPATCHED"]
-    S1 -->|Reject| REJ
-    S1 -->|Cancel| CAN
-    S2 -->|Confirm Receipt| S3["RECEIVED"]
-    S3 -->|Full Payment| S4["SETTLED"]
-    style S3 fill:#f9f,stroke:#333
-```
-
-**S3 (RECEIVED) is critical:** triggers inventory transfer, sale creation, ledger entries, and prepayment application. Changes to consignment workflow must preserve these side effects.
+- Sales, purchases, inventory, balances, and payments belong to the account that records them.
+- Use manual customers and manual suppliers for Dealer operations.
+- Do not add new connection requests, shared carts, consignment flows, payment-request flows, or
+  cross-account balance synchronization.
+- Older connection-related models, routes, and service code remain only for historical data and
+  backwards compatibility. Do not extend them for new work.
 
 ---
 
@@ -91,10 +87,18 @@ flowchart TD
 
 Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection.
 
-### Verification Flows
+### Account Relationships
 
-- **Dealer → Company:** Dealer requests link; company approves/denies (`/api/v1/verification/dealers`)
-- **Farmer → Dealer:** Farmer requests link; dealer approves/denies (`/api/v1/verification/farmers`)
+Do not treat account relationships as a live workflow. New records are independent; any older
+linked-account data must remain readable without causing new side effects in another account.
+
+### Onboarding Approval
+
+`User.status = ACTIVE` and onboarding approval are separate checks. A new account with a
+`UserOnboardingPayment` record remains blocked while `lockedUntilApproved` is true and its state
+is not `PAYMENT_APPROVED`. Super Admin must approve it from **Payment Approvals**; that approval
+unlocks the account as well as setting the user status active. Demo and clean local seeds create
+approved onboarding records so their accounts can log in immediately.
 
 ---
 
@@ -188,7 +192,6 @@ All routes prefixed with `/api/v1`. Organized by domain in `apps/backend/src/rou
 | Category | Routes | Purpose |
 |----------|--------|---------|
 | Auth | `/auth` | Login, register, refresh, logout |
-| Consignments | `/consignments` | Consignment workflow |
 | Dealer | `/dealer/*` | Products, sales, cart, ledger |
 | Company | `/company/*` | Products, sales, analytics |
 | Farms/Batches | `/farms`, `/batches` | Farm and batch CRUD |
@@ -208,8 +211,7 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 
 | Service | Purpose |
 |---------|---------|
-| `ConsignmentService` | State machine, inventory transfer, ledger entries |
-| `CompanyDealerAccountService` | Company-dealer account-based ledger (see [Ledger Architecture](#ledger-system-architecture-critical)) |
+| `CompanyDealerAccountService` | Legacy linked-account support; do not use for new independent workflows |
 | `DealerService` | Dealer operations, farmer/customer balance-based ledger |
 | `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
@@ -295,7 +297,7 @@ NODE_ENV             # development/production/test
 
 ### Common Patterns
 
-1. **Consignment changes:** Follow state machine; ensure S3 side effects (inventory, ledger) are preserved
+1. **Independent account changes:** Keep all writes within the acting business account. Do not add cross-account side effects.
 2. **New entity:** Add Prisma model → create service → create controller → create route → create frontend query hooks
 3. **Role-specific feature:** Add route under role prefix, enforce role in authMiddleware, use role layout on frontend
 4. **Real-time feature:** Add socket event handler in SocketService, emit from service layer, handle in ChatContext
@@ -320,8 +322,8 @@ graph TD
         F[Farmer] --> F1[Farm operations]
         F --> F2[Batch tracking]
     end
-    C -->|supplies| D
-    D -->|supplies| F
+    C -. independent data .- D
+    D -. independent data .- F
     Doc[Doctor] -->|consults| F
     Admin[Admin] -->|manages| C & D & F
 ```
@@ -376,64 +378,119 @@ sequenceDiagram
 
 ---
 
-## Ledger System Architecture (Critical)
+## Dealer Accounting and Broiler Settlement (Critical)
 
-The system uses **two different ledger architectures** depending on the tier relationship. Do not mix these approaches.
+### Normal Product Sales
 
-### Company ↔ Dealer: Account-Based Ledger
+Dealer-side customers are manual `Customer` records owned by the dealer. `Customer.balance` is
+the current source of truth:
 
-Uses `CompanyDealerAccount` as a running account between each company-dealer pair.
+- Positive balance: the customer owes the dealer.
+- Negative balance: the dealer owes the customer (advance).
+- A credit product sale increases the customer balance.
+- A received account payment reduces the customer balance and creates a `PAYMENT_RECEIVED`
+  ledger entry.
 
+New supplier exposure is held in `DealerManualCompany.balance`. A positive balance means the
+dealer owes that supplier. Older `CompanyDealerAccount` data can still be read for historical
+visibility, but new Dealer work must not create or synchronize it.
+
+The dashboard combines these balances, but keeps customer and supplier amounts separate.
+
+### Broiler Sales
+
+Use **Broiler** in all user-facing copy. Some database fields and the legacy report route retain
+older names for compatibility:
+
+- `DealerSale.isChickenSale` marks a Broiler sale.
+- `DealerSale.sourceFarmerId` identifies the farmer who supplied the birds.
+- `DealerSale.settlementId` prevents a sale from being settled twice.
+- `DealerSaleItem.broilerCount` stores the optional number of Broilers on a sale line.
+- `BroilerSaleSettlement` is the permanent audit record for a completed settlement.
+
+The buyer and source farmer must be different manual customers. The buyer-side sale record can
+still hold payment details, but the proceeds are money the dealer manages for the farmer—not
+normal dealer revenue.
+
+### Settlement Rules
+
+Settlement is per source farmer and includes every currently unsettled Broiler sale for that
+farmer. The operation runs in one serializable transaction.
+
+```text
+availableProceeds = totalProceeds - margin
+creditRecovered  = min(max(currentFarmerDue, 0), availableProceeds)
+farmerPayout     = availableProceeds - creditRecovered
 ```
-CompanyDealerAccount (one per company-dealer pair)
-├── balance         → Running balance (positive = dealer owes, negative = advance)
-├── totalSales      → Cumulative sales amount
-├── totalPayments   → Cumulative payments amount
-└── CompanyDealerPayment[] → Individual payment records with balanceAfter snapshots
-```
 
-**Key characteristics:**
-- Payments are **NOT tied to specific sales** — they reduce the account balance directly
-- Sales increment account balance, payments decrement it
-- Account is upserted atomically to prevent race conditions
-- `CompanyDealerAccountService` handles all account operations
+- `margin` must be zero or positive and cannot exceed total proceeds.
+- Credit recovery uses the existing customer payment path with direction `RECEIVED`; it reduces
+  the farmer’s `Customer.balance`.
+- Farmer payout uses the same path with direction `MADE`; it is recorded in the farmer’s payment
+  history but does not create a new customer advance or alter their feed/credit balance.
+- The margin creates a `BROILER_SALE_MARGIN` ledger entry.
+- Linked sales receive `settlementId`; settled sales cannot be settled or deleted again.
 
-**Do NOT:**
-- Try to allocate payments to specific company sales (bill-wise)
-- Add `paidAmount`/`dueAmount` fields to `CompanySale` — use account balance only
+Ledger types have distinct meanings:
 
-### Dealer ↔ Farmer/Customer: Balance-Based Ledger
+| Ledger type | Meaning | Counts as dealer income? |
+|-------------|---------|--------------------------|
+| `BROILER_SALE_PROCEEDS` | Broiler money held for farmer settlement | No |
+| `PAYMENT_RECEIVED` | Customer payment or settlement credit recovery | No additional income |
+| `PAYMENT_MADE` | Money paid to a customer, including farmer payout | No |
+| `BROILER_SALE_MARGIN` | Dealer’s settlement margin | Yes |
 
-Uses a `balance` field on the `Customer` model (and aggregated `dueAmount` for farmers).
+### Profit and Dashboard Meaning
 
-```
-Customer
-└── balance → Single field (positive = owes dealer, negative = advance/prepayment)
+- Profit is currently **estimated profit**: normal product sales + settled Broiler margin −
+  recorded product purchases.
+- Do not add total Broiler proceeds to sales or profit. They are held for settlement.
+- The current purchase-cost calculation is appropriate for a full sell-through check. Proper
+  cost-of-goods-sold allocation for partially remaining inventory is a future accounting
+  improvement.
+- “Sold on credit” on the analytics page is historical: it is the amount sold on credit in the
+  selected dates, not necessarily the amount still owed now.
+- “Products” counts product types/SKUs, not the number of physical units currently in stock.
+- “Things to check” can include low stock, out-of-stock products, and overdue customer balances.
 
-DealerSale
-├── totalAmount
-├── paidAmount
-└── dueAmount   → Used for farmer balance calculation
-```
+### Broiler Settlement UI and API
 
-**Key characteristics:**
-- For **static customers**: `Customer.balance` is the source of truth
-- For **farmers (User)**: balance is calculated by summing `DealerSale.dueAmount`
-- Supports both general payments (account-based via balance field) and bill-wise payments
-- `DealerService.addGeneralPayment()` updates `Customer.balance` directly using FIFO allocation
-- `DealerService.addSalePayment()` updates specific sale's `paidAmount`/`dueAmount`
+- Settlement page: `/dealer/dashboard/sales/chicken-by-farmer` (legacy path name only).
+- It shows **Waiting for settlement** first, then **Settled payments** history on the same page.
+- `GET /dealer/sales/chicken-by-farmer` returns unsettled sales grouped by source farmer.
+- `GET /dealer/sales/broiler-settlements` returns recent completed settlements, optionally filtered
+  by source farmer.
+- `POST /dealer/sales/broiler-settlements` creates a settlement.
 
-**Do NOT:**
-- Create a separate `DealerCustomerAccount` model — use `Customer.balance` field
-- Assume farmer ledger works the same as customer ledger (farmers use sale aggregation)
+Keep wording short and plain: “Farmer owes you”, “Broiler money received”, “Used to clear farmer
+due”, “Pay farmer”, and “Your margin”. Avoid accounting jargon in the interface.
 
-### Summary Table
+---
 
-| Relationship | Ledger Type | Balance Source | Payment Allocation |
-|--------------|-------------|----------------|-------------------|
-| Company → Dealer | Account-based | `CompanyDealerAccount.balance` | Account-level only |
-| Dealer → Customer | Balance field | `Customer.balance` | FIFO to sales + balance field |
-| Dealer → Farmer | Sale aggregation | Sum of `DealerSale.dueAmount` | Bill-wise to individual sales |
+## Dealer Staff Accounts
+
+Dealer staff logins are separate from normal `User` accounts and from payroll staff records.
+
+- `StaffUser` is a login account tied to one Dealer and its owner. It uses `/staff-auth/login` and
+  receives a staff JWT (`actorType: STAFF`), not a normal user session.
+- The owner creates, updates, disables, and resets staff logins at
+  `/dealer/dashboard/staff-access`. A phone number cannot be shared with a normal user or another
+  staff login.
+- Staff work inside their owner’s Dealer scope. Middleware supplies the owner context to existing
+  Dealer operations, so staff cannot access another dealer’s data.
+- A new staff login can perform normal daily operations. Sensitive information requires explicit
+  permissions:
+
+| Permission | Allows |
+|------------|--------|
+| `DEALER_VIEW_FINANCIAL_SUMMARIES` | Financial summaries, profit, and ledger totals |
+| `DEALER_VIEW_CASH_HISTORY` | The entire Cash in hand feature: today's cash, cash changes, closing a day, and history. It is off for new staff logins by default and the Dealer owner can turn it on. |
+| `DEALER_VIEW_STAFF_MANAGEMENT` | Payroll staff records and management |
+
+- Deactivating a staff login invalidates its session. Staff accounts do not have the normal
+  account-onboarding flow or password-reset route.
+- `Staff` (without `User`) is the separate payroll record used for salary, payments, and accrued
+  balance. Do not use it as an authentication account.
 
 ---
 
@@ -444,79 +501,21 @@ DealerSale
 - **Routes:** `apps/backend/src/router/index.ts`
 - **Frontend queries:** `apps/frontend/src/fetchers/`
 - **Auth store:** `apps/frontend/src/common/store/store.ts`
+- **Dealer staff access:** `apps/frontend/src/app/(protected)/dealer/dashboard/staff-access/page.tsx`
+- **Staff authentication:** `apps/backend/src/router/staffAuthRoutes.ts`
 - **Socket service:** `apps/backend/src/services/socketService.ts`
-- **Consignment service:** `apps/backend/src/services/consignmentService.ts`
 
+### Local Seed Commands
 
+- `pnpm --filter backend seed:demo:dealer` — demo dealer with sample data.
+- `pnpm --filter backend seed:clean:dealer` — creates one empty local dealer account for accounting checks. It refuses to overwrite
+  an existing account. Override the phone/password with `P360_CLEAN_DEALER_PHONE` and
+  `P360_CLEAN_DEALER_PASSWORD` if needed.
+- Current clean local account: `+9779800360099` with the configured clean-seed password.
 
-  # Chicken Sale Tracking (Farmer-Sourced)
+### Recent Dealer Migrations
 
-  ## Summary
-
-  Add chicken-sale metadata to the existing dealer-sale workflow. A chicken sale retains normal buyer accounting, while its source
-  farmer is recorded only for tentative reconciliation reporting and is never affected financially.
-
-  ## Implementation Changes
-
-  - Extend DealerSale with isChickenSale (default false) and nullable sourceFarmerId, with a named relation to Customer, indexes for
-    dealer/source-farmer reporting, and a migration that preserves all existing sales as non-chicken sales.
-
-  - Update sale creation input and validation:
-      - When isChickenSale is true, require a source farmer from the dealer’s existing manual-customer pool and require it to differ
-        from the buyer.
-
-      - When false or omitted, persist sourceFarmerId as null and preserve the feed-sale flow exactly.
-      - Validate buyer and source farmer ownership before creating the sale.
-
-  - Keep buyer accounting unchanged for chicken sales: inventory, sale/payment records, buyer Customer.balance, buyer totals, and
-    dealer-ledger entries continue to use customerId.
-      - Never use sourceFarmerId in balance updates, dueAmount, payments, customer transactions, or ledger entries.
-      - Existing payment and deletion behavior continues to operate only on the buyer; deleting a chicken sale never changes the
-        source farmer’s account.
-
-  - Include chicken-sale/source-farmer data in dealer sale reads and frontend types; show a Chicken Sale indicator and source farmer
-    in sale list/detail/print contexts.
-
-  - Prevent a customer used as a source farmer from being hard-deleted, while retaining existing archive behavior and historical
-    report visibility.
-
-  - Add GET /dealer/sales/chicken-by-farmer before the /:id route. It returns chicken sales grouped by sourceFarmerId, with optional
-    source-farmer filtering, sale count, tentative total (sum(totalAmount)), latest sale date, and that customer’s current balance.
-
-  - Add a dedicated “Chicken Sales by Farmer” page, reached from a clearly labeled action beside “New Sale” on the Sales page:
-      - Optional source-farmer filter.
-      - One row/card per farmer showing “Existing feed/credit due” separately from “Tentative chicken-sale revenue — not yet
-        settled.”
-
-      - Explicit explanatory copy that tentative revenue is neither a customer balance nor an automatic settlement.
-
-  - Add the Chicken Sale checkbox and conditional Source Farmer picker to the existing new-sale form. Reuse the existing buyer/
-    customer selection behavior; hide and clear the source-farmer value when unchecked.
-
-  - Add English and Nepali labels/messages for the new form, report, status badges, validation, and tentative-settlement disclaimer.
-
-  ## Test Plan
-
-  - Migration/schema verification: legacy sales default to non-chicken sales and the source-farmer relation is queryable.
-  - Dealer-sale API tests:
-      - Standard feed sale remains unchanged when the new fields are absent.
-      - Chicken sale requires a valid, dealer-owned, distinct source farmer.
-      - Chicken sale updates inventory and the buyer account exactly as a normal sale.
-      - Source farmer balance, totals, transactions, sale due handling, and ledger entries remain unchanged.
-      - Deleting the chicken sale reverses buyer/inventory effects only.
-
-  - Report API tests: grouping, per-farmer totals, optional farmer filter, and current balance returned separately from tentative
-    revenue.
-
-  - Frontend verification: conditional field validation, correct submitted payload, report labels/separation, and no sidebar
-    addition.
-
-  ## Assumptions
-
-  - “Existing feed/credit due” uses the current Customer.balance, since the present model has no separate feed/chick-only liability
-    ledger.
-
-  - Chicken-sale buyer credit/payment handling remains normal, per the selected preference; only the source farmer is informational
-    and isolated from accounting.
-
-  - Settlement, margin, transport costs, offsets, and manual reconciliation remain out of scope.
+- `20260920110000_add_dealer_chicken_sales`
+- `20260920120000_allow_productless_chicken_sale_items`
+- `20260922100000_add_dealer_sale_item_broiler_count`
+- `20260922110000_add_broiler_sale_settlements`

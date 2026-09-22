@@ -12,7 +12,9 @@ import { type StaffAccessUser, useCreateStaffAccessUser, useStaffAccessUsers, us
 import { toast } from "sonner";
 
 const FINANCIAL: StaffPermission = "DEALER_VIEW_FINANCIAL_SUMMARIES";
-const CASH_HISTORY: StaffPermission = "DEALER_VIEW_CASH_HISTORY";
+// This existing permission controls the whole Cash in hand feature for staff,
+// including today's cash and its history.
+const CASH_IN_HAND: StaffPermission = "DEALER_VIEW_CASH_HISTORY";
 const STAFF_MANAGEMENT: StaffPermission = "DEALER_VIEW_STAFF_MANAGEMENT";
 
 function normalizedPhone(value: string) {
@@ -25,7 +27,7 @@ export default function StaffAccessPage() {
   const { data: staff = [], isLoading } = useStaffAccessUsers({ enabled: !user?.isStaff });
   const create = useCreateStaffAccessUser();
   const update = useUpdateStaffAccessUser();
-  const [form, setForm] = useState({ name: "", phone: "", password: "", financial: false, cashHistory: false, staffManagement: false });
+  const [form, setForm] = useState({ name: "", phone: "", password: "", financial: false, cashInHand: false, staffManagement: false });
   const [credentials, setCredentials] = useState<Record<string, { phone?: string; password?: string }>>({});
   const [editingMember, setEditingMember] = useState<StaffAccessUser | null>(null);
 
@@ -33,16 +35,16 @@ export default function StaffAccessPage() {
     return <Card><CardHeader><CardTitle>Owner access required</CardTitle><CardDescription>Only the Feed Dealer owner can manage staff login accounts.</CardDescription></CardHeader></Card>;
   }
 
-  const permissions = (financial: boolean, cashHistory: boolean, staffManagement: boolean) => [
+  const permissions = (financial: boolean, cashInHand: boolean, staffManagement: boolean) => [
     ...(financial ? [FINANCIAL] : []),
-    ...(cashHistory ? [CASH_HISTORY] : []),
+    ...(cashInHand ? [CASH_IN_HAND] : []),
     ...(staffManagement ? [STAFF_MANAGEMENT] : []),
   ];
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      await create.mutateAsync({ ...form, phone: normalizedPhone(form.phone), permissions: permissions(form.financial, form.cashHistory, form.staffManagement) });
-      setForm({ name: "", phone: "", password: "", financial: false, cashHistory: false, staffManagement: false });
+      await create.mutateAsync({ ...form, phone: normalizedPhone(form.phone), permissions: permissions(form.financial, form.cashInHand, form.staffManagement) });
+      setForm({ name: "", phone: "", password: "", financial: false, cashInHand: false, staffManagement: false });
       toast.success("Staff login account created");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Could not create staff account");
@@ -71,14 +73,14 @@ export default function StaffAccessPage() {
   return <div className="mx-auto max-w-5xl space-y-6">
     <div><h1 className="text-2xl font-bold">Staff access</h1><p className="text-sm text-muted-foreground">Create separate login accounts for your Feed Dealer staff. Payroll staff records are managed elsewhere.</p></div>
     <Card>
-      <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add staff login</CardTitle><CardDescription>Staff start with normal operations only. Financial summaries and cash history are optional.</CardDescription></CardHeader>
+      <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add staff login</CardTitle><CardDescription>Staff start with normal work only. Cash in hand is hidden unless you turn it on.</CardDescription></CardHeader>
       <CardContent><form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
         <div><Label>Name</Label><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
         <div><Label>Phone login ID</Label><Input required inputMode="numeric" placeholder="98XXXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
         <div><Label>Initial password</Label><Input required minLength={8} type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
         <div className="space-y-3 rounded-md border p-3">
           <label className="flex items-center justify-between gap-3 text-sm"><span><b>Financial summaries</b><br /><span className="text-muted-foreground">Dashboard totals and Analytics</span></span><input type="checkbox" checked={form.financial} onChange={(event) => setForm({ ...form, financial: event.target.checked })} /></label>
-          <label className="flex items-center justify-between gap-3 text-sm"><span><b>Cash history</b><br /><span className="text-muted-foreground">Closed-day and Day Book history</span></span><input type="checkbox" checked={form.cashHistory} onChange={(event) => setForm({ ...form, cashHistory: event.target.checked })} /></label>
+          <label className="flex items-center justify-between gap-3 text-sm"><span><b>Cash in hand</b><br /><span className="text-muted-foreground">Today’s cash and cash history</span></span><input type="checkbox" checked={form.cashInHand} onChange={(event) => setForm({ ...form, cashInHand: event.target.checked })} /></label>
           <label className="flex items-center justify-between gap-3 text-sm"><span><b>Staff salary management</b><br /><span className="text-muted-foreground">View and manage payroll staff records</span></span><input type="checkbox" checked={form.staffManagement} onChange={(event) => setForm({ ...form, staffManagement: event.target.checked })} /></label>
         </div>
         <Button className="md:col-span-2" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create staff login"}</Button>
@@ -87,7 +89,7 @@ export default function StaffAccessPage() {
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><UserRound className="h-5 w-5" /> Staff login accounts</CardTitle></CardHeader><CardContent className="space-y-3">
       {isLoading ? <p className="text-sm text-muted-foreground">Loading staff accounts…</p> : staff.length === 0 ? <p className="text-sm text-muted-foreground">No staff login accounts yet.</p> : staff.map((member) => <div key={member.id} className="rounded-lg border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium">{member.name}</p><p className="text-sm text-muted-foreground">{member.phone}</p></div><div className="flex items-center gap-3"><label className="flex items-center gap-2 text-sm">Active <input type="checkbox" checked={member.isActive} onChange={(event) => update.mutate({ id: member.id, isActive: event.target.checked })} /></label><Button size="sm" variant="outline" onClick={() => { setCredentials((current) => ({ ...current, [member.id]: { phone: member.phone, password: "" } })); setEditingMember(member); }}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Button></div></div>
-        <div className="mt-4 flex flex-wrap gap-5"><label className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" /> Financial summaries <input type="checkbox" checked={member.permissions.includes(FINANCIAL)} onChange={(event) => updatePermissions(member.id, member.permissions, FINANCIAL, event.target.checked)} /></label><label className="flex items-center gap-2 text-sm"><KeyRound className="h-4 w-4" /> Cash history <input type="checkbox" checked={member.permissions.includes(CASH_HISTORY)} onChange={(event) => updatePermissions(member.id, member.permissions, CASH_HISTORY, event.target.checked)} /></label><label className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4" /> Staff salary management <input type="checkbox" checked={member.permissions.includes(STAFF_MANAGEMENT)} onChange={(event) => updatePermissions(member.id, member.permissions, STAFF_MANAGEMENT, event.target.checked)} /></label></div>
+        <div className="mt-4 flex flex-wrap gap-5"><label className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" /> Financial summaries <input type="checkbox" checked={member.permissions.includes(FINANCIAL)} onChange={(event) => updatePermissions(member.id, member.permissions, FINANCIAL, event.target.checked)} /></label><label className="flex items-center gap-2 text-sm"><KeyRound className="h-4 w-4" /> Cash in hand <input type="checkbox" checked={member.permissions.includes(CASH_IN_HAND)} onChange={(event) => updatePermissions(member.id, member.permissions, CASH_IN_HAND, event.target.checked)} /></label><label className="flex items-center gap-2 text-sm"><UserRound className="h-4 w-4" /> Staff salary management <input type="checkbox" checked={member.permissions.includes(STAFF_MANAGEMENT)} onChange={(event) => updatePermissions(member.id, member.permissions, STAFF_MANAGEMENT, event.target.checked)} /></label></div>
       </div>)}
     </CardContent></Card>
     <Dialog open={!!editingMember} onOpenChange={(open) => !open && setEditingMember(null)}>
