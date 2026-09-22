@@ -507,8 +507,11 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
   Super Admin views all records at `/admin/dashboard/activity`.
 - Both pages have server-scoped filtering and CSV, Excel, and PDF export. Records older than 10
   days receive `archivedAt` via the backend audit archiver and are hidden by default, not deleted.
-- Chat, login/logout, and device/location auditing are later phases. Do not audit page views,
-  exports, failed actions, token refreshes, or notifications.
+- Chat auditing now records only successful sends and soft deletes as `chat.message.sent` and
+  `chat.message.deleted`, scoped to the sender and conversation. It stores message type and
+  yes/no text/attachment metadata only—never chat content, filenames, URLs, or storage keys.
+  Login/logout and device/location auditing are later phases. Do not audit page views, exports,
+  failed actions, token refreshes, or notifications.
 
 ---
 

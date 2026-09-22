@@ -73,6 +73,10 @@ const detailLabels: Record<string, string> = {
   featureKey: "Setting",
   enabled: "Status",
   reference: "Reference",
+  messageType: "Message type",
+  hasText: "Has text",
+  hasAttachment: "Has attachment",
+  attachmentSize: "Attachment size",
 };
 
 function formatMoney(value: unknown) {
@@ -91,6 +95,8 @@ function readableDetails(metadata: BusinessAuditLog["metadata"]) {
         : key === "permissions" && Array.isArray(value) ? (value.length ? "Extra access enabled" : "No extra access")
         : key === "changedFields" && Array.isArray(value) ? value.map((field) => String(field).replaceAll("_", " ")).join(", ")
         : key === "enabled" ? (value ? "On" : "Off")
+        : key === "hasText" || key === "hasAttachment" ? (value ? "Yes" : "No")
+        : key === "attachmentSize" ? `${Math.max(0, Number(value) / 1024).toFixed(1)} KB`
         : String(value ?? "");
       return `${label}: ${display}`;
     })

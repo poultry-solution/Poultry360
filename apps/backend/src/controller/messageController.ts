@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../utils/prisma';
 import { getSocketService } from '../services/socketService';
 import { generatePresignedViewUrl, deleteFile as deleteR2File } from '../services/r2Service';
+import { writeBusinessAudit } from '../services/businessAuditService';
 export const messageController = {
   /**
    * Send a new message (text or with attachment)
@@ -59,35 +60,48 @@ export const messageController = {
         attachmentUrl = await generatePresignedViewUrl(attachmentKey, 86400); // 24 hours
       }
 
-      // Create the message
-      const message = await prisma.message.create({
-        data: {
-          conversationId,
-          senderId: userId,
-          text: text || null,
-          messageType: messageType as any,
-          attachmentKey: attachmentKey || null,
-          attachmentUrl,
-          fileName: fileName || null,
-          contentType: contentType || null,
-          fileSize: fileSize ? parseInt(fileSize) : null,
-          durationMs: durationMs ? parseInt(durationMs) : null,
-          width: width ? parseInt(width) : null,
-          height: height ? parseInt(height) : null,
-          batchShareId: batchShareId || null,
-          isDeleted: false
-        },
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              role: true
-            }
+      // The business event is committed with the message. It intentionally
+      // stores no message body, attachment name, URL, or storage key.
+      const message = await prisma.$transaction(async (tx) => {
+        const created = await tx.message.create({
+          data: {
+            conversationId,
+            senderId: userId,
+            text: text || null,
+            messageType: messageType as any,
+            attachmentKey: attachmentKey || null,
+            attachmentUrl,
+            fileName: fileName || null,
+            contentType: contentType || null,
+            fileSize: fileSize ? parseInt(fileSize) : null,
+            durationMs: durationMs ? parseInt(durationMs) : null,
+            width: width ? parseInt(width) : null,
+            height: height ? parseInt(height) : null,
+            batchShareId: batchShareId || null,
+            isDeleted: false
           },
-          conversation: true,
-          batchShare: batchShareId ? true : false
-        }
+          include: {
+            sender: { select: { id: true, name: true, role: true } },
+            conversation: true,
+            batchShare: batchShareId ? true : false
+          }
+        });
+
+        await writeBusinessAudit(req, {
+          action: "chat.message.sent",
+          targetType: "Message",
+          targetId: created.id,
+          description: "Sent a chat message",
+          businessType: "CHAT",
+          businessId: conversationId,
+          metadata: {
+            messageType: String(messageType),
+            hasText: Boolean(typeof text === "string" && text.trim()),
+            hasAttachment: Boolean(attachmentKey),
+            ...(fileSize ? { attachmentSize: parseInt(fileSize) } : {}),
+          },
+        }, tx);
+        return created;
       });
 
       // Broadcast the message to conversation participants
@@ -327,10 +341,27 @@ export const messageController = {
         }
       }
 
-      // Soft delete the message in DB
-      await prisma.message.update({
-        where: { id: messageId },
-        data: { isDeleted: true }
+      // Soft delete and audit together. The original content and attachment
+      // reference are never copied into the audit event.
+      await prisma.$transaction(async (tx) => {
+        await tx.message.update({
+          where: { id: messageId },
+          data: { isDeleted: true }
+        });
+        await writeBusinessAudit(req, {
+          action: "chat.message.deleted",
+          targetType: "Message",
+          targetId: message.id,
+          description: "Deleted a chat message",
+          businessType: "CHAT",
+          businessId: message.conversationId,
+          metadata: {
+            messageType: String(message.messageType),
+            hasText: Boolean(message.text?.trim()),
+            hasAttachment: Boolean(message.attachmentKey),
+            ...(message.fileSize ? { attachmentSize: message.fileSize } : {}),
+          },
+        }, tx);
       });
 
       console.log("message deleted", message);

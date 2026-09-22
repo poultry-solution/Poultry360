@@ -8,7 +8,6 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/common/components/ui/popover";
-import { ScrollArea } from "@/common/components/ui/scroll-area";
 import { cn } from "@/common/lib/utils";
 
 export interface SearchableSelectOption<T = unknown> {
@@ -141,11 +140,11 @@ export function SearchableSelect<T = unknown>({
           </div>
         </PopoverAnchor>
         <PopoverContent 
-          className="bg-white w-[var(--radix-popover-trigger-width)] p-0 " 
+          className="w-[var(--radix-popover-trigger-width)] bg-white p-0 shadow-lg dark:bg-zinc-950"
           align="start"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <ScrollArea className="max-h-[300px]">
+          <div className="max-h-[300px] overflow-y-auto bg-white dark:bg-zinc-950">
             {searchQuery.length < minimumSearchLength ? (
               <div className="py-8  text-center text-sm text-muted-foreground">
                 Type at least {minimumSearchLength} character{minimumSearchLength === 1 ? "" : "s"} to search...
@@ -207,7 +206,7 @@ export function SearchableSelect<T = unknown>({
                 )}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </PopoverContent>
       </Popover>
     </div>
