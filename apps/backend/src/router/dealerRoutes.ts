@@ -11,7 +11,10 @@ import {
   getDealerTransactions,
   deleteDealerTransaction,
 } from "../controller/dealerController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermissionForAccountRole } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
+import { auditSuccessfulCompanyMutation } from "../middelware/companyAuditMiddleware";
 
 const router = express.Router();
 
@@ -19,6 +22,12 @@ const router = express.Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER", "COMPANY"]); // Allow owners and companies
 });
+router.use(requireStaffPermissionForAccountRole({
+  OWNER: StaffPermission.FARMER_MANAGE_OPERATIONS,
+  COMPANY: StaffPermission.COMPANY_MANAGE_OPERATIONS,
+}));
+router.use(auditSuccessfulFarmerMutation);
+router.use(auditSuccessfulCompanyMutation);
 
 
 // ==================== DEALER ROUTES ====================

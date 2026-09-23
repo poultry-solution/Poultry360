@@ -66,9 +66,8 @@ export const updateAdminAccountFeature = async (
       targetType: "AccountFeature",
       targetId: featureKey,
       description: `${feature.name} turned ${enabled ? "on" : "off"}`,
-      accountOwnerId: accountId,
       businessType: "ADMIN",
-      metadata: { featureKey, enabled },
+      metadata: { accountId, featureKey, enabled },
     });
     return res.json({
       success: true,

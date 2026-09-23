@@ -56,7 +56,7 @@ function KpiCard({
   );
 }
 
-export default function HatcheryHomePage() {
+function HatcheryHomeContent() {
   const { user } = useAuthStore();
   const { data: todaySummary, isLoading: isTodaySummaryLoading } = useHatcheryTodaySummary();
 
@@ -159,4 +159,12 @@ export default function HatcheryHomePage() {
       </div>
     </div>
   );
+}
+
+export default function HatcheryHomePage() {
+  const user = useAuthStore((state) => state.user);
+  if (user?.isStaff && !user.permissions?.includes("HATCHERY_MANAGE_OPERATIONS")) {
+    return <Card className="mx-auto mt-10 max-w-lg"><CardContent className="py-10 text-center"><h1 className="text-lg font-semibold">No Hatchery operations access</h1><p className="mt-2 text-sm text-muted-foreground">Your owner can grant Hatchery operations, analytics, or payroll access from Staff access.</p></CardContent></Card>;
+  }
+  return <HatcheryHomeContent />;
 }

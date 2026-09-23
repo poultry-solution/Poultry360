@@ -23,8 +23,9 @@ import {
   updateBatchNote,
   deleteBatchNote,
 } from "../controller/batchNoteController";
-import { authMiddleware } from "../middelware/middelware";
-import { UserRole } from "@prisma/client";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission, UserRole } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const batchRouter = Router();
 
@@ -32,6 +33,8 @@ const batchRouter = Router();
 batchRouter.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
+batchRouter.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+batchRouter.use(auditSuccessfulFarmerMutation);
 
 // ==================== BATCH ROUTES ====================
 

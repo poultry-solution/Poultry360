@@ -8,50 +8,58 @@ import {
   getAllDealerAccounts,
   getAllDealerPayments,
 } from "../controller/companyDealerAccountController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulCompanyMutation } from "../middelware/companyAuditMiddleware";
 
 const router = Router();
+const companyOperations = [
+  (req: Parameters<typeof authMiddleware>[0], res: Parameters<typeof authMiddleware>[1], next: Parameters<typeof authMiddleware>[2]) =>
+    authMiddleware(req, res, next, ["COMPANY"]),
+  requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS),
+];
+const companyMutation = [...companyOperations, auditSuccessfulCompanyMutation];
 
 // ==================== COMPANY SIDE ROUTES ====================
 // Get all dealer accounts for company
 router.get(
   "/company/dealers/accounts",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyOperations,
   getAllDealerAccounts
 );
 
 // Get specific dealer account
 router.get(
   "/company/dealers/:dealerId/account",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyOperations,
   getDealerAccount
 );
 
 // Set dealer balance limit
 router.put(
   "/company/dealers/:dealerId/account/balance-limit",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyMutation,
   setDealerBalanceLimit
 );
 
 // Check dealer balance limit
 router.post(
   "/company/dealers/:dealerId/account/check-balance-limit",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyOperations,
   checkDealerBalanceLimit
 );
 
 // Get dealer account statement
 router.get(
   "/company/dealers/:dealerId/statement",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyOperations,
   getDealerAccountStatement
 );
 
 // Record payment from dealer
 router.post(
   "/company/dealers/:dealerId/payments",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyMutation,
   recordDealerPayment
 );
 
@@ -61,7 +69,7 @@ router.post(
 // Get all dealer payments for company
 router.get(
   "/company/payments",
-  (req, res, next) => authMiddleware(req, res, next, ["COMPANY"]),
+  ...companyOperations,
   getAllDealerPayments
 );
 

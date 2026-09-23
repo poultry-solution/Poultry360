@@ -65,7 +65,10 @@ export interface User {
 export type StaffPermission =
   | "DEALER_VIEW_FINANCIAL_SUMMARIES"
   | "DEALER_VIEW_CASH_HISTORY"
-  | "DEALER_VIEW_STAFF_MANAGEMENT";
+  | "DEALER_VIEW_STAFF_MANAGEMENT"
+  | "HATCHERY_MANAGE_OPERATIONS"
+  | "HATCHERY_VIEW_ANALYTICS"
+  | "HATCHERY_VIEW_STAFF_MANAGEMENT";
 
 export interface LoginCredentials {
   emailOrPhone: string;
@@ -237,9 +240,10 @@ export const useAuthStore = create<AuthState>()(
                 id: user.id,
                 name: user.name,
                 phone: user.phone,
-                role: "DEALER",
+                role: user.role,
                 status: user.status || "ACTIVE",
                 dealer: user.dealer || null,
+                hatchery: user.hatchery || null,
                 isStaff: true,
                 permissions: user.permissions || [],
               },
@@ -378,9 +382,10 @@ export const useAuthStore = create<AuthState>()(
                   id: response.user.id,
                   name: response.user.name,
                   phone: response.user.phone,
-                  role: "DEALER",
+                  role: response.user.role,
                   status: response.user.status || "ACTIVE",
                   dealer: response.user.dealer || null,
+                  hatchery: response.user.hatchery || null,
                   isStaff: true,
                   permissions: response.user.permissions || [],
                 },
@@ -456,9 +461,10 @@ export const useAuthStore = create<AuthState>()(
                   id: userData.id,
                   name: userData.name,
                   phone: userData.phone,
-                  role: "DEALER",
+                  role: userData.role,
                   status: userData.status || "ACTIVE",
                   dealer: userData.dealer || null,
+                  hatchery: userData.hatchery || null,
                   isStaff: true,
                   permissions: userData.permissions || [],
                 },

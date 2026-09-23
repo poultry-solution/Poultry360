@@ -1,5 +1,7 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 import {
   getToday,
   setup,
@@ -15,6 +17,8 @@ const router = express.Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER"]);
 });
+router.use(requireStaffPermission(StaffPermission.FARMER_VIEW_CASH_HISTORY));
+router.use(auditSuccessfulFarmerMutation);
 
 router.get("/today", getToday);
 router.post("/setup", setup);

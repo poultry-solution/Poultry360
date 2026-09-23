@@ -5,6 +5,11 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../utils/prisma";
 import { isOnboardingApprovalBlocking } from "../config/onboardingGate";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import {
+  getAccountBusiness,
+  getStaffAccountModule,
+  isStaffAccountFeatureEnabled,
+} from "../services/staffAccountService";
 
 declare global {
   namespace Express {
@@ -14,7 +19,7 @@ declare global {
       isUserAuthenticated?: boolean;
       actorType?: "USER" | "STAFF";
       staffUserId?: string;
-      dealerId?: string;
+      businessId?: string;
       staffPermissions?: StaffPermission[];
     }
   }
@@ -48,23 +53,38 @@ export const authMiddleware = async (
     const sessionVersion = (decoded as any).sessionVersion;
     const staff = await prisma.staffUser.findUnique({
       where: { id: staffId },
-      select: { id: true, ownerId: true, dealerId: true, isActive: true, permissions: true, sessionVersion: true },
+      select: { id: true, ownerId: true, accountRole: true, isActive: true, permissions: true, sessionVersion: true },
     });
     if (!staff || !staff.isActive || staff.sessionVersion !== sessionVersion) {
       return res.status(401).json({ code: "STAFF_SESSION_INVALID", message: "Staff session is no longer active" });
     }
 
-    // Existing dealer controllers consistently use req.userId as the dealer
-    // owner. Keeping that effective context avoids duplicating business-scope
-    // logic throughout every operational controller.
+    const module = getStaffAccountModule(staff.accountRole);
+    if (!module) {
+      return res.status(403).json({ error: "Staff access is not enabled for this account type" });
+    }
+    const owner = await prisma.user.findUnique({ where: { id: staff.ownerId }, select: { role: true } });
+    if (!owner || owner.role !== staff.accountRole) {
+      return res.status(401).json({ code: "STAFF_ACCOUNT_INVALID", message: "Staff account no longer matches its owner account" });
+    }
+    if (!(await isStaffAccountFeatureEnabled(staff.ownerId, staff.accountRole))) {
+      return res.status(403).json({
+        code: "STAFF_OPERATIONS_DISABLED",
+        message: "Staff access is currently disabled by the account owner.",
+      });
+    }
+    const business = await getAccountBusiness(staff.ownerId, staff.accountRole);
+
+    // Operational controllers use the owner as their data scope. The actor
+    // fields retain the staff identity for authorization and audit attribution.
     req.userId = staff.ownerId;
-    req.role = "DEALER" as UserRole;
+    req.role = staff.accountRole as UserRole;
     req.actorType = "STAFF";
     req.staffUserId = staff.id;
-    req.dealerId = staff.dealerId;
+    req.businessId = business?.id;
     req.staffPermissions = staff.permissions;
 
-    if (allowedRoles.length > 0 && !allowedRoles.includes("DEALER" as UserRole)) {
+    if (allowedRoles.length > 0 && !allowedRoles.includes(staff.accountRole as UserRole)) {
       return res.status(403).json({ error: "Access denied for this role" });
     }
     return next();
@@ -145,7 +165,31 @@ export const requireStaffPermission = (permission: StaffPermission) => (
   return res.status(403).json({
     code: "STAFF_PERMISSION_DENIED",
     permission,
-    message: "Your staff account is not allowed to view this financial information.",
+    message: "Your staff account is not allowed to use this part of the account.",
+  });
+};
+
+/**
+ * Lets a shared route opt a staff module into an operation without granting
+ * every staff role that route by default. Account owners are never limited by
+ * staff permissions.
+ */
+export const requireStaffPermissionForAccountRole = (
+  permissionsByRole: Partial<Record<UserRole, StaffPermission>>
+) => (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.actorType !== "STAFF") return next();
+
+  const permission = req.role ? permissionsByRole[req.role] : undefined;
+  if (permission && req.staffPermissions?.includes(permission)) return next();
+
+  return res.status(403).json({
+    code: "STAFF_PERMISSION_DENIED",
+    ...(permission ? { permission } : {}),
+    message: "Your staff account is not allowed to use this part of the account.",
   });
 };
 
@@ -154,6 +198,21 @@ export const requireDealerOwner = (req: Request, res: Response, next: NextFuncti
     return res.status(403).json({
       code: "OWNER_ONLY",
       message: "Only the Feed Dealer owner can manage staff access.",
+    });
+  }
+  return next();
+};
+
+/** Owner-only staff-access administration, reusable by every staff module. */
+export const requireStaffAccountOwner = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.actorType === "STAFF") {
+    return res.status(403).json({
+      code: "OWNER_ONLY",
+      message: "Only the account owner can manage staff login accounts.",
     });
   }
   return next();

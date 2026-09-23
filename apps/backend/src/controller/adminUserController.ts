@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, UserStatus } from "@prisma/client";
+import { BatchStatus, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { getResolvedAccountFeatures } from "../services/accountFeatureService";
+import { getAdminAccountUsageSummary } from "../services/adminAccountUsageService";
 
 // ==================== GET ALL USERS ====================
 export const getAllUsers = async (
@@ -141,6 +142,16 @@ export const getUserById = async (
             description: true,
             createdAt: true,
             _count: { select: { batches: true } },
+            batches: {
+              select: {
+                id: true,
+                batchNumber: true,
+                batchType: true,
+                status: true,
+                initialChicks: true,
+              },
+              orderBy: { startDate: "desc" },
+            },
           },
         },
         managedFarms: {
@@ -151,6 +162,16 @@ export const getUserById = async (
             description: true,
             createdAt: true,
             _count: { select: { batches: true } },
+            batches: {
+              select: {
+                id: true,
+                batchNumber: true,
+                batchType: true,
+                status: true,
+                initialChicks: true,
+              },
+              orderBy: { startDate: "desc" },
+            },
           },
         },
         // Dealer account links (for farmers)
@@ -210,10 +231,61 @@ export const getUserById = async (
       });
     }
 
-    const accountFeatures = await getResolvedAccountFeatures(user.id, user.role);
+    const farmBatchIds = [
+      ...user.ownedFarms.flatMap((farm) => farm.batches.map((batch) => batch.id)),
+      ...user.managedFarms.flatMap((farm) => farm.batches.map((batch) => batch.id)),
+    ];
+    const mortalityTotals =
+      farmBatchIds.length > 0
+        ? await prisma.mortality.groupBy({
+            by: ["batchId"],
+            where: { batchId: { in: farmBatchIds } },
+            _sum: { count: true },
+          })
+        : [];
+    const mortalityByBatch = new Map(
+      mortalityTotals.map((entry) => [
+        entry.batchId,
+        Number(entry._sum.count ?? 0),
+      ])
+    );
+    const addBirdTotals = (farms: typeof user.ownedFarms) =>
+      farms.map((farm) => {
+        const batches = farm.batches.map((batch) => ({
+          ...batch,
+          currentBirds: Math.max(
+            0,
+            batch.initialChicks - (mortalityByBatch.get(batch.id) ?? 0)
+          ),
+        }));
+        const activeBatches = batches.filter(
+          (batch) => batch.status === BatchStatus.ACTIVE
+        );
+
+        return {
+          ...farm,
+          batches,
+          currentBirds: activeBatches.reduce(
+            (total, batch) => total + batch.currentBirds,
+            0
+          ),
+          activeInitialBirds: activeBatches.reduce(
+            (total, batch) => total + batch.initialChicks,
+            0
+          ),
+        };
+      });
+
+    const [accountFeatures, ownedFarms, managedFarms] = await Promise.all([
+      getResolvedAccountFeatures(user.id, user.role),
+      Promise.resolve(addBirdTotals(user.ownedFarms)),
+      Promise.resolve(addBirdTotals(user.managedFarms)),
+    ]);
     const normalizedUser = {
       ...user,
       accountFeatures,
+      ownedFarms,
+      managedFarms,
       dealerAccounts: user.farmerAccounts.map((account: any) => ({
         accountCreatedAt: account.createdAt,
         dealer: account.dealer,
@@ -229,6 +301,34 @@ export const getUserById = async (
     return res.status(500).json({
       success: false,
       message: "Failed to fetch user",
+    });
+  }
+};
+
+// ==================== GET ACCOUNT USAGE SUMMARY ====================
+// Count-only usage data for the Admin account details page. The service keeps
+// role-specific ownership rules out of the controller and never returns the
+// records represented by these totals.
+export const getUserUsageById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const usage = await getAdminAccountUsageSummary(req.params.id);
+
+    if (!usage) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({ success: true, data: usage });
+  } catch (error) {
+    console.error("Error fetching account usage:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch account usage",
     });
   }
 };

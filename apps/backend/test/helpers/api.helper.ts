@@ -33,6 +33,21 @@ export class ApiHelper {
   }
 
   /**
+   * Make a PUT request using SuperTest
+   */
+  async put(url: string, data?: any) {
+    const req = request(app)
+      .put(`/api/v1${url}`)
+      .send(data);
+
+    if (this.authToken) {
+      req.set('Authorization', `Bearer ${this.authToken}`);
+    }
+
+    return req;
+  }
+
+  /**
    * Set authentication token for subsequent requests
    */
   setAuthToken(token: string) {

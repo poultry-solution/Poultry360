@@ -6,6 +6,7 @@ import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Input } from "@/common/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/common/components/ui/table";
+import { useAuthStore } from "@/common/store/store";
 import { exportBusinessAudit, type AuditFilters, type BusinessAuditLog, useBusinessAudit } from "@/fetchers/businessAuditQueries";
 import { toast } from "sonner";
 
@@ -15,18 +16,30 @@ function download(content: BlobPart | BlobPart[], type: string, filename: string
   link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url);
 }
 const escapeCsv = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-function rows(logs: BusinessAuditLog[]) {
-  return logs.map((log) => [new Date(log.createdAt).toLocaleString(), log.actorName, log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User", log.description, recordLabels[log.targetType] || "Business record", readableDetails(log.metadata, log.securityMetadata)]);
+function actorRoleLabel(log: BusinessAuditLog) {
+  return log.actorType === "STAFF" ? "Staff" : ["DEALER", "HATCHERY"].includes(log.actorRole || "") ? "Owner" : log.actorRole || "User";
 }
-function exportCsv(logs: BusinessAuditLog[]) {
-  download([[["Time", "Actor", "Role", "Action", "Related to", "Details"], ...rows(logs)].map((row) => row.map(escapeCsv).join(",")).join("\n")], "text/csv;charset=utf-8", "activity.csv");
+
+function actorDisplayName(log: BusinessAuditLog, scope: "account" | "admin", businessName?: string) {
+  if (scope === "account" && log.actorType === "USER" && ["DEALER", "HATCHERY"].includes(log.actorRole || "") && businessName) {
+    return `${businessName} — Owner (${log.actorName})`;
+  }
+  return log.actorName;
 }
-function exportExcel(logs: BusinessAuditLog[]) {
-  const cells = [["Time", "Actor", "Role", "Action", "Related to", "Details"], ...rows(logs)].map((row) => `<tr>${row.map((value) => `<td>${String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</td>`).join("")}</tr>`).join("");
+
+function rows(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
+  return logs.map((log) => [new Date(log.createdAt).toLocaleString(), actorDisplayName(log, scope, businessName), actorRoleLabel(log), log.description, recordLabels[log.targetType] || "Business record", readableDetails(log.metadata, log.securityMetadata)]);
+}
+
+function exportCsv(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
+  download([[["Time", "Actor", "Role", "Action", "Related to", "Details"], ...rows(logs, scope, businessName)].map((row) => row.map(escapeCsv).join(",")).join("\n")], "text/csv;charset=utf-8", "activity.csv");
+}
+function exportExcel(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
+  const cells = [["Time", "Actor", "Role", "Action", "Related to", "Details"], ...rows(logs, scope, businessName)].map((row) => `<tr>${row.map((value) => `<td>${String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</td>`).join("")}</tr>`).join("");
   download([`<html><head><meta charset="utf-8"></head><body><table>${cells}</table></body></html>`], "application/vnd.ms-excel", "activity.xls");
 }
-function exportPdf(logs: BusinessAuditLog[]) {
-  const lines = rows(logs).map((row) => `${row[0]} | ${row[1]} | ${row[3]} | ${row[4]} | ${row[5]}`.replace(/[()\\]/g, "\\$&").slice(0, 140));
+function exportPdf(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
+  const lines = rows(logs, scope, businessName).map((row) => `${row[0]} | ${row[1]} | ${row[3]} | ${row[4]} | ${row[5]}`.replace(/[()\\]/g, "\\$&").slice(0, 140));
   const pages = Array.from({ length: Math.max(1, Math.ceil(lines.length / 42)) }, (_, index) => lines.slice(index * 42, index * 42 + 42));
   const objects: string[] = ["<< /Type /Catalog /Pages 2 0 R >>", `<< /Type /Pages /Kids [${pages.map((_, index) => `${3 + index * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`];
   pages.forEach((page, index) => {
@@ -55,6 +68,7 @@ const recordLabels: Record<string, string> = {
   BlogPost: "Blog post",
   LandingReview: "Review",
   Authentication: "Login activity",
+  "Hatchery operation": "Hatchery record",
 };
 
 const detailLabels: Record<string, string> = {
@@ -114,7 +128,12 @@ function readableDetails(metadata: BusinessAuditLog["metadata"], securityMetadat
   return details.join(" · ") || "—";
 }
 
-export function BusinessActivityPage({ scope }: { scope: "dealer" | "admin" }) {
+export function BusinessActivityPage({ scope }: { scope: "account" | "admin" }) {
+  const user = useAuthStore((state) => state.user);
+  const businessName =
+    scope === "account"
+      ? user?.dealer?.name || user?.hatchery?.name || user?.companyName || undefined
+      : undefined;
   const [filters, setFilters] = useState<AuditFilters>({ page: 1, limit: 25, archived: "false" });
   const query = useBusinessAudit(scope, filters);
   const logs = query.data?.data || [];
@@ -122,14 +141,14 @@ export function BusinessActivityPage({ scope }: { scope: "dealer" | "admin" }) {
   const doExport = async (type: "csv" | "excel" | "pdf") => {
     try {
       const all = await exportBusinessAudit(scope, { ...filters, page: undefined, limit: undefined });
-      if (type === "csv") exportCsv(all); else if (type === "excel") exportExcel(all); else exportPdf(all);
+      if (type === "csv") exportCsv(all, scope, businessName); else if (type === "excel") exportExcel(all, scope, businessName); else exportPdf(all, scope, businessName);
     } catch { toast.error("Could not export activity"); }
   };
   return <div className="container max-w-7xl space-y-6 py-6">
     <div><h1 className="text-2xl font-bold">Activity</h1><p className="text-sm text-muted-foreground">{scope === "admin" ? "See important account and security actions." : "See important business actions. Staff cannot view this page."}</p></div>
     <Card><CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between"><div><CardTitle>Business activity</CardTitle><CardDescription>New records are kept here for 10 days. Older records can still be included when needed.</CardDescription></div><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => doExport("csv")}><Download className="mr-1 h-4 w-4" /> CSV</Button><Button size="sm" variant="outline" onClick={() => doExport("excel")}><FileSpreadsheet className="mr-1 h-4 w-4" /> Excel</Button><Button size="sm" variant="outline" onClick={() => doExport("pdf")}><FileText className="mr-1 h-4 w-4" /> PDF</Button></div></CardHeader><CardContent className="space-y-4">
       <div className="grid gap-2 md:grid-cols-4"><div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" placeholder="Search activity" value={filters.search || ""} onChange={(event) => update({ search: event.target.value })} /></div><select className="rounded-md border bg-background px-3 text-sm" value={filters.actorType || ""} onChange={(event) => update({ actorType: event.target.value || undefined })}><option value="">All people</option><option value="USER">Owners / users</option><option value="STAFF">Staff</option></select><select className="rounded-md border bg-background px-3 text-sm" value={filters.archived || "false"} onChange={(event) => update({ archived: event.target.value as AuditFilters["archived"] })}><option value="false">Last 10 days</option><option value="all">All records</option><option value="true">Older records</option></select><Input type="date" value={filters.startDate || ""} onChange={(event) => update({ startDate: event.target.value || undefined })} /></div>
-      {query.isLoading ? <p className="text-sm text-muted-foreground">Loading activity…</p> : <Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Who</TableHead><TableHead>What happened</TableHead><TableHead>Related to</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>{logs.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No activity found.</TableCell></TableRow> : logs.map((log) => <TableRow key={log.id}><TableCell className="whitespace-nowrap text-xs">{new Date(log.createdAt).toLocaleString()}</TableCell><TableCell>{log.actorName}<span className="block text-xs text-muted-foreground">{log.actorType === "STAFF" ? "Staff" : log.actorRole === "DEALER" ? "Owner" : log.actorRole || "User"}</span></TableCell><TableCell>{log.description}</TableCell><TableCell>{recordLabels[log.targetType] || "Business record"}</TableCell><TableCell className="max-w-72 text-xs text-muted-foreground">{readableDetails(log.metadata, log.securityMetadata)}</TableCell></TableRow>)}</TableBody></Table>}
+      {query.isLoading ? <p className="text-sm text-muted-foreground">Loading activity…</p> : <Table><TableHeader><TableRow><TableHead>When</TableHead><TableHead>Who</TableHead><TableHead>What happened</TableHead><TableHead>Related to</TableHead><TableHead>Details</TableHead></TableRow></TableHeader><TableBody>{logs.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No activity found.</TableCell></TableRow> : logs.map((log) => <TableRow key={log.id}><TableCell className="whitespace-nowrap text-xs">{new Date(log.createdAt).toLocaleString()}</TableCell><TableCell>{actorDisplayName(log, scope, businessName)}<span className="block text-xs text-muted-foreground">{actorRoleLabel(log)}</span></TableCell><TableCell>{log.description}</TableCell><TableCell>{recordLabels[log.targetType] || "Business record"}</TableCell><TableCell className="max-w-72 text-xs text-muted-foreground">{readableDetails(log.metadata, log.securityMetadata)}</TableCell></TableRow>)}</TableBody></Table>}
       <div className="flex items-center justify-between text-sm"><span>{query.data?.pagination.total || 0} records</span><div className="flex gap-2"><Button size="sm" variant="outline" disabled={!filters.page || filters.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: (current.page || 1) - 1 }))}>Previous</Button><Button size="sm" variant="outline" disabled={!query.data?.pagination.totalPages || (filters.page || 1) >= query.data.pagination.totalPages} onClick={() => setFilters((current) => ({ ...current, page: (current.page || 1) + 1 }))}>Next</Button></div></div>
     </CardContent></Card>
   </div>;

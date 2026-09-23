@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { conversationController } from '../controller/conversationController';
-import { authMiddleware } from '../middelware/middelware';
+import { StaffPermission } from '@prisma/client';
+import { authMiddleware, requireStaffPermissionForAccountRole } from '../middelware/middelware';
 
 const router = Router();
 
@@ -8,6 +9,9 @@ const router = Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, []); // Allow all authenticated users
 });
+router.use(requireStaffPermissionForAccountRole({
+  OWNER: StaffPermission.FARMER_MANAGE_OPERATIONS,
+}));
 
 // Conversation CRUD operations
 router.get('/', conversationController.getConversations);

@@ -15,7 +15,9 @@ import {
   getInventoryTableData,
   getInventoryForExpense,
 } from "../controller/inventoryController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const router = express.Router();
 
@@ -24,6 +26,8 @@ const router = express.Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
+router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+router.use(auditSuccessfulFarmerMutation);
 
 // ==================== INVENTORY ITEMS ====================
 router.get("/", getAllInventoryItems);

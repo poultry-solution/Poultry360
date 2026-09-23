@@ -6,12 +6,16 @@ import {
   deleteBirdWeight,
   getGrowthChartData,
 } from "../controller/weightController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+router.use(auditSuccessfulFarmerMutation);
 
 // Weight management routes
 router.post("/:batchId/weights", addBirdWeight);

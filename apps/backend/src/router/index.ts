@@ -62,7 +62,7 @@ import hatcheryProductionRoutes from "./hatcheryProductionRoutes";
 import farmerProductRoutes from "./farmerProductRoutes";
 import farmerProductionRoutes from "./farmerProductionRoutes";
 import accountFeatureRoutes from "./accountFeatureRoutes";
-import { adminBusinessAuditRoutes, dealerBusinessAuditRoutes } from "./businessAuditRoutes";
+import { accountBusinessAuditRoutes, adminBusinessAuditRoutes, dealerBusinessAuditRoutes } from "./businessAuditRoutes";
 
 // Test routes (only in test environment)
 let testRoutes: express.Router | null = null;
@@ -85,6 +85,7 @@ router.use("/", companyDealerAccountRoutes); // Account routes for both company 
 router.use("/dealer/ledger", dealerLedgerRoutes);
 router.use("/dealer/cash-in-hand", dealerCashInHandRoutes);
 router.use("/dealer/activity", dealerBusinessAuditRoutes);
+router.use("/business-activity", accountBusinessAuditRoutes);
 router.use("/farmer/cash-in-hand", farmerCashInHandRoutes);
 router.use("/farmer/products", farmerProductRoutes);
 router.use("/farmer/production", farmerProductionRoutes);
@@ -97,6 +98,7 @@ router.use("/company/purchases", companyPurchaseRoutes);
 router.use("/company/production", companyProductionRoutes);
 router.use("/company/ledger", companyLedgerRoutes);
 router.use("/company/analytics", companyAnalyticsRoutes);
+router.use("/company/staff", staffRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/egg-inventory", eggInventoryRoutes);
 router.use("/egg-types", eggTypeRoutes);

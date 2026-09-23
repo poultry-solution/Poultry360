@@ -153,18 +153,21 @@ export const dealerNavigation: NavigationItem[] = [
     href: "/dealer/dashboard/staff-access",
     icon: KeyRound,
     ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.activity",
     href: "/dealer/dashboard/activity",
     icon: FileText,
     ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.staffManagement",
     href: "/dealer/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.cashInHand",
@@ -226,57 +229,83 @@ export const hatcheryNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.hatcherySupplierLedger",
     href: "/hatchery/dashboard/supplier-ledger",
     icon: Truck,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryInventory",
     href: "/hatchery/dashboard/inventory",
     icon: Package,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.production",
     href: "/hatchery/dashboard/production",
     icon: Factory,
     requiredFeature: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryBatches",
     href: "/hatchery/dashboard/batches",
     icon: Layers,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryIncubations",
     href: "/hatchery/dashboard/incubations",
     icon: FlaskConical,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryEggInventory",
     href: "/hatchery/dashboard/egg-inventory",
     icon: Egg,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryProducedChicks",
     href: "/hatchery/dashboard/produced-chicks",
     icon: Bird,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryEggTypes",
     href: "/hatchery/dashboard/egg-types",
     icon: Tag,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.hatcheryParties",
     href: "/hatchery/dashboard/parties",
     icon: Users,
+    requiredStaffPermission: "HATCHERY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.staffManagement",
     href: "/hatchery/dashboard/staff",
     icon: Users,
+    requiredStaffPermission: "HATCHERY_VIEW_STAFF_MANAGEMENT",
+    requiredFeature: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
+  },
+  {
+    nameKey: "sidebar.nav.staffAccess",
+    href: "/hatchery/dashboard/staff-access",
+    icon: KeyRound,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
+  },
+  {
+    nameKey: "sidebar.nav.activity",
+    href: "/hatchery/dashboard/activity",
+    icon: FileText,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.analytics",
     href: "/hatchery/dashboard/analytics",
     icon: BarChart3,
+    requiredStaffPermission: "HATCHERY_VIEW_ANALYTICS",
   },
 ];
 
@@ -446,8 +475,8 @@ export default function Sidebar({
       {/* User Info Display */}
       <div className="px-6 py-4 border-b min-w-0">
         <p className="text-sm font-medium text-foreground">
-          {user?.isStaff && user.dealer?.name
-            ? user.dealer.name
+          {user?.isStaff && (user.dealer?.name || user.hatchery?.name)
+            ? user.dealer?.name || user.hatchery?.name
             : user?.companyName || user?.name}
         </p>
         <p className="text-xs text-muted-foreground">{roleInfo.userTitle}</p>

@@ -20,12 +20,16 @@ import {
   softDeleteCustomerPayment,
   getAllSalePayments,
 } from "../controller/salesController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+router.use(auditSuccessfulFarmerMutation);
 
 // ==================== SALES ROUTES ====================
 

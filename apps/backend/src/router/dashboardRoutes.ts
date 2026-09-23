@@ -1,5 +1,6 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 import {
   getDashboardOverview,
   getDashboardFinancialSummary,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_VIEW_FINANCIAL_SUMMARIES));
 
 // ==================== DASHBOARD ROUTES ====================
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllUsers, getUserById, hardDeleteUser } from "../controller/adminUserController";
+import { getAllUsers, getUserById, getUserUsageById, hardDeleteUser } from "../controller/adminUserController";
 import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 import { updateAdminAccountFeature } from "../controller/accountFeatureController";
@@ -16,6 +16,9 @@ router.use(auditSuccessfulAdminMutation("User"));
 
 // Get all users with pagination, search, and filtering
 router.get("/", getAllUsers);
+
+// Count-only, role-aware account usage for the Admin account detail page
+router.get("/:id/usage", getUserUsageById);
 
 // Get user by ID with full details
 router.get("/:id", getUserById);

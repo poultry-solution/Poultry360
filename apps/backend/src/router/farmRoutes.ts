@@ -9,8 +9,9 @@ import {
   removeManagerFromFarm,
   getFarmAnalytics,
 } from "../controller/farmController";
-import { authMiddleware } from "../middelware/middelware";
-import { UserRole } from "@prisma/client";
+import { authMiddleware, requireStaffAccountOwner, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission, UserRole } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const farmRouter = Router();
 
@@ -18,6 +19,8 @@ const farmRouter = Router();
 farmRouter.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER"]); // Allow all authenticated users
 });
+farmRouter.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+farmRouter.use(auditSuccessfulFarmerMutation);
 
 // ==================== FARM ROUTES ====================
 
@@ -53,6 +56,7 @@ farmRouter.post(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
+  requireStaffAccountOwner,
   addManagerToFarm
 );
 
@@ -62,6 +66,7 @@ farmRouter.delete(
   (req, res, next) => {
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
+  requireStaffAccountOwner,
   removeManagerFromFarm
 );
 

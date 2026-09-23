@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { authMiddleware, requireDealerOwner } from "../middelware/middelware";
+import { UserRole } from "@prisma/client";
+import { authMiddleware, requireStaffAccountOwner } from "../middelware/middelware";
 import {
   createStaffUser,
   getStaffInfo,
@@ -21,8 +22,8 @@ router.post("/logout", authMiddleware, (req, res, next) => {
 router.get("/@me", getStaffInfo);
 router.get("/validate", validateStaffToken);
 
-router.use("/users", (req, res, next) => authMiddleware(req, res, next, ["DEALER"]));
-router.use("/users", requireDealerOwner);
+router.use("/users", (req, res, next) => authMiddleware(req, res, next, [UserRole.OWNER, UserRole.DEALER, UserRole.HATCHERY, UserRole.COMPANY]));
+router.use("/users", requireStaffAccountOwner);
 router.get("/users", listStaffUsers);
 router.post("/users", createStaffUser);
 router.patch("/users/:id", updateStaffUser);

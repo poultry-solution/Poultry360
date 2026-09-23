@@ -1,5 +1,7 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 import {
   createReminderHandler,
   listRemindersHandler,
@@ -8,6 +10,8 @@ import {
 
 const router = express.Router();
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+router.use(auditSuccessfulFarmerMutation);
 
 router.post("/", createReminderHandler);
 router.get("/", listRemindersHandler);
