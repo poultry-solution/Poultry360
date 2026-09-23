@@ -4,7 +4,6 @@ import { useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
-import { useAuthStore } from "@/common/store/store";
 import { companyNavigation } from "@/components/dashboard/Sidebar";
 
 export default function CompanyDashboardLayout({
@@ -13,8 +12,7 @@ export default function CompanyDashboardLayout({
   children: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { user } = useAuthStore();
-  const role = user?.role as "COMPANY";
+  const role = "COMPANY" as const;
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);

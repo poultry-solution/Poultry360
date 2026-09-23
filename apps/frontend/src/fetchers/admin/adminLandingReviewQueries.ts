@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { adminDashboardKeys } from "@/fetchers/admin/dashboardQueries";
 
 export type LandingReviewStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -80,7 +81,10 @@ function useModerateReview(action: "approve" | "reject" | "pending") {
       );
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.all }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.all });
+      await queryClient.invalidateQueries({ queryKey: adminDashboardKeys.all });
+    },
   });
 }
 

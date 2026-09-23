@@ -34,17 +34,11 @@ import {
 } from "lucide-react";
 import {
   useGetAdminUserById,
+  useGetAdminAccountUsage,
   useUpdateAdminUserFeature,
+  type AdminAccountUsageSummary,
   type AdminUserDetail,
 } from "@/fetchers/admin/userQueries";
-import {
-  useGetAdminDealerById,
-  type AdminDealerDetail,
-} from "@/fetchers/admin/dealerQueries";
-import {
-  useGetAdminCompanyById,
-  type AdminCompanyDetail,
-} from "@/fetchers/admin/companyQueries";
 import { toast } from "sonner";
 
 const ROLE_COLORS: Record<string, string> = {
@@ -62,16 +56,42 @@ const STATUS_COLORS: Record<string, string> = {
   PENDING_VERIFICATION: "bg-yellow-100 text-yellow-800",
 };
 
+const USAGE_METRIC_STYLES: Record<
+  string,
+  { icon: typeof Users; color: string }
+> = {
+  farms: { icon: Tractor, color: "bg-emerald-100 text-emerald-700" },
+  batches: { icon: Layers, color: "bg-sky-100 text-sky-700" },
+  parent_batches: { icon: Layers, color: "bg-amber-100 text-amber-700" },
+  incubation_runs: { icon: Layers, color: "bg-violet-100 text-violet-700" },
+  customers: { icon: Users, color: "bg-orange-100 text-orange-700" },
+  farmer_accounts: { icon: Tractor, color: "bg-emerald-100 text-emerald-700" },
+  dealer_records: { icon: Users, color: "bg-orange-100 text-orange-700" },
+  company_records: { icon: Building2, color: "bg-indigo-100 text-indigo-700" },
+  suppliers: { icon: Building2, color: "bg-indigo-100 text-indigo-700" },
+  parties: { icon: Users, color: "bg-orange-100 text-orange-700" },
+  products: { icon: Layers, color: "bg-sky-100 text-sky-700" },
+  raw_materials: { icon: Layers, color: "bg-amber-100 text-amber-700" },
+  inventory_items: { icon: Layers, color: "bg-sky-100 text-sky-700" },
+  purchases: { icon: Building2, color: "bg-indigo-100 text-indigo-700" },
+  production_runs: { icon: Layers, color: "bg-violet-100 text-violet-700" },
+  sales: { icon: Users, color: "bg-orange-100 text-orange-700" },
+  listings: { icon: Building2, color: "bg-teal-100 text-teal-700" },
+  staff_logins: { icon: Users, color: "bg-purple-100 text-purple-700" },
+};
+
 function StatCard({
   icon: Icon,
   value,
   label,
   color,
+  last30Days,
 }: {
   icon: typeof Users;
   value: number | string;
   label: string;
   color: string;
+  last30Days?: number;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-white p-4">
@@ -81,6 +101,11 @@ function StatCard({
       <div>
         <p className="text-2xl font-bold leading-none">{value}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+        {last30Days !== undefined && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            +{last30Days} in last 30 days
+          </p>
+        )}
       </div>
     </div>
   );
@@ -108,6 +133,7 @@ function FarmsSection({ title, farms }: {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Capacity</TableHead>
+              <TableHead>Current birds</TableHead>
               <TableHead>Batches</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
@@ -122,7 +148,35 @@ function FarmsSection({ title, farms }: {
                   )}
                 </TableCell>
                 <TableCell>{farm.capacity.toLocaleString()} birds</TableCell>
-                <TableCell>{farm._count.batches}</TableCell>
+                <TableCell>
+                  <p className="font-medium">
+                    {farm.currentBirds.toLocaleString()} birds
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {farm.activeInitialBirds.toLocaleString()} placed in active batches
+                  </p>
+                </TableCell>
+                <TableCell>
+                  {farm.batches.length === 0 ? (
+                    "--"
+                  ) : (
+                    <div className="space-y-1.5">
+                      {farm.batches.map((batch) => (
+                        <div key={batch.id} className="text-sm">
+                          <p className="font-medium">
+                            {batch.batchNumber}
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                              {batch.batchType === "LAYERS" ? "Layer" : "Broiler"} · {batch.status.toLowerCase()}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {batch.currentBirds.toLocaleString()} current / {batch.initialChicks.toLocaleString()} placed
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(farm.createdAt).toLocaleDateString()}
                 </TableCell>
@@ -162,129 +216,6 @@ function DealerAccountsSection({ accounts }: {
           </TableHeader>
           <TableBody>
             {accounts.map((account) => (
-              <TableRow key={account.dealer.id}>
-                <TableCell className="font-medium">{account.dealer.name}</TableCell>
-                <TableCell className="text-muted-foreground">{account.dealer.contact}</TableCell>
-                <TableCell className="text-muted-foreground">{account.dealer.address || "--"}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {new Date(account.accountCreatedAt).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DealerEntitySection({ dealer }: { dealer: AdminDealerDetail }) {
-  return (
-    <>
-      {/* Dealer's company accounts */}
-      {dealer.companies.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Building2 className="size-4" />
-              Company Accounts
-              <span className="ml-auto text-sm font-normal text-muted-foreground">
-                {dealer.companies.length} total
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company Name</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Account Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dealer.companies.map((account) => (
-                  <TableRow key={account.company.id}>
-                    <TableCell className="font-medium">{account.company.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{account.company.address || "--"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(account.accountCreatedAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dealer's farmer accounts */}
-      {dealer.farmerAccounts.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Tractor className="size-4" />
-              Farmer Accounts
-              <span className="ml-auto text-sm font-normal text-muted-foreground">
-                {dealer.farmerAccounts.length} total
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Account Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dealer.farmerAccounts.map((account) => (
-                  <TableRow key={account.farmer.id}>
-                    <TableCell className="font-medium">{account.farmer.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{account.farmer.phone}</TableCell>
-                    <TableCell className="text-muted-foreground">{account.farmer.CompanyFarmLocation || "--"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(account.accountCreatedAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-    </>
-  );
-}
-
-function CompanyEntitySection({ company }: { company: AdminCompanyDetail }) {
-  if (company.dealerAccounts.length === 0) return null;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Users className="size-4" />
-          Dealer Accounts
-          <span className="ml-auto text-sm font-normal text-muted-foreground">
-            {company.dealerAccounts.length} total
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Dealer Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Account Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {company.dealerAccounts.map((account) => (
               <TableRow key={account.dealer.id}>
                 <TableCell className="font-medium">{account.dealer.name}</TableCell>
                 <TableCell className="text-muted-foreground">{account.dealer.contact}</TableCell>
@@ -434,6 +365,61 @@ function AccountFeaturesSection({
   );
 }
 
+function AccountUsageSection({
+  usage,
+  isLoading,
+}: {
+  usage?: AdminAccountUsageSummary;
+  isLoading: boolean;
+}) {
+  if (!isLoading && (!usage || usage.metrics.length === 0)) return null;
+
+  return (
+    <section aria-labelledby="account-usage-heading">
+      <div className="mb-3">
+        <h2 id="account-usage-heading" className="text-lg font-semibold">
+          Account usage
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Lifetime records and new records from the last 30 days.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 rounded-xl border bg-white p-4"
+              >
+                <div className="size-10 rounded-lg bg-muted" />
+                <div className="space-y-1.5">
+                  <div className="h-7 w-10 rounded bg-muted" />
+                  <div className="h-3 w-24 rounded bg-muted" />
+                  <div className="h-3 w-20 rounded bg-muted" />
+                </div>
+              </div>
+            ))
+          : usage?.metrics.map((usageMetric) => {
+              const style = USAGE_METRIC_STYLES[usageMetric.key] ?? {
+                icon: Users,
+                color: "bg-gray-100 text-gray-700",
+              };
+              return (
+                <StatCard
+                  key={usageMetric.key}
+                  icon={style.icon}
+                  value={usageMetric.total}
+                  label={usageMetric.label}
+                  color={style.color}
+                  last30Days={usageMetric.last30Days}
+                />
+              );
+            })}
+      </div>
+    </section>
+  );
+}
+
 export default function AdminUserDetailPage({
   params,
 }: {
@@ -442,12 +428,13 @@ export default function AdminUserDetailPage({
   const { id } = use(params);
   const { data, isLoading, isError, refetch } = useGetAdminUserById(id);
   const user = data?.data;
-  const dealerEntityId = user?.dealer?.id ?? "";
-  const companyEntityId = user?.company?.id ?? "";
-  const { data: dealerDetailData } = useGetAdminDealerById(dealerEntityId);
-  const { data: companyDetailData } = useGetAdminCompanyById(companyEntityId);
-  const dealerEntity = dealerDetailData?.data;
-  const companyEntity = companyDetailData?.data;
+  const supportsAccountUsage =
+    user?.role === "OWNER" ||
+    user?.role === "DEALER" ||
+    user?.role === "HATCHERY" ||
+    user?.role === "COMPANY";
+  const { data: usageData, isLoading: isUsageLoading } =
+    useGetAdminAccountUsage(id, { enabled: supportsAccountUsage });
 
   if (isLoading) {
     return (
@@ -677,70 +664,51 @@ export default function AdminUserDetailPage({
         features={user.accountFeatures}
       />
 
+      <AccountUsageSection
+        usage={usageData?.data}
+        isLoading={supportsAccountUsage && isUsageLoading}
+      />
+
       {/* Stat Cards Row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {(user.role === "OWNER" || user.role === "MANAGER") && (
-          <>
+      {(user.role === "MANAGER" || user.role === "DOCTOR") && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {user.role === "MANAGER" && (
+            <>
+              <StatCard
+                icon={Tractor}
+                value={farmCount}
+                label={farmCount !== 1 ? "Farms" : "Farm"}
+                color="bg-emerald-100 text-emerald-700"
+              />
+              <StatCard
+                icon={Layers}
+                value={batchCount}
+                label={batchCount !== 1 ? "Batches" : "Batch"}
+                color="bg-sky-100 text-sky-700"
+              />
+              <StatCard
+                icon={Users}
+                value={user.dealerAccounts.length}
+                label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
+                color="bg-orange-100 text-orange-700"
+              />
+            </>
+          )}
+          {user.role === "DOCTOR" && (
             <StatCard
-              icon={Tractor}
-              value={farmCount}
-              label={farmCount !== 1 ? "Farms" : "Farm"}
-              color="bg-emerald-100 text-emerald-700"
-            />
-            <StatCard
-              icon={Layers}
-              value={batchCount}
-              label={batchCount !== 1 ? "Batches" : "Batch"}
+              icon={MessageCircle}
+              value={user.doctorConversations.length}
+              label={user.doctorConversations.length !== 1 ? "Patients" : "Patient"}
               color="bg-sky-100 text-sky-700"
             />
-            <StatCard
-              icon={Users}
-              value={user.dealerAccounts.length}
-              label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
-              color="bg-orange-100 text-orange-700"
-            />
-          </>
-        )}
-        {user.dealer && (
-          <>
-            <StatCard
-              icon={Building2}
-              value={dealerEntity?.companies.length ?? 0}
-              label={(dealerEntity?.companies.length ?? 0) !== 1 ? "Companies" : "Company"}
-              color="bg-indigo-100 text-indigo-700"
-            />
-            <StatCard
-              icon={Tractor}
-              value={dealerEntity?.farmerAccounts.length ?? 0}
-              label={(dealerEntity?.farmerAccounts.length ?? 0) !== 1 ? "Farmers" : "Farmer"}
-              color="bg-emerald-100 text-emerald-700"
-            />
-          </>
-        )}
-        {user.company && (
-          <StatCard
-            icon={Users}
-            value={companyEntity?.dealerAccounts.length ?? 0}
-            label={(companyEntity?.dealerAccounts.length ?? 0) !== 1 ? "Dealers" : "Dealer"}
-            color="bg-orange-100 text-orange-700"
-          />
-        )}
-        {user.role === "DOCTOR" && (
-          <StatCard
-            icon={MessageCircle}
-            value={user.doctorConversations.length}
-            label={user.doctorConversations.length !== 1 ? "Patients" : "Patient"}
-            color="bg-sky-100 text-sky-700"
-          />
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Account Tables */}
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
       <FarmsSection title="Managed Farms" farms={user.managedFarms} />
       <DealerAccountsSection accounts={user.dealerAccounts} />
-      {dealerEntity && <DealerEntitySection dealer={dealerEntity} />}
-      {companyEntity && <CompanyEntitySection company={companyEntity} />}
       <DoctorConversationsSection conversations={user.doctorConversations} />
     </div>
   );

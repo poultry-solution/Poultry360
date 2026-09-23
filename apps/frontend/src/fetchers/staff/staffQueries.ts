@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 export type StaffStatus = "ACTIVE" | "STOPPED" | "ARCHIVED";
 export type StaffStatusFilter = StaffStatus | "ALL";
+export type StaffOwner = "farmer" | "dealer" | "hatchery" | "company";
 
 export interface StaffSalary {
   id: string;
@@ -68,23 +69,23 @@ export type TransactionItem =
 
 // ==================== QUERY KEYS ====================
 
-const staffBase = (owner: "farmer" | "dealer" | "hatchery") => ["staff", owner] as const;
+const staffBase = (owner: StaffOwner) => ["staff", owner] as const;
 export const staffKeys = {
-  all: (owner: "farmer" | "dealer" | "hatchery") => staffBase(owner),
-  list: (owner: "farmer" | "dealer" | "hatchery", status: StaffStatusFilter = "ALL") =>
+  all: (owner: StaffOwner) => staffBase(owner),
+  list: (owner: StaffOwner, status: StaffStatusFilter = "ALL") =>
     [...staffBase(owner), "list", status] as const,
-  summary: (owner: "farmer" | "dealer" | "hatchery") => [...staffBase(owner), "summary"] as const,
-  detail: (owner: "farmer" | "dealer" | "hatchery", id: string) => [...staffBase(owner), "detail", id] as const,
-  transactions: (owner: "farmer" | "dealer" | "hatchery", id: string) => [...staffBase(owner), "transactions", id] as const,
+  summary: (owner: StaffOwner) => [...staffBase(owner), "summary"] as const,
+  detail: (owner: StaffOwner, id: string) => [...staffBase(owner), "detail", id] as const,
+  transactions: (owner: StaffOwner, id: string) => [...staffBase(owner), "transactions", id] as const,
 };
 
-function staffPath(owner: "farmer" | "dealer" | "hatchery") {
+function staffPath(owner: StaffOwner) {
   return `/${owner}/staff`;
 }
 
 // ==================== QUERIES ====================
 
-export function useStaffList(owner: "farmer" | "dealer" | "hatchery", status: StaffStatusFilter = "ALL") {
+export function useStaffList(owner: StaffOwner, status: StaffStatusFilter = "ALL") {
   return useQuery({
     queryKey: staffKeys.list(owner, status),
     queryFn: async () => {
@@ -97,7 +98,7 @@ export function useStaffList(owner: "farmer" | "dealer" | "hatchery", status: St
   });
 }
 
-export function useStaffSummary(owner: "farmer" | "dealer" | "hatchery") {
+export function useStaffSummary(owner: StaffOwner) {
   return useQuery({
     queryKey: staffKeys.summary(owner),
     queryFn: async () => {
@@ -109,7 +110,7 @@ export function useStaffSummary(owner: "farmer" | "dealer" | "hatchery") {
   });
 }
 
-export function useStaffById(owner: "farmer" | "dealer" | "hatchery", id: string | null) {
+export function useStaffById(owner: StaffOwner, id: string | null) {
   return useQuery({
     queryKey: staffKeys.detail(owner, id ?? ""),
     queryFn: async () => {
@@ -122,7 +123,7 @@ export function useStaffById(owner: "farmer" | "dealer" | "hatchery", id: string
   });
 }
 
-export function useStaffTransactions(owner: "farmer" | "dealer" | "hatchery", id: string | null) {
+export function useStaffTransactions(owner: StaffOwner, id: string | null) {
   return useQuery({
     queryKey: staffKeys.transactions(owner, id ?? ""),
     queryFn: async () => {
@@ -150,7 +151,7 @@ export interface UpdateStaffBody {
   effectiveFrom?: string;
 }
 
-export function useCreateStaff(owner: "farmer" | "dealer" | "hatchery") {
+export function useCreateStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: CreateStaffBody) => {
@@ -171,7 +172,7 @@ export function useCreateStaff(owner: "farmer" | "dealer" | "hatchery") {
   });
 }
 
-export function useUpdateStaff(owner: "farmer" | "dealer" | "hatchery") {
+export function useUpdateStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, body }: { id: string; body: UpdateStaffBody }) => {
@@ -194,7 +195,7 @@ export function useUpdateStaff(owner: "farmer" | "dealer" | "hatchery") {
   });
 }
 
-export function useStopStaff(owner: "farmer" | "dealer" | "hatchery") {
+export function useStopStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, endDate }: { id: string; endDate: string }) => {
@@ -224,7 +225,7 @@ export interface AddPaymentBody {
   receiptImageUrl?: string;
 }
 
-export function useAddStaffPayment(owner: "farmer" | "dealer" | "hatchery") {
+export function useAddStaffPayment(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ staffId, body }: { staffId: string; body: AddPaymentBody }) => {
@@ -247,7 +248,7 @@ export function useAddStaffPayment(owner: "farmer" | "dealer" | "hatchery") {
   });
 }
 
-export function useArchiveStaff(owner: "farmer" | "dealer" | "hatchery") {
+export function useArchiveStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {

@@ -32,8 +32,9 @@ import {
 } from "lucide-react";
 import { useGetCompanyAnalytics } from "@/fetchers/company/companyAnalyticsQueries";
 import { useCalendar } from "@/common/hooks/useCalendar";
+import { useAuth } from "@/common/store/store";
 
-export default function CompanyAnalyticsPage() {
+function CompanyAnalyticsContent() {
   const [period, setPeriod] = useState("30");
   const { data: analytics, isLoading } = useGetCompanyAnalytics(period);
   const { toDisplayDate } = useCalendar();
@@ -475,4 +476,21 @@ export default function CompanyAnalyticsPage() {
       </div>
     </div>
   );
+}
+
+export default function CompanyAnalyticsPage() {
+  const { user } = useAuth();
+  if (user?.isStaff && !user.permissions?.includes("COMPANY_VIEW_ANALYTICS")) {
+    return (
+      <Card className="mx-auto mt-10 max-w-lg">
+        <CardContent className="py-10 text-center">
+          <h1 className="text-lg font-semibold">Analytics restricted</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your owner has not enabled Company analytics for this staff account.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+  return <CompanyAnalyticsContent />;
 }

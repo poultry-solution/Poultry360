@@ -45,6 +45,7 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 import { toast } from "sonner";
 import { HistoryDayDetailDialog } from "@/components/cash-in-hand/HistoryDayDetailDialog";
+import { useAuthStore } from "@/common/store/store";
 
 function formatNPR(value: number) {
   return new Intl.NumberFormat("en-NP", {
@@ -505,7 +506,7 @@ function HistoryView() {
   );
 }
 
-export default function FarmerCashInHandPage() {
+function FarmerCashInHandContent() {
   const { t } = useI18n();
   const { data, isLoading, error } = useGetFarmerCashToday();
 
@@ -570,4 +571,12 @@ export default function FarmerCashInHandPage() {
       </Tabs>
     </div>
   );
+}
+
+export default function FarmerCashInHandPage() {
+  const user = useAuthStore((state) => state.user);
+  if (user?.isStaff && !user.permissions?.includes("FARMER_VIEW_CASH_HISTORY")) {
+    return <Card className="mx-auto mt-10 max-w-lg"><CardContent className="py-10 text-center"><h1 className="text-lg font-semibold">Cash access restricted</h1><p className="mt-2 text-sm text-muted-foreground">Your owner has not enabled cash-in-hand access for this staff account.</p></CardContent></Card>;
+  }
+  return <FarmerCashInHandContent />;
 }

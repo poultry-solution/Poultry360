@@ -4,6 +4,7 @@ import type {
   AccountFeature,
   AccountFeatureKey,
 } from "@/fetchers/accountFeatureQueries";
+import { adminDashboardKeys } from "@/fetchers/admin/dashboardQueries";
 
 // ==================== QUERY KEYS ====================
 export const adminUserKeys = {
@@ -13,6 +14,7 @@ export const adminUserKeys = {
     [...adminUserKeys.lists(), { filters }] as const,
   details: () => [...adminUserKeys.all, "detail"] as const,
   detail: (id: string) => [...adminUserKeys.details(), id] as const,
+  usage: (id: string) => [...adminUserKeys.detail(id), "usage"] as const,
 };
 
 // ==================== TYPES ====================
@@ -64,7 +66,7 @@ export const useGetAdminUsers = (
 ) => {
   const queryString = new URLSearchParams(
     Object.entries(filters)
-      .filter(([_, v]) => v !== undefined)
+      .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k, String(v)])
   ).toString();
 
@@ -108,7 +110,17 @@ export interface AdminUserDetail {
     capacity: number;
     description: string | null;
     createdAt: string;
+    currentBirds: number;
+    activeInitialBirds: number;
     _count: { batches: number };
+    batches: Array<{
+      id: string;
+      batchNumber: string;
+      batchType: "BROILER" | "LAYERS";
+      status: "ACTIVE" | "COMPLETED";
+      initialChicks: number;
+      currentBirds: number;
+    }>;
   }>;
   managedFarms: Array<{
     id: string;
@@ -116,7 +128,17 @@ export interface AdminUserDetail {
     capacity: number;
     description: string | null;
     createdAt: string;
+    currentBirds: number;
+    activeInitialBirds: number;
     _count: { batches: number };
+    batches: Array<{
+      id: string;
+      batchNumber: string;
+      batchType: "BROILER" | "LAYERS";
+      status: "ACTIVE" | "COMPLETED";
+      initialChicks: number;
+      currentBirds: number;
+    }>;
   }>;
   dealerAccounts: Array<{
     accountCreatedAt: string;
@@ -152,6 +174,26 @@ export interface AdminUserDetailResponse {
   data: AdminUserDetail;
 }
 
+export interface AdminAccountUsageMetric {
+  key: string;
+  label: string;
+  total: number;
+  last30Days: number;
+}
+
+export interface AdminAccountUsageSummary {
+  accountId: string;
+  role: string;
+  asOf: string;
+  recentSince: string;
+  metrics: AdminAccountUsageMetric[];
+}
+
+export interface AdminAccountUsageResponse {
+  success: boolean;
+  data: AdminAccountUsageSummary;
+}
+
 export interface HardDeleteAdminUserInput {
   id: string;
   password: string;
@@ -177,6 +219,24 @@ export const useGetAdminUserById = (id: string) => {
   });
 };
 
+export const useGetAdminAccountUsage = (
+  id: string,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery<AdminAccountUsageResponse>({
+    queryKey: adminUserKeys.usage(id),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<AdminAccountUsageResponse>(
+        `/admin/users/${id}/usage`
+      );
+      return data;
+    },
+    enabled: Boolean(id) && (options?.enabled ?? true),
+    staleTime: 3000,
+    refetchOnWindowFocus: false,
+  });
+};
+
 export const useHardDeleteAdminUser = () => {
   const queryClient = useQueryClient();
 
@@ -189,6 +249,7 @@ export const useHardDeleteAdminUser = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: adminDashboardKeys.all });
       queryClient.removeQueries({ queryKey: adminUserKeys.detail(variables.id) });
     },
   });

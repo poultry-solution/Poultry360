@@ -537,7 +537,7 @@ export default function ChatPage() {
               formatTime={formatTime}
               onEditMessage={handleEditMessage}
               onDeleteMessage={handleDeleteMessage}
-              currentUserId={user?.id}
+              currentUserId={user?.isStaff ? user.farmer?.ownerId : user?.id}
             />
           </div>
 

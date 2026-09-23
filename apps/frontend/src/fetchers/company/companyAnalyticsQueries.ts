@@ -71,7 +71,7 @@ export interface CompanyAnalytics {
   }>;
 }
 
-export const useGetCompanyAnalytics = (period?: string) => {
+export const useGetCompanyAnalytics = (period?: string, options?: { enabled?: boolean }) => {
   const queryString = period ? `?period=${period}` : "";
 
   return useQuery({
@@ -82,5 +82,6 @@ export const useGetCompanyAnalytics = (period?: string) => {
       );
       return data.data;
     },
+    enabled: options?.enabled ?? true,
   });
 };

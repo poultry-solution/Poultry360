@@ -53,11 +53,13 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   const { t } = useI18n();
   const [notifOpen, setNotifOpen] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(NOTIFICATION_PAGE_SIZE);
+  const canUseOwnerNotifications = user ? !user.isStaff : false;
+  const canUseOwnerSettings = user ? !user.isStaff : false;
 
-  const { data: unreadData } = useGetUnreadCount();
+  const { data: unreadData } = useGetUnreadCount({ enabled: canUseOwnerNotifications });
   const unreadCount = unreadData?.data?.count ?? 0;
 
-  const { data: notifData, isLoading: notifLoading } = useGetNotifications({ limit: displayLimit });
+  const { data: notifData, isLoading: notifLoading } = useGetNotifications({ limit: displayLimit, enabled: canUseOwnerNotifications });
   const notifications = notifData?.data ?? [];
   const totalNotifications = notifData?.total ?? 0;
   const hasMore = totalNotifications > displayLimit;
@@ -95,6 +97,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   };
 
   const showEnablePush =
+    canUseOwnerNotifications &&
     isAuthenticated &&
     isPushSupported() &&
     getNotificationPermission() === "default";
@@ -121,8 +124,8 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-2">
-        {/* Notification Bell */}
-        <div className="relative">
+        {/* Notifications belong to the owner User, not a staff login. */}
+        {canUseOwnerNotifications && <div className="relative">
           <Button
             variant="ghost"
             size="icon"
@@ -241,7 +244,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
               </div>
             </>
           )}
-        </div>
+        </div>}
 
         {/* User Profile Section */}
         <DropdownMenu>
@@ -259,16 +262,18 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
             className="w-56 bg-white border shadow-lg"
           >
             <DropdownMenuLabel>{t("topbar.myAccount")}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="p-0 cursor-pointer">
-              <Link
-                href={roleSettings.settingsPath}
-                className="flex items-center w-full px-2 py-1.5 cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                {t("topbar.settings")}
-              </Link>
-            </DropdownMenuItem>
+            {canUseOwnerSettings && <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="p-0 cursor-pointer">
+                <Link
+                  href={roleSettings.settingsPath}
+                  className="flex items-center w-full px-2 py-1.5 cursor-pointer outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  {t("topbar.settings")}
+                </Link>
+              </DropdownMenuItem>
+            </>}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOutClick}

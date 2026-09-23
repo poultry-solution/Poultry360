@@ -117,7 +117,7 @@ export const useGetCompanyLedgerParties = (search?: string) => {
 export const useGetCompanyLedgerSummary = (params?: {
   startDate?: string;
   endDate?: string;
-}) => {
+}, options?: { enabled?: boolean }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
       .filter(([_, v]) => v !== undefined)
@@ -132,6 +132,7 @@ export const useGetCompanyLedgerSummary = (params?: {
       );
       return data;
     },
+    enabled: options?.enabled ?? true,
   });
 };
 
@@ -160,4 +161,3 @@ export const useAddCompanyPaym = () => {
     },
   });
 };
-

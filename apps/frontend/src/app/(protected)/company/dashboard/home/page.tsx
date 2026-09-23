@@ -27,17 +27,26 @@ import { useGetCompanyLedgerSummary } from "@/fetchers/company/companyLedgerQuer
 import { useGetCompanyProductSummary } from "@/fetchers/company/companyProductQueries";
 import { useGetCompanySales } from "@/fetchers/company/companySaleQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { useAuth } from "@/common/store/store";
 
 export default function CompanyHomePage() {
+  const { user } = useAuth();
+  const canViewFinancialSummaries =
+    !user?.isStaff ||
+    user.permissions?.includes("COMPANY_VIEW_FINANCIAL_SUMMARIES");
+
   // Fetch real data
-  const { data: summaryData, isLoading: summaryLoading } = useGetCompanyLedgerSummary();
+  const { data: summaryData, isLoading: summaryLoading } = useGetCompanyLedgerSummary(
+    undefined,
+    { enabled: canViewFinancialSummaries }
+  );
   const { data: productSummary, isLoading: productLoading } = useGetCompanyProductSummary();
  
   const { data: salesData, isLoading: salesLoading } = useGetCompanySales({
     limit: 5,
   });
 
-  const isLoading = summaryLoading || productLoading;
+  const isLoading = productLoading;
   const summary = summaryData?.data;
   const products = productSummary?.data;
   const recentSales = salesData?.data || [];
@@ -106,61 +115,61 @@ export default function CompanyHomePage() {
           </CardContent>
         </Card>
 
-        <Card>
+        {canViewFinancialSummaries && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {summaryLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">{summary?.totalSales || 0}</div>
             )}
             <p className="text-xs text-muted-foreground">Total transactions</p>
           </CardContent>
-        </Card>
+        </Card>}
 
-        <Card>
+        {canViewFinancialSummaries && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {summaryLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">{formatCurrency(summary?.totalRevenue)}</div>
             )}
             <p className="text-xs text-muted-foreground">Total sales revenue</p>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Statistics Cards - Row 2 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        {canViewFinancialSummaries && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
             <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {productLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold">{formatCurrency(products?.totalInventoryValue)}</div>
             )}
             <p className="text-xs text-muted-foreground">Current stock value</p>
           </CardContent>
-        </Card>
+        </Card>}
 
-        <Card>
+        {canViewFinancialSummaries && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {summaryLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold text-orange-600">
@@ -169,15 +178,15 @@ export default function CompanyHomePage() {
             )}
             <p className="text-xs text-muted-foreground">Pending from dealers</p>
           </CardContent>
-        </Card>
+        </Card>}
 
-        <Card>
+        {canViewFinancialSummaries && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Payments Received</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {summaryLoading ? (
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <div className="text-2xl font-bold text-green-600">
@@ -186,7 +195,7 @@ export default function CompanyHomePage() {
             )}
             <p className="text-xs text-muted-foreground">Total collected</p>
           </CardContent>
-        </Card>
+        </Card>}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -288,9 +297,9 @@ export default function CompanyHomePage() {
                       {type.count} products • {type.totalQuantity} units
                     </p>
                   </div>
-                  <div className="text-right">
+                  {canViewFinancialSummaries && <div className="text-right">
                     <p className="text-sm font-bold">{formatCurrency(type.totalValue)}</p>
-                  </div>
+                  </div>}
                 </div>
               ))}
             </div>

@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useI18n } from "@/i18n/useI18n";
 
-export default function SettingsPage() {
+function CompanySettingsContent() {
   const { user } = useAuth();
   const { t, language: uiLanguage, setLanguage } = useI18n();
   const [calendarType, setCalendarType] = useState<"AD" | "BS">(
@@ -183,4 +183,21 @@ export default function SettingsPage() {
       </Card>
     </div>
   );
+}
+
+export default function SettingsPage() {
+  const { user } = useAuth();
+  if (user?.isStaff) {
+    return (
+      <Card className="mx-auto mt-10 max-w-lg">
+        <CardContent className="py-10 text-center">
+          <h1 className="text-lg font-semibold">Owner access required</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Staff accounts cannot change Company account settings.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+  return <CompanySettingsContent />;
 }

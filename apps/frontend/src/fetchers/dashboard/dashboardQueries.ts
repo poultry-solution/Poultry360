@@ -182,12 +182,12 @@ export const useDashboardData = () => {
 };
 
 // Dashboard statistics for home page
-export const useDashboardStats = () => {
+export const useDashboardStats = (options?: { enabled?: boolean }) => {
   const {
     data: overviewData,
     isLoading,
     error,
-  } = useGetDashboardOverview({ enabled: true });
+  } = useGetDashboardOverview({ enabled: options?.enabled ?? true });
 
   return {
     data: overviewData?.data,

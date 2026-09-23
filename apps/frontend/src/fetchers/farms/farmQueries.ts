@@ -25,7 +25,8 @@ export const useGetUserFarms = (
   params?: {
     page?: number;
     limit?: number;
-  }
+  },
+  options?: { enabled?: boolean }
 ) => {
   return useQuery<FarmListResponse>({
     queryKey: [...farmKeys.myFarms(), { type, ...params }],
@@ -35,6 +36,7 @@ export const useGetUserFarms = (
       });
       return response.data;
     },
+    enabled: options?.enabled !== false,
   });
 };
 

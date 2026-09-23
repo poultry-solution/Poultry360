@@ -35,6 +35,14 @@ export interface HatcheryBusiness {
   ownerId: string;
 }
 
+export interface FarmerBusiness {
+  id: string;
+  name: string;
+  contact: string;
+  address?: string | null;
+  ownerId: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -58,6 +66,7 @@ export interface User {
   dealer?: DealerBusiness | null; // Dealer business info if user owns a dealer
   company?: CompanyBusiness | null; // Company business info if user owns a company
   hatchery?: HatcheryBusiness | null; // Hatchery business info if user owns a hatchery
+  farmer?: FarmerBusiness | null; // Farmer account summary when signed in as staff
   isStaff?: boolean;
   permissions?: StaffPermission[];
 }
@@ -68,7 +77,16 @@ export type StaffPermission =
   | "DEALER_VIEW_STAFF_MANAGEMENT"
   | "HATCHERY_MANAGE_OPERATIONS"
   | "HATCHERY_VIEW_ANALYTICS"
-  | "HATCHERY_VIEW_STAFF_MANAGEMENT";
+  | "HATCHERY_VIEW_STAFF_MANAGEMENT"
+  | "FARMER_MANAGE_OPERATIONS"
+  | "FARMER_VIEW_FINANCIAL_SUMMARIES"
+  | "FARMER_VIEW_CASH_HISTORY"
+  | "FARMER_VIEW_ANALYTICS"
+  | "FARMER_VIEW_STAFF_MANAGEMENT"
+  | "COMPANY_MANAGE_OPERATIONS"
+  | "COMPANY_VIEW_FINANCIAL_SUMMARIES"
+  | "COMPANY_VIEW_ANALYTICS"
+  | "COMPANY_VIEW_STAFF_MANAGEMENT";
 
 export interface LoginCredentials {
   emailOrPhone: string;
@@ -244,6 +262,8 @@ export const useAuthStore = create<AuthState>()(
                 status: user.status || "ACTIVE",
                 dealer: user.dealer || null,
                 hatchery: user.hatchery || null,
+                farmer: user.farmer || null,
+                company: user.company || null,
                 isStaff: true,
                 permissions: user.permissions || [],
               },
@@ -386,6 +406,8 @@ export const useAuthStore = create<AuthState>()(
                   status: response.user.status || "ACTIVE",
                   dealer: response.user.dealer || null,
                   hatchery: response.user.hatchery || null,
+                  farmer: response.user.farmer || null,
+                  company: response.user.company || null,
                   isStaff: true,
                   permissions: response.user.permissions || [],
                 },
@@ -465,6 +487,8 @@ export const useAuthStore = create<AuthState>()(
                   status: userData.status || "ACTIVE",
                   dealer: userData.dealer || null,
                   hatchery: userData.hatchery || null,
+                  farmer: userData.farmer || null,
+                  company: userData.company || null,
                   isStaff: true,
                   permissions: userData.permissions || [],
                 },
