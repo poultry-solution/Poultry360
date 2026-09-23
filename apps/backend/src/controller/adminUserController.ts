@@ -416,7 +416,22 @@ async function hardDeleteUserData(userId: string) {
       },
     });
 
+    // Production inputs and outputs restrict deletion of their inventory rows.
+    // Delete their parent runs first so the database cascades those records,
+    // then the hatchery inventory can be removed safely.
+    await tx.hatcheryProductionRun.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
     await tx.hatcheryInventoryItem.deleteMany({
+      where: {
+        hatcheryOwnerId: userId,
+      },
+    });
+
+    await tx.hatcheryManufacturedProduct.deleteMany({
       where: {
         hatcheryOwnerId: userId,
       },
