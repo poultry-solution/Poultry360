@@ -3,6 +3,7 @@ import prisma from "../utils/prisma";
 
 export const ACCOUNT_FEATURE_KEYS = {
   SELF_FEED_PRODUCTION: "SELF_FEED_PRODUCTION",
+  DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
 } as const;
 
 export type AccountFeatureKey =
@@ -27,6 +28,14 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
       "Create Self Feed products from purchased raw materials in Farmer and Hatchery.",
     applicableRoles: [UserRole.OWNER, UserRole.HATCHERY],
     defaultEnabled: false,
+  },
+  DEALER_STAFF_OPERATIONS: {
+    key: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
+    name: "Dealer Staff Operations",
+    description:
+      "Manage payroll staff, staff login access, and owner-visible business activity history.",
+    applicableRoles: [UserRole.DEALER],
+    defaultEnabled: true,
   },
 };
 

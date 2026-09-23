@@ -4,6 +4,7 @@ import { useAuthStore } from "@/common/store/store";
 
 export const ACCOUNT_FEATURE_KEYS = {
   SELF_FEED_PRODUCTION: "SELF_FEED_PRODUCTION",
+  DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
 } as const;
 
 export type AccountFeatureKey =

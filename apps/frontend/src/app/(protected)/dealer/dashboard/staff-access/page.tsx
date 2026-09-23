@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuthStore, type StaffPermission } from "@/common/store/store";
 import { type StaffAccessUser, useCreateStaffAccessUser, useStaffAccessUsers, useUpdateStaffAccessUser } from "@/fetchers/dealer/staffAccessQueries";
 import { toast } from "sonner";
+import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
+import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 
 const FINANCIAL: StaffPermission = "DEALER_VIEW_FINANCIAL_SUMMARIES";
 // This existing permission controls the whole Cash in hand feature for staff,
@@ -22,7 +24,7 @@ function normalizedPhone(value: string) {
   return digits.length === 10 ? `+977${digits}` : value;
 }
 
-export default function StaffAccessPage() {
+function StaffAccessContent() {
   const user = useAuthStore((state) => state.user);
   const { data: staff = [], isLoading } = useStaffAccessUsers({ enabled: !user?.isStaff });
   const create = useCreateStaffAccessUser();
@@ -103,4 +105,15 @@ export default function StaffAccessPage() {
       </DialogContent>
     </Dialog>
   </div>;
+}
+
+export default function StaffAccessPage() {
+  return (
+    <AccountFeatureGuard
+      featureKey={ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS}
+      fallbackHref="/dealer/dashboard/home"
+    >
+      <StaffAccessContent />
+    </AccountFeatureGuard>
+  );
 }

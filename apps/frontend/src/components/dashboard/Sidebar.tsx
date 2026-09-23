@@ -153,18 +153,21 @@ export const dealerNavigation: NavigationItem[] = [
     href: "/dealer/dashboard/staff-access",
     icon: KeyRound,
     ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.activity",
     href: "/dealer/dashboard/activity",
     icon: FileText,
     ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.staffManagement",
     href: "/dealer/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
+    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.cashInHand",
