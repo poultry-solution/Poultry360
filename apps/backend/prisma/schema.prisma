@@ -1038,7 +1038,6 @@ model Dealer {
   cashSettings           DealerCashSettings?
   cashMovements          DealerCashMovement[]
   cashDayCloses          DealerCashDayClose[]
-  staffUsers             StaffUser[]             @relation("DealerStaffUsers")
   broilerSaleSettlements BroilerSaleSettlement[]
 
   @@unique([userId, name])
@@ -2590,6 +2589,9 @@ enum StaffPermission {
   DEALER_VIEW_FINANCIAL_SUMMARIES
   DEALER_VIEW_CASH_HISTORY
   DEALER_VIEW_STAFF_MANAGEMENT
+  HATCHERY_MANAGE_OPERATIONS
+  HATCHERY_VIEW_ANALYTICS
+  HATCHERY_VIEW_STAFF_MANAGEMENT
 }
 
 model Staff {
@@ -2612,10 +2614,12 @@ model Staff {
 
 model StaffUser {
   id             String            @id @default(cuid())
+  // The owner account is the tenant boundary for every staff identity.
   ownerId        String
   owner          User              @relation("StaffUserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  dealerId       String
-  dealer         Dealer            @relation("DealerStaffUsers", fields: [dealerId], references: [id], onDelete: Cascade)
+  // Deliberately uses the existing role enum so supporting a future account
+  // module does not require another StaffUser schema redesign.
+  accountRole    UserRole
   name           String
   phone          String            @unique
   passwordHash   String
@@ -2626,8 +2630,8 @@ model StaffUser {
   updatedAt      DateTime          @updatedAt
 
   @@index([ownerId])
-  @@index([dealerId])
-  @@index([dealerId, isActive])
+  @@index([ownerId, accountRole])
+  @@index([ownerId, accountRole, isActive])
 }
 
 // ==================== PUSH SUBSCRIPTIONS ====================

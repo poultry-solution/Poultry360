@@ -11,7 +11,8 @@ import {
   getTransactions,
 } from "../controller/staffController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
-import { StaffPermission } from "@prisma/client";
+import { StaffPermission, UserRole } from "@prisma/client";
+import { auditSuccessfulHatcheryMutation } from "../middelware/hatcheryAuditMiddleware";
 
 const router = Router();
 
@@ -20,9 +21,17 @@ router.use((req, res, next) => {
   authMiddleware(req, res, next, ["OWNER", "DEALER", "HATCHERY"] as any);
 });
 
-// Payroll records are sensitive. This only affects login-capable Dealer staff;
-// owners and the existing farmer/hatchery flows continue unchanged.
-router.use(requireStaffPermission(StaffPermission.DEALER_VIEW_STAFF_MANAGEMENT));
+// Payroll records are sensitive. Owners retain access while staff must hold
+// the permission configured for their account module.
+router.use((req, res, next) => requireStaffPermission(
+  req.role === UserRole.HATCHERY
+    ? StaffPermission.HATCHERY_VIEW_STAFF_MANAGEMENT
+    : StaffPermission.DEALER_VIEW_STAFF_MANAGEMENT
+)(req, res, next));
+router.use((req, res, next) => {
+  if (req.role === UserRole.HATCHERY) return auditSuccessfulHatcheryMutation(req, res, next);
+  return next();
+});
 
 router.get("/", listStaff);
 router.get("/summary", getStaffSummary);

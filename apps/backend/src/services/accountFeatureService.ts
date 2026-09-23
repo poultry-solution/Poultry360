@@ -4,6 +4,7 @@ import prisma from "../utils/prisma";
 export const ACCOUNT_FEATURE_KEYS = {
   SELF_FEED_PRODUCTION: "SELF_FEED_PRODUCTION",
   DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
+  HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
 } as const;
 
 export type AccountFeatureKey =
@@ -35,6 +36,14 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     description:
       "Manage payroll staff, staff login access, and owner-visible business activity history.",
     applicableRoles: [UserRole.DEALER],
+    defaultEnabled: true,
+  },
+  HATCHERY_STAFF_OPERATIONS: {
+    key: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
+    name: "Hatchery Staff Operations",
+    description:
+      "Manage payroll staff, staff login access, and owner-visible business activity history.",
+    applicableRoles: [UserRole.HATCHERY],
     defaultEnabled: true,
   },
 };

@@ -107,7 +107,7 @@ function buildAuditQueryWhere(
   return combineBusinessAuditWhere(...conditions);
 }
 
-async function buildDealerAuditWhere(req: Request) {
+async function buildAccountAuditWhere(req: Request) {
   const accountScope = await getAccountOwnerAndStaffAuditScope(req.userId!);
   const queryFilters = buildAuditQueryWhere(req.query, {
     includeAuthentication: false,
@@ -163,7 +163,7 @@ async function sendLogs(
   });
 }
 
-export async function getDealerBusinessAuditLogs(
+export async function getAccountBusinessAuditLogs(
   req: Request,
   res: Response
 ): Promise<any> {
@@ -172,7 +172,7 @@ export async function getDealerBusinessAuditLogs(
       .status(403)
       .json({ message: "Staff accounts cannot view activity history." });
   }
-  return sendLogs(req, res, await buildDealerAuditWhere(req));
+  return sendLogs(req, res, await buildAccountAuditWhere(req));
 }
 
 export async function getAdminBusinessAuditLogs(
@@ -185,7 +185,7 @@ export async function getAdminBusinessAuditLogs(
   return sendLogs(req, res, buildAuditQueryWhere(req.query), true);
 }
 
-export async function exportDealerBusinessAuditLogs(
+export async function exportAccountBusinessAuditLogs(
   req: Request,
   res: Response
 ): Promise<any> {
@@ -195,12 +195,17 @@ export async function exportDealerBusinessAuditLogs(
       .json({ message: "Staff accounts cannot export activity history." });
   }
   const rows = await prisma.businessAuditLog.findMany({
-    where: await buildDealerAuditWhere(req),
+    where: await buildAccountAuditWhere(req),
     orderBy: { createdAt: "desc" },
     take: 10000,
   });
   return res.json({ success: true, data: rows });
 }
+
+// Compatibility exports for the existing Dealer endpoint while new modules
+// consume the role-agnostic account activity contract.
+export const getDealerBusinessAuditLogs = getAccountBusinessAuditLogs;
+export const exportDealerBusinessAuditLogs = exportAccountBusinessAuditLogs;
 
 export async function exportAdminBusinessAuditLogs(
   req: Request,

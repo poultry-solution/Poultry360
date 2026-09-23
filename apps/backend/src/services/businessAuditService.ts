@@ -120,7 +120,7 @@ export async function writeAuthenticationAudit({
     const staff = await prisma.staffUser.findUnique({ where: { id: actorId }, select: { name: true } });
     if (!staff) throw new Error("Authentication audit actor was not found");
     actorName = staff.name;
-    actorRole = "DEALER_STAFF";
+    actorRole = "STAFF";
   } else {
     const user = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true, role: true } });
     if (!user) throw new Error("Authentication audit actor was not found");
@@ -172,11 +172,11 @@ export async function writeBusinessAudit(
   let actorRole: string | undefined = req.role;
   if (isStaff) {
     actorId = req.staffUserId || "unknown";
-    actorRole = "DEALER_STAFF";
+    actorRole = `${req.role || "ACCOUNT"}_STAFF`;
     const staff = req.staffUserId
       ? await db.staffUser.findUnique({ where: { id: req.staffUserId }, select: { name: true } })
       : null;
-    actorName = staff?.name || "Dealer staff";
+    actorName = staff?.name || "Account staff";
   } else if (req.userId) {
     const user = await db.user.findUnique({ where: { id: req.userId }, select: { name: true, role: true } });
     actorName = user?.name || "User";
@@ -186,8 +186,10 @@ export async function writeBusinessAudit(
   return db.businessAuditLog.create({
     data: {
       accountOwnerId,
-      businessType: event.businessType || (req.dealerId ? "DEALER" : req.role === "SUPER_ADMIN" ? "ADMIN" : undefined),
-      businessId: event.businessId || req.dealerId,
+      businessType:
+        event.businessType ||
+        (req.role === "SUPER_ADMIN" ? "ADMIN" : req.role),
+      businessId: event.businessId || req.businessId,
       actorId,
       actorType: isStaff ? AuditActorType.STAFF : AuditActorType.USER,
       actorName,

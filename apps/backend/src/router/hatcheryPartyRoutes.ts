@@ -1,6 +1,7 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
-import { UserRole } from "@prisma/client";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission, UserRole } from "@prisma/client";
+import { auditSuccessfulHatcheryMutation } from "../middelware/hatcheryAuditMiddleware";
 import {
   listParties,
   createParty,
@@ -15,7 +16,11 @@ const router = express.Router();
 
 /** Per-route only: router is mounted at `/` — see hatcheryIncubationRoutes. */
 const requireHatchery: express.RequestHandler = (req, res, next) => {
-  void authMiddleware(req, res, next, [UserRole.HATCHERY] as any);
+  void authMiddleware(req, res, () => {
+    requireStaffPermission(StaffPermission.HATCHERY_MANAGE_OPERATIONS)(req, res, () =>
+      auditSuccessfulHatcheryMutation(req, res, next)
+    );
+  }, [UserRole.HATCHERY] as any);
 };
 
 router.get("/hatchery/parties", requireHatchery, listParties);

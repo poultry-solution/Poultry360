@@ -1,6 +1,7 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
-import { UserRole } from "@prisma/client";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission, UserRole } from "@prisma/client";
+import { auditSuccessfulHatcheryMutation } from "../middelware/hatcheryAuditMiddleware";
 import {
   listIncubationBatches,
   createIncubationBatch,
@@ -22,7 +23,11 @@ const router = express.Router();
 
 /** Per-route only: this router is mounted at `/`, so a blanket `router.use` would block /notifications, /push, etc. */
 const requireHatchery: express.RequestHandler = (req, res, next) => {
-  void authMiddleware(req, res, next, [UserRole.HATCHERY] as any);
+  void authMiddleware(req, res, () => {
+    requireStaffPermission(StaffPermission.HATCHERY_MANAGE_OPERATIONS)(req, res, () =>
+      auditSuccessfulHatcheryMutation(req, res, next)
+    );
+  }, [UserRole.HATCHERY] as any);
 };
 
 // Incubation batches
