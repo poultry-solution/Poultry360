@@ -84,6 +84,7 @@ import {
   useGetFarmerReportAnalytics,
   useGetFarmerAnalyticsOverview,
 } from "@/fetchers/analytics/farmerAnalyticsQueries";
+import { useAuthStore } from "@/common/store/store";
 
 type DatePreset =
   | "today"
@@ -465,7 +466,7 @@ function ComingSoonPanel({ title }: { title: string }) {
   );
 }
 
-export default function FarmerAnalyticsPage() {
+function FarmerAnalyticsContent() {
   const [farmId, setFarmId] = useState("all");
   const [batchType, setBatchType] = useState("all");
   const [batchId, setBatchId] = useState("all");
@@ -2289,4 +2290,12 @@ export default function FarmerAnalyticsPage() {
       </Tabs>
     </div>
   );
+}
+
+export default function FarmerAnalyticsPage() {
+  const user = useAuthStore((state) => state.user);
+  if (user?.isStaff && !user.permissions?.includes("FARMER_VIEW_ANALYTICS")) {
+    return <Card className="mx-auto mt-10 max-w-lg"><CardContent className="py-10 text-center"><h1 className="text-lg font-semibold">Analytics access restricted</h1><p className="mt-2 text-sm text-muted-foreground">Your owner has not enabled Farmer analytics for this staff account.</p></CardContent></Card>;
+  }
+  return <FarmerAnalyticsContent />;
 }

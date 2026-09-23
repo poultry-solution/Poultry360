@@ -21,7 +21,7 @@ export const notificationKeys = {
   unreadCount: () => [...notificationKeys.all, "unread-count"] as const,
 };
 
-export function useGetNotifications(opts?: { status?: "UNREAD" | "READ"; limit?: number; offset?: number }) {
+export function useGetNotifications(opts?: { status?: "UNREAD" | "READ"; limit?: number; offset?: number; enabled?: boolean }) {
   return useQuery<{ success: boolean; data: NotificationItem[]; total: number }>({
     queryKey: notificationKeys.list(opts?.status, opts?.limit),
     queryFn: async () => {
@@ -32,12 +32,13 @@ export function useGetNotifications(opts?: { status?: "UNREAD" | "READ"; limit?:
       const res = await axiosInstance.get("/notifications", { params });
       return res.data;
     },
+    enabled: opts?.enabled ?? true,
   });
 }
 
 export { NOTIFICATION_PAGE_SIZE };
 
-export function useGetUnreadCount() {
+export function useGetUnreadCount(options?: { enabled?: boolean }) {
   return useQuery<{ success: boolean; data: { count: number } }>({
     queryKey: notificationKeys.unreadCount(),
     queryFn: async () => {
@@ -46,6 +47,7 @@ export function useGetUnreadCount() {
     },
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
+    enabled: options?.enabled ?? true,
   });
 }
 

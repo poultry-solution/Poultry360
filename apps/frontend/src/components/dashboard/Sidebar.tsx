@@ -51,63 +51,89 @@ export interface NavigationItem {
 
 // Role-based navigation configurations
 export const farmerNavigation: NavigationItem[] = [
-  { nameKey: "sidebar.nav.home", href: "/farmer/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.home", href: "/farmer/dashboard/home", icon: Home, requiredStaffPermission: "FARMER_MANAGE_OPERATIONS" },
   {
     nameKey: "sidebar.nav.farms",
     href: "/farmer/dashboard/farms",
     icon: Building2,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.batches",
     href: "/farmer/dashboard/batches",
     icon: Layers,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
 
   {
     nameKey: "sidebar.nav.supplierLedger",
     href: "/farmer/dashboard/supplier-ledger",
     icon: Truck,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.salesLedger",
     href: "/farmer/dashboard/sales-ledger",
     icon: Receipt,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.inventory",
     href: "/farmer/dashboard/inventory",
     icon: Package,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.production",
     href: "/farmer/dashboard/production",
     icon: Factory,
     requiredFeature: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.listForSale",
     href: "/farmer/dashboard/list-for-sale",
     icon: Tag,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.staffManagement",
     href: "/farmer/dashboard/staff",
     icon: Users,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
+    requiredStaffPermission: "FARMER_VIEW_STAFF_MANAGEMENT",
+  },
+  {
+    nameKey: "sidebar.nav.staffAccess",
+    href: "/farmer/dashboard/staff-access",
+    icon: KeyRound,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
+  },
+  {
+    nameKey: "sidebar.nav.activity",
+    href: "/farmer/dashboard/activity",
+    icon: FileText,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.cashInHand",
     href: "/farmer/dashboard/cash-in-hand",
     icon: Wallet,
+    requiredStaffPermission: "FARMER_VIEW_CASH_HISTORY",
   },
   {
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.analytics",
     href: "/farmer/dashboard/analytics",
     icon: BarChart3,
+    requiredStaffPermission: "FARMER_VIEW_ANALYTICS",
   },
 ];
 
@@ -179,47 +205,76 @@ export const dealerNavigation: NavigationItem[] = [
 ];
 
 export const companyNavigation: NavigationItem[] = [
-  { nameKey: "sidebar.nav.home", href: "/company/dashboard/home", icon: Home },
+  { nameKey: "sidebar.nav.home", href: "/company/dashboard/home", icon: Home, requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS" },
   {
     nameKey: "sidebar.nav.supplierLedger",
     href: "/company/dashboard/suppliers",
     icon: FileText,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.purchases",
     href: "/company/dashboard/purchases",
     icon: ShoppingCart,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.production",
     href: "/company/dashboard/production",
     icon: Factory,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.products",
     href: "/company/dashboard/products",
     icon: Package,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
 
   {
     nameKey: "sidebar.nav.dealers",
     href: "/company/dashboard/dealers",
     icon: Users,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.sales",
     href: "/company/dashboard/sales",
     icon: Receipt,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.payments",
     href: "/company/dashboard/payments",
     icon: DollarSign,
+    requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
     nameKey: "sidebar.nav.analytics",
     href: "/company/dashboard/analytics",
     icon: BarChart3,
+    requiredStaffPermission: "COMPANY_VIEW_ANALYTICS",
+  },
+  {
+    nameKey: "sidebar.nav.staffManagement",
+    href: "/company/dashboard/staff",
+    icon: Users,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
+    requiredStaffPermission: "COMPANY_VIEW_STAFF_MANAGEMENT",
+  },
+  {
+    nameKey: "sidebar.nav.staffAccess",
+    href: "/company/dashboard/staff-access",
+    icon: KeyRound,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
+  },
+  {
+    nameKey: "sidebar.nav.activity",
+    href: "/company/dashboard/activity",
+    icon: FileText,
+    ownerOnly: true,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
   },
 ];
 
@@ -475,8 +530,8 @@ export default function Sidebar({
       {/* User Info Display */}
       <div className="px-6 py-4 border-b min-w-0">
         <p className="text-sm font-medium text-foreground">
-          {user?.isStaff && (user.dealer?.name || user.hatchery?.name)
-            ? user.dealer?.name || user.hatchery?.name
+          {user?.isStaff && (user.dealer?.name || user.hatchery?.name || user.farmer?.name || user.company?.name)
+            ? user.dealer?.name || user.hatchery?.name || user.farmer?.name || user.company?.name
             : user?.companyName || user?.name}
         </p>
         <p className="text-xs text-muted-foreground">{roleInfo.userTitle}</p>

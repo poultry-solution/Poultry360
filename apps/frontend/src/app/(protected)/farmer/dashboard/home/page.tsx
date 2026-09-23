@@ -17,14 +17,17 @@ import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsMod
 import { ReminderCard } from "@/components/dashboard/ReminderCard";
 import { QuickActionBtnsFarmer } from "@/components/dashboard/QuickActionBtns-Farmer";
 import { useI18n } from "@/i18n/useI18n";
+import { Card, CardContent } from "@/common/components/ui/card";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const canManageOperations = !user?.isStaff || user.permissions?.includes("FARMER_MANAGE_OPERATIONS");
+  const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("FARMER_VIEW_FINANCIAL_SUMMARIES");
 
   // Fetch real data from APIs
-  const { data: batchesResponse } = useGetAllBatches();
-  const { data: farmsResponse } = useGetUserFarms("all");
+  const { data: batchesResponse } = useGetAllBatches(undefined, { enabled: canManageOperations });
+  const { data: farmsResponse } = useGetUserFarms("all", undefined, { enabled: canManageOperations });
 
   // Only keep ACTIVE batches globally so completed ones are never selectable
   const activeBatches = (batchesResponse?.data || []).filter(
@@ -45,7 +48,7 @@ export default function DashboardPage() {
     moneyToGive,
     totalExpenses,
     isLoading: statsLoading,
-  } = useDashboardStats();
+  } = useDashboardStats({ enabled: canManageOperations && canViewFinancialSummaries });
 
   // Money details queries
   const { data: moneyToReceiveData, isLoading: moneyToReceiveLoading } =
@@ -53,9 +56,13 @@ export default function DashboardPage() {
       1,
       10,
       {
-        enabled: window.location.pathname === "/farmer/dashboard/home",
+        enabled: canManageOperations && canViewFinancialSummaries && window.location.pathname === "/farmer/dashboard/home",
       }
     );
+
+  if (!canManageOperations) {
+    return <Card className="mx-auto mt-10 max-w-lg"><CardContent className="py-10 text-center"><h1 className="text-lg font-semibold">No farm operations access</h1><p className="mt-2 text-sm text-muted-foreground">Your owner can grant farm operations, analytics, financial, or payroll access from Staff access.</p></CardContent></Card>;
+  }
 
   return (
     <div className="space-y-6">
@@ -170,7 +177,7 @@ export default function DashboardPage() {
       </Modal>
 
       {/* Stats Cards */}
-      <StatsCards
+      {canViewFinancialSummaries && <StatsCards
         farms={farms}
         activeBatches={activeBatches}
         lifetimeProfit={lifetimeProfit}
@@ -184,7 +191,7 @@ export default function DashboardPage() {
         onBatchesClick={() => setIsBatchesOpen(true)}
         onMoneyToReceiveClick={() => setIsMoneyToReceiveOpen(true)}
         onMoneyToPayClick={undefined}
-      />
+      />}
 
       {/* Reminders (same grid so size/placement unchanged) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -194,7 +201,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Money to Receive Details Modal */}
-      <MoneyDetailsModal
+      {canViewFinancialSummaries && <MoneyDetailsModal
         isOpen={isMoneyToReceiveOpen}
         onClose={() => setIsMoneyToReceiveOpen(false)}
         title={t("farmer.dashboard.moneyToReceive")}
@@ -202,7 +209,7 @@ export default function DashboardPage() {
         isLoading={moneyToReceiveLoading}
         data={moneyToReceiveData?.data}
         type="receive"
-      />
+      />}
 
     </div>
   );

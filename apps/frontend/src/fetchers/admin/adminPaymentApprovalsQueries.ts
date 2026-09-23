@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { adminDashboardKeys } from "@/fetchers/admin/dashboardQueries";
 
 export const adminPaymentApprovalsKeys = {
   all: ["admin-account-approvals"] as const,
@@ -51,7 +52,7 @@ export const useGetAdminAccountApprovals = (
 ) => {
   const queryString = new URLSearchParams(
     Object.entries(filters)
-      .filter(([_, v]) => v !== undefined)
+      .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k, String(v)])
   ).toString();
 
@@ -87,6 +88,9 @@ export const useApproveAccount = () => {
       await queryClient.invalidateQueries({
         queryKey: adminPaymentApprovalsKeys.lists(),
       });
+      await queryClient.invalidateQueries({
+        queryKey: adminDashboardKeys.all,
+      });
     },
   });
 };
@@ -108,6 +112,9 @@ export const useRejectAccount = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: adminPaymentApprovalsKeys.lists(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: adminDashboardKeys.all,
       });
     },
   });

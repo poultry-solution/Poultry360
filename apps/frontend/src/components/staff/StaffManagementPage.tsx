@@ -29,11 +29,11 @@ import {
   type StaffStatusFilter,
 } from "@/fetchers/staff/staffQueries";
 
-type Owner = "farmer" | "dealer" | "hatchery";
+type Owner = "farmer" | "dealer" | "hatchery" | "company";
 
 interface StaffManagementPageProps {
   owner: Owner;
-  titlePrefix: "dealer" | "farmer" | "hatchery";
+  titlePrefix: "dealer" | "farmer" | "hatchery" | "company";
 }
 
 type StaffTab = "all" | "active" | "stopped" | "archived";

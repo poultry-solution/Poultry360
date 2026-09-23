@@ -654,6 +654,49 @@ describe("Account feature API", () => {
     expect(unknownFeature.body.message).toBe("Unknown account feature");
   });
 
+  it("returns real aggregate dashboard data only to Super Admin", async () => {
+    await login(TEST_ACCOUNTS.dealer);
+    const forbidden = await apiHelper.get("/admin/dashboard/overview");
+    expect(forbidden.status).toBe(403);
+
+    await login(TEST_ACCOUNTS.admin);
+    const response = await apiHelper.get("/admin/dashboard/overview");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        accounts: expect.objectContaining({
+          total: expect.any(Number),
+          active: expect.any(Number),
+          newToday: expect.any(Number),
+          newLast30Days: expect.any(Number),
+          byRole: expect.any(Array),
+        }),
+        farms: expect.objectContaining({
+          total: expect.any(Number),
+          totalCapacity: expect.any(Number),
+        }),
+        batches: expect.objectContaining({
+          total: expect.any(Number),
+          active: expect.any(Number),
+        }),
+        birds: expect.objectContaining({
+          currentInActiveBatches: expect.any(Number),
+        }),
+        queue: expect.objectContaining({
+          pendingAccountApprovals: expect.any(Number),
+          activityLast24Hours: expect.any(Number),
+        }),
+        recentAccounts: expect.any(Array),
+        recentActivity: expect.any(Array),
+      },
+    });
+    expect(response.body.data.accounts.total).toBeGreaterThanOrEqual(5);
+    expect(response.body.data).not.toHaveProperty("totalRevenue");
+    expect(response.body.data).not.toHaveProperty("systemHealth");
+  });
+
   it("does not expose historical Admin audit records in the Dealer activity feed", async () => {
     await prisma.businessAuditLog.create({
       data: {

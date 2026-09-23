@@ -17,7 +17,7 @@ import {
 } from "@/fetchers/staff/staffAccessQueries";
 import { toast } from "sonner";
 
-type StaffModule = "dealer" | "hatchery";
+type StaffModule = "dealer" | "hatchery" | "farmer" | "company";
 
 type PermissionOption = {
   permission: StaffPermission;
@@ -29,9 +29,11 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
   businessLabel: string;
   permissions: PermissionOption[];
   defaultPermissions: StaffPermission[];
+  staffDescription: string;
 }> = {
   dealer: {
     businessLabel: "Feed Dealer",
+    staffDescription: "Payroll staff records are managed elsewhere.",
     defaultPermissions: [],
     permissions: [
       { permission: "DEALER_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Dashboard totals and Analytics" },
@@ -41,11 +43,35 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
   },
   hatchery: {
     businessLabel: "Hatchery",
+    staffDescription: "Payroll staff records are managed elsewhere.",
     defaultPermissions: ["HATCHERY_MANAGE_OPERATIONS"],
     permissions: [
       { permission: "HATCHERY_MANAGE_OPERATIONS", label: "Hatchery operations", description: "Suppliers, inventory, batches, incubation, chicks, and parties" },
       { permission: "HATCHERY_VIEW_ANALYTICS", label: "Analytics", description: "Hatchery dashboard and analytics data" },
       { permission: "HATCHERY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
+    ],
+  },
+  farmer: {
+    businessLabel: "Farmer",
+    staffDescription: "Payroll staff records are managed elsewhere.",
+    defaultPermissions: ["FARMER_MANAGE_OPERATIONS"],
+    permissions: [
+      { permission: "FARMER_MANAGE_OPERATIONS", label: "Farm operations", description: "Farms, Broiler and Layer batches, inventory, suppliers, customers, sales, expenses, and daily production" },
+      { permission: "FARMER_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private dashboard totals, balances, and financial summaries" },
+      { permission: "FARMER_VIEW_CASH_HISTORY", label: "Cash in hand", description: "Today’s cash book and cash history" },
+      { permission: "FARMER_VIEW_ANALYTICS", label: "Analytics", description: "Farmer reports and operational analytics" },
+      { permission: "FARMER_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
+    ],
+  },
+  company: {
+    businessLabel: "Company",
+    staffDescription: "Use Staff management to track payroll and salary records.",
+    defaultPermissions: ["COMPANY_MANAGE_OPERATIONS"],
+    permissions: [
+      { permission: "COMPANY_MANAGE_OPERATIONS", label: "Company operations", description: "Suppliers, raw materials, purchases, production, products, dealers, sales, payments, and daily work" },
+      { permission: "COMPANY_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private aggregate dashboard and ledger totals" },
+      { permission: "COMPANY_VIEW_ANALYTICS", label: "Analytics", description: "Company reports and performance analytics" },
+      { permission: "COMPANY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
     ],
   },
 };
@@ -58,7 +84,7 @@ function normalizedPhone(value: string) {
 export function StaffAccessPage({ module }: { module: StaffModule }) {
   const config = STAFF_ACCESS_MODULES[module];
   const user = useAuthStore((state) => state.user);
-  const { data: staff = [], isLoading } = useStaffAccessUsers({ enabled: !user?.isStaff });
+  const { data: staff = [], isLoading } = useStaffAccessUsers({ enabled: Boolean(user && !user.isStaff) });
   const create = useCreateStaffAccessUser();
   const update = useUpdateStaffAccessUser();
   const [form, setForm] = useState({ name: "", phone: "", password: "", permissions: config.defaultPermissions });
@@ -106,7 +132,7 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
   };
 
   return <div className="mx-auto max-w-5xl space-y-6">
-    <div><h1 className="text-2xl font-bold">Staff access</h1><p className="text-sm text-muted-foreground">Create separate login accounts for your {config.businessLabel} staff. Payroll staff records are managed elsewhere.</p></div>
+    <div><h1 className="text-2xl font-bold">Staff access</h1><p className="text-sm text-muted-foreground">Create separate login accounts for your {config.businessLabel} staff. {config.staffDescription}</p></div>
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add staff login</CardTitle><CardDescription>Choose exactly the business areas this staff member needs.</CardDescription></CardHeader>
       <CardContent><form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
         <div><Label>Name</Label><Input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div>
