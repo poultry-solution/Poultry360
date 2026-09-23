@@ -3,6 +3,7 @@ import prisma from "../utils/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { getResolvedAccountFeatures } from "../services/accountFeatureService";
+import { getAdminAccountUsageSummary } from "../services/adminAccountUsageService";
 
 // ==================== GET ALL USERS ====================
 export const getAllUsers = async (
@@ -229,6 +230,34 @@ export const getUserById = async (
     return res.status(500).json({
       success: false,
       message: "Failed to fetch user",
+    });
+  }
+};
+
+// ==================== GET ACCOUNT USAGE SUMMARY ====================
+// Count-only usage data for the Admin account details page. The service keeps
+// role-specific ownership rules out of the controller and never returns the
+// records represented by these totals.
+export const getUserUsageById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const usage = await getAdminAccountUsageSummary(req.params.id);
+
+    if (!usage) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({ success: true, data: usage });
+  } catch (error) {
+    console.error("Error fetching account usage:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch account usage",
     });
   }
 };

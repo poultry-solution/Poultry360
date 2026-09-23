@@ -11,7 +11,7 @@ import {
   getUserStatistics,
   updateUserPreferences,
 } from "../controller/userController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffAccountOwner } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 
 const userRouter = Router();
@@ -20,6 +20,9 @@ const userRouter = Router();
 userRouter.use((req, res, next) => {
   authMiddleware(req, res, next, []); // Allow all authenticated users
 });
+// Staff identities use their owner's tenant scope for farm operations, but
+// must never inherit the owner's account-administration abilities.
+userRouter.use(requireStaffAccountOwner);
 
 // ==================== USER ROUTES ====================
 

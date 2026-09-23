@@ -165,7 +165,31 @@ export const requireStaffPermission = (permission: StaffPermission) => (
   return res.status(403).json({
     code: "STAFF_PERMISSION_DENIED",
     permission,
-    message: "Your staff account is not allowed to view this financial information.",
+    message: "Your staff account is not allowed to use this part of the account.",
+  });
+};
+
+/**
+ * Lets a shared route opt a staff module into an operation without granting
+ * every staff role that route by default. Account owners are never limited by
+ * staff permissions.
+ */
+export const requireStaffPermissionForAccountRole = (
+  permissionsByRole: Partial<Record<UserRole, StaffPermission>>
+) => (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  if (req.actorType !== "STAFF") return next();
+
+  const permission = req.role ? permissionsByRole[req.role] : undefined;
+  if (permission && req.staffPermissions?.includes(permission)) return next();
+
+  return res.status(403).json({
+    code: "STAFF_PERMISSION_DENIED",
+    ...(permission ? { permission } : {}),
+    message: "Your staff account is not allowed to use this part of the account.",
   });
 };
 

@@ -10,12 +10,16 @@ import {
   getExpenseCategories,
   createExpenseCategory,
 } from "../controller/expenseController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+router.use(auditSuccessfulFarmerMutation);
 
 // ==================== EXPENSE ROUTES ====================
 // GET /api/expenses - Get all expenses with filtering

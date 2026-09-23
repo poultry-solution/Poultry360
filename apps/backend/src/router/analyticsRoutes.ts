@@ -1,5 +1,6 @@
 import express from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
 import {
   getFarmerAnalyticsOverview,
   getFarmerFinanceAnalytics,
@@ -12,6 +13,7 @@ import {
 const router = express.Router();
 
 router.use(authMiddleware);
+router.use(requireStaffPermission(StaffPermission.FARMER_VIEW_ANALYTICS));
 
 router.get("/farmer/overview", getFarmerAnalyticsOverview);
 router.get("/farmer/finance", getFarmerFinanceAnalytics);

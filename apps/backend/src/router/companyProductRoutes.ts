@@ -8,7 +8,9 @@ import {
   getCompanyProductSummary,
   adjustCompanyProductStock,
 } from "../controller/companyProductController";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
+import { StaffPermission } from "@prisma/client";
+import { auditSuccessfulCompanyMutation } from "../middelware/companyAuditMiddleware";
 
 const router = express.Router();
 
@@ -16,6 +18,8 @@ const router = express.Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, ["COMPANY"]);
 });
+router.use(requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS));
+router.use(auditSuccessfulCompanyMutation);
 
 // ==================== COMPANY PRODUCT ROUTES ====================
 // Create company product
@@ -40,4 +44,3 @@ router.delete("/:id", deleteCompanyProduct);
 router.post("/:id/adjust-stock", adjustCompanyProductStock);
 
 export default router;
-

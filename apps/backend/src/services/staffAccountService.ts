@@ -9,7 +9,7 @@ import {
 type StaffAccountModule = {
   role: UserRole;
   featureKey: AccountFeatureKey;
-  businessType: "DEALER" | "HATCHERY";
+  businessType: "DEALER" | "HATCHERY" | "FARMER" | "COMPANY";
   displayName: string;
   defaultPermissions: StaffPermission[];
   supportedPermissions: StaffPermission[];
@@ -61,6 +61,73 @@ export const STAFF_ACCOUNT_MODULES = {
       where: { ownerId },
       select: { id: true, name: true, contact: true, address: true, ownerId: true },
     }),
+  },
+  [UserRole.OWNER]: {
+    role: UserRole.OWNER,
+    featureKey: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
+    businessType: "FARMER",
+    displayName: "Farmer",
+    defaultPermissions: [StaffPermission.FARMER_MANAGE_OPERATIONS],
+    supportedPermissions: [
+      StaffPermission.FARMER_MANAGE_OPERATIONS,
+      StaffPermission.FARMER_VIEW_FINANCIAL_SUMMARIES,
+      StaffPermission.FARMER_VIEW_CASH_HISTORY,
+      StaffPermission.FARMER_VIEW_ANALYTICS,
+      StaffPermission.FARMER_VIEW_STAFF_MANAGEMENT,
+    ],
+    getBusiness: async (ownerId) => {
+      const owner = await prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { id: true, name: true, phone: true, CompanyFarmLocation: true },
+      });
+      return owner
+        ? {
+            id: owner.id,
+            name: owner.name,
+            contact: owner.phone,
+            address: owner.CompanyFarmLocation,
+            ownerId: owner.id,
+          }
+        : null;
+    },
+  },
+  [UserRole.COMPANY]: {
+    role: UserRole.COMPANY,
+    featureKey: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
+    businessType: "COMPANY",
+    displayName: "Company",
+    defaultPermissions: [StaffPermission.COMPANY_MANAGE_OPERATIONS],
+    supportedPermissions: [
+      StaffPermission.COMPANY_MANAGE_OPERATIONS,
+      StaffPermission.COMPANY_VIEW_FINANCIAL_SUMMARIES,
+      StaffPermission.COMPANY_VIEW_ANALYTICS,
+      StaffPermission.COMPANY_VIEW_STAFF_MANAGEMENT,
+    ],
+    getBusiness: async (ownerId) => {
+      const company = await prisma.company.findUnique({
+        where: { ownerId },
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          ownerId: true,
+          createdAt: true,
+          updatedAt: true,
+          owner: { select: { phone: true } },
+        },
+      });
+      return company
+        ? {
+            id: company.id,
+            name: company.name,
+            contact: company.owner.phone,
+            address: company.address,
+            ownerId: company.ownerId,
+            createdAt: company.createdAt,
+            updatedAt: company.updatedAt,
+          }
+        : null;
+    },
   },
 } as const satisfies Partial<Record<UserRole, StaffAccountModule>>;
 

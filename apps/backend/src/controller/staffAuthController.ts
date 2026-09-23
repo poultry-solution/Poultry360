@@ -50,6 +50,8 @@ function publicStaff(staff: any, business: any) {
     permissions: staff.permissions,
     ...(staff.accountRole === UserRole.DEALER ? { dealer: business } : {}),
     ...(staff.accountRole === UserRole.HATCHERY ? { hatchery: business } : {}),
+    ...(staff.accountRole === UserRole.OWNER ? { farmer: business } : {}),
+    ...(staff.accountRole === UserRole.COMPANY ? { company: business } : {}),
   };
 }
 
@@ -96,7 +98,7 @@ export const staffLogin = async (req: Request, res: Response): Promise<any> => {
   }
   try {
     const user = await publicStaffWithBusiness(staff);
-    const business = user.dealer || user.hatchery;
+    const business = user.dealer || user.hatchery || user.farmer || user.company;
     await writeAuthenticationAudit({
       accountOwnerId: staff.ownerId,
       actorId: staff.id,

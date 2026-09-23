@@ -22,7 +22,7 @@ router.post("/logout", authMiddleware, (req, res, next) => {
 router.get("/@me", getStaffInfo);
 router.get("/validate", validateStaffToken);
 
-router.use("/users", (req, res, next) => authMiddleware(req, res, next, [UserRole.DEALER, UserRole.HATCHERY]));
+router.use("/users", (req, res, next) => authMiddleware(req, res, next, [UserRole.OWNER, UserRole.DEALER, UserRole.HATCHERY, UserRole.COMPANY]));
 router.use("/users", requireStaffAccountOwner);
 router.get("/users", listStaffUsers);
 router.post("/users", createStaffUser);

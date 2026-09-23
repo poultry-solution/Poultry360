@@ -5,6 +5,7 @@ import prisma from "../../src/utils/prisma";
 
 const FEATURE_KEY = "DEALER_STAFF_OPERATIONS";
 const HATCHERY_FEATURE_KEY = "HATCHERY_STAFF_OPERATIONS";
+const FARMER_FEATURE_KEY = "FARMER_STAFF_OPERATIONS";
 const TEST_PASSWORD = "password123";
 const TEST_ACCOUNTS = {
   admin: "+9779800000881",
@@ -14,6 +15,9 @@ const TEST_ACCOUNTS = {
   managedStaff: "+9779800000885",
   hatchery: "+9779800000886",
   hatcheryStaff: "+9779800000887",
+  farmerStaff: "+9779800000888",
+  company: "+9779800000889",
+  companyStaff: "+9779800000890",
 };
 
 describe("Account feature API", () => {
@@ -25,10 +29,13 @@ describe("Account feature API", () => {
   let managedStaffId: string;
   let hatcheryId: string;
   let hatcheryStaffId: string;
+  let farmerStaffId: string;
+  let companyId: string;
+  let companyStaffId: string;
 
   beforeAll(async () => {
     const password = await bcrypt.hash(TEST_PASSWORD, 10);
-    const [admin, hatchery, dealer, farmer, otherDealer] = await Promise.all([
+    const [admin, hatchery, dealer, farmer, otherDealer, company] = await Promise.all([
       prisma.user.upsert({
         where: { phone: TEST_ACCOUNTS.admin },
         update: { password, role: UserRole.SUPER_ADMIN, status: "ACTIVE" },
@@ -79,6 +86,16 @@ describe("Account feature API", () => {
           role: UserRole.DEALER,
         },
       }),
+      prisma.user.upsert({
+        where: { phone: TEST_ACCOUNTS.company },
+        update: { password, role: UserRole.COMPANY, status: "ACTIVE" },
+        create: {
+          phone: TEST_ACCOUNTS.company,
+          password,
+          name: "Account Feature Test Company Owner",
+          role: UserRole.COMPANY,
+        },
+      }),
     ]);
 
     adminId = admin.id;
@@ -86,8 +103,9 @@ describe("Account feature API", () => {
     farmerId = farmer.id;
     otherDealerId = otherDealer.id;
     hatcheryId = hatchery.id;
+    companyId = company.id;
     await prisma.accountFeature.deleteMany({
-      where: { accountId: { in: [dealerId, farmerId, hatcheryId] } },
+      where: { accountId: { in: [dealerId, farmerId, hatcheryId, companyId] } },
     });
 
     const dealerBusiness = await prisma.dealer.upsert({
@@ -133,10 +151,56 @@ describe("Account feature API", () => {
       },
     });
     hatcheryStaffId = hatcheryStaff.id;
+    const farmerStaff = await prisma.staffUser.upsert({
+      where: { phone: TEST_ACCOUNTS.farmerStaff },
+      update: {
+        ownerId: farmerId,
+        accountRole: UserRole.OWNER,
+        passwordHash: password,
+        isActive: true,
+        permissions: ["FARMER_MANAGE_OPERATIONS"],
+      },
+      create: {
+        ownerId: farmerId,
+        accountRole: UserRole.OWNER,
+        name: "Account Feature Farmer Staff",
+        phone: TEST_ACCOUNTS.farmerStaff,
+        passwordHash: password,
+        permissions: ["FARMER_MANAGE_OPERATIONS"],
+      },
+    });
+    farmerStaffId = farmerStaff.id;
+    await prisma.company.upsert({
+      where: { ownerId: companyId },
+      update: { name: "Account Feature Test Company" },
+      create: {
+        ownerId: companyId,
+        name: "Account Feature Test Company",
+      },
+    });
+    const companyStaff = await prisma.staffUser.upsert({
+      where: { phone: TEST_ACCOUNTS.companyStaff },
+      update: {
+        ownerId: companyId,
+        accountRole: UserRole.COMPANY,
+        passwordHash: password,
+        isActive: true,
+        permissions: ["COMPANY_MANAGE_OPERATIONS"],
+      },
+      create: {
+        ownerId: companyId,
+        accountRole: UserRole.COMPANY,
+        name: "Account Feature Company Staff",
+        phone: TEST_ACCOUNTS.companyStaff,
+        passwordHash: password,
+        permissions: ["COMPANY_MANAGE_OPERATIONS"],
+      },
+    });
+    companyStaffId = companyStaff.id;
   });
 
   afterAll(async () => {
-    const accountIds = [adminId, dealerId, farmerId, otherDealerId, hatcheryId].filter(Boolean);
+    const accountIds = [adminId, dealerId, farmerId, otherDealerId, hatcheryId, companyId].filter(Boolean);
     if (accountIds.length === 0) return;
 
     await prisma.businessAuditLog.deleteMany({
@@ -156,8 +220,15 @@ describe("Account feature API", () => {
     if (hatcheryStaffId) {
       await prisma.staffUser.deleteMany({ where: { id: hatcheryStaffId } });
     }
+    if (farmerStaffId) {
+      await prisma.staffUser.deleteMany({ where: { id: farmerStaffId } });
+    }
+    if (companyStaffId) {
+      await prisma.staffUser.deleteMany({ where: { id: companyStaffId } });
+    }
     await prisma.dealer.deleteMany({ where: { ownerId: dealerId } });
     await prisma.hatcheryBusiness.deleteMany({ where: { ownerId: hatcheryId } });
+    await prisma.company.deleteMany({ where: { ownerId: companyId } });
     await prisma.user.deleteMany({ where: { id: { in: accountIds } } });
   });
 
@@ -170,10 +241,10 @@ describe("Account feature API", () => {
     apiHelper.setAuthToken(response.body.accessToken);
   }
 
-  async function waitForAudit(action: string) {
+  async function waitForAudit(action: string, accountOwnerId = hatcheryId) {
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const audit = await prisma.businessAuditLog.findFirst({
-        where: { accountOwnerId: hatcheryId, action },
+        where: { accountOwnerId, action },
         orderBy: { createdAt: "desc" },
       });
       if (audit) return audit;
@@ -204,6 +275,112 @@ describe("Account feature API", () => {
         expect.objectContaining({ key: HATCHERY_FEATURE_KEY, enabled: true }),
       ])
     );
+  });
+
+  it("resolves Farmer Staff Operations as enabled by default for a Farmer", async () => {
+    await login(TEST_ACCOUNTS.farmer);
+    const response = await apiHelper.get("/account-features");
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: FARMER_FEATURE_KEY, enabled: true }),
+      ])
+    );
+  });
+
+  it("resolves Company Staff Operations as enabled by default for a Company", async () => {
+    await login(TEST_ACCOUNTS.company);
+    const response = await apiHelper.get("/account-features");
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "COMPANY_STAFF_OPERATIONS", enabled: true }),
+      ])
+    );
+  });
+
+  it("authenticates a Farmer staff identity with access to daily farm operations only", async () => {
+    const response = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.farmerStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.user).toMatchObject({
+      role: UserRole.OWNER,
+      isStaff: true,
+      farmer: expect.objectContaining({ ownerId: farmerId }),
+      permissions: ["FARMER_MANAGE_OPERATIONS"],
+    });
+
+    apiHelper.setAuthToken(response.body.accessToken);
+    expect((await apiHelper.get("/farms/my-farms")).status).toBe(200);
+    expect((await apiHelper.get("/dealers")).status).toBe(200);
+    expect((await apiHelper.get("/sales")).status).toBe(200);
+    expect((await apiHelper.get("/expenses")).status).toBe(200);
+    expect((await apiHelper.get("/conversations")).status).toBe(200);
+    expect((await apiHelper.get("/dashboard/overview")).status).toBe(403);
+    expect((await apiHelper.get("/analytics/farmer/overview")).status).toBe(403);
+  });
+
+  it("authenticates a Company staff identity with access to daily Company operations only", async () => {
+    const response = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.companyStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.user).toMatchObject({
+      role: UserRole.COMPANY,
+      isStaff: true,
+      company: expect.objectContaining({ ownerId: companyId }),
+      permissions: ["COMPANY_MANAGE_OPERATIONS"],
+    });
+
+    apiHelper.setAuthToken(response.body.accessToken);
+    expect((await apiHelper.get("/company/products")).status).toBe(200);
+    expect((await apiHelper.get("/company/suppliers")).status).toBe(200);
+    expect((await apiHelper.get("/company/sales")).status).toBe(200);
+    expect((await apiHelper.get("/company/dealers/accounts")).status).toBe(200);
+    expect((await apiHelper.get("/company/ledger/summary")).status).toBe(403);
+    expect((await apiHelper.get("/company/analytics")).status).toBe(403);
+    expect((await apiHelper.get("/business-activity")).status).toBe(403);
+    expect((await apiHelper.get("/notifications")).status).toBe(403);
+  });
+
+  it("writes Dealer payroll changes to the account activity feed", async () => {
+    await login(TEST_ACCOUNTS.dealer);
+    const staff = await apiHelper.post("/dealer/staff", {
+      name: "Account Feature Dealer Payroll Staff",
+      startDate: "2026-09-01",
+      monthlySalary: 25000,
+    });
+    expect(staff.status).toBe(201);
+
+    const audit = await waitForAudit("dealer.payroll.staff.created", dealerId);
+    expect(audit).toMatchObject({
+      description: "Added a payroll staff member",
+      targetType: "Dealer payroll staff",
+    });
+  });
+
+  it("requires the Company staff salary permission for payroll records", async () => {
+    const staffLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.companyStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(staffLogin.status).toBe(200);
+    apiHelper.setAuthToken(staffLogin.body.accessToken);
+    expect((await apiHelper.get("/company/staff")).status).toBe(403);
+
+    await prisma.staffUser.update({
+      where: { id: companyStaffId },
+      data: { permissions: ["COMPANY_MANAGE_OPERATIONS", "COMPANY_VIEW_STAFF_MANAGEMENT"] },
+    });
+    expect((await apiHelper.get("/company/staff")).status).toBe(200);
+
+    await prisma.staffUser.update({
+      where: { id: companyStaffId },
+      data: { permissions: ["COMPANY_MANAGE_OPERATIONS"] },
+    });
   });
 
   it("authenticates a Hatchery staff identity under the Hatchery role", async () => {
@@ -296,6 +473,147 @@ describe("Account feature API", () => {
     );
     expect(enabled.status).toBe(200);
     expect(enabled.body.data).toMatchObject({ key: HATCHERY_FEATURE_KEY, enabled: true });
+  });
+
+  it("returns count-only, account-scoped usage totals to Super Admin", async () => {
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: dealerId },
+      select: { id: true },
+    });
+    expect(dealer).toBeTruthy();
+
+    const suffix = Date.now();
+    await prisma.dealerManualCompany.createMany({
+      data: [
+        {
+          dealerId: dealer!.id,
+          name: `Account Usage Historic Company ${suffix}`,
+          createdAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+        },
+        {
+          dealerId: dealer!.id,
+          name: `Account Usage Recent Company ${suffix}`,
+        },
+      ],
+    });
+
+    await login(TEST_ACCOUNTS.farmer);
+    expect((await apiHelper.get(`/admin/users/${dealerId}/usage`)).status).toBe(403);
+
+    await login(TEST_ACCOUNTS.admin);
+    const response = await apiHelper.get(`/admin/users/${dealerId}/usage`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      accountId: dealerId,
+      role: UserRole.DEALER,
+    });
+    expect(response.body.data).not.toHaveProperty("records");
+    const companyRecords = response.body.data.metrics.find(
+      (usageMetric: { key: string }) => usageMetric.key === "company_records"
+    );
+    expect(companyRecords).toMatchObject({
+      label: "Company records",
+      total: expect.any(Number),
+      last30Days: expect.any(Number),
+    });
+    expect(companyRecords.total).toBeGreaterThanOrEqual(2);
+    expect(companyRecords.last30Days).toBeGreaterThanOrEqual(1);
+
+    expect((await apiHelper.get("/admin/users/missing-account/usage")).status).toBe(404);
+  });
+
+  it("blocks new and active Farmer staff sessions while Farmer Staff Operations is off", async () => {
+    const staffLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.farmerStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(staffLogin.status).toBe(200);
+    const existingStaffToken = staffLogin.body.accessToken;
+
+    await login(TEST_ACCOUNTS.admin);
+    const disabled = await apiHelper.put(
+      `/admin/users/${farmerId}/features/${FARMER_FEATURE_KEY}`,
+      { enabled: false }
+    );
+    expect(disabled.status).toBe(200);
+
+    const blockedLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.farmerStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe("STAFF_OPERATIONS_DISABLED");
+
+    apiHelper.setAuthToken(existingStaffToken);
+    const blockedExistingSession = await apiHelper.get("/farms/my-farms");
+    expect(blockedExistingSession.status).toBe(403);
+    expect(blockedExistingSession.body.code).toBe("STAFF_OPERATIONS_DISABLED");
+
+    await login(TEST_ACCOUNTS.admin);
+    const enabled = await apiHelper.put(
+      `/admin/users/${farmerId}/features/${FARMER_FEATURE_KEY}`,
+      { enabled: true }
+    );
+    expect(enabled.status).toBe(200);
+  });
+
+  it("blocks new and active Company staff sessions while Company Staff Operations is off", async () => {
+    const staffLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.companyStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(staffLogin.status).toBe(200);
+    const existingStaffToken = staffLogin.body.accessToken;
+
+    await login(TEST_ACCOUNTS.admin);
+    const disabled = await apiHelper.put(
+      `/admin/users/${companyId}/features/COMPANY_STAFF_OPERATIONS`,
+      { enabled: false }
+    );
+    expect(disabled.status).toBe(200);
+
+    const blockedLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.companyStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe("STAFF_OPERATIONS_DISABLED");
+
+    apiHelper.setAuthToken(existingStaffToken);
+    const blockedExistingSession = await apiHelper.get("/company/products");
+    expect(blockedExistingSession.status).toBe(403);
+    expect(blockedExistingSession.body.code).toBe("STAFF_OPERATIONS_DISABLED");
+
+    await login(TEST_ACCOUNTS.admin);
+    const enabled = await apiHelper.put(
+      `/admin/users/${companyId}/features/COMPANY_STAFF_OPERATIONS`,
+      { enabled: true }
+    );
+    expect(enabled.status).toBe(200);
+  });
+
+  it("writes Company mutation activity and exposes it through the shared account feed", async () => {
+    await login(TEST_ACCOUNTS.company);
+    const rawMaterial = await apiHelper.post("/company/raw-materials", {
+      name: `Account Feature Company Material ${Date.now()}`,
+      unit: "KG",
+    });
+    expect(rawMaterial.status).toBe(201);
+    const audit = await waitForAudit("company.raw-materials.created", companyId);
+    expect(audit).toMatchObject({
+      description: "Added a raw material",
+      targetType: "Company raw material",
+    });
+
+    const activity = await apiHelper.get("/business-activity");
+    expect(activity.status).toBe(200);
+    expect(activity.body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: "company.raw-materials.created",
+        actorId: companyId,
+      }),
+    ]));
   });
 
   it("writes Hatchery mutation activity and exposes it through the shared account feed", async () => {

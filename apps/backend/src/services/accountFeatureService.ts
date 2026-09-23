@@ -5,6 +5,8 @@ export const ACCOUNT_FEATURE_KEYS = {
   SELF_FEED_PRODUCTION: "SELF_FEED_PRODUCTION",
   DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
   HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
+  FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
+  COMPANY_STAFF_OPERATIONS: "COMPANY_STAFF_OPERATIONS",
 } as const;
 
 export type AccountFeatureKey =
@@ -44,6 +46,22 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     description:
       "Manage payroll staff, staff login access, and owner-visible business activity history.",
     applicableRoles: [UserRole.HATCHERY],
+    defaultEnabled: true,
+  },
+  FARMER_STAFF_OPERATIONS: {
+    key: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
+    name: "Farmer Staff Operations",
+    description:
+      "Manage payroll staff, staff login access, and owner-visible activity history across Broiler and Layer workflows.",
+    applicableRoles: [UserRole.OWNER],
+    defaultEnabled: true,
+  },
+  COMPANY_STAFF_OPERATIONS: {
+    key: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
+    name: "Company Staff Operations",
+    description:
+      "Manage payroll staff, staff login access, and owner-visible Company activity history.",
+    applicableRoles: [UserRole.COMPANY],
     defaultEnabled: true,
   },
 };

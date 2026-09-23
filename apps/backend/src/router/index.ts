@@ -98,6 +98,7 @@ router.use("/company/purchases", companyPurchaseRoutes);
 router.use("/company/production", companyProductionRoutes);
 router.use("/company/ledger", companyLedgerRoutes);
 router.use("/company/analytics", companyAnalyticsRoutes);
+router.use("/company/staff", staffRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/egg-inventory", eggInventoryRoutes);
 router.use("/egg-types", eggTypeRoutes);
