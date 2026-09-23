@@ -323,6 +323,7 @@ export interface HatcheryAnalyticsSalesResponse {
 
 export const hatcheryAnalyticsKeys = {
   all: ["hatchery-analytics"] as const,
+  today: () => [...hatcheryAnalyticsKeys.all, "today"] as const,
   overview: (params: HatcheryAnalyticsOverviewParams) =>
     [...hatcheryAnalyticsKeys.all, "overview", params] as const,
   batches: (params: HatcheryAnalyticsOverviewParams & { page: number; limit: number }) =>
@@ -457,6 +458,31 @@ export function useGetHatcheryAnalyticsSales(
       const { data } = await axiosInstance.get<{ success: boolean; data: HatcheryAnalyticsSalesResponse }>(
         `/hatchery/analytics/sales${suffix}`
       );
+      return data.data;
+    },
+  });
+}
+
+
+export interface HatcheryTodaySummary {
+  /** AD date (YYYY-MM-DD) the totals cover, resolved in Nepal time server-side. */
+  date: string;
+  eggProduction: number;
+  chickSalesRevenue: number;
+}
+
+/**
+ * Today's egg production and chick sales revenue, aggregated server-side.
+ * One request regardless of how many batches or incubations exist.
+ */
+export function useHatcheryTodaySummary() {
+  return useQuery({
+    queryKey: hatcheryAnalyticsKeys.today(),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{
+        success: boolean;
+        data: HatcheryTodaySummary;
+      }>("/hatchery/analytics/today");
       return data.data;
     },
   });

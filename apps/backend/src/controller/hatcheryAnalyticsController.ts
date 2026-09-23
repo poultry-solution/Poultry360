@@ -33,6 +33,36 @@ function money(value: unknown) {
   return Number(value ?? 0);
 }
 
+// Nepal is UTC+05:45. Record dates arrive as "YYYY-MM-DD" and are stored as
+// UTC midnight, so "today" must be resolved to that same UTC-midnight key.
+const NEPAL_OFFSET_MS = 5.75 * 60 * 60 * 1000;
+
+/**
+ * The UTC-midnight day boundaries matching the calendar day currently in
+ * progress in Nepal, or an explicit "YYYY-MM-DD" AD date when supplied.
+ */
+function nepalDayRange(explicitDate?: string): { start: Date; end: Date; date: string } {
+  let year: number;
+  let month: number;
+  let day: number;
+
+  const match = explicitDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    year = Number(match[1]);
+    month = Number(match[2]) - 1;
+    day = Number(match[3]);
+  } else {
+    const nepalNow = new Date(Date.now() + NEPAL_OFFSET_MS);
+    year = nepalNow.getUTCFullYear();
+    month = nepalNow.getUTCMonth();
+    day = nepalNow.getUTCDate();
+  }
+
+  const start = new Date(Date.UTC(year, month, day));
+  const end = new Date(Date.UTC(year, month, day + 1));
+  return { start, end, date: start.toISOString().slice(0, 10) };
+}
+
 function buildRange(startDate?: string, endDate?: string, period = "30") {
   const today = new Date();
   const end = endDate ? endOfDay(toDateOnly(endDate) ?? today) : endOfDay(today);
@@ -1565,6 +1595,58 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: err.message || "Failed to fetch hatchery analytics sales",
+    });
+  }
+}
+
+
+/**
+ * Today's egg production and chick sales revenue for the whole hatchery.
+ *
+ * Replaces a client-side fan-out that issued one request per parent batch and
+ * one per incubation, then filtered in the browser. Two aggregate queries here
+ * transfer no rows at all and stay flat as the hatchery grows.
+ */
+export async function getHatcheryTodaySummary(req: Request, res: Response) {
+  try {
+    const ownerId = getOwnerId(req);
+    const { date } = req.query as Record<string, string>;
+    const { start, end, date: resolvedDate } = nepalDayRange(date);
+
+    const [eggAgg, chickAgg] = await Promise.all([
+      prisma.hatcheryEggProductionLine.aggregate({
+        where: {
+          production: {
+            date: { gte: start, lt: end },
+            batch: { hatcheryOwnerId: ownerId },
+          },
+        },
+        _sum: { count: true },
+      }),
+      prisma.hatcheryChickSale.aggregate({
+        where: {
+          date: { gte: start, lt: end },
+          incubationBatch: { hatcheryOwnerId: ownerId },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        // AD date the totals cover; the client renders the BS label from this
+        // so the label can never disagree with what was counted.
+        date: resolvedDate,
+        eggProduction: Number(eggAgg._sum.count ?? 0),
+        chickSalesRevenue: money(chickAgg._sum.amount),
+      },
+    });
+  } catch (err: any) {
+    console.error("Get hatchery today summary error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Failed to fetch hatchery today summary",
     });
   }
 }

@@ -182,7 +182,10 @@ async function seedDemoHatchery(): Promise<void> {
           unitPrice: 60,
           effectiveUnitCost: 60,
           currentStock: 0, // 400 paid - 400 placed
-          minStock: 20,
+          // No reorder threshold: males are bought once per flock cycle, not
+          // restocked continuously, so a standing low-stock alert at 0 would
+          // be permanent noise.
+          minStock: 0,
         },
         {
           key: "ross-parents-female",
@@ -206,7 +209,8 @@ async function seedDemoHatchery(): Promise<void> {
           unitPrice: 58,
           effectiveUnitCost: 58,
           currentStock: 0, // 100 paid - 100 placed
-          minStock: 15,
+          minStock: 0, // see note on the Cobb male lot above
+
         },
         {
           key: "grower-feed",
