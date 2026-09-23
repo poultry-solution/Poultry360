@@ -824,6 +824,13 @@ export async function listHatcheryExpenses(req: Request, res: Response) {
       where.category = { equals: categoryFilter, mode: "insensitive" };
     }
 
+    // The male/female split only means anything for feed, so it is computed
+    // only when a feed category is actually selected — skipping the query
+    // entirely on every other view. Reuses the same set the expense validator
+    // uses, so "feed" can never mean one thing here and another there.
+    const isFeedScope =
+      !!categoryFilter && FEED_EXPENSE_CATEGORIES.has(categoryFilter.toUpperCase());
+
     const [expenses, grouped, feedRows] = await Promise.all([
       prisma.hatcheryBatchExpense.findMany({
         where,
@@ -848,18 +855,20 @@ export async function listHatcheryExpenses(req: Request, res: Response) {
       }),
       // Scoped to the same `where` as the rows, so the breakdown always
       // describes exactly what is on screen.
-      prisma.hatcheryBatchExpense.findMany({
-        where: { ...where, feedTarget: { not: null } },
-        select: {
-          quantity: true,
-          unit: true,
-          amount: true,
-          unitPrice: true,
-          feedTarget: true,
-          maleFeedQuantity: true,
-          femaleFeedQuantity: true,
-        },
-      }),
+      isFeedScope
+        ? prisma.hatcheryBatchExpense.findMany({
+            where: { ...where, feedTarget: { not: null } },
+            select: {
+              quantity: true,
+              unit: true,
+              amount: true,
+              unitPrice: true,
+              feedTarget: true,
+              maleFeedQuantity: true,
+              femaleFeedQuantity: true,
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
     // Fold on upper case so a stray "feed" and "FEED" collapse into one bucket.

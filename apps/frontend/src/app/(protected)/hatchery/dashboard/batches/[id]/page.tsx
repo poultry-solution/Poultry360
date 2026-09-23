@@ -808,7 +808,6 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       : null;
 
   const expenses = expenseRes?.expenses ?? [];
-  const totalExpenses = Number(expenseRes?.summary.totalExpenses ?? 0);
   const filteredExpenses = Number(expenseRes?.summary.filteredExpenses ?? 0);
   const byCategory = expenseRes?.summary.byCategory ?? [];
   const feedBySex = expenseRes?.summary.feedBySex ?? null;
@@ -987,7 +986,8 @@ function ExpensesTab({ batchId }: { batchId: string }) {
 
   return (
     <div className="space-y-4">
-      <StatCard label="Total Expenses" value={fmtNPR(totalExpenses)} variant="primary" />
+      {/* Total lives in the table footer now, where it follows the category
+          filter. A separate card would only duplicate it and go stale. */}
 
       {/* Add Form */}
       <div className="bg-white border rounded-xl p-4 space-y-3">
@@ -1167,11 +1167,11 @@ function ExpensesTab({ batchId }: { batchId: string }) {
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
-              <option value={ALL_CATEGORIES}>All — {fmtNPR(totalExpenses)}</option>
+              <option value={ALL_CATEGORIES}>All</option>
               {/* Built from the data, so custom categories appear on their own. */}
               {byCategory.map((row) => (
                 <option key={row.category} value={row.category}>
-                  {expenseCategoryLabel(row.category)} — {fmtNPR(row.amount)}
+                  {expenseCategoryLabel(row.category)}
                 </option>
               ))}
             </select>
