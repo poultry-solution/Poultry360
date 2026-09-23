@@ -45,6 +45,7 @@ import {
   type HatcheryBatchExpense,
   type HatcheryEggSale,
   type HatcheryParentSale,
+  type HatcheryFeedTarget,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import {
   useGetHatcheryInventory,
@@ -76,19 +77,6 @@ function fmtNPR(n: number | string) {
 
 function today() {
   return new Date().toISOString().split("T")[0];
-}
-
-/** Inclusive calendar days from batch start through end date (or today if still active). Minimum 1. */
-function hatcheryBatchProductionDays(
-  startDate: string,
-  endDate: string | null | undefined
-): number {
-  const s = new Date(startDate);
-  const e = endDate ? new Date(endDate) : new Date();
-  const utcS = Date.UTC(s.getFullYear(), s.getMonth(), s.getDate());
-  const utcE = Date.UTC(e.getFullYear(), e.getMonth(), e.getDate());
-  const diffDays = Math.floor((utcE - utcS) / 86400000) + 1;
-  return Math.max(1, diffDays);
 }
 
 function isInitialPlacementExpense(expense: HatcheryBatchExpense) {
@@ -273,10 +261,22 @@ export default function HatcheryBatchDetailPage() {
       {/* Tab Content */}
       {activeTab === "overview" && <OverviewTab batch={batch} />}
       {activeTab === "expenses" && <ExpensesTab batchId={id} />}
-      {activeTab === "mortality" && <MortalityTab batchId={id} currentParents={batch.currentParents ?? 0} />}
+      {activeTab === "mortality" && (
+        <MortalityTab
+          batchId={id}
+          currentMale={batch.currentMaleParents ?? 0}
+          currentFemale={batch.currentFemaleParents ?? 0}
+        />
+      )}
       {activeTab === "egg-production" && <EggProductionTab batchId={id} batch={batch} />}
       {activeTab === "egg-stock" && <EggStockTab batch={batch} />}
-      {activeTab === "sales" && <SalesTab batchId={id} currentParents={batch.currentParents ?? 0} />}
+      {activeTab === "sales" && (
+        <SalesTab
+          batchId={id}
+          currentMale={batch.currentMaleParents ?? 0}
+          currentFemale={batch.currentFemaleParents ?? 0}
+        />
+      )}
     </div>
   );
 }
@@ -287,11 +287,26 @@ function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
   const snapshot = batch.summary?.businessSnapshot;
   const costEngine = batch.summary?.costEngine;
 
+  const currentFemale = batch.currentFemaleParents ?? 0;
+  const currentMale = batch.currentMaleParents ?? 0;
+  // Industry convention: males per 100 females.
+  const sexRatio =
+    currentFemale > 0
+      ? `${(Math.round((currentMale / currentFemale) * 1000) / 10).toFixed(1)} : 100`
+      : "—";
+
   return (
     <div className="space-y-4">
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Initial Birds" value={batch.initialParents?.toLocaleString() ?? "—"} />
         <StatCard label="Current Birds" value={batch.currentParents?.toLocaleString() ?? "—"} />
+        <StatCard label="Current Female" value={currentFemale.toLocaleString()} />
+        <StatCard label="Current Male" value={currentMale.toLocaleString()} />
+        <StatCard label="Sex Ratio (M : 100 F)" value={sexRatio} />
+        <StatCard
+          label="Initial F / M"
+          value={`${(batch.initialFemaleParents ?? 0).toLocaleString()} / ${(batch.initialMaleParents ?? 0).toLocaleString()}`}
+        />
         <StatCard
           label="Total Mortality"
           value={batch.summary?.totalMortality?.toLocaleString() ?? "0"}
@@ -484,10 +499,12 @@ function StatCard({
 
 function MortalityTab({
   batchId,
-  currentParents,
+  currentMale,
+  currentFemale,
 }: {
   batchId: string;
-  currentParents: number;
+  currentMale: number;
+  currentFemale: number;
 }) {
   const [page, setPage] = useState(1);
   const { data: mortalityRes, isLoading } = useHatcheryMortalities(batchId, { page, limit: 10 });
@@ -495,10 +512,16 @@ function MortalityTab({
   const deleteMutation = useDeleteHatcheryMortality(batchId);
 
   const [date, setDate] = useState(today());
-  const [count, setCount] = useState("");
+  const [maleCount, setMaleCount] = useState("");
+  const [femaleCount, setFemaleCount] = useState("");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Total is derived, never typed.
+  const male = parseInt(maleCount || "0", 10) || 0;
+  const female = parseInt(femaleCount || "0", 10) || 0;
+  const totalEntered = male + female;
 
   const mortalities = mortalityRes?.mortalities ?? [];
   const totalMortality = Number(mortalityRes?.summary.totalMortality ?? 0);
@@ -515,10 +538,27 @@ function MortalityTab({
 
   async function handleAdd() {
     setFormError(null);
-    if (!date || !count) return;
+    if (!date) return;
+    if (totalEntered <= 0) {
+      setFormError("Enter at least one male or female death");
+      return;
+    }
+    // Server enforces this too, at the database; this is just a faster message.
+    if (male > currentMale || female > currentFemale) {
+      setFormError(
+        `Only ${currentFemale.toLocaleString()} female and ${currentMale.toLocaleString()} male birds remain`
+      );
+      return;
+    }
     try {
-      await addMutation.mutateAsync({ date, count: parseInt(count), note: note || undefined });
-      setCount("");
+      await addMutation.mutateAsync({
+        date,
+        maleCount: male,
+        femaleCount: female,
+        note: note || undefined,
+      });
+      setMaleCount("");
+      setFemaleCount("");
       setNote("");
     } catch (err: any) {
       setFormError(err?.response?.data?.error ?? "Failed to add mortality");
@@ -531,7 +571,19 @@ function MortalityTab({
       label: "Date",
       render: (_, row) => <DateDisplay date={row.date} />,
     },
-    { key: "count", label: "Deaths", align: "right", render: (_, row) => <span className="font-bold text-red-600">{row.count}</span> },
+    {
+      key: "count",
+      label: "Deaths",
+      align: "right",
+      render: (_, row) => (
+        <div className="leading-tight">
+          <span className="font-bold text-red-600">{row.count}</span>
+          <p className="text-[11px] text-gray-500">
+            {row.femaleCount}F · {row.maleCount}M
+          </p>
+        </div>
+      ),
+    },
     { key: "note", label: "Note", render: (_, row) => <span className="text-gray-500 text-sm">{row.note ?? "—"}</span> },
     {
       key: "__actions",
@@ -571,7 +623,10 @@ function MortalityTab({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Total Deaths" value={totalMortality.toLocaleString()} variant="danger" />
-        <StatCard label="Current Birds" value={currentParents.toLocaleString()} />
+        <StatCard
+          label="Live Birds (F / M)"
+          value={`${currentFemale.toLocaleString()} / ${currentMale.toLocaleString()}`}
+        />
       </div>
 
       {/* Add form */}
@@ -582,19 +637,35 @@ function MortalityTab({
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
           <Input
             type="number"
-            min="1"
-            placeholder="Deaths"
-            value={count}
-            onChange={(e) => setCount(e.target.value)}
+            min="0"
+            max={currentFemale}
+            placeholder="Female"
+            value={femaleCount}
+            onChange={(e) => setFemaleCount(e.target.value)}
             className="w-28"
           />
+          <Input
+            type="number"
+            min="0"
+            max={currentMale}
+            placeholder="Male"
+            value={maleCount}
+            onChange={(e) => setMaleCount(e.target.value)}
+            className="w-28"
+          />
+          <div className="flex items-center px-2 text-sm text-gray-600">
+            Total:{" "}
+            <span className="ml-1 font-semibold text-gray-900">
+              {totalEntered.toLocaleString()}
+            </span>
+          </div>
           <Input
             placeholder="Note (optional)"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="flex-1 min-w-40"
           />
-          <Button onClick={handleAdd} disabled={addMutation.isPending || !count}>
+          <Button onClick={handleAdd} disabled={addMutation.isPending || totalEntered <= 0}>
             {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Add
           </Button>
@@ -657,6 +728,15 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Feed attribution. Feed is still PURCHASED as one total stock; this only
+  // records which parent group consumed it.
+  const [feedTarget, setFeedTarget] = useState<HatcheryFeedTarget>("BOTH");
+  const [maleFeedQty, setMaleFeedQty] = useState("");
+  const [femaleFeedQty, setFemaleFeedQty] = useState("");
+  const isFeedCategory =
+    inventoryCategory === "FEED" || inventoryCategory === "SELF_MADE";
+  const showFeedSplit = isFeedCategory && feedTarget === "BOTH";
+
   const filteredInventoryItems = useMemo<HatcheryInventoryItem[]>(
     () =>
       ((inventoryRes?.data ?? []) as HatcheryInventoryItem[]).filter(
@@ -689,12 +769,30 @@ function ExpensesTab({ batchId }: { batchId: string }) {
     setFormError(null);
     try {
       if (expenseType === "INVENTORY") {
+        const hasSplit = showFeedSplit && (maleFeedQty !== "" || femaleFeedQty !== "");
+        if (hasSplit) {
+          const male = Number(maleFeedQty || 0);
+          const female = Number(femaleFeedQty || 0);
+          if (Math.abs(male + female - Number(quantity)) > 0.0001) {
+            setFormError(
+              `Male + female feed (${male + female}) must equal the total quantity (${Number(quantity)})`
+            );
+            return;
+          }
+        }
         await addMutation.mutateAsync({
           date,
           type: "INVENTORY",
           category: inventoryCategory,
           inventoryItemId,
           quantity: Number(quantity),
+          ...(isFeedCategory ? { feedTarget } : {}),
+          ...(hasSplit
+            ? {
+                maleFeedQuantity: Number(maleFeedQty || 0),
+                femaleFeedQuantity: Number(femaleFeedQty || 0),
+              }
+            : {}),
         });
       } else {
         await addMutation.mutateAsync({
@@ -712,6 +810,8 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       // Reset
       setInventoryItemId("");
       setQuantity("");
+      setMaleFeedQty("");
+      setFemaleFeedQty("");
       setItemName("");
       setUnit("");
       setUnitPrice("");
@@ -743,6 +843,18 @@ function ExpensesTab({ batchId }: { batchId: string }) {
             {row.category}
           </Badge>
           <span className="text-xs text-gray-500 mt-0.5">{row.itemName}</span>
+          {row.feedTarget && (
+            <span className="text-[11px] text-gray-500">
+              Fed to:{" "}
+              {row.feedTarget === "BOTH"
+                ? row.femaleFeedQuantity != null && row.maleFeedQuantity != null
+                  ? `${Number(row.femaleFeedQuantity)}F / ${Number(row.maleFeedQuantity)}M`
+                  : "both"
+                : row.feedTarget === "FEMALE"
+                  ? "female"
+                  : "male"}
+            </span>
+          )}
         </div>
       ),
     },
@@ -840,6 +952,23 @@ function ExpensesTab({ batchId }: { batchId: string }) {
             </select>
           )}
 
+          {/* Feed is bought as one total stock; only consumption is attributed. */}
+          {expenseType === "INVENTORY" && isFeedCategory && (
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+              value={feedTarget}
+              onChange={(e) => {
+                setFeedTarget(e.target.value as HatcheryFeedTarget);
+                setMaleFeedQty("");
+                setFemaleFeedQty("");
+              }}
+            >
+              <option value="BOTH">Fed to: Both</option>
+              <option value="FEMALE">Fed to: Female only</option>
+              <option value="MALE">Fed to: Male only</option>
+            </select>
+          )}
+
           {expenseType === "INVENTORY" ? (
             <>
               <div className="flex-1 min-w-48">
@@ -867,6 +996,30 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 onChange={(e) => setQuantity(e.target.value)}
                 className="w-28"
               />
+              {/* Optional split — many hatcheries feed both groups together and
+                  leave this blank. Stock is deducted once on the total either way. */}
+              {showFeedSplit && (
+                <>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Female qty (opt.)"
+                    value={femaleFeedQty}
+                    onChange={(e) => setFemaleFeedQty(e.target.value)}
+                    className="w-32"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Male qty (opt.)"
+                    value={maleFeedQty}
+                    onChange={(e) => setMaleFeedQty(e.target.value)}
+                    className="w-32"
+                  />
+                </>
+              )}
               {computedAmount !== null && (
                 <span className="flex items-center text-sm font-medium text-gray-700 px-2">
                   = {fmtNPR(computedAmount)}
@@ -1007,16 +1160,15 @@ function EggProductionTab({
     }
   }
 
-  const productionDays = hatcheryBatchProductionDays(batch.startDate, batch.endDate);
-  const currentHens =
-    batch.type === "PARENT_FLOCK" ? (batch.currentParents ?? 0) : 0;
-  const henDays = currentHens > 0 ? currentHens * productionDays : 0;
-  const eggsPerHenDay =
-    grandTotal > 0 && henDays > 0 ? grandTotal / henDays : null;
+  // Lay rate now comes from the server, computed over true female-days.
+  // The old client-side formula divided by ALL current birds and counted days
+  // from batch start (including the rearing period before first lay), so it
+  // was wrong on both the numerator's denominator and the day count.
+  const layRate = productionRes?.summary.layRate ?? null;
 
   return (
     <div className="space-y-4">
-      {/* Summary cards (mix % per type kept; lay rate uses current hens × days) */}
+      {/* Summary cards (mix % per type kept; lay rate is server-computed female-days) */}
       {eggTypes.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {eggTypes.map((type) => (
@@ -1040,21 +1192,24 @@ function EggProductionTab({
             <p className="text-xl font-bold text-amber-800">{grandTotal.toLocaleString()}</p>
           </div>
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 md:col-span-2 lg:col-span-2">
-            <p className="text-xs text-emerald-700 mb-1">Eggs / hen / day</p>
+            <p className="text-xs text-emerald-700 mb-1">Lay rate (female basis)</p>
             <p className="text-xl font-bold text-emerald-900">
-              {eggsPerHenDay != null ? eggsPerHenDay.toFixed(3) : "—"}
+              {layRate != null ? `${layRate.layPercent.toFixed(1)}%` : "—"}
             </p>
-            {eggsPerHenDay != null && (
+            {layRate != null && (
               <p className="text-xs text-emerald-700/85 mt-1 leading-snug">
-                {grandTotal.toLocaleString()} eggs ÷ ({currentHens.toLocaleString()} hens ×{" "}
-                {productionDays} days)
+                {layRate.eggsPerFemaleDay.toFixed(3)} eggs / female / day ·{" "}
+                {layRate.totalEggs.toLocaleString()} eggs ÷{" "}
+                {layRate.femaleDays.toLocaleString()} female-days
               </p>
             )}
-            {batch.type === "PARENT_FLOCK" &&
-              currentHens === 0 &&
-              grandTotal > 0 && (
+            {layRate == null &&
+              batch.type === "PARENT_FLOCK" &&
+              grandTotal > 0 &&
+              (batch.initialFemaleParents ?? 0) === 0 && (
                 <p className="text-xs text-amber-800 mt-1 leading-snug">
-                  Set <strong>current</strong> bird count (Overview) to compute lay rate.
+                  This flock has no female parents recorded, so lay rate cannot be
+                  calculated.
                 </p>
               )}
             {batch.type !== "PARENT_FLOCK" && grandTotal > 0 && (
@@ -1235,10 +1390,12 @@ function EggStockTab({ batch }: { batch: any }) {
 
 function SalesTab({
   batchId,
-  currentParents,
+  currentMale,
+  currentFemale,
 }: {
   batchId: string;
-  currentParents: number;
+  currentMale: number;
+  currentFemale: number;
 }) {
   const { data: eggTypes = [] } = useHatcheryEggTypes();
   const [eggPage, setEggPage] = useState(1);
@@ -1272,7 +1429,12 @@ function SalesTab({
 
   // Parent sale form
   const [parentDate, setParentDate] = useState(today());
-  const [parentCount, setParentCount] = useState("");
+  const [parentMaleCount, setParentMaleCount] = useState("");
+  const [parentFemaleCount, setParentFemaleCount] = useState("");
+  // Total sold is derived, never typed.
+  const parentMale = parseInt(parentMaleCount || "0", 10) || 0;
+  const parentFemale = parseInt(parentFemaleCount || "0", 10) || 0;
+  const parentCount = parentMale + parentFemale;
   const [parentTotalWeight, setParentTotalWeight] = useState("");
   const [parentRatePerKg, setParentRatePerKg] = useState("");
   const [parentPartyId, setParentPartyId] = useState("");
@@ -1286,8 +1448,8 @@ function SalesTab({
       ? Math.round(parseFloat(parentTotalWeight) * parseFloat(parentRatePerKg) * 100) / 100
       : null;
   const parentAvgWeight =
-    parentTotalWeight && parentCount && parseInt(parentCount) > 0
-      ? Math.round((parseFloat(parentTotalWeight) / parseInt(parentCount)) * 1000) / 1000
+    parentTotalWeight && parentCount > 0
+      ? Math.round((parseFloat(parentTotalWeight) / parentCount) * 1000) / 1000
       : null;
 
   const eggSales = eggSalesRes?.data ?? [];
@@ -1338,16 +1500,29 @@ function SalesTab({
 
   async function handleAddParentSale() {
     setParentFormError(null);
+    if (parentCount <= 0) {
+      setParentFormError("Enter at least one male or female bird");
+      return;
+    }
+    // Server enforces this too, at the database; this is just a faster message.
+    if (parentMale > currentMale || parentFemale > currentFemale) {
+      setParentFormError(
+        `Only ${currentFemale.toLocaleString()} female and ${currentMale.toLocaleString()} male birds remain`
+      );
+      return;
+    }
     try {
       await addParentSaleMutation.mutateAsync({
         date: parentDate,
-        count: parseInt(parentCount),
+        maleCount: parentMale,
+        femaleCount: parentFemale,
         totalWeightKg: parseFloat(parentTotalWeight),
         ratePerKg: parseFloat(parentRatePerKg),
         partyId: parentPartyId || undefined,
         note: parentNote || undefined,
       });
-      setParentCount("");
+      setParentMaleCount("");
+      setParentFemaleCount("");
       setParentTotalWeight("");
       setParentRatePerKg("");
       setParentPartyId("");
@@ -1387,7 +1562,19 @@ function SalesTab({
 
   const parentSaleColumns: Column<HatcheryParentSale>[] = [
     { key: "date", label: "Date", render: (_, r) => <DateDisplay date={r.date} /> },
-    { key: "count", label: "Birds", align: "right", render: (_, r) => r.count.toLocaleString() },
+    {
+      key: "count",
+      label: "Birds",
+      align: "right",
+      render: (_, r) => (
+        <div className="leading-tight">
+          <span>{r.count.toLocaleString()}</span>
+          <p className="text-[11px] text-gray-500">
+            {r.femaleCount}F · {r.maleCount}M
+          </p>
+        </div>
+      ),
+    },
     { key: "totalWeightKg", label: "Total Wt (kg)", align: "right", render: (_, r) => Number(r.totalWeightKg).toFixed(2) },
     { key: "avgWeightKg", label: "Avg Wt (kg)", align: "right", render: (_, r) => Number(r.avgWeightKg).toFixed(3) },
     { key: "ratePerKg", label: "Rate/kg", align: "right", render: (_, r) => `Rs ${Number(r.ratePerKg).toFixed(2)}` },
@@ -1421,7 +1608,10 @@ function SalesTab({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Egg Sale Revenue" value={fmtNPR(totalEggRevenue)} variant="primary" />
         <StatCard label="Parent Sale Revenue" value={fmtNPR(totalParentRevenue)} variant="primary" />
-        <StatCard label="Current Birds" value={currentParents.toLocaleString()} />
+        <StatCard
+          label="Live Birds (F / M)"
+          value={`${currentFemale.toLocaleString()} / ${currentMale.toLocaleString()}`}
+        />
       </div>
 
       {/* Egg Sales */}
@@ -1487,7 +1677,11 @@ function SalesTab({
           {parentFormError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{parentFormError}</p>}
           <div className="flex flex-wrap gap-2">
             <Input type="date" value={parentDate} onChange={(e) => setParentDate(e.target.value)} className="w-40" />
-            <Input type="number" min="1" placeholder="Bird count" value={parentCount} onChange={(e) => setParentCount(e.target.value)} className="w-28" />
+            <Input type="number" min="0" max={currentFemale} placeholder="Female" value={parentFemaleCount} onChange={(e) => setParentFemaleCount(e.target.value)} className="w-28" />
+            <Input type="number" min="0" max={currentMale} placeholder="Male" value={parentMaleCount} onChange={(e) => setParentMaleCount(e.target.value)} className="w-28" />
+            <div className="flex items-center px-2 text-sm text-gray-600">
+              Total: <span className="ml-1 font-semibold text-gray-900">{parentCount.toLocaleString()}</span>
+            </div>
             <Input type="number" min="0" step="0.001" placeholder="Total weight (kg)" value={parentTotalWeight} onChange={(e) => setParentTotalWeight(e.target.value)} className="w-36" />
             <Input type="number" min="0" step="0.01" placeholder="Rate/kg" value={parentRatePerKg} onChange={(e) => setParentRatePerKg(e.target.value)} className="w-28" />
             <select
@@ -1499,7 +1693,7 @@ function SalesTab({
               {parties.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>)}
             </select>
             <Input placeholder="Note" value={parentNote} onChange={(e) => setParentNote(e.target.value)} className="flex-1 min-w-28" />
-            <Button onClick={handleAddParentSale} disabled={addParentSaleMutation.isPending || !parentCount || !parentTotalWeight || !parentRatePerKg}>
+            <Button onClick={handleAddParentSale} disabled={addParentSaleMutation.isPending || parentCount <= 0 || !parentTotalWeight || !parentRatePerKg}>
               {addParentSaleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Sell
             </Button>

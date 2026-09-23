@@ -82,6 +82,12 @@ export function BatchesTab({
           row.currentParents !== null ? (
             <div className="text-right">
               <p className="font-semibold text-slate-900">{row.currentParents.toLocaleString()}</p>
+              {(row.currentFemaleParents ?? 0) + (row.currentMaleParents ?? 0) > 0 && (
+                <p className="text-[11px] text-slate-500">
+                  {(row.currentFemaleParents ?? 0).toLocaleString()}F ·{" "}
+                  {(row.currentMaleParents ?? 0).toLocaleString()}M
+                </p>
+              )}
               <p className="text-[11px] text-slate-500">
                 {row.initialParents !== null ? `${row.initialParents.toLocaleString()} started` : "—"}
               </p>

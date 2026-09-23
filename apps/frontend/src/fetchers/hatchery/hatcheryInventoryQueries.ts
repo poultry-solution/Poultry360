@@ -18,10 +18,14 @@ export type HatcheryInventoryTxnType =
   | "PRODUCTION_INPUT"
   | "PRODUCTION_OUTPUT";
 
+// MALE/FEMALE are only meaningful for CHICKS lots; everything else is NA.
+export type HatcherySex = "MALE" | "FEMALE" | "NA";
+
 export interface HatcheryInventoryItem {
   id: string;
   hatcheryOwnerId: string;
   itemType: HatcheryInventoryItemType;
+  sex: HatcherySex;
   name: string;
   unit: string;
   unitPrice: number;
@@ -156,6 +160,8 @@ export const useCreateHatcheryInventoryItem = () => {
       unit?: string;
       unitPrice?: number;
       minStock?: number;
+      // Required by the API when itemType is CHICKS.
+      sex?: HatcherySex;
     }) => {
       const res = await axiosInstance.post("/hatchery/inventory", data);
       return res.data;

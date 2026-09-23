@@ -3,6 +3,7 @@ import {
   HatcheryInventoryItemType,
   HatcheryInventoryTxnType,
   HatcheryPurchaseCategory,
+  HatcherySex,
 } from "@prisma/client";
 
 // Maps purchase category → inventory item type
@@ -21,9 +22,12 @@ export class HatcheryInventoryService {
   /**
    * Upsert an inventory item and record a purchase transaction for it.
    *
-   * Identity key: (hatcheryOwnerId, itemType, name, unitPrice@2dp, supplierKey)
-   *   - If all five match → increment stock on existing row.
-   *   - If any differs  → create a new row.
+   * Identity key: (hatcheryOwnerId, itemType, name, unit, unitPrice@2dp,
+   *                 supplierKey, sex)
+   *   - If all seven match → increment stock on existing row.
+   *   - If any differs     → create a new row.
+   *   `sex` is NA for everything except CHICKS, so feed/medicine dedup is
+   *   unchanged by its addition.
    *
    * Free quantity (CHICKS):
    *   - Ledger amount uses only paid quantity.
@@ -42,6 +46,7 @@ export class HatcheryInventoryService {
       unitPrice: number;
       totalAmount: number;
       unit: string;
+      sex: HatcherySex;
       date: Date;
       supplierTxnId: string;
     }
@@ -56,6 +61,7 @@ export class HatcheryInventoryService {
       unitPrice,
       totalAmount,
       unit,
+      sex,
       date,
       supplierTxnId,
     } = data;
@@ -71,13 +77,14 @@ export class HatcheryInventoryService {
     // Find existing item (if any) to compute weighted-average cost
     const existing = await tx.hatcheryInventoryItem.findUnique({
       where: {
-        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey: {
+        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey_sex: {
           hatcheryOwnerId,
           itemType,
           name: itemName,
           unit,
           unitPrice: roundedUnitPrice,
           supplierKey,
+          sex,
         },
       },
     });
@@ -100,13 +107,14 @@ export class HatcheryInventoryService {
     // Upsert inventory item by identity key
     const inventoryItem = await tx.hatcheryInventoryItem.upsert({
       where: {
-        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey: {
+        hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey_sex: {
           hatcheryOwnerId,
           itemType,
           name: itemName,
           unit,
           unitPrice: roundedUnitPrice,
           supplierKey,
+          sex,
         },
       },
       update: { unit, effectiveUnitCost: roundedEffectiveCost },
@@ -118,22 +126,27 @@ export class HatcheryInventoryService {
         unitPrice: roundedUnitPrice,
         effectiveUnitCost: roundedEffectiveCost,
         supplierKey,
+        sex,
         currentStock: 0,
       },
     });
 
-    // Record paid quantity purchase txn
-    await tx.hatcheryInventoryTxn.create({
-      data: {
-        itemId: inventoryItem.id,
-        type: HatcheryInventoryTxnType.PURCHASE,
-        quantity: quantity,
-        unitPrice: unitPrice,
-        amount: totalAmount,
-        date,
-        sourceSupplierTxnId: supplierTxnId,
-      },
-    });
+    // Record paid quantity purchase txn.
+    // Skipped on a free-only line (quantity 0) so the ledger does not collect
+    // meaningless zero-quantity rows; the free txn below carries the receipt.
+    if (quantity > 0) {
+      await tx.hatcheryInventoryTxn.create({
+        data: {
+          itemId: inventoryItem.id,
+          type: HatcheryInventoryTxnType.PURCHASE,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          amount: totalAmount,
+          date,
+          sourceSupplierTxnId: supplierTxnId,
+        },
+      });
+    }
 
     // Record zero-cost txn for free quantity if present
     if (freeQuantity > 0) {

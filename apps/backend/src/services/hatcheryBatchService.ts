@@ -1,4 +1,11 @@
-import { Prisma, HatcheryBatchType, HatcheryInventoryTxnType, HatcheryBatchExpenseType } from "@prisma/client";
+import {
+  Prisma,
+  HatcheryBatchType,
+  HatcheryInventoryTxnType,
+  HatcheryBatchExpenseType,
+  HatcheryInventoryItemType,
+  HatcherySex,
+} from "@prisma/client";
 import prisma from "../utils/prisma";
 
 export class HatcheryBatchService {
@@ -39,24 +46,67 @@ export class HatcheryBatchService {
 
       const totalChicks = placements.reduce((s, p) => s + p.quantity, 0);
 
-      // Validate all placements have sufficient stock
+      // Aggregate demand per lot BEFORE validating. Two placement rows may
+      // point at the same inventory lot; checking them independently would let
+      // each pass against full stock while their sum exceeds it.
+      const neededByItem = new Map<string, number>();
       for (const placement of placements) {
-        if (placement.quantity <= 0) {
-          throw new Error(`Placement quantity must be greater than 0`);
+        if (!Number.isInteger(placement.quantity) || placement.quantity <= 0) {
+          throw new Error(`Placement quantity must be a whole number greater than 0`);
         }
+        neededByItem.set(
+          placement.inventoryItemId,
+          (neededByItem.get(placement.inventoryItemId) ?? 0) + placement.quantity
+        );
+      }
+
+      // Validate each referenced lot once, and keep the row for the write loop
+      // below so it is not fetched twice.
+      const itemsById = new Map<
+        string,
+        Prisma.HatcheryInventoryItemGetPayload<{}>
+      >();
+      for (const [inventoryItemId, needed] of neededByItem) {
         const item = await tx.hatcheryInventoryItem.findUnique({
-          where: { id: placement.inventoryItemId },
+          where: { id: inventoryItemId },
         });
         if (!item) {
-          throw new Error(`Inventory item ${placement.inventoryItemId} not found`);
+          throw new Error(`Inventory item ${inventoryItemId} not found`);
         }
         if (item.hatcheryOwnerId !== hatcheryOwnerId) {
           throw new Error(`Inventory item does not belong to this hatchery`);
         }
-        if (Number(item.currentStock) < placement.quantity) {
+        if (item.deletedAt) {
+          throw new Error(`Inventory item "${item.name}" has been deleted`);
+        }
+        if (item.itemType !== HatcheryInventoryItemType.CHICKS) {
           throw new Error(
-            `Insufficient stock for "${item.name}": have ${item.currentStock}, need ${placement.quantity}`
+            `Only chick inventory can be placed into a parent flock; "${item.name}" is ${item.itemType}`
           );
+        }
+        if (item.sex !== HatcherySex.MALE && item.sex !== HatcherySex.FEMALE) {
+          throw new Error(
+            `"${item.name}" has no sex recorded; parent flock placement requires male or female chicks`
+          );
+        }
+        if (Number(item.currentStock) < needed) {
+          throw new Error(
+            `Insufficient stock for "${item.name}": have ${item.currentStock}, need ${needed}`
+          );
+        }
+        itemsById.set(inventoryItemId, item);
+      }
+
+      // Sex totals are derived from the lots the placements point at, so there
+      // are no duplicated sex columns on HatcheryBatchPlacement to keep in sync.
+      let initialMaleParents = 0;
+      let initialFemaleParents = 0;
+      for (const placement of placements) {
+        const item = itemsById.get(placement.inventoryItemId)!;
+        if (item.sex === HatcherySex.MALE) {
+          initialMaleParents += placement.quantity;
+        } else {
+          initialFemaleParents += placement.quantity;
         }
       }
 
@@ -69,16 +119,18 @@ export class HatcheryBatchService {
           startDate,
           notes,
           initialParents: totalChicks,
+          initialMaleParents,
+          initialFemaleParents,
           currentParents: totalChicks,
+          currentMaleParents: initialMaleParents,
+          currentFemaleParents: initialFemaleParents,
           placedAt: startDate,
         },
       });
 
       // Create placements + decrement inventory stock + record initial placement expense
       for (const placement of placements) {
-        const item = await tx.hatcheryInventoryItem.findUniqueOrThrow({
-          where: { id: placement.inventoryItemId },
-        });
+        const item = itemsById.get(placement.inventoryItemId)!;
 
         // Use effective (free-qty-adjusted) cost per unit; fall back to unitPrice
         const costPerUnit = Number(item.effectiveUnitCost ?? item.unitPrice);
@@ -104,10 +156,18 @@ export class HatcheryBatchService {
           },
         });
 
-        await tx.hatcheryInventoryItem.update({
-          where: { id: placement.inventoryItemId },
+        // Guarded decrement: the WHERE clause re-checks stock at write time so
+        // concurrent placements cannot drive a lot negative.
+        const decremented = await tx.hatcheryInventoryItem.updateMany({
+          where: {
+            id: placement.inventoryItemId,
+            currentStock: { gte: placement.quantity },
+          },
           data: { currentStock: { decrement: placement.quantity } },
         });
+        if (decremented.count !== 1) {
+          throw new Error(`Insufficient stock for "${item.name}"`);
+        }
 
         // Record as a batch expense so it shows in Total Expenses
         await tx.hatcheryBatchExpense.create({

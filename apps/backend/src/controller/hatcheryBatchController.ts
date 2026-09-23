@@ -5,12 +5,94 @@ import {
   HatcheryBatchType,
   HatcheryBatchExpenseType,
   HatcheryIncubationLossType,
+  HatcheryFeedTarget,
 } from "@prisma/client";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { HatcheryBatchService } from "../services/hatcheryBatchService";
 import { HatcheryBatchExpenseService } from "../services/hatcheryBatchExpenseService";
 import { HatcheryEggService } from "../services/hatcheryEggService";
+import { HatcheryLayRateService } from "../services/hatcheryLayRateService";
+
+// Categories whose consumption can be attributed to a parent group. Feed is
+// bought as one total stock; the split only ever happens at consumption.
+const FEED_EXPENSE_CATEGORIES = new Set(["FEED", "SELF_MADE"]);
+
+// Decimal(12,4) tolerance when checking that a split adds up.
+const FEED_SPLIT_EPSILON = 0.0001;
+
+/**
+ * Validate and normalise the feed attribution fields for one expense.
+ * Throws with a user-facing message; returns nulls for non-feed expenses so the
+ * initial CHICKS placement expense can never carry a feedTarget.
+ */
+function resolveFeedAttribution(input: {
+  category: string;
+  quantity?: number;
+  feedTarget?: unknown;
+  maleFeedQuantity?: unknown;
+  femaleFeedQuantity?: unknown;
+}): {
+  feedTarget: HatcheryFeedTarget | null;
+  maleFeedQuantity: number | null;
+  femaleFeedQuantity: number | null;
+} {
+  const isFeed = FEED_EXPENSE_CATEGORIES.has(String(input.category).toUpperCase());
+  const hasMale = input.maleFeedQuantity !== undefined && input.maleFeedQuantity !== null;
+  const hasFemale = input.femaleFeedQuantity !== undefined && input.femaleFeedQuantity !== null;
+  const hasTarget = input.feedTarget !== undefined && input.feedTarget !== null;
+
+  if (!isFeed) {
+    if (hasTarget) throw new Error("feedTarget only applies to feed expenses");
+    if (hasMale || hasFemale) {
+      throw new Error("Feed quantity split only applies to feed expenses");
+    }
+    return { feedTarget: null, maleFeedQuantity: null, femaleFeedQuantity: null };
+  }
+
+  const target = input.feedTarget as HatcheryFeedTarget;
+  if (
+    target !== HatcheryFeedTarget.MALE &&
+    target !== HatcheryFeedTarget.FEMALE &&
+    target !== HatcheryFeedTarget.BOTH
+  ) {
+    throw new Error("feedTarget must be MALE, FEMALE or BOTH for feed expenses");
+  }
+
+  // MALE/FEMALE already attribute the whole quantity; a split would be ambiguous.
+  if (target !== HatcheryFeedTarget.BOTH) {
+    if (hasMale || hasFemale) {
+      throw new Error("Feed quantity split is only valid when feedTarget is BOTH");
+    }
+    return { feedTarget: target, maleFeedQuantity: null, femaleFeedQuantity: null };
+  }
+
+  // Split is optional under BOTH — many hatcheries feed both groups together.
+  if (!hasMale && !hasFemale) {
+    return { feedTarget: target, maleFeedQuantity: null, femaleFeedQuantity: null };
+  }
+  if (!hasMale || !hasFemale) {
+    throw new Error(
+      "Provide both maleFeedQuantity and femaleFeedQuantity, or neither"
+    );
+  }
+
+  const male = Number(input.maleFeedQuantity);
+  const female = Number(input.femaleFeedQuantity);
+  if (!Number.isFinite(male) || male < 0 || !Number.isFinite(female) || female < 0) {
+    throw new Error("Feed split quantities must be non-negative numbers");
+  }
+  if (input.quantity === undefined || !Number.isFinite(input.quantity)) {
+    throw new Error("A total feed quantity is required to split it by sex");
+  }
+  if (Math.abs(male + female - input.quantity) > FEED_SPLIT_EPSILON) {
+    throw new Error(
+      `Feed split must add up to the total quantity (${male} + ${female} != ${input.quantity})`
+    );
+  }
+
+  return { feedTarget: target, maleFeedQuantity: male, femaleFeedQuantity: female };
+}
 
 function getOwnerId(req: Request): string {
   // Keep consistent with existing controllers + middleware contract.
@@ -511,10 +593,27 @@ export async function addHatcheryMortality(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { date, count, note } = req.body;
+    const { date, maleCount, femaleCount, note } = req.body;
 
-    if (!date || !count || count <= 0) {
-      return res.status(400).json({ error: "date and count > 0 are required" });
+    const male = Number(maleCount ?? 0);
+    const female = Number(femaleCount ?? 0);
+
+    if (!date) return res.status(400).json({ error: "date is required" });
+    if (
+      !Number.isInteger(male) ||
+      male < 0 ||
+      !Number.isInteger(female) ||
+      female < 0
+    ) {
+      return res.status(400).json({
+        error: "maleCount and femaleCount must be non-negative whole numbers",
+      });
+    }
+    const count = male + female;
+    if (count <= 0) {
+      return res
+        .status(400)
+        .json({ error: "Record at least one male or female mortality" });
     }
 
     const batch = await prisma.hatcheryBatch.findFirst({
@@ -522,21 +621,46 @@ export async function addHatcheryMortality(req: Request, res: Response) {
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    if ((batch.currentParents ?? 0) < count) {
+    // Friendly up-front message. The authoritative guard is the WHERE clause on
+    // the update below, which also closes the race where two concurrent
+    // requests both pass this check and together overdraw the flock.
+    if ((batch.currentMaleParents ?? 0) < male || (batch.currentFemaleParents ?? 0) < female) {
       return res.status(400).json({
-        error: `Cannot record ${count} mortality; only ${batch.currentParents} birds remaining`,
+        error:
+          `Cannot record ${male} male / ${female} female mortality; ` +
+          `only ${batch.currentMaleParents ?? 0} male and ${batch.currentFemaleParents ?? 0} female birds remain`,
       });
     }
 
-    const [mortality] = await prisma.$transaction([
-      prisma.hatcheryBatchMortality.create({
-        data: { batchId, date: new Date(date), count, note },
-      }),
-      prisma.hatcheryBatch.update({
-        where: { id: batchId },
-        data: { currentParents: { decrement: count } },
-      }),
-    ]);
+    const mortality = await prisma.$transaction(async (tx) => {
+      const updated = await tx.hatcheryBatch.updateMany({
+        where: {
+          id: batchId,
+          hatcheryOwnerId: ownerId,
+          currentMaleParents: { gte: male },
+          currentFemaleParents: { gte: female },
+        },
+        data: {
+          currentMaleParents: { decrement: male },
+          currentFemaleParents: { decrement: female },
+          currentParents: { decrement: count },
+        },
+      });
+      if (updated.count !== 1) {
+        throw new Error("Not enough live birds of that sex remaining");
+      }
+
+      return tx.hatcheryBatchMortality.create({
+        data: {
+          batchId,
+          date: new Date(date),
+          count,
+          maleCount: male,
+          femaleCount: female,
+          note,
+        },
+      });
+    });
 
     return res.status(201).json(mortality);
   } catch (err: any) {
@@ -561,9 +685,14 @@ export async function deleteHatcheryMortality(req: Request, res: Response) {
 
     await prisma.$transaction([
       prisma.hatcheryBatchMortality.delete({ where: { id: mortalityId } }),
+      // Symmetric reversal: restore exactly what this record decremented.
       prisma.hatcheryBatch.update({
         where: { id: batchId },
-        data: { currentParents: { increment: mortality.count } },
+        data: {
+          currentParents: { increment: mortality.count },
+          currentMaleParents: { increment: mortality.maleCount },
+          currentFemaleParents: { increment: mortality.femaleCount },
+        },
       }),
     ]);
 
@@ -637,11 +766,24 @@ export async function addHatcheryExpense(req: Request, res: Response) {
       unitPrice,
       amount,
       note,
+      feedTarget,
+      maleFeedQuantity,
+      femaleFeedQuantity,
     } = req.body;
 
     if (!date || !category) {
       return res.status(400).json({ error: "date and category are required" });
     }
+
+    // Stock is always deducted once on the total quantity; this only records
+    // which parent group consumed it.
+    const feed = resolveFeedAttribution({
+      category,
+      quantity: quantity === undefined ? undefined : Number(quantity),
+      feedTarget,
+      maleFeedQuantity,
+      femaleFeedQuantity,
+    });
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
@@ -663,6 +805,7 @@ export async function addHatcheryExpense(req: Request, res: Response) {
           inventoryItemId,
           quantity: Number(quantity),
           note,
+          ...feed,
         });
       } else {
         if (!itemName || !amount) {
@@ -678,6 +821,7 @@ export async function addHatcheryExpense(req: Request, res: Response) {
           unitPrice: unitPrice ? Number(unitPrice) : undefined,
           amount: Number(amount),
           note,
+          ...feed,
         });
       }
     });
@@ -867,6 +1011,10 @@ export async function listEggProductions(req: Request, res: Response) {
     }
     const grandTotal = Object.values(typeTotals).reduce((sum, value) => sum + value, 0);
 
+    // Computed over ALL production for the batch (grandTotal above is already
+    // un-paginated), not just the page being returned.
+    const layRate = await HatcheryLayRateService.computeForBatch(batchId, grandTotal);
+
     return res.json({
       productions,
       page: pageNum,
@@ -876,6 +1024,7 @@ export async function listEggProductions(req: Request, res: Response) {
       summary: {
         typeTotals,
         grandTotal,
+        layRate,
       },
     });
   } catch (err: any) {
@@ -1155,12 +1304,32 @@ export async function addParentSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { date, count, totalWeightKg, ratePerKg, partyId, note } = req.body;
+    const { date, maleCount, femaleCount, totalWeightKg, ratePerKg, partyId, note } =
+      req.body;
 
-    if (!date || !count || !totalWeightKg || !ratePerKg) {
+    const male = Number(maleCount ?? 0);
+    const female = Number(femaleCount ?? 0);
+
+    if (!date || !totalWeightKg || !ratePerKg) {
       return res.status(400).json({
-        error: "date, count, totalWeightKg, and ratePerKg are required",
+        error: "date, totalWeightKg, and ratePerKg are required",
       });
+    }
+    if (
+      !Number.isInteger(male) ||
+      male < 0 ||
+      !Number.isInteger(female) ||
+      female < 0
+    ) {
+      return res.status(400).json({
+        error: "maleCount and femaleCount must be non-negative whole numbers",
+      });
+    }
+    const saleCount = male + female;
+    if (saleCount <= 0) {
+      return res
+        .status(400)
+        .json({ error: "Sell at least one male or female bird" });
     }
 
     const batch = await prisma.hatcheryBatch.findFirst({
@@ -1168,10 +1337,12 @@ export async function addParentSale(req: Request, res: Response) {
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
-    const saleCount = parseInt(count);
-    if ((batch.currentParents ?? 0) < saleCount) {
+    // Friendly up-front message; the guarded update below is authoritative.
+    if ((batch.currentMaleParents ?? 0) < male || (batch.currentFemaleParents ?? 0) < female) {
       return res.status(400).json({
-        error: `Cannot sell ${saleCount} birds; only ${batch.currentParents} remaining`,
+        error:
+          `Cannot sell ${male} male / ${female} female birds; ` +
+          `only ${batch.currentMaleParents ?? 0} male and ${batch.currentFemaleParents ?? 0} female remain`,
       });
     }
 
@@ -1181,11 +1352,30 @@ export async function addParentSale(req: Request, res: Response) {
     const amount = Math.round(totalKg * rate * 100) / 100;
 
     const sale = await prisma.$transaction(async (tx) => {
+      const updated = await tx.hatcheryBatch.updateMany({
+        where: {
+          id: batchId,
+          hatcheryOwnerId: ownerId,
+          currentMaleParents: { gte: male },
+          currentFemaleParents: { gte: female },
+        },
+        data: {
+          currentMaleParents: { decrement: male },
+          currentFemaleParents: { decrement: female },
+          currentParents: { decrement: saleCount },
+        },
+      });
+      if (updated.count !== 1) {
+        throw new Error("Not enough live birds of that sex remaining");
+      }
+
       const created = await tx.hatcheryParentSale.create({
         data: {
           batchId,
           date: new Date(date),
           count: saleCount,
+          maleCount: male,
+          femaleCount: female,
           totalWeightKg: totalKg,
           avgWeightKg,
           ratePerKg: rate,
@@ -1193,11 +1383,6 @@ export async function addParentSale(req: Request, res: Response) {
           partyId: partyId || null,
           note,
         },
-      });
-
-      await tx.hatcheryBatch.update({
-        where: { id: batchId },
-        data: { currentParents: { decrement: saleCount } },
       });
 
       if (partyId) {
@@ -1237,9 +1422,14 @@ export async function deleteParentSale(req: Request, res: Response) {
 
       await tx.hatcheryParentSale.delete({ where: { id: saleId } });
 
+      // Symmetric reversal: restore exactly what this sale decremented.
       await tx.hatcheryBatch.update({
         where: { id: batchId },
-        data: { currentParents: { increment: sale.count } },
+        data: {
+          currentParents: { increment: sale.count },
+          currentMaleParents: { increment: sale.maleCount },
+          currentFemaleParents: { increment: sale.femaleCount },
+        },
       });
     });
 

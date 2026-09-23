@@ -2,7 +2,17 @@ import {
   Prisma,
   HatcheryBatchExpenseType,
   HatcheryInventoryTxnType,
+  HatcheryFeedTarget,
 } from "@prisma/client";
+
+// Feed attribution recorded alongside an expense. Validated by the caller;
+// null throughout for non-feed expenses, including the initial CHICKS
+// placement expense created during batch creation.
+type FeedAttribution = {
+  feedTarget?: HatcheryFeedTarget | null;
+  maleFeedQuantity?: number | null;
+  femaleFeedQuantity?: number | null;
+};
 
 export class HatcheryBatchExpenseService {
   /**
@@ -22,7 +32,7 @@ export class HatcheryBatchExpenseService {
       inventoryItemId: string;
       quantity: number;
       note?: string;
-    }
+    } & FeedAttribution
   ) {
     const { batchId, hatcheryOwnerId, date, category, inventoryItemId, quantity, note } = data;
 
@@ -83,6 +93,9 @@ export class HatcheryBatchExpenseService {
         note,
         inventoryItemId,
         inventoryTxnId: invTxn.id,
+        feedTarget: data.feedTarget ?? null,
+        maleFeedQuantity: data.maleFeedQuantity ?? null,
+        femaleFeedQuantity: data.femaleFeedQuantity ?? null,
       },
     });
 
@@ -104,7 +117,7 @@ export class HatcheryBatchExpenseService {
       unitPrice?: number;
       amount: number;
       note?: string;
-    }
+    } & FeedAttribution
   ) {
     return tx.hatcheryBatchExpense.create({
       data: {
@@ -118,6 +131,9 @@ export class HatcheryBatchExpenseService {
         unitPrice: data.unitPrice,
         amount: data.amount,
         note: data.note,
+        feedTarget: data.feedTarget ?? null,
+        maleFeedQuantity: data.maleFeedQuantity ?? null,
+        femaleFeedQuantity: data.femaleFeedQuantity ?? null,
       },
     });
   }

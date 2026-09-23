@@ -15,3 +15,11 @@ apps/frontend/node_modules
 packages/node_modules
 
 poultry360_20260716_090001.sql
+
+# Local scratch: PDF rendering venv (~76MB) and generated artefacts
+tmp/
+output/
+
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store

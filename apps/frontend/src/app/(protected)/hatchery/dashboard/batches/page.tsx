@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -78,6 +78,21 @@ export default function HatcheryBatchesPage() {
   const createMutation = useCreateHatcheryBatch();
   const { data: inventoryTableRes } = useGetHatcheryInventoryTable("CHICKS");
   const inventoryItems: any[] = inventoryTableRes?.data ?? [];
+
+  // Sex comes from the inventory lot, so the preview is derived rather than
+  // entered — there is no separate male/female field to keep in sync.
+  const placementTotals = useMemo(() => {
+    let male = 0;
+    let female = 0;
+    for (const p of placements) {
+      const item = inventoryItems.find((i: any) => i.id === p.inventoryItemId);
+      const qty = Number(p.quantity || 0);
+      if (!item || !Number.isFinite(qty) || qty <= 0) continue;
+      if (item.sex === "MALE") male += qty;
+      else if (item.sex === "FEMALE") female += qty;
+    }
+    return { male, female, total: male + female };
+  }, [placements, inventoryItems]);
 
   function addPlacementRow() {
     setPlacements((prev) => [...prev, { inventoryItemId: "", quantity: "" }]);
@@ -180,7 +195,15 @@ export default function HatcheryBatchesPage() {
       align: "right",
       render: (_, row) =>
         row.currentParents !== null ? (
-          <span className="font-medium">{row.currentParents.toLocaleString()}</span>
+          <div className="leading-tight">
+            <span className="font-medium">{row.currentParents.toLocaleString()}</span>
+            {(row.currentFemaleParents ?? 0) + (row.currentMaleParents ?? 0) > 0 && (
+              <p className="text-[11px] text-gray-500">
+                {(row.currentFemaleParents ?? 0).toLocaleString()}F ·{" "}
+                {(row.currentMaleParents ?? 0).toLocaleString()}M
+              </p>
+            )}
+          </div>
         ) : (
           <span className="text-gray-400">—</span>
         ),
@@ -329,7 +352,14 @@ export default function HatcheryBatchesPage() {
                       <option value="">Select inventory item</option>
                       {inventoryItems.map((item: any) => (
                         <option key={item.id} value={item.id}>
-                          {item.name} — {Number(item.currentStock).toLocaleString()} {item.unit} in stock
+                          {item.name}
+                          {item.sex === "FEMALE"
+                            ? " (Female)"
+                            : item.sex === "MALE"
+                              ? " (Male)"
+                              : ""}
+                          {" — "}
+                          {Number(item.currentStock).toLocaleString()} {item.unit} in stock
                         </option>
                       ))}
                     </select>
@@ -352,6 +382,20 @@ export default function HatcheryBatchesPage() {
                   </div>
                 ))}
               </div>
+
+              {placementTotals.total > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                  <span className="rounded bg-pink-100 px-2 py-0.5 font-semibold text-pink-700">
+                    {placementTotals.female.toLocaleString()} female
+                  </span>
+                  <span className="rounded bg-sky-100 px-2 py-0.5 font-semibold text-sky-700">
+                    {placementTotals.male.toLocaleString()} male
+                  </span>
+                  <span className="text-gray-600">
+                    = {placementTotals.total.toLocaleString()} birds
+                  </span>
+                </div>
+              )}
 
               {inventoryItems.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">

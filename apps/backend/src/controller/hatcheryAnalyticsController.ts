@@ -82,6 +82,8 @@ type HatcheryBatchAnalyticsRow = {
   endDate: Date | null;
   currentParents: number | null;
   initialParents: number | null;
+  currentMaleParents: number | null;
+  currentFemaleParents: number | null;
 };
 
 async function buildBatchAnalyticsScope(
@@ -213,6 +215,8 @@ async function buildBatchAnalyticsScope(
     endDate: batch.endDate ? batch.endDate.toISOString() : null,
     currentParents: batch.currentParents ?? null,
     initialParents: batch.initialParents ?? null,
+    currentMaleParents: batch.currentMaleParents ?? null,
+    currentFemaleParents: batch.currentFemaleParents ?? null,
     mortality: 0,
     mortalityRate: 0,
     expenses: 0,
@@ -659,6 +663,8 @@ export async function getHatcheryAnalyticsBatches(req: Request, res: Response) {
           endDate: true,
           currentParents: true,
           initialParents: true,
+          currentMaleParents: true,
+          currentFemaleParents: true,
         },
         orderBy: { startDate: "desc" },
       }),
@@ -674,6 +680,8 @@ export async function getHatcheryAnalyticsBatches(req: Request, res: Response) {
           endDate: true,
           currentParents: true,
           initialParents: true,
+          currentMaleParents: true,
+          currentFemaleParents: true,
         },
         orderBy: { startDate: "desc" },
         skip,

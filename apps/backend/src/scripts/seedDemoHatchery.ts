@@ -11,7 +11,9 @@ import {
   HatcheryInventoryItemType,
   HatcheryInventoryTxnType,
   HatcheryPartyTxnType,
+  HatcheryFeedTarget,
   HatcheryPurchaseCategory,
+  HatcherySex,
   HatcherySupplierTxnType,
   NotificationStatus,
   StaffStatus,
@@ -33,8 +35,10 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
 
 type InventoryKey =
-  | "cobb-parents"
-  | "ross-parents"
+  | "cobb-parents-female"
+  | "cobb-parents-male"
+  | "ross-parents-female"
+  | "ross-parents-male"
   | "grower-feed"
   | "layer-feed"
   | "vaccine"
@@ -53,6 +57,8 @@ type SupplierPurchaseItemSeed = {
   unit: string;
   unitPrice: number;
   totalAmount: number;
+  /** Only set for CHICKS lines; defaults to NA like the API does. */
+  sex?: HatcherySex;
 };
 
 type SupplierEventSeed = {
@@ -139,11 +145,14 @@ async function seedDemoHatchery(): Promise<void> {
         });
       }
 
-      const cobbEffectiveCost = round4(546_000 / 4_250);
+      // Male and female chicks are separate lots at different prices, which is
+      // how hatcheries actually buy them. Free birds land on the female lot.
+      const cobbFemaleEffectiveCost = round4(494_000 / 3_850);
       const inventorySeeds: Array<{
         key: InventoryKey;
         supplierKey: SupplierKey;
         itemType: HatcheryInventoryItemType;
+        sex: HatcherySex;
         name: string;
         unit: string;
         unitPrice: number;
@@ -152,31 +161,58 @@ async function seedDemoHatchery(): Promise<void> {
         minStock: number;
       }> = [
         {
-          key: "cobb-parents",
+          key: "cobb-parents-female",
           supplierKey: "parent",
           itemType: HatcheryInventoryItemType.CHICKS,
+          sex: HatcherySex.FEMALE,
           name: "Cobb 500 Parent Stock Chicks",
           unit: "Birds",
           unitPrice: 130,
-          effectiveUnitCost: cobbEffectiveCost,
-          currentStock: 250,
+          effectiveUnitCost: cobbFemaleEffectiveCost,
+          currentStock: 250, // 3800 paid + 50 free - 3600 placed
           minStock: 200,
         },
         {
-          key: "ross-parents",
+          key: "cobb-parents-male",
           supplierKey: "parent",
           itemType: HatcheryInventoryItemType.CHICKS,
+          sex: HatcherySex.MALE,
+          name: "Cobb 500 Parent Stock Chicks",
+          unit: "Birds",
+          unitPrice: 60,
+          effectiveUnitCost: 60,
+          currentStock: 0, // 400 paid - 400 placed
+          minStock: 20,
+        },
+        {
+          key: "ross-parents-female",
+          supplierKey: "parent",
+          itemType: HatcheryInventoryItemType.CHICKS,
+          sex: HatcherySex.FEMALE,
           name: "Ross 308 Parent Stock Chicks",
           unit: "Birds",
           unitPrice: 125,
           effectiveUnitCost: 125,
-          currentStock: 100,
+          currentStock: 100, // 1000 paid - 900 placed
           minStock: 150,
+        },
+        {
+          key: "ross-parents-male",
+          supplierKey: "parent",
+          itemType: HatcheryInventoryItemType.CHICKS,
+          sex: HatcherySex.MALE,
+          name: "Ross 308 Parent Stock Chicks",
+          unit: "Birds",
+          unitPrice: 58,
+          effectiveUnitCost: 58,
+          currentStock: 0, // 100 paid - 100 placed
+          minStock: 15,
         },
         {
           key: "grower-feed",
           supplierKey: "feed",
           itemType: HatcheryInventoryItemType.FEED,
+          sex: HatcherySex.NA,
           name: "Parent Breeder Grower Feed",
           unit: "Bag",
           unitPrice: 3450,
@@ -188,6 +224,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "layer-feed",
           supplierKey: "feed",
           itemType: HatcheryInventoryItemType.FEED,
+          sex: HatcherySex.NA,
           name: "Parent Breeder Layer Feed",
           unit: "Bag",
           unitPrice: 3580,
@@ -199,6 +236,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "vaccine",
           supplierKey: "health",
           itemType: HatcheryInventoryItemType.MEDICINE,
+          sex: HatcherySex.NA,
           name: "ND + IB Parent Flock Vaccine",
           unit: "Vial",
           unitPrice: 950,
@@ -210,6 +248,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "supplement",
           supplierKey: "health",
           itemType: HatcheryInventoryItemType.MEDICINE,
+          sex: HatcherySex.NA,
           name: "Breeder Vitamin Mineral Supplement",
           unit: "Packet",
           unitPrice: 480,
@@ -221,6 +260,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "disinfectant",
           supplierKey: "health",
           itemType: HatcheryInventoryItemType.MEDICINE,
+          sex: HatcherySex.NA,
           name: "Hatchery Biosecurity Disinfectant",
           unit: "Bottle",
           unitPrice: 720,
@@ -232,6 +272,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "egg-trays",
           supplierKey: "equipment",
           itemType: HatcheryInventoryItemType.OTHER,
+          sex: HatcherySex.NA,
           name: "Reusable Hatching Egg Trays",
           unit: "PCS",
           unitPrice: 55,
@@ -243,6 +284,7 @@ async function seedDemoHatchery(): Promise<void> {
           key: "setter-trays",
           supplierKey: "equipment",
           itemType: HatcheryInventoryItemType.OTHER,
+          sex: HatcherySex.NA,
           name: "Setter Machine Trays",
           unit: "PCS",
           unitPrice: 1250,
@@ -260,6 +302,7 @@ async function seedDemoHatchery(): Promise<void> {
         await upsertById(tx.hatcheryInventoryItem, id(`inventory-${item.key}`), {
           hatcheryOwnerId: user.id,
           itemType: item.itemType,
+          sex: item.sex,
           name: item.name,
           unit: item.unit,
           unitPrice: decimal(item.unitPrice),
@@ -290,13 +333,24 @@ async function seedDemoHatchery(): Promise<void> {
           reference: "HPSF-2081-640",
           items: [
             {
-              inventoryKey: "ross-parents",
+              inventoryKey: "ross-parents-female",
               itemName: "Ross 308 Parent Stock Chicks",
-              quantity: 1100,
+              quantity: 1000,
               freeQuantity: 0,
               unit: "Birds",
               unitPrice: 125,
-              totalAmount: 137_500,
+              totalAmount: 125_000,
+              sex: HatcherySex.FEMALE,
+            },
+            {
+              inventoryKey: "ross-parents-male",
+              itemName: "Ross 308 Parent Stock Chicks",
+              quantity: 100,
+              freeQuantity: 0,
+              unit: "Birds",
+              unitPrice: 58,
+              totalAmount: 5_800,
+              sex: HatcherySex.MALE,
             },
           ],
         },
@@ -319,13 +373,24 @@ async function seedDemoHatchery(): Promise<void> {
           reference: "HPSF-2082-118",
           items: [
             {
-              inventoryKey: "cobb-parents",
+              inventoryKey: "cobb-parents-female",
               itemName: "Cobb 500 Parent Stock Chicks",
-              quantity: 4200,
+              quantity: 3800,
               freeQuantity: 50,
               unit: "Birds",
               unitPrice: 130,
-              totalAmount: 546_000,
+              totalAmount: 494_000,
+              sex: HatcherySex.FEMALE,
+            },
+            {
+              inventoryKey: "cobb-parents-male",
+              itemName: "Cobb 500 Parent Stock Chicks",
+              quantity: 400,
+              freeQuantity: 0,
+              unit: "Birds",
+              unitPrice: 60,
+              totalAmount: 24_000,
+              sex: HatcherySex.MALE,
             },
           ],
         },
@@ -555,6 +620,7 @@ async function seedDemoHatchery(): Promise<void> {
               {
                 txnId: id(`supplier-${event.key}`),
                 itemName: item.itemName,
+                sex: item.sex ?? HatcherySex.NA,
                 quantity: decimal(item.quantity),
                 freeQuantity: decimal(item.freeQuantity),
                 unit: item.unit,
@@ -619,8 +685,13 @@ async function seedDemoHatchery(): Promise<void> {
         startDate: daysAgo(210),
         endDate: null,
         notes: "Commercial parent flock supplying the current incubation cycle.",
+        // 3600F + 400M placed; 58F/12M died; 30F/70M sold.
         initialParents: 4000,
+        initialMaleParents: 400,
+        initialFemaleParents: 3600,
         currentParents: 3830,
+        currentMaleParents: 318,
+        currentFemaleParents: 3512,
         placedAt: daysAgo(210),
       });
 
@@ -633,24 +704,45 @@ async function seedDemoHatchery(): Promise<void> {
         startDate: daysAgo(420),
         endDate: daysAgo(110),
         notes: "Completed parent flock retained for historical analytics.",
+        // 900F + 100M placed; 36F/4M died; 864F/96M sold at depopulation.
         initialParents: 1000,
+        initialMaleParents: 100,
+        initialFemaleParents: 900,
         currentParents: 0,
+        currentMaleParents: 0,
+        currentFemaleParents: 0,
         placedAt: daysAgo(420),
       });
 
+      // Sex is carried by the inventory lot, so a mixed flock is simply two
+      // placement rows rather than extra columns on the placement.
       const placementSeeds = [
         {
-          key: "active",
+          key: "active-female",
           batchId: activeBatchId,
-          inventoryKey: "cobb-parents" as const,
-          quantity: 4000,
+          inventoryKey: "cobb-parents-female" as const,
+          quantity: 3600,
           date: daysAgo(210),
         },
         {
-          key: "closed",
+          key: "active-male",
+          batchId: activeBatchId,
+          inventoryKey: "cobb-parents-male" as const,
+          quantity: 400,
+          date: daysAgo(210),
+        },
+        {
+          key: "closed-female",
           batchId: closedBatchId,
-          inventoryKey: "ross-parents" as const,
-          quantity: 1000,
+          inventoryKey: "ross-parents-female" as const,
+          quantity: 900,
+          date: daysAgo(420),
+        },
+        {
+          key: "closed-male",
+          batchId: closedBatchId,
+          inventoryKey: "ross-parents-male" as const,
+          quantity: 100,
           date: daysAgo(420),
         },
       ];
@@ -672,7 +764,7 @@ async function seedDemoHatchery(): Promise<void> {
           unitPrice: decimal(item.effectiveUnitCost),
           amount: decimal(amount),
           date: placement.date,
-          note: `Initial placement into ${placement.key === "active" ? "PF-001" : "PF-002"}`,
+          note: `Initial placement into ${placement.key.startsWith("active") ? "PF-001" : "PF-002"}`,
           sourceSupplierTxnId: null,
         });
         await upsertById(
@@ -703,6 +795,10 @@ async function seedDemoHatchery(): Promise<void> {
           quantity: 40,
           date: daysAgo(170),
           category: "FEED",
+          // Fed to both groups with the optional split recorded.
+          feedTarget: HatcheryFeedTarget.BOTH,
+          femaleFeedQuantity: 32,
+          maleFeedQuantity: 8,
           note: "Grower ration used before the flock entered lay",
         },
         {
@@ -712,6 +808,8 @@ async function seedDemoHatchery(): Promise<void> {
           quantity: 140,
           date: daysAgo(42),
           category: "FEED",
+          // Layer ration goes to the hens only; males stay on a separate ration.
+          feedTarget: HatcheryFeedTarget.FEMALE,
           note: "Layer ration issued for the current production cycle",
         },
         {
@@ -751,6 +849,7 @@ async function seedDemoHatchery(): Promise<void> {
           note: "Egg trays assigned to House A collection points",
         },
         {
+          feedTarget: HatcheryFeedTarget.BOTH,
           key: "closed-grower-feed",
           batchId: closedBatchId,
           inventoryKey: "grower-feed" as const,
@@ -760,6 +859,7 @@ async function seedDemoHatchery(): Promise<void> {
           note: "Grower feed used by the completed Ross parent flock",
         },
         {
+          feedTarget: HatcheryFeedTarget.FEMALE,
           key: "closed-layer-feed",
           batchId: closedBatchId,
           inventoryKey: "layer-feed" as const,
@@ -796,6 +896,15 @@ async function seedDemoHatchery(): Promise<void> {
           unitPrice: decimal(item.effectiveUnitCost),
           amount: decimal(amount),
           note: expense.note,
+          feedTarget: "feedTarget" in expense ? expense.feedTarget : null,
+          femaleFeedQuantity:
+            "femaleFeedQuantity" in expense && expense.femaleFeedQuantity !== undefined
+              ? decimal(expense.femaleFeedQuantity)
+              : null,
+          maleFeedQuantity:
+            "maleFeedQuantity" in expense && expense.maleFeedQuantity !== undefined
+              ? decimal(expense.maleFeedQuantity)
+              : null,
           inventoryItemId: id(`inventory-${expense.inventoryKey}`),
           inventoryTxnId,
         });
@@ -867,18 +976,21 @@ async function seedDemoHatchery(): Promise<void> {
         });
       }
 
+      // count is always female + male, exactly as the API derives it.
       const mortalitySeeds = [
-        ["active-1", activeBatchId, daysAgo(175), 25, "Early adaptation loss"],
-        ["active-2", activeBatchId, daysAgo(90), 20, "Routine flock mortality"],
-        ["active-3", activeBatchId, daysAgo(18), 25, "Late-cycle mortality"],
-        ["closed-1", closedBatchId, daysAgo(350), 20, "Early flock loss"],
-        ["closed-2", closedBatchId, daysAgo(190), 20, "Production-cycle loss"],
+        ["active-1", activeBatchId, daysAgo(175), 20, 5, "Early adaptation loss"],
+        ["active-2", activeBatchId, daysAgo(90), 17, 3, "Routine flock mortality"],
+        ["active-3", activeBatchId, daysAgo(18), 21, 4, "Late-cycle mortality"],
+        ["closed-1", closedBatchId, daysAgo(350), 18, 2, "Early flock loss"],
+        ["closed-2", closedBatchId, daysAgo(190), 18, 2, "Production-cycle loss"],
       ] as const;
-      for (const [key, batchId, date, count, note] of mortalitySeeds) {
+      for (const [key, batchId, date, femaleCount, maleCount, note] of mortalitySeeds) {
         await upsertById(tx.hatcheryBatchMortality, id(`mortality-${key}`), {
           batchId,
           date,
-          count,
+          count: femaleCount + maleCount,
+          femaleCount,
+          maleCount,
           note,
         });
       }
@@ -1677,17 +1789,19 @@ async function seedDemoHatchery(): Promise<void> {
           key: "active",
           batchId: activeBatchId,
           date: daysAgo(10, 11),
-          count: 100,
+          femaleCount: 30,
+          maleCount: 70,
           totalWeightKg: 340,
           ratePerKg: 250,
           partyKey: "meat-house" as const,
-          note: "Sale of selected non-performing parent birds",
+          note: "Surplus males and non-performing hens culled from PF-001",
         },
         {
           key: "closed",
           batchId: closedBatchId,
           date: daysAgo(112, 11),
-          count: 960,
+          femaleCount: 864,
+          maleCount: 96,
           totalWeightKg: 3264,
           ratePerKg: 225,
           partyKey: "meat-house" as const,
@@ -1696,12 +1810,15 @@ async function seedDemoHatchery(): Promise<void> {
       ];
       for (const sale of parentSaleSeeds) {
         const saleId = id(`parent-sale-${sale.key}`);
-        const avgWeightKg = round4(sale.totalWeightKg / sale.count);
+        const saleCount = sale.femaleCount + sale.maleCount;
+        const avgWeightKg = round4(sale.totalWeightKg / saleCount);
         const amount = round2(sale.totalWeightKg * sale.ratePerKg);
         await upsertById(tx.hatcheryParentSale, saleId, {
           batchId: sale.batchId,
           date: sale.date,
-          count: sale.count,
+          count: saleCount,
+          femaleCount: sale.femaleCount,
+          maleCount: sale.maleCount,
           totalWeightKg: decimal(sale.totalWeightKg),
           avgWeightKg: decimal(avgWeightKg),
           ratePerKg: decimal(sale.ratePerKg),

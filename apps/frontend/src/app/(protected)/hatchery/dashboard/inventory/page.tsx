@@ -64,6 +64,23 @@ const TYPE_COLORS: Record<HatcheryInventoryItemType, string> = {
   OTHER: "bg-purple-100 text-purple-800",
 };
 
+// Local on purpose: shared UI components are used by farmer/dealer/company
+// pages too, so hatchery-only affordances stay in hatchery files.
+function SexTag({ sex }: { sex?: "MALE" | "FEMALE" | "NA" }) {
+  if (sex !== "MALE" && sex !== "FEMALE") return null;
+  const isFemale = sex === "FEMALE";
+  return (
+    <span
+      className={
+        "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+        (isFemale ? "bg-pink-100 text-pink-700" : "bg-sky-100 text-sky-700")
+      }
+    >
+      {isFemale ? "Female" : "Male"}
+    </span>
+  );
+}
+
 const fmtStock = (n: number | string) =>
   Number(n || 0).toLocaleString("en-NP", {
     minimumFractionDigits: 0,
@@ -264,6 +281,7 @@ export default function HatcheryInventoryPage() {
               <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
             )}
             <span className="font-medium">{row.name}</span>
+            <SexTag sex={row.sex} />
           </div>
         );
       },
@@ -444,7 +462,11 @@ export default function HatcheryInventoryPage() {
                   variant="outline"
                   className="border-red-300 text-red-700"
                 >
-                  {item.name}: {fmtStock(item.currentStock)} {item.unit}
+                  {item.name}
+                  {item.sex === "MALE" || item.sex === "FEMALE"
+                    ? ` (${item.sex === "FEMALE" ? "female" : "male"})`
+                    : ""}
+                  : {fmtStock(item.currentStock)} {item.unit}
                 </Badge>
               ))}
             </div>

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import {
   HatcheryInventoryItemType,
+  HatcherySex,
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import { HatcheryPurchaseCategory } from "@prisma/client";
@@ -264,7 +265,7 @@ export const createHatcheryInventoryItem = async (
 ): Promise<any> => {
   try {
     const userId = req.userId!;
-    const { itemType, name, unit = "kg", unitPrice = 0, minStock } = req.body;
+    const { itemType, name, unit = "kg", unitPrice = 0, minStock, sex } = req.body;
 
     if (!itemType || !VALID_TYPES.includes(itemType))
       return res.status(400).json({ message: "Valid itemType is required" });
@@ -273,6 +274,17 @@ export const createHatcheryInventoryItem = async (
 
     if (itemType === HatcheryInventoryItemType.SELF_MADE) {
       return res.status(400).json({ message: "Create Self Feed products from the Self Feed inventory tab" });
+    }
+    // Chicks must declare a sex; everything else is stored as NA so the
+    // identity key behaves exactly as it did before sex existed.
+    if (
+      itemType === HatcheryInventoryItemType.CHICKS &&
+      sex !== HatcherySex.MALE &&
+      sex !== HatcherySex.FEMALE
+    ) {
+      return res
+        .status(400)
+        .json({ message: "sex must be MALE or FEMALE for chick items" });
     }
     if (
       itemType === HatcheryInventoryItemType.RAW_MATERIAL &&
@@ -297,6 +309,10 @@ export const createHatcheryInventoryItem = async (
         unitPrice: Number(unitPrice),
         minStock: minStock !== undefined ? Number(minStock) : null,
         supplierKey: "NONE",
+        sex:
+          itemType === HatcheryInventoryItemType.CHICKS
+            ? (sex as HatcherySex)
+            : HatcherySex.NA,
       },
     });
 
@@ -454,6 +470,9 @@ export const reorderHatcheryInventoryItem = async (
           unit: item.unit,
           unitPrice,
           totalAmount,
+          // Reorder must restock the SAME lot, so the sex comes from the item
+          // being reordered. Passing NA here would silently fork a new lot.
+          sex: item.sex,
         },
       ],
       date: date ? new Date(date) : new Date(),
