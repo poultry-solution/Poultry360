@@ -19,17 +19,18 @@ function params(filters: AuditFilters) {
   return new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== undefined && value !== "").map(([key, value]) => [key, String(value)])).toString();
 }
 
-export function useBusinessAudit(scope: "dealer" | "admin", filters: AuditFilters, enabled = true) {
+export function useBusinessAudit(scope: "account" | "admin", filters: AuditFilters, enabled = true) {
   return useQuery({
     queryKey: ["business-audit", scope, filters],
-    queryFn: async () => (await axiosInstance.get(`/${scope}/activity?${params(filters)}`)).data as { data: BusinessAuditLog[]; pagination: { page: number; total: number; totalPages: number } },
+    queryFn: async () => (await axiosInstance.get(`${scope === "account" ? "/business-activity" : "/admin/activity"}?${params(filters)}`)).data as { data: BusinessAuditLog[]; pagination: { page: number; total: number; totalPages: number } },
     enabled,
   });
 }
 
-export const useDealerBusinessAudit = (filters: AuditFilters, enabled = true) => useBusinessAudit("dealer", filters, enabled);
+export const useDealerBusinessAudit = (filters: AuditFilters, enabled = true) => useBusinessAudit("account", filters, enabled);
 export const useAdminBusinessAudit = (filters: AuditFilters, enabled = true) => useBusinessAudit("admin", filters, enabled);
 
-export async function exportBusinessAudit(scope: "dealer" | "admin", filters: AuditFilters) {
-  return (await axiosInstance.get(`/${scope}/activity/export?${params(filters)}`)).data.data as BusinessAuditLog[];
+export async function exportBusinessAudit(scope: "account" | "admin", filters: AuditFilters) {
+  const endpoint = scope === "account" ? "/business-activity/export" : "/admin/activity/export";
+  return (await axiosInstance.get(`${endpoint}?${params(filters)}`)).data.data as BusinessAuditLog[];
 }

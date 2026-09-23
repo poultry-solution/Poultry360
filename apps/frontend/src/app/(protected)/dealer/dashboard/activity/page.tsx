@@ -8,7 +8,7 @@ export default function DealerActivityPage() {
       featureKey={ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS}
       fallbackHref="/dealer/dashboard/home"
     >
-      <BusinessActivityPage scope="dealer" />
+      <BusinessActivityPage scope="account" />
     </AccountFeatureGuard>
   );
 }
