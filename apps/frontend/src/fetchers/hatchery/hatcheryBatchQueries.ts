@@ -142,6 +142,25 @@ export interface HatcheryBatchExpense {
   createdAt: string;
 }
 
+/** Quantity per unit — feed can be stocked in kg and bags, which must not be summed together. */
+export interface HatcheryFeedBucket {
+  amount: number;
+  quantities: Record<string, number>;
+}
+
+export interface HatcheryFeedBySex {
+  female: HatcheryFeedBucket;
+  male: HatcheryFeedBucket;
+  /** "Fed to: Both" rows where the optional split was left blank. */
+  unallocated: HatcheryFeedBucket;
+}
+
+export interface HatcheryExpenseCategoryTotal {
+  category: string;
+  amount: number;
+  count: number;
+}
+
 export interface HatcheryBatchExpenseListResponse {
   expenses: HatcheryBatchExpense[];
   page: number;
@@ -149,7 +168,14 @@ export interface HatcheryBatchExpenseListResponse {
   total: number;
   totalPages: number;
   summary: {
+    /** Batch grand total, ignores the category filter. Feeds the "Total Expenses" card. */
     totalExpenses: number;
+    /** Total for the active category filter. Feeds the table footer. */
+    filteredExpenses: number;
+    /** Every category present on this batch — drives the filter dropdown. */
+    byCategory: HatcheryExpenseCategoryTotal[];
+    /** Null when the filtered scope contains no feed rows. */
+    feedBySex: HatcheryFeedBySex | null;
   };
 }
 
@@ -471,7 +497,10 @@ export function useDeleteHatcheryMortality(batchId: string) {
 }
 
 // Expenses
-export function useHatcheryExpenses(batchId: string, params: { page?: number; limit?: number } = {}) {
+export function useHatcheryExpenses(
+  batchId: string,
+  params: { page?: number; limit?: number; category?: string } = {}
+) {
   return useQuery({
     queryKey: [...hatcheryBatchKeys.expenses(batchId), params] as const,
     placeholderData: (previousData) => previousData,
@@ -479,6 +508,7 @@ export function useHatcheryExpenses(batchId: string, params: { page?: number; li
       const searchParams = new URLSearchParams();
       if (params.page) searchParams.set("page", String(params.page));
       if (params.limit) searchParams.set("limit", String(params.limit));
+      if (params.category) searchParams.set("category", params.category);
       const { data } = await axiosInstance.get(`/hatchery/batches/${batchId}/expenses?${searchParams}`);
       return data as HatcheryBatchExpenseListResponse;
     },

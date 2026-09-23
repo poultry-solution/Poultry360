@@ -46,6 +46,7 @@ import {
   type HatcheryEggSale,
   type HatcheryParentSale,
   type HatcheryFeedTarget,
+  type HatcheryFeedBucket,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import {
   useGetHatcheryInventory,
@@ -77,6 +78,55 @@ function fmtNPR(n: number | string) {
 
 function today() {
   return new Date().toISOString().split("T")[0];
+}
+
+const ALL_CATEGORIES = "All";
+
+/** "RAW_MATERIAL" -> "Raw Material", "manual" -> "Manual". */
+function expenseCategoryLabel(category: string) {
+  return category
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** "800 kg" — or "800 kg · 5 bag" when a batch mixes feed units. */
+function formatFeedQuantities(quantities: Record<string, number>) {
+  const parts = Object.entries(quantities)
+    .filter(([, qty]) => qty > 0)
+    .map(([unit, qty]) => `${qty.toLocaleString()}${unit ? ` ${unit}` : ""}`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * One bucket of the feed-by-sex breakdown. Local on purpose: shared UI is used
+ * by farmer/dealer/company pages too, so hatchery-only affordances stay here.
+ * Colours match the SexTag on the inventory page and the F · M sublines.
+ */
+function FeedSexStat({
+  label,
+  bucket,
+  tone,
+}: {
+  label: string;
+  bucket: HatcheryFeedBucket;
+  tone: "female" | "male" | "neutral";
+}) {
+  const quantity = formatFeedQuantities(bucket.quantities);
+  if (!quantity && bucket.amount === 0) return null;
+  const toneClass =
+    tone === "female"
+      ? "text-pink-700"
+      : tone === "male"
+        ? "text-sky-700"
+        : "text-gray-600";
+  return (
+    <span>
+      <span className={`font-semibold ${toneClass}`}>{label}</span>{" "}
+      {quantity ?? "—"}
+      {bucket.amount > 0 ? ` (${fmtNPR(bucket.amount)})` : ""}
+    </span>
+  );
 }
 
 function isInitialPlacementExpense(expense: HatcheryBatchExpense) {
@@ -705,7 +755,12 @@ const INVENTORY_ITEM_TYPE_OPTIONS: { value: HatcheryInventoryItemType; label: st
 
 function ExpensesTab({ batchId }: { batchId: string }) {
   const [page, setPage] = useState(1);
-  const { data: expenseRes, isLoading } = useHatcheryExpenses(batchId, { page, limit: 10 });
+  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
+  const { data: expenseRes, isLoading } = useHatcheryExpenses(batchId, {
+    page,
+    limit: 10,
+    category: categoryFilter === ALL_CATEGORIES ? undefined : categoryFilter,
+  });
   const addMutation = useAddHatcheryExpense(batchId);
   const deleteMutation = useDeleteHatcheryExpense(batchId);
   const [inventorySearch, setInventorySearch] = useState("");
@@ -754,6 +809,9 @@ function ExpensesTab({ batchId }: { batchId: string }) {
 
   const expenses = expenseRes?.expenses ?? [];
   const totalExpenses = Number(expenseRes?.summary.totalExpenses ?? 0);
+  const filteredExpenses = Number(expenseRes?.summary.filteredExpenses ?? 0);
+  const byCategory = expenseRes?.summary.byCategory ?? [];
+  const feedBySex = expenseRes?.summary.feedBySex ?? null;
   const totalRows = Number(expenseRes?.total ?? 0);
   const totalPages = Math.max(1, Number(expenseRes?.totalPages ?? 1));
   const currentPage = Math.max(1, Number(expenseRes?.page ?? page));
@@ -764,6 +822,25 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       setPage(totalPages);
     }
   }, [page, totalPages]);
+
+  // Filtering while on page 3 would otherwise land on an empty page.
+  useEffect(() => {
+    setPage(1);
+  }, [categoryFilter]);
+
+  // The last row of a category can be deleted while it is selected; drop back
+  // to All rather than showing an empty table behind a stale filter.
+  useEffect(() => {
+    if (
+      categoryFilter !== ALL_CATEGORIES &&
+      byCategory.length > 0 &&
+      !byCategory.some(
+        (row) => row.category.toUpperCase() === categoryFilter.toUpperCase()
+      )
+    ) {
+      setCategoryFilter(ALL_CATEGORIES);
+    }
+  }, [byCategory, categoryFilter]);
 
   async function handleAdd() {
     setFormError(null);
@@ -1082,12 +1159,60 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       </div>
 
       <div className="bg-white border rounded-xl overflow-hidden">
+        {byCategory.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+            <label className="text-xs font-medium text-gray-600">Category</label>
+            <select
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value={ALL_CATEGORIES}>All — {fmtNPR(totalExpenses)}</option>
+              {/* Built from the data, so custom categories appear on their own. */}
+              {byCategory.map((row) => (
+                <option key={row.category} value={row.category}>
+                  {expenseCategoryLabel(row.category)} — {fmtNPR(row.amount)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <DataTable
           data={expenses}
           columns={columns}
           loading={isLoading}
           emptyMessage="No expenses recorded yet."
           getRowKey={(row) => row.id}
+          showFooter={expenses.length > 0}
+          footerContent={
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 text-sm">
+                <span className="font-semibold text-gray-900">
+                  {categoryFilter === ALL_CATEGORIES
+                    ? "Total"
+                    : `Total (${expenseCategoryLabel(categoryFilter)})`}
+                </span>
+                <span className="font-bold text-amber-700">
+                  {fmtNPR(filteredExpenses)}
+                </span>
+              </div>
+              {feedBySex && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 text-xs text-gray-500">
+                  <span className="font-medium text-gray-600">Feed consumed</span>
+                  <FeedSexStat label="Female" bucket={feedBySex.female} tone="female" />
+                  <FeedSexStat label="Male" bucket={feedBySex.male} tone="male" />
+                  {(feedBySex.unallocated.amount > 0 ||
+                    formatFeedQuantities(feedBySex.unallocated.quantities)) && (
+                    <FeedSexStat
+                      label="Unsplit"
+                      bucket={feedBySex.unallocated}
+                      tone="neutral"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          }
         />
         <LedgerPagination
           page={currentPage}

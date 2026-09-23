@@ -704,11 +704,105 @@ export async function deleteHatcheryMortality(req: Request, res: Response) {
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
 
+// Sentinel meaning "no category filter", matching the convention used by the
+// farmer expense list (expenseController.getBatchExpenses).
+const ALL_CATEGORIES = "All";
+
+type FeedBucket = {
+  amount: number;
+  /**
+   * Quantity per unit. Feed rows carry their inventory item's unit, so a batch
+   * can legitimately mix "kg" and "bag" — summing those into one number would
+   * be meaningless, hence a map rather than a scalar.
+   */
+  quantities: Record<string, number>;
+};
+
+function emptyFeedBucket(): FeedBucket {
+  return { amount: 0, quantities: {} };
+}
+
+function addToFeedBucket(
+  bucket: FeedBucket,
+  quantity: number,
+  unit: string | null,
+  amount: number
+) {
+  bucket.amount += amount;
+  if (quantity > 0) {
+    const key = unit ?? "";
+    bucket.quantities[key] = (bucket.quantities[key] ?? 0) + quantity;
+  }
+}
+
+/**
+ * Attribute feed consumption to each parent group, in both quantity and money.
+ *
+ * A BOTH row carries its own male/female split, so attribution must SPLIT rows
+ * rather than select them — filtering rows by feedTarget would drop a
+ * 800F/200M row from a female view entirely and undercount by 800.
+ *
+ * Money is exact, not pro-rated guesswork: amount = quantity x unitPrice for a
+ * single feed lot, so femaleFeedQuantity x unitPrice is the true female cost.
+ */
+export function summariseFeedBySex(
+  rows: Array<{
+    quantity: Prisma.Decimal | null;
+    unit: string | null;
+    amount: Prisma.Decimal;
+    unitPrice: Prisma.Decimal | null;
+    feedTarget: HatcheryFeedTarget | null;
+    maleFeedQuantity: Prisma.Decimal | null;
+    femaleFeedQuantity: Prisma.Decimal | null;
+  }>
+) {
+  if (rows.length === 0) return null;
+
+  const female = emptyFeedBucket();
+  const male = emptyFeedBucket();
+  const unallocated = emptyFeedBucket();
+
+  for (const row of rows) {
+    const quantity = Number(row.quantity ?? 0);
+    const amount = Number(row.amount ?? 0);
+    const unitPrice = Number(row.unitPrice ?? 0);
+
+    if (row.feedTarget === HatcheryFeedTarget.FEMALE) {
+      addToFeedBucket(female, quantity, row.unit, amount);
+      continue;
+    }
+    if (row.feedTarget === HatcheryFeedTarget.MALE) {
+      addToFeedBucket(male, quantity, row.unit, amount);
+      continue;
+    }
+
+    // BOTH: use the optional split when it was recorded. The API rejects a
+    // one-sided split, so either both are present or neither is.
+    const hasSplit =
+      row.maleFeedQuantity !== null && row.femaleFeedQuantity !== null;
+    if (!hasSplit) {
+      addToFeedBucket(unallocated, quantity, row.unit, amount);
+      continue;
+    }
+
+    const maleQty = Number(row.maleFeedQuantity ?? 0);
+    const femaleQty = Number(row.femaleFeedQuantity ?? 0);
+    addToFeedBucket(female, femaleQty, row.unit, round2(femaleQty * unitPrice));
+    addToFeedBucket(male, maleQty, row.unit, round2(maleQty * unitPrice));
+  }
+
+  return { female, male, unallocated };
+}
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export async function listHatcheryExpenses(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { page = "1", limit = "10" } = req.query as Record<string, string>;
+    const { page = "1", limit = "10", category } = req.query as Record<string, string>;
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
@@ -717,24 +811,87 @@ export async function listHatcheryExpenses(req: Request, res: Response) {
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageLimit = Math.max(1, parseInt(limit, 10) || 10);
-    const where = { batchId };
 
-    const [expenses, totalRows, totalSummary] = await Promise.all([
+    // Stored categories are mixed case in practice (inventory writes "FEED",
+    // the manual form writes "manual"), so match case-insensitively rather than
+    // normalising stored values — isInitialPlacementExpense compares
+    // category === "CHICKS" exactly and must keep working.
+    const categoryFilter =
+      category && category !== ALL_CATEGORIES ? category : null;
+
+    const where: Prisma.HatcheryBatchExpenseWhereInput = { batchId };
+    if (categoryFilter) {
+      where.category = { equals: categoryFilter, mode: "insensitive" };
+    }
+
+    const [expenses, grouped, feedRows] = await Promise.all([
       prisma.hatcheryBatchExpense.findMany({
         where,
-        orderBy: { date: "desc" },
+        // Tiebreakers are required: with `date` alone, rows sharing a date can
+        // reorder between requests, so paging duplicates some rows and skips
+        // others.
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
         skip: (pageNum - 1) * pageLimit,
         take: pageLimit,
         include: {
           inventoryItem: { select: { id: true, name: true, unit: true } },
         },
       }),
-      prisma.hatcheryBatchExpense.count({ where }),
-      prisma.hatcheryBatchExpense.aggregate({
-        where,
+      // Deliberately NOT category-filtered: this drives the filter dropdown, so
+      // it must list every category including the unselected ones, and it also
+      // yields the unfiltered grand total and each category's row count.
+      prisma.hatcheryBatchExpense.groupBy({
+        by: ["category"],
+        where: { batchId },
         _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      // Scoped to the same `where` as the rows, so the breakdown always
+      // describes exactly what is on screen.
+      prisma.hatcheryBatchExpense.findMany({
+        where: { ...where, feedTarget: { not: null } },
+        select: {
+          quantity: true,
+          unit: true,
+          amount: true,
+          unitPrice: true,
+          feedTarget: true,
+          maleFeedQuantity: true,
+          femaleFeedQuantity: true,
+        },
       }),
     ]);
+
+    // Fold on upper case so a stray "feed" and "FEED" collapse into one bucket.
+    const byCategoryMap = new Map<
+      string,
+      { category: string; amount: number; count: number }
+    >();
+    for (const group of grouped) {
+      const key = String(group.category).toUpperCase();
+      const existing = byCategoryMap.get(key);
+      const amount = Number(group._sum.amount ?? 0);
+      const count = Number(group._count?._all ?? 0);
+      if (existing) {
+        existing.amount += amount;
+        existing.count += count;
+      } else {
+        byCategoryMap.set(key, { category: group.category, amount, count });
+      }
+    }
+
+    const byCategory = [...byCategoryMap.values()].sort(
+      (a, b) => b.amount - a.amount
+    );
+    const totalExpenses = byCategory.reduce((sum, row) => sum + row.amount, 0);
+
+    const selected = categoryFilter
+      ? byCategoryMap.get(categoryFilter.toUpperCase())
+      : null;
+    const filteredExpenses = categoryFilter ? (selected?.amount ?? 0) : totalExpenses;
+    const totalRows = categoryFilter
+      ? (selected?.count ?? 0)
+      : byCategory.reduce((sum, row) => sum + row.count, 0);
 
     return res.json({
       expenses,
@@ -743,7 +900,13 @@ export async function listHatcheryExpenses(req: Request, res: Response) {
       total: totalRows,
       totalPages: Math.max(1, Math.ceil(totalRows / pageLimit)),
       summary: {
-        totalExpenses: Number(totalSummary._sum.amount ?? 0),
+        // Unchanged meaning: the batch grand total, ignoring the filter. The
+        // detail page's "Total Expenses" card reads this and must keep matching
+        // Profit/Loss on the Overview tab.
+        totalExpenses: round2(totalExpenses),
+        filteredExpenses: round2(filteredExpenses),
+        byCategory,
+        feedBySex: summariseFeedBySex(feedRows),
       },
     });
   } catch (err: any) {
