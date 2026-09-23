@@ -6,6 +6,8 @@ import axiosInstance from "@/common/lib/axios";
 export type HatcheryBatchType = "PARENT_FLOCK" | "INCUBATION";
 export type HatcheryBatchStatus = "ACTIVE" | "CLOSED";
 export type HatcheryBatchExpenseType = "INVENTORY" | "MANUAL";
+/** Which parent group consumed a feed expense. */
+export type HatcheryFeedTarget = "MALE" | "FEMALE" | "BOTH";
 
 export interface HatcheryBatch {
   id: string;
@@ -18,7 +20,11 @@ export interface HatcheryBatch {
   endDate: string | null;
   notes: string | null;
   initialParents: number | null;
+  initialMaleParents: number | null;
+  initialFemaleParents: number | null;
   currentParents: number | null;
+  currentMaleParents: number | null;
+  currentFemaleParents: number | null;
   placedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -95,7 +101,10 @@ export interface HatcheryBatchMortality {
   id: string;
   batchId: string;
   date: string;
+  /** Derived: maleCount + femaleCount. */
   count: number;
+  maleCount: number;
+  femaleCount: number;
   note: string | null;
   createdAt: string;
 }
@@ -126,6 +135,10 @@ export interface HatcheryBatchExpense {
   inventoryItemId: string | null;
   inventoryTxnId: string | null;
   inventoryItem?: { id: string; name: string; unit: string } | null;
+  /** Set only on FEED / SELF_MADE consumption; null on every other expense. */
+  feedTarget: HatcheryFeedTarget | null;
+  maleFeedQuantity: number | null;
+  femaleFeedQuantity: number | null;
   createdAt: string;
 }
 
@@ -179,7 +192,23 @@ export interface HatcheryEggProductionListResponse {
   summary: {
     typeTotals: Record<string, number>;
     grandTotal: number;
+    /**
+     * Server-computed over true female-days: the denominator counts only
+     * females alive on each day, and the window starts at the first recorded
+     * egg production rather than at batch start. Null when there is nothing
+     * meaningful to show (not a parent flock, no production, no female-days).
+     */
+    layRate: HatcheryLayRate | null;
   };
+}
+
+export interface HatcheryLayRate {
+  layPercent: number;
+  eggsPerFemaleDay: number;
+  femaleDays: number;
+  totalEggs: number;
+  windowStart: string;
+  windowEnd: string;
 }
 
 export interface HatcheryEggStockRow {
@@ -223,7 +252,10 @@ export interface HatcheryParentSale {
   id: string;
   batchId: string;
   date: string;
+  /** Derived: maleCount + femaleCount. */
   count: number;
+  maleCount: number;
+  femaleCount: number;
   totalWeightKg: number;
   avgWeightKg: number;
   ratePerKg: number;
@@ -409,7 +441,12 @@ export function useHatcheryMortalities(
 export function useAddHatcheryMortality(batchId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { date: string; count: number; note?: string }) => {
+    mutationFn: async (payload: {
+      date: string;
+      maleCount: number;
+      femaleCount: number;
+      note?: string;
+    }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/mortalities`, payload);
       return data;
     },
@@ -463,6 +500,11 @@ export function useAddHatcheryExpense(batchId: string) {
       unitPrice?: number;
       amount?: number;
       note?: string;
+      // Required by the API for FEED / SELF_MADE expenses, rejected otherwise.
+      feedTarget?: HatcheryFeedTarget;
+      // Optional, and only valid when feedTarget is BOTH. Must sum to quantity.
+      maleFeedQuantity?: number;
+      femaleFeedQuantity?: number;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/expenses`, payload);
       return data as HatcheryBatchExpense;
@@ -620,7 +662,8 @@ export function useAddHatcheryParentSale(batchId: string) {
   return useMutation({
     mutationFn: async (payload: {
       date: string;
-      count: number;
+      maleCount: number;
+      femaleCount: number;
       totalWeightKg: number;
       ratePerKg: number;
       partyId?: string;

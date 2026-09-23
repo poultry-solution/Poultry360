@@ -104,6 +104,8 @@ const emptyLineItem = (category: HatcheryPurchaseCategory): AddPurchaseItem & {
   unit: DEFAULT_UNITS[category],
   unitPrice: 0,
   totalAmount: 0,
+  // Only read for CHICKS; other categories are stored as NA server-side.
+  sex: "FEMALE",
   freeMode: "count",
   freeValue: "",
 });
@@ -410,10 +412,18 @@ export default function HatcherySupplierLedgerPage() {
   const handleAddPurchase = async () => {
     if (!purchaseForm.date) { toast.error("Date is required"); return; }
     for (const li of purchaseForm.lineItems) {
+      const qty = Number(li.quantity);
+      const free = Number(li.freeQuantity || 0);
       if (!li.itemName.trim()) { toast.error("Item name is required for all line items"); return; }
-      if (Number(li.quantity) <= 0) { toast.error("Quantity must be > 0 for all items"); return; }
+      if (!Number.isFinite(qty) || qty < 0) { toast.error("Quantity cannot be negative"); return; }
       if (Number(li.unitPrice) < 0) { toast.error("Unit price cannot be negative"); return; }
-      if (Number(li.totalAmount) <= 0) { toast.error("Total amount must be > 0 for all items"); return; }
+      if (Number(li.totalAmount) < 0) { toast.error("Total amount cannot be negative"); return; }
+      // Quantity may be 0 on a free-only chick line, but something must arrive.
+      if (qty + free <= 0) { toast.error("Each item needs a quantity or a free quantity"); return; }
+      if (purchaseForm.category === "CHICKS" && li.sex !== "MALE" && li.sex !== "FEMALE") {
+        toast.error("Choose male or female for each chick item");
+        return;
+      }
     }
     try {
       await addPurchase.mutateAsync({
@@ -426,6 +436,7 @@ export default function HatcherySupplierLedgerPage() {
           unit: li.unit,
           unitPrice: Number(li.unitPrice),
           totalAmount: Number(li.totalAmount),
+          sex: purchaseForm.category === "CHICKS" ? li.sex : undefined,
         })),
         date: purchaseForm.date,
         note: purchaseForm.note || undefined,
@@ -984,6 +995,34 @@ export default function HatcherySupplierLedgerPage() {
                         updateLineItem(idx, "itemName", e.target.value)
                       }
                     />
+
+                    {/* Sex applies to chicks only. Male and female are tracked as
+                        separate inventory lots, so this picks which lot the
+                        birds land in. */}
+                    {purchaseForm.category === "CHICKS" && (
+                      <div>
+                        <Label className="text-xs">Sex *</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          {(["FEMALE", "MALE"] as const).map((option) => (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => updateLineItem(idx, "sex", option)}
+                              className={
+                                "rounded-md border px-3 py-2 text-sm font-medium transition-colors " +
+                                (li.sex === option
+                                  ? option === "FEMALE"
+                                    ? "border-pink-400 bg-pink-50 text-pink-800"
+                                    : "border-sky-400 bg-sky-50 text-sky-800"
+                                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50")
+                              }
+                            >
+                              {option === "FEMALE" ? "Female" : "Male"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div>

@@ -28,6 +28,10 @@ export interface HatcherySupplier {
   updatedAt: string;
 }
 
+// MALE/FEMALE apply to chick purchases only. Every other category is stored
+// as NA by the server regardless of what is sent.
+export type HatcherySex = "MALE" | "FEMALE" | "NA";
+
 export interface HatcherySupplierPurchaseItem {
   id: string;
   txnId: string;
@@ -37,6 +41,7 @@ export interface HatcherySupplierPurchaseItem {
   unit: string;
   unitPrice: number;
   totalAmount: number;
+  sex: HatcherySex;
 }
 
 export interface HatcherySupplierTxn {
@@ -56,11 +61,14 @@ export interface HatcherySupplierTxn {
 
 export interface AddPurchaseItem {
   itemName: string;
+  // May be 0 on a free-only line (supplier threw in birds at no cost).
   quantity: number;
   freeQuantity?: number;
   unit: string;
   unitPrice: number;
   totalAmount: number;
+  // Required by the API for CHICKS purchases; ignored for every other category.
+  sex?: HatcherySex;
 }
 
 // ==================== QUERY KEYS ====================

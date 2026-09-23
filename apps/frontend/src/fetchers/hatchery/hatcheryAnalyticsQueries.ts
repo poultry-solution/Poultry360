@@ -82,6 +82,8 @@ export interface HatcheryAnalyticsBatchRow {
   endDate: string | null;
   currentParents: number | null;
   initialParents: number | null;
+  currentMaleParents: number | null;
+  currentFemaleParents: number | null;
   mortality: number;
   mortalityRate: number;
   expenses: number;

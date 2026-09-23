@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { HatcherySupplierTxnType, HatcheryPurchaseCategory } from "@prisma/client";
+import {
+  HatcherySupplierTxnType,
+  HatcheryPurchaseCategory,
+  HatcherySex,
+} from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import bcrypt from "bcrypt";
 import {
@@ -316,19 +320,42 @@ export const addHatcherySupplierTransaction = async (
           .json({ message: "At least one item is required for purchase" });
 
       for (const item of items) {
+        const qty = Number(item.quantity ?? 0);
+        const freeQty = Number(item.freeQuantity ?? 0);
+
         if (!item.itemName?.trim())
           return res.status(400).json({ message: "itemName required for each item" });
-        if (!item.quantity || Number(item.quantity) <= 0)
-          return res.status(400).json({ message: "quantity must be > 0 for each item" });
+        // quantity may be 0 on a free-only line (supplier threw in birds at no
+        // cost, sometimes of a different sex than the paid line). unitPrice is
+        // still meaningful there: it selects which inventory lot the free birds
+        // merge into, since unitPrice is part of the item identity key.
+        if (!Number.isFinite(qty) || qty < 0)
+          return res.status(400).json({ message: "quantity must be >= 0 for each item" });
         if (item.unitPrice === undefined || Number(item.unitPrice) < 0)
           return res.status(400).json({ message: "unitPrice must be >= 0 for each item" });
-        if (!item.totalAmount || Number(item.totalAmount) <= 0)
-          return res.status(400).json({ message: "totalAmount must be > 0 for each item" });
-        if (!Number.isFinite(Number(item.freeQuantity ?? 0)) || Number(item.freeQuantity ?? 0) < 0)
+        if (!Number.isFinite(Number(item.totalAmount ?? 0)) || Number(item.totalAmount) < 0)
+          return res.status(400).json({ message: "totalAmount must be >= 0 for each item" });
+        if (!Number.isFinite(freeQty) || freeQty < 0)
           return res.status(400).json({ message: "freeQuantity must be >= 0 for each item" });
-        if (category !== HatcheryPurchaseCategory.CHICKS && Number(item.freeQuantity ?? 0) !== 0)
+        if (category !== HatcheryPurchaseCategory.CHICKS && freeQty !== 0)
           return res.status(400).json({ message: "freeQuantity is only supported for chick purchases" });
-        const expectedTotal = Math.round(Number(item.quantity) * Number(item.unitPrice) * 100) / 100;
+        // Chicks must declare a sex. Every other category is forced to NA when
+        // mapped below, so feed/medicine lot dedup is untouched by this field.
+        if (
+          category === HatcheryPurchaseCategory.CHICKS &&
+          item.sex !== HatcherySex.MALE &&
+          item.sex !== HatcherySex.FEMALE
+        )
+          return res.status(400).json({
+            message: "sex must be MALE or FEMALE for each chick line item",
+          });
+        // Something must actually be received. For non-CHICKS freeQty is forced
+        // to 0 above, so this still requires quantity > 0 there.
+        if (qty + freeQty <= 0)
+          return res.status(400).json({
+            message: "Each item must receive at least one unit (quantity or free quantity)",
+          });
+        const expectedTotal = Math.round(qty * Number(item.unitPrice) * 100) / 100;
         if (Math.abs(expectedTotal - Number(item.totalAmount)) > 0.01)
           return res.status(400).json({ message: "totalAmount must equal quantity × unitPrice" });
       }
@@ -344,6 +371,10 @@ export const addHatcherySupplierTransaction = async (
           unit: i.unit ?? "kg",
           unitPrice: Number(i.unitPrice),
           totalAmount: Math.round(Number(i.quantity) * Number(i.unitPrice) * 100) / 100,
+          sex:
+            category === HatcheryPurchaseCategory.CHICKS
+              ? (i.sex as HatcherySex)
+              : HatcherySex.NA,
         })),
         date: new Date(date),
         note,

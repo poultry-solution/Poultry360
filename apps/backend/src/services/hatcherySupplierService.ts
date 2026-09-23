@@ -2,6 +2,7 @@ import prisma from "../utils/prisma";
 import {
   HatcherySupplierTxnType,
   HatcheryPurchaseCategory,
+  HatcherySex,
 } from "@prisma/client";
 import { HatcheryInventoryService } from "./hatcheryInventoryService";
 
@@ -84,6 +85,7 @@ export class HatcherySupplierService {
       unit: string;
       unitPrice: number;
       totalAmount: number;
+      sex: HatcherySex;
     }>;
     date: Date;
     note?: string;
@@ -118,6 +120,7 @@ export class HatcherySupplierService {
                 unit: item.unit,
                 unitPrice: item.unitPrice,
                 totalAmount: item.totalAmount,
+                sex: item.sex,
               })),
             },
           },
@@ -141,6 +144,7 @@ export class HatcherySupplierService {
             unitPrice: item.unitPrice,
             totalAmount: item.totalAmount,
             unit: item.unit,
+            sex: item.sex,
             date,
             supplierTxnId: txn.id,
           });
