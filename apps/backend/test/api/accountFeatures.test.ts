@@ -32,6 +32,7 @@ describe("Account feature API", () => {
   let farmerStaffId: string;
   let companyId: string;
   let companyStaffId: string;
+  let dealerCustomerId: string;
 
   beforeAll(async () => {
     const password = await bcrypt.hash(TEST_PASSWORD, 10);
@@ -123,6 +124,7 @@ describe("Account feature API", () => {
         ownerId: dealerId,
         accountRole: UserRole.DEALER,
         isActive: true,
+        permissions: [],
       },
       create: {
         ownerId: dealerId,
@@ -130,9 +132,24 @@ describe("Account feature API", () => {
         name: "Account Feature Managed Staff",
         phone: TEST_ACCOUNTS.managedStaff,
         passwordHash: password,
+        permissions: [],
       },
     });
     managedStaffId = managedStaff.id;
+    const dealerCustomer = await prisma.customer.upsert({
+      where: {
+        userId_name: {
+          userId: dealerId,
+          name: "Account Feature Test Customer",
+        },
+      },
+      update: { archivedAt: null },
+      create: {
+        userId: dealerId,
+        name: "Account Feature Test Customer",
+      },
+    });
+    dealerCustomerId = dealerCustomer.id;
     await prisma.hatcheryBusiness.upsert({
       where: { ownerId: hatcheryId },
       update: { name: "Account Feature Test Hatchery", contact: TEST_ACCOUNTS.hatchery },
@@ -266,6 +283,27 @@ describe("Account feature API", () => {
     );
   });
 
+  it("allows Dealer staff to view an individual customer account by default", async () => {
+    const response = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.managedStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.user.permissions).toEqual([]);
+
+    apiHelper.setAuthToken(response.body.accessToken);
+    const customer = await apiHelper.get(`/sales/customers/${dealerCustomerId}`);
+    expect(customer.status).toBe(200);
+    expect(customer.body.data).toMatchObject({
+      id: dealerCustomerId,
+      name: "Account Feature Test Customer",
+    });
+
+    // Sales and customer operations are deliberately available to active
+    // dealer staff, scoped to their dealer owner's records.
+    expect((await apiHelper.get("/sales")).status).toBe(200);
+  });
+
   it("resolves Hatchery Staff Operations as enabled by default for a Hatchery", async () => {
     await login(TEST_ACCOUNTS.hatchery);
     const response = await apiHelper.get("/account-features");
@@ -394,6 +432,9 @@ describe("Account feature API", () => {
       isStaff: true,
       hatchery: expect.objectContaining({ ownerId: hatcheryId }),
     });
+
+    apiHelper.setAuthToken(response.body.accessToken);
+    expect((await apiHelper.get("/hatchery/suppliers")).status).toBe(200);
   });
 
   it("enforces Hatchery staff permissions on direct API requests", async () => {
