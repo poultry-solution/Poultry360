@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import StaffManagementPage from "@/components/staff/StaffManagementPage";
-import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
-import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { useAuthStore } from "@/common/store/store";
@@ -17,5 +15,5 @@ function CompanyStaffContent() {
 }
 
 export default function CompanyStaffPage() {
-  return <AccountFeatureGuard featureKey={ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS} fallbackHref="/company/dashboard/home"><CompanyStaffContent /></AccountFeatureGuard>;
+  return <CompanyStaffContent />;
 }

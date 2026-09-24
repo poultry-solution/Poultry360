@@ -483,6 +483,7 @@ describe("Account feature API", () => {
         expect.objectContaining({ key: FEATURE_KEY, enabled: false }),
       ])
     );
+    expect((await apiHelper.get("/dealer/staff")).status).toBe(200);
 
     await login(TEST_ACCOUNTS.admin);
     const enabled = await apiHelper.put(
@@ -508,6 +509,10 @@ describe("Account feature API", () => {
     expect(disabled.status).toBe(200);
     expect(disabled.body.data).toMatchObject({ key: HATCHERY_FEATURE_KEY, enabled: false });
 
+    await login(TEST_ACCOUNTS.hatchery);
+    expect((await apiHelper.get("/hatchery/staff")).status).toBe(200);
+
+    await login(TEST_ACCOUNTS.admin);
     const enabled = await apiHelper.put(
       `/admin/users/${hatcheryId}/features/${HATCHERY_FEATURE_KEY}`,
       { enabled: true }
@@ -591,6 +596,9 @@ describe("Account feature API", () => {
     expect(blockedExistingSession.status).toBe(403);
     expect(blockedExistingSession.body.code).toBe("STAFF_OPERATIONS_DISABLED");
 
+    await login(TEST_ACCOUNTS.farmer);
+    expect((await apiHelper.get("/farmer/staff")).status).toBe(200);
+
     await login(TEST_ACCOUNTS.admin);
     const enabled = await apiHelper.put(
       `/admin/users/${farmerId}/features/${FARMER_FEATURE_KEY}`,
@@ -625,6 +633,9 @@ describe("Account feature API", () => {
     const blockedExistingSession = await apiHelper.get("/company/products");
     expect(blockedExistingSession.status).toBe(403);
     expect(blockedExistingSession.body.code).toBe("STAFF_OPERATIONS_DISABLED");
+
+    await login(TEST_ACCOUNTS.company);
+    expect((await apiHelper.get("/company/staff")).status).toBe(200);
 
     await login(TEST_ACCOUNTS.admin);
     const enabled = await apiHelper.put(

@@ -36,7 +36,7 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     key: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
     name: "Dealer Staff Operations",
     description:
-      "Manage payroll staff, staff login access, and owner-visible business activity history.",
+      "Manage staff login access and owner-visible business activity history.",
     applicableRoles: [UserRole.DEALER],
     defaultEnabled: true,
   },
@@ -44,7 +44,7 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     key: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
     name: "Hatchery Staff Operations",
     description:
-      "Manage payroll staff, staff login access, and owner-visible business activity history.",
+      "Manage staff login access and owner-visible business activity history.",
     applicableRoles: [UserRole.HATCHERY],
     defaultEnabled: true,
   },
@@ -52,7 +52,7 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     key: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
     name: "Farmer Staff Operations",
     description:
-      "Manage payroll staff, staff login access, and owner-visible activity history across Broiler and Layer workflows.",
+      "Manage staff login access and owner-visible activity history across Broiler and Layer workflows.",
     applicableRoles: [UserRole.OWNER],
     defaultEnabled: true,
   },
@@ -60,7 +60,7 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     key: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
     name: "Company Staff Operations",
     description:
-      "Manage payroll staff, staff login access, and owner-visible Company activity history.",
+      "Manage staff login access and owner-visible Company activity history.",
     applicableRoles: [UserRole.COMPANY],
     defaultEnabled: true,
   },

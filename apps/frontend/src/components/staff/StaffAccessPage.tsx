@@ -30,6 +30,7 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
   permissions: PermissionOption[];
   defaultPermissions: StaffPermission[];
   staffDescription: string;
+  permissionDescription?: string;
 }> = {
   dealer: {
     businessLabel: "Feed Dealer",
@@ -45,8 +46,8 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     businessLabel: "Hatchery",
     staffDescription: "Payroll staff records are managed elsewhere.",
     defaultPermissions: ["HATCHERY_MANAGE_OPERATIONS"],
+    permissionDescription: "Hatchery operations access is included with every staff login. Choose any additional areas this staff member needs.",
     permissions: [
-      { permission: "HATCHERY_MANAGE_OPERATIONS", label: "Hatchery operations", description: "Suppliers, inventory, batches, incubation, chicks, and parties" },
       { permission: "HATCHERY_VIEW_ANALYTICS", label: "Analytics", description: "Hatchery dashboard and analytics data" },
       { permission: "HATCHERY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
     ],
@@ -67,8 +68,8 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     businessLabel: "Company",
     staffDescription: "Use Staff management to track payroll and salary records.",
     defaultPermissions: ["COMPANY_MANAGE_OPERATIONS"],
+    permissionDescription: "Company operations access is included with every staff login. Choose any additional areas this staff member needs.",
     permissions: [
-      { permission: "COMPANY_MANAGE_OPERATIONS", label: "Company operations", description: "Suppliers, raw materials, purchases, production, products, dealers, sales, payments, and daily work" },
       { permission: "COMPANY_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private aggregate dashboard and ledger totals" },
       { permission: "COMPANY_VIEW_ANALYTICS", label: "Analytics", description: "Company reports and performance analytics" },
       { permission: "COMPANY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
@@ -133,7 +134,7 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
 
   return <div className="mx-auto max-w-5xl space-y-6">
     <div><h1 className="text-2xl font-bold">Staff access</h1><p className="text-sm text-muted-foreground">Create separate login accounts for your {config.businessLabel} staff. {config.staffDescription}</p></div>
-    <Card><CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add staff login</CardTitle><CardDescription>Choose exactly the business areas this staff member needs.</CardDescription></CardHeader>
+    <Card><CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" /> Add staff login</CardTitle><CardDescription>{config.permissionDescription ?? "Choose exactly the business areas this staff member needs."}</CardDescription></CardHeader>
       <CardContent><form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
         <div><Label>Name</Label><Input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></div>
         <div><Label>Phone login ID</Label><Input required inputMode="numeric" placeholder="98XXXXXXXX" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></div>

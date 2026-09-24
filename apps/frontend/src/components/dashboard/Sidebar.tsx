@@ -100,7 +100,6 @@ export const farmerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.staffManagement",
     href: "/farmer/dashboard/staff",
     icon: Users,
-    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
     requiredStaffPermission: "FARMER_VIEW_STAFF_MANAGEMENT",
   },
   {
@@ -193,7 +192,6 @@ export const dealerNavigation: NavigationItem[] = [
     href: "/dealer/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
-    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.cashInHand",
@@ -259,7 +257,6 @@ export const companyNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.staffManagement",
     href: "/company/dashboard/staff",
     icon: Users,
-    requiredFeature: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
     requiredStaffPermission: "COMPANY_VIEW_STAFF_MANAGEMENT",
   },
   {
@@ -340,7 +337,6 @@ export const hatcheryNavigation: NavigationItem[] = [
     href: "/hatchery/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "HATCHERY_VIEW_STAFF_MANAGEMENT",
-    requiredFeature: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.staffAccess",
