@@ -72,7 +72,9 @@ export function DealerSaleBillDocument({
   const dueAmount = Number(
     sale?.dueAmount ?? Math.max(0, totalAmount - paidAmount)
   );
-  const paymentLabel = sale?.paymentMethod || (sale?.isCredit ? "Credit" : "Cash");
+  const paymentLabel = sale?.isSupplierSettlementSale
+    ? "Supplier balance settlement (no cash)"
+    : sale?.paymentMethod || (sale?.isCredit ? "Credit" : "Cash");
 
   return (
     <div className="bg-white text-slate-900">
@@ -89,7 +91,7 @@ export function DealerSaleBillDocument({
                 {companyName || "Dealer"}
               </div>
               <div className={isCompact ? "text-xs text-slate-600" : "text-sm text-slate-600"}>
-                Sales bill
+                {sale?.isSupplierSettlementSale ? "Supplier settlement sale" : "Sales bill"}
               </div>
             </div>
             <div className={isCompact ? "text-right text-xs text-slate-600" : "text-right text-sm text-slate-600"}>
@@ -109,12 +111,12 @@ export function DealerSaleBillDocument({
             ].join(" ")}
           >
             <div>
-              <span className="font-medium">{sale?.isChickenSale ? "Buyer" : "Customer"}: </span>
-              {sale?.customer?.name || "Walk-in"}
+              <span className="font-medium">{sale?.isSupplierSettlementSale ? "Supplier" : sale?.isChickenSale ? "Buyer" : "Customer"}: </span>
+              {sale?.isSupplierSettlementSale ? sale?.manualCompany?.name || "Manual Company supplier" : sale?.customer?.name || "Walk-in"}
             </div>
             <div>
-              <span className="font-medium">Phone: </span>
-              {sale?.customer?.phone || "—"}
+              <span className="font-medium">{sale?.isSupplierSettlementSale ? "Settlement" : "Phone"}: </span>
+              {sale?.isSupplierSettlementSale ? "Supplier payable" : sale?.customer?.phone || "—"}
             </div>
             <div>
               <span className="font-medium">Payment: </span>
@@ -122,7 +124,7 @@ export function DealerSaleBillDocument({
             </div>
             <div>
               <span className="font-medium">Address: </span>
-              {sale?.customer?.address || "—"}
+              {sale?.isSupplierSettlementSale ? sale?.manualCompany?.address || "—" : sale?.customer?.address || "—"}
             </div>
             {sale?.isChickenSale ? (
               <div className="sm:col-span-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
@@ -211,14 +213,16 @@ export function DealerSaleBillDocument({
                     <span>Total Amount</span>
                     <span className="font-semibold">₹{formatCurrency(totalAmount)}</span>
                   </div>
-                  <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
-                    <span>Paid</span>
-                    <span className="font-semibold">₹{formatCurrency(paidAmount)}</span>
-                  </div>
-                  <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
-                    <span>Due</span>
-                    <span className="font-semibold">₹{formatCurrency(dueAmount)}</span>
-                  </div>
+                  {!sale?.isSupplierSettlementSale ? <>
+                    <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
+                      <span>Paid</span>
+                      <span className="font-semibold">₹{formatCurrency(paidAmount)}</span>
+                    </div>
+                    <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
+                      <span>Due</span>
+                      <span className="font-semibold">₹{formatCurrency(dueAmount)}</span>
+                    </div>
+                  </> : <div className="mt-2 text-xs text-blue-800">Applied to the supplier balance; no cash was received.</div>}
                 </div>
               )}
             </div>

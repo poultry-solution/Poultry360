@@ -3,6 +3,7 @@
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
+  Building2,
   User,
   Phone,
   CreditCard,
@@ -78,6 +79,9 @@ export default function SaleDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight">
               Invoice #{sale.invoiceNumber || sale.id.slice(0, 8)}
             </h1>
+            {sale.isSupplierSettlementSale ? (
+              <Badge variant="outline" className="mt-2 border-blue-300 bg-blue-50 text-blue-800">Supplier settlement sale</Badge>
+            ) : null}
           <p className="text-muted-foreground">
             Sale created on <DateDisplay date={sale.date} format="long" />
           </p>
@@ -135,7 +139,7 @@ export default function SaleDetailPage() {
             </CardContent>
           </Card>
         )}
-        <Card>
+        {!sale.isSupplierSettlementSale && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Paid Amount</CardTitle>
             <Check className="h-4 w-4 text-green-600" />
@@ -145,8 +149,8 @@ export default function SaleDetailPage() {
               {formatCurrency(paidAmount)}
             </div>
           </CardContent>
-        </Card>
-        <Card>
+        </Card>}
+        {!sale.isSupplierSettlementSale && <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Due Amount</CardTitle>
             <X className="h-4 w-4 text-red-600" />
@@ -156,7 +160,7 @@ export default function SaleDetailPage() {
               {formatCurrency(dueAmount)}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Two Column Layout */}
@@ -166,25 +170,25 @@ export default function SaleDetailPage() {
           {/* Customer Information */}
           <Card>
             <CardHeader>
-              <CardTitle>{sale.isChickenSale ? "Buyer Information" : "Customer Information"}</CardTitle>
+              <CardTitle>{sale.isSupplierSettlementSale ? "Supplier Information" : sale.isChickenSale ? "Buyer Information" : "Customer Information"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
+                {sale.isSupplierSettlementSale ? <Building2 className="h-4 w-4 text-muted-foreground" /> : <User className="h-4 w-4 text-muted-foreground" />}
                 <span className="font-medium">
-                  {sale.customer?.name || "N/A"}
+                  {sale.isSupplierSettlementSale ? sale.manualCompany?.name || "Manual Company supplier" : sale.customer?.name || "N/A"}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              {!sale.isSupplierSettlementSale && <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span>
                   {sale.customer?.phone || "N/A"}
                 </span>
-              </div>
-              {sale.customer?.address && (
+              </div>}
+              {(sale.isSupplierSettlementSale ? sale.manualCompany?.address : sale.customer?.address) && (
                 <div className="flex items-start gap-2">
                   <Package className="h-4 w-4 text-muted-foreground mt-1" />
-                  <span className="text-sm">{sale.customer.address}</span>
+                  <span className="text-sm">{sale.isSupplierSettlementSale ? sale.manualCompany.address : sale.customer.address}</span>
                 </div>
               )}
             </CardContent>
@@ -208,9 +212,12 @@ export default function SaleDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Payment Information</CardTitle>
+              <CardTitle>{sale.isSupplierSettlementSale ? "Settlement Information" : "Payment Information"}</CardTitle>
             </CardHeader>
             <CardContent>
+              {sale.isSupplierSettlementSale ? (
+                <p className="text-sm text-blue-800">This sale settled the Manual Company supplier balance with goods. No cash payment or customer transaction was created.</p>
+              ) : (
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Payment Type</span>
@@ -229,6 +236,7 @@ export default function SaleDetailPage() {
                   </Badge>
                 </div>
               </div>
+              )}
             </CardContent>
           </Card>
 

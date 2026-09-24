@@ -71,7 +71,7 @@ export const STAFF_ACCOUNT_MODULES = {
     businessType: "FARMER",
     displayName: "Farmer",
     defaultPermissions: [StaffPermission.FARMER_MANAGE_OPERATIONS],
-    requiredPermissions: [],
+    requiredPermissions: [StaffPermission.FARMER_MANAGE_OPERATIONS],
     supportedPermissions: [
       StaffPermission.FARMER_MANAGE_OPERATIONS,
       StaffPermission.FARMER_VIEW_FINANCIAL_SUMMARIES,

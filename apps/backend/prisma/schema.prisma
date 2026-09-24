@@ -1680,16 +1680,19 @@ model DealerProductTransaction {
 }
 
 model DealerSale {
-  id             String   @id @default(cuid())
-  invoiceNumber  String?
-  date           DateTime
-  subtotalAmount Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
-  totalAmount    Decimal  @db.Decimal(10, 2)
-  paidAmount     Decimal  @default(0) @db.Decimal(10, 2)
-  dueAmount      Decimal? @db.Decimal(10, 2)
-  isCredit       Boolean  @default(false)
-  isChickenSale  Boolean  @default(false)
-  notes          String?
+  id                       String   @id @default(cuid())
+  invoiceNumber            String?
+  date                     DateTime
+  subtotalAmount           Decimal? @db.Decimal(10, 2) // Before discount; null when no discount
+  totalAmount              Decimal  @db.Decimal(10, 2)
+  paidAmount               Decimal  @default(0) @db.Decimal(10, 2)
+  dueAmount                Decimal? @db.Decimal(10, 2)
+  isCredit                 Boolean  @default(false)
+  isChickenSale            Boolean  @default(false)
+  // A goods-only sale to a DealerManualCompany that reduces its payable.
+  // It intentionally has no Customer or cash-payment side effects.
+  isSupplierSettlementSale Boolean  @default(false)
+  notes                    String?
 
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -1698,6 +1701,9 @@ model DealerSale {
   // informational only; all normal sale accounting remains against customerId.
   sourceFarmerId String?
   sourceFarmer   Customer? @relation("DealerChickenSaleSourceFarmer", fields: [sourceFarmerId], references: [id], onDelete: SetNull)
+
+  manualCompanyId String?
+  manualCompany   DealerManualCompany? @relation("DealerManualCompanySettlementSales", fields: [manualCompanyId], references: [id], onDelete: Restrict)
 
   farmerId String?
   farmer   User?   @relation("DealerSalesToFarmer", fields: [farmerId], references: [id], onDelete: SetNull)
@@ -1725,7 +1731,9 @@ model DealerSale {
   @@index([dealerId, date])
   @@index([customerId])
   @@index([dealerId, isChickenSale, sourceFarmerId])
+  @@index([dealerId, isSupplierSettlementSale, manualCompanyId])
   @@index([sourceFarmerId])
+  @@index([manualCompanyId])
   @@index([farmerId])
   @@index([invoiceNumber])
   @@index([accountId])
@@ -2207,14 +2215,16 @@ model DealerManualCompany {
   archivedById String?
 
   // Running balance (positive = dealer owes company)
-  balance        Decimal @default(0) @db.Decimal(10, 2)
-  totalPurchases Decimal @default(0) @db.Decimal(10, 2)
-  totalPayments  Decimal @default(0) @db.Decimal(10, 2)
+  balance              Decimal @default(0) @db.Decimal(10, 2)
+  totalPurchases       Decimal @default(0) @db.Decimal(10, 2)
+  totalPayments        Decimal @default(0) @db.Decimal(10, 2)
+  totalSettlementSales Decimal @default(0) @db.Decimal(10, 2)
 
   purchases        DealerManualPurchase[]
   payments         DealerManualCompanyPayment[]
   adjustments      DealerManualCompanyAdjustment[]
   suppliedProducts DealerProduct[]
+  settlementSales  DealerSale[]                    @relation("DealerManualCompanySettlementSales")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

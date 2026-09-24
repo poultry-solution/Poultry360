@@ -448,39 +448,40 @@ export default function Sidebar({
 
   // Get role display info
   const getRoleInfo = () => {
+    const userTitle = user?.isStaff ? t("sidebar.roles.staff.userTitle") : undefined;
     if (role === "DOCTOR") {
       return {
         subtitle: t("sidebar.roles.doctor.subtitle"),
-        userTitle: t("sidebar.roles.doctor.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.doctor.userTitle"),
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
         subtitle: t("sidebar.roles.admin.subtitle"),
-        userTitle: t("sidebar.roles.admin.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.admin.userTitle"),
       };
     }
     if (role === "DEALER") {
       return {
         subtitle: t("sidebar.roles.dealer.subtitle"),
-        userTitle: t("sidebar.roles.dealer.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.dealer.userTitle"),
       };
     }
     if (role === "COMPANY") {
       return {
         subtitle: t("sidebar.roles.company.subtitle"),
-        userTitle: t("sidebar.roles.company.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.company.userTitle"),
       };
     }
     if (role === "HATCHERY") {
       return {
         subtitle: t("sidebar.roles.hatchery.subtitle"),
-        userTitle: t("sidebar.roles.hatchery.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.hatchery.userTitle"),
       };
     }
     return {
       subtitle: t("sidebar.roles.farmer.subtitle"),
-      userTitle: t("sidebar.roles.farmer.userTitle"),
+      userTitle: userTitle ?? t("sidebar.roles.farmer.userTitle"),
     };
   };
 

@@ -56,8 +56,8 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     businessLabel: "Farmer",
     staffDescription: "Payroll staff records are managed elsewhere.",
     defaultPermissions: ["FARMER_MANAGE_OPERATIONS"],
+    permissionDescription: "Farm operations access is included with every staff login. Choose any additional areas this staff member needs.",
     permissions: [
-      { permission: "FARMER_MANAGE_OPERATIONS", label: "Farm operations", description: "Farms, Broiler and Layer batches, inventory, suppliers, customers, sales, expenses, and daily production" },
       { permission: "FARMER_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private dashboard totals, balances, and financial summaries" },
       { permission: "FARMER_VIEW_CASH_HISTORY", label: "Cash in hand", description: "Today’s cash book and cash history" },
       { permission: "FARMER_VIEW_ANALYTICS", label: "Analytics", description: "Farmer reports and operational analytics" },

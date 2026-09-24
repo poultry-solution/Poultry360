@@ -19,7 +19,8 @@ export interface ManualCompany {
     balance: number;
     totalPurchases: number;
     totalPayments: number;
-    _count?: { purchases: number; payments: number };
+    totalSettlementSales: number;
+    _count?: { purchases: number; payments: number; settlementSales: number };
     archivedAt?: string | null;
     createdAt: string;
 }
@@ -70,6 +71,7 @@ export interface ManualCompanyStatementResponse {
         balance: number;
         totalPurchases: number;
         totalPayments: number;
+        totalSettlementSales: number;
     };
     openingBalance: { amount: number; date: string | null; notes: string | null };
     transactions: Array<any>;

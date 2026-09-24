@@ -143,6 +143,80 @@ export const createDealerSale = async (
   }
 };
 
+// ==================== CREATE SUPPLIER SETTLEMENT SALE ====================
+// This endpoint is feature-gated in the router. Unlike a normal Dealer sale,
+// it deliberately does not accept or create a customer, cash payment, or
+// customer ledger transaction.
+export const createSupplierSettlementSale = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { manualCompanyId, items, notes, date, invoiceNumber, customerId, paidAmount, paymentMethod, discount } = req.body;
+
+    if (!manualCompanyId || typeof manualCompanyId !== "string") {
+      return res.status(400).json({ message: "Active manual company supplier is required" });
+    }
+    if (customerId) {
+      return res.status(400).json({ message: "Supplier settlement sales cannot be linked to a customer" });
+    }
+    if (paidAmount !== undefined && Number(paidAmount) !== 0) {
+      return res.status(400).json({ message: "Supplier settlement sales do not accept a cash payment" });
+    }
+    if (paymentMethod) {
+      return res.status(400).json({ message: "Supplier settlement sales do not accept a payment method" });
+    }
+    if (discount) {
+      return res.status(400).json({ message: "Supplier settlement sales do not support discounts" });
+    }
+
+    const saleDate = date ? new Date(date) : new Date();
+    if (Number.isNaN(saleDate.getTime())) {
+      return res.status(400).json({ message: "A valid sale date is required" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const sale = await DealerService.createSupplierSettlementSale({
+      dealerId: dealer.id,
+      manualCompanyId,
+      items,
+      notes: typeof notes === "string" ? notes : undefined,
+      date: saleDate,
+      invoiceNumber: typeof invoiceNumber === "string" ? invoiceNumber : undefined,
+    });
+    if (!sale) throw new Error("Supplier settlement sale was not created");
+
+    await writeBusinessAudit(req, {
+      action: "dealer.supplier_settlement_sale.created",
+      targetType: "DealerSale",
+      targetId: sale.id,
+      description: "Recorded a supplier settlement sale",
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: {
+        manualCompanyId,
+        totalAmount: Number(sale.totalAmount),
+        itemCount: Array.isArray(items) ? items.length : 0,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: sale,
+      message: "Supplier settlement sale created successfully",
+    });
+  } catch (error: any) {
+    console.error("Create supplier settlement sale error:", error);
+    return res.status(400).json({ message: error.message || "Internal server error" });
+  }
+};
+
 // ==================== GET DEALER SALES ====================
 export const getDealerSales = async (
   req: Request,
@@ -216,6 +290,7 @@ export const getDealerSales = async (
         include: {
           customer: true,
           sourceFarmer: true,
+          manualCompany: true,
           discount: true,
           items: {
             include: {
@@ -272,6 +347,7 @@ export const getDealerSaleById = async (
       include: {
         customer: true,
         sourceFarmer: true,
+        manualCompany: true,
         discount: true,
         items: {
           include: {
@@ -863,13 +939,19 @@ export const getSalesStatistics = async (
     });
 
     const totalSales = sales.length;
-    const normalSaleRevenue = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
-    // This card is for normal product sales only. A Broiler settlement margin is
-    // income, but is shown in the settlement history rather than as a product sale.
-    const totalRevenue = normalSaleRevenue;
+    const supplierSettlementSales = sales.filter((sale) => sale.isSupplierSettlementSale);
+    const regularSales = sales.filter((sale) => !sale.isSupplierSettlementSale);
+    const productSaleRevenue = sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0);
+    // Supplier settlements are product sales and are also reported separately
+    // below so they remain identifiable in analytics.
+    const totalRevenue = productSaleRevenue;
     // paidAmount/dueAmount on DealerSale reflect only the initial payment at sale time
-    const totalPaidAtSale = sales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
-    const creditSales = sales.filter((sale) => Number(sale.paidAmount) < Number(sale.totalAmount)).length;
+    const totalPaidAtSale = regularSales.reduce((sum, sale) => sum + Number(sale.paidAmount), 0);
+    const totalDue = regularSales.reduce(
+      (sum, sale) => sum + Math.max(0, Number(sale.totalAmount) - Number(sale.paidAmount)),
+      0
+    );
+    const creditSales = regularSales.filter((sale) => Number(sale.paidAmount) < Number(sale.totalAmount)).length;
 
     // Get top customers
     const topCustomers = await prisma.dealerSale.groupBy({
@@ -910,8 +992,13 @@ export const getSalesStatistics = async (
         totalSales,
         totalRevenue,
         totalPaid: totalPaidAtSale,
-        totalDue: totalRevenue - totalPaidAtSale,
+        totalDue,
         creditSales,
+        supplierSettlementSales: supplierSettlementSales.length,
+        supplierSettlementRevenue: supplierSettlementSales.reduce(
+          (sum, sale) => sum + Number(sale.totalAmount),
+          0
+        ),
         topCustomers: topCustomersWithDetails,
       },
     });
@@ -1273,13 +1360,20 @@ export const deleteDealerSale = async (
     });
 
     await writeBusinessAudit(req, {
-      action: "dealer.sale.deleted",
+      action: sale.isSupplierSettlementSale
+        ? "dealer.supplier_settlement_sale.deleted"
+        : "dealer.sale.deleted",
       targetType: "DealerSale",
       targetId: id,
-      description: "Deleted a sale and returned its stock",
+      description: sale.isSupplierSettlementSale
+        ? "Deleted a supplier settlement sale and returned its stock"
+        : "Deleted a sale and returned its stock",
       businessType: "DEALER",
       businessId: dealer.id,
-      metadata: { totalAmount: Number(sale.totalAmount) },
+      metadata: {
+        totalAmount: Number(sale.totalAmount),
+        isSupplierSettlementSale: sale.isSupplierSettlementSale,
+      },
     });
 
     return res.status(200).json({

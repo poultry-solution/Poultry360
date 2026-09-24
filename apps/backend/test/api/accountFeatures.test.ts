@@ -1,11 +1,12 @@
 import bcrypt from "bcrypt";
-import { UserRole } from "@prisma/client";
+import { InventoryItemType, UserRole } from "@prisma/client";
 import { ApiHelper } from "../helpers/api.helper";
 import prisma from "../../src/utils/prisma";
 
 const FEATURE_KEY = "DEALER_STAFF_OPERATIONS";
 const HATCHERY_FEATURE_KEY = "HATCHERY_STAFF_OPERATIONS";
 const FARMER_FEATURE_KEY = "FARMER_STAFF_OPERATIONS";
+const SUPPLIER_SETTLEMENT_FEATURE_KEY = "DEALER_SUPPLIER_SETTLEMENT_SALES";
 const TEST_PASSWORD = "password123";
 const TEST_ACCOUNTS = {
   admin: "+9779800000881",
@@ -304,6 +305,25 @@ describe("Account feature API", () => {
     expect((await apiHelper.get("/sales")).status).toBe(200);
   });
 
+  it("allows staff devices to subscribe to their business notifications", async () => {
+    const staffLogin = await apiHelper.post("/staff-auth/login", {
+      emailOrPhone: TEST_ACCOUNTS.managedStaff,
+      password: TEST_PASSWORD,
+    });
+    expect(staffLogin.status).toBe(200);
+    apiHelper.setAuthToken(staffLogin.body.accessToken);
+
+    const endpoint = "https://push.example.test/account-feature-staff-device";
+    const response = await apiHelper.post("/push/subscribe", {
+      subscription: { endpoint, keys: { p256dh: "test-p256dh", auth: "test-auth" } },
+      userAgent: "Account feature test staff device",
+    });
+
+    expect(response.status).toBe(200);
+    expect(await prisma.pushSubscription.findFirst({ where: { userId: dealerId, endpoint } })).not.toBeNull();
+    await prisma.pushSubscription.deleteMany({ where: { userId: dealerId, endpoint } });
+  });
+
   it("resolves Hatchery Staff Operations as enabled by default for a Hatchery", async () => {
     await login(TEST_ACCOUNTS.hatchery);
     const response = await apiHelper.get("/account-features");
@@ -358,6 +378,23 @@ describe("Account feature API", () => {
     expect((await apiHelper.get("/conversations")).status).toBe(200);
     expect((await apiHelper.get("/dashboard/overview")).status).toBe(403);
     expect((await apiHelper.get("/analytics/farmer/overview")).status).toBe(403);
+  });
+
+  it("always retains Farm operations when a Farmer owner changes staff permissions", async () => {
+    await login(TEST_ACCOUNTS.farmer);
+    const response = await apiHelper.patch(`/staff-auth/users/${farmerStaffId}`, {
+      permissions: ["FARMER_VIEW_ANALYTICS"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.permissions).toEqual(
+      expect.arrayContaining(["FARMER_MANAGE_OPERATIONS", "FARMER_VIEW_ANALYTICS"]),
+    );
+
+    await prisma.staffUser.update({
+      where: { id: farmerStaffId },
+      data: { permissions: ["FARMER_MANAGE_OPERATIONS"] },
+    });
   });
 
   it("authenticates a Company staff identity with access to daily Company operations only", async () => {
@@ -853,5 +890,212 @@ describe("Account feature API", () => {
         ])
       );
     }
+  });
+
+  it("gates, records, and reverses Dealer supplier settlement sales without customer side effects", async () => {
+    const dealer = await prisma.dealer.findUniqueOrThrow({
+      where: { ownerId: dealerId },
+      select: { id: true },
+    });
+    const customerBefore = await prisma.customer.findUniqueOrThrow({
+      where: { id: dealerCustomerId },
+      select: { balance: true, totalSales: true, totalPayments: true },
+    });
+    const customerTransactionCountBefore = await prisma.customerTransaction.count({
+      where: { customerId: dealerCustomerId },
+    });
+
+    const supplier = await prisma.dealerManualCompany.create({
+      data: {
+        dealerId: dealer.id,
+        name: "Settlement Test Supplier",
+        balance: 150,
+      },
+    });
+    const archivedSupplier = await prisma.dealerManualCompany.create({
+      data: {
+        dealerId: dealer.id,
+        name: "Archived Settlement Test Supplier",
+        balance: 100,
+        archivedAt: new Date(),
+      },
+    });
+    const product = await prisma.dealerProduct.create({
+      data: {
+        dealerId: dealer.id,
+        name: "Settlement Test Feed",
+        type: InventoryItemType.FEED,
+        unit: "kg",
+        costPrice: 60,
+        sellingPrice: 90,
+        currentStock: 5,
+      },
+    });
+
+    const otherDealer = await prisma.dealer.upsert({
+      where: { ownerId: otherDealerId },
+      update: { name: "Other Dealer Settlement Test", contact: TEST_ACCOUNTS.otherDealer },
+      create: {
+        ownerId: otherDealerId,
+        name: "Other Dealer Settlement Test",
+        contact: TEST_ACCOUNTS.otherDealer,
+      },
+    });
+    const foreignSupplier = await prisma.dealerManualCompany.create({
+      data: { dealerId: otherDealer.id, name: "Foreign Settlement Supplier" },
+    });
+    const foreignProduct = await prisma.dealerProduct.create({
+      data: {
+        dealerId: otherDealer.id,
+        name: "Foreign Settlement Feed",
+        type: InventoryItemType.FEED,
+        unit: "kg",
+        costPrice: 60,
+        sellingPrice: 90,
+        currentStock: 10,
+      },
+    });
+
+    await login(TEST_ACCOUNTS.dealer);
+    const featuresBeforeEnable = await apiHelper.get("/account-features");
+    expect(featuresBeforeEnable.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: SUPPLIER_SETTLEMENT_FEATURE_KEY, enabled: false }),
+      ])
+    );
+
+    const featureDisabled = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: supplier.id,
+      items: [{ productId: product.id, quantity: 1, unitPrice: 100 }],
+    });
+    expect(featureDisabled.status).toBe(403);
+    expect(featureDisabled.body).toMatchObject({
+      code: "ACCOUNT_FEATURE_DISABLED",
+      featureKey: SUPPLIER_SETTLEMENT_FEATURE_KEY,
+    });
+
+    await login(TEST_ACCOUNTS.admin);
+    const enabled = await apiHelper.put(
+      `/admin/users/${dealerId}/features/${SUPPLIER_SETTLEMENT_FEATURE_KEY}`,
+      { enabled: true }
+    );
+    expect(enabled.status).toBe(200);
+    expect(enabled.body.data).toMatchObject({
+      key: SUPPLIER_SETTLEMENT_FEATURE_KEY,
+      enabled: true,
+    });
+
+    await login(TEST_ACCOUNTS.dealer);
+    const invalidQuantity = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: supplier.id,
+      items: [{ productId: product.id, quantity: 0, unitPrice: 100 }],
+    });
+    expect(invalidQuantity.status).toBe(400);
+
+    const insufficientStock = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: supplier.id,
+      items: [{ productId: product.id, quantity: 6, unitPrice: 100 }],
+    });
+    expect(insufficientStock.status).toBe(400);
+
+    const foreignSupplierResult = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: foreignSupplier.id,
+      items: [{ productId: product.id, quantity: 1, unitPrice: 100 }],
+    });
+    expect(foreignSupplierResult.status).toBe(400);
+
+    const archivedSupplierResult = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: archivedSupplier.id,
+      items: [{ productId: product.id, quantity: 1, unitPrice: 100 }],
+    });
+    expect(archivedSupplierResult.status).toBe(400);
+
+    const foreignProductResult = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: supplier.id,
+      items: [{ productId: foreignProduct.id, quantity: 1, unitPrice: 100 }],
+    });
+    expect(foreignProductResult.status).toBe(400);
+
+    // The 200 sale exceeds the 150 payable, intentionally creating a 50 supplier advance.
+    const created = await apiHelper.post("/dealer/sales/supplier-settlement-sales", {
+      manualCompanyId: supplier.id,
+      items: [{ productId: product.id, quantity: 2, unitPrice: 100, unit: "kg" }],
+      notes: "Goods supplied in settlement",
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      isSupplierSettlementSale: true,
+      manualCompanyId: supplier.id,
+      customerId: null,
+      paidAmount: expect.anything(),
+      dueAmount: null,
+    });
+    const saleId = created.body.data.id;
+    expect(created.body.data.payments).toHaveLength(0);
+
+    const [supplierAfterSale, productAfterSale, customerAfterSale, customerTransactionCountAfterSale] = await Promise.all([
+      prisma.dealerManualCompany.findUniqueOrThrow({ where: { id: supplier.id } }),
+      prisma.dealerProduct.findUniqueOrThrow({ where: { id: product.id } }),
+      prisma.customer.findUniqueOrThrow({
+        where: { id: dealerCustomerId },
+        select: { balance: true, totalSales: true, totalPayments: true },
+      }),
+      prisma.customerTransaction.count({ where: { customerId: dealerCustomerId } }),
+    ]);
+    expect(Number(supplierAfterSale.balance)).toBe(-50);
+    expect(Number(supplierAfterSale.totalSettlementSales)).toBe(200);
+    expect(Number(productAfterSale.currentStock)).toBe(3);
+    expect(customerAfterSale).toEqual(customerBefore);
+    expect(customerTransactionCountAfterSale).toBe(customerTransactionCountBefore);
+
+    const statement = await apiHelper.get(`/dealer/manual-companies/${supplier.id}/statement`);
+    expect(statement.status).toBe(200);
+    expect(statement.body.data.company.totalSettlementSales).toBe(200);
+    expect(statement.body.data.transactions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: saleId, type: "SUPPLIER_SETTLEMENT_SALE", amount: 200 }),
+      ])
+    );
+
+    const sales = await apiHelper.get("/dealer/sales?limit=100");
+    expect(sales.status).toBe(200);
+    expect(sales.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: saleId,
+          isSupplierSettlementSale: true,
+          manualCompany: expect.objectContaining({ id: supplier.id }),
+        }),
+      ])
+    );
+
+    const statistics = await apiHelper.get("/dealer/sales/statistics");
+    expect(statistics.status).toBe(200);
+    expect(statistics.body.data).toMatchObject({
+      supplierSettlementSales: 1,
+      supplierSettlementRevenue: 200,
+    });
+
+    const deleted = await apiHelper.delete(`/dealer/sales/${saleId}`, {
+      password: TEST_PASSWORD,
+    });
+    expect(deleted.status).toBe(200);
+
+    const [supplierAfterDelete, productAfterDelete, customerAfterDelete, saleAfterDelete] = await Promise.all([
+      prisma.dealerManualCompany.findUniqueOrThrow({ where: { id: supplier.id } }),
+      prisma.dealerProduct.findUniqueOrThrow({ where: { id: product.id } }),
+      prisma.customer.findUniqueOrThrow({
+        where: { id: dealerCustomerId },
+        select: { balance: true, totalSales: true, totalPayments: true },
+      }),
+      prisma.dealerSale.findUnique({ where: { id: saleId } }),
+    ]);
+    expect(Number(supplierAfterDelete.balance)).toBe(150);
+    expect(Number(supplierAfterDelete.totalSettlementSales)).toBe(0);
+    expect(Number(productAfterDelete.currentStock)).toBe(5);
+    expect(customerAfterDelete).toEqual(customerBefore);
+    expect(saleAfterDelete).toBeNull();
+
+    await prisma.dealer.delete({ where: { id: otherDealer.id } });
   });
 });

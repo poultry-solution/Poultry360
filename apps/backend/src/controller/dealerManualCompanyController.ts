@@ -112,6 +112,7 @@ export const getManualCompanies = async (
                     select: {
                         purchases: { where: { voidedAt: null } },
                         payments: { where: { voidedAt: null } },
+                        settlementSales: true,
                     },
                 },
             },
@@ -262,16 +263,19 @@ export const deleteManualCompany = async (
             return res.status(404).json({ message: "Manual company not found" });
         }
 
-        const [purchaseCount, paymentCount] = await Promise.all([
+        const [purchaseCount, paymentCount, settlementSaleCount] = await Promise.all([
             prisma.dealerManualPurchase.count({
                 where: { manualCompanyId: id, voidedAt: null },
             }),
             prisma.dealerManualCompanyPayment.count({
                 where: { manualCompanyId: id, voidedAt: null },
             }),
+            prisma.dealerSale.count({
+                where: { manualCompanyId: id, isSupplierSettlementSale: true },
+            }),
         ]);
 
-        if (purchaseCount > 0 || paymentCount > 0) {
+        if (purchaseCount > 0 || paymentCount > 0 || settlementSaleCount > 0) {
             return res.status(400).json({
                 message: "Company has transactions; archive instead.",
             });
@@ -874,11 +878,27 @@ export const getManualCompanyStatement = async (
             ])
             : [[], []];
 
-        // Get adjustments (opening balance & other adjustments)
-        const adjustments = await prisma.dealerManualCompanyAdjustment.findMany({
-            where: { manualCompanyId: id },
-            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-        });
+        // Get adjustments (opening balance & other adjustments) and the
+        // goods-only sales that settled this supplier's payable.
+        const [adjustments, settlementSales] = await Promise.all([
+            prisma.dealerManualCompanyAdjustment.findMany({
+                where: { manualCompanyId: id },
+                orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+            }),
+            prisma.dealerSale.findMany({
+                where: {
+                    dealerId: dealer.id,
+                    manualCompanyId: id,
+                    isSupplierSettlementSale: true,
+                },
+                include: {
+                    items: {
+                        include: { product: { select: { id: true, name: true, unit: true } } },
+                    },
+                },
+                orderBy: { date: "desc" },
+            }),
+        ]);
 
         const latestOpening = adjustments.find((a) => a.type === "OPENING_BALANCE") ?? null;
 
@@ -903,6 +923,15 @@ export const getManualCompanyStatement = async (
                 reference: p.reference,
                 paymentMethod: p.paymentMethod,
                 balanceAfter: Number(p.balanceAfter),
+            })),
+            ...settlementSales.map((sale) => ({
+                type: "SUPPLIER_SETTLEMENT_SALE" as const,
+                id: sale.id,
+                date: sale.date,
+                amount: Number(sale.totalAmount),
+                notes: sale.notes,
+                reference: sale.invoiceNumber,
+                items: sale.items,
             })),
             ...adjustments.map((a) => ({
                 type: a.type as "OPENING_BALANCE" | "ADJUSTMENT",
@@ -951,6 +980,7 @@ export const getManualCompanyStatement = async (
                     balance: Number(company.balance),
                     totalPurchases: Number(company.totalPurchases),
                     totalPayments: Number(company.totalPayments),
+                    totalSettlementSales: Number(company.totalSettlementSales),
                 },
                 openingBalance: latestOpening
                     ? {

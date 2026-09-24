@@ -322,6 +322,215 @@ export class DealerService {
         payments: true,
         customer: true,
         sourceFarmer: true,
+        manualCompany: true,
+      },
+    });
+  }
+
+  /**
+   * Record a goods-only sale to a manual supplier. The sale value settles the
+   * supplier payable; it never creates a customer, customer transaction, cash
+   * payment, or dealer customer-ledger entry.
+   */
+  static async createSupplierSettlementSale(data: {
+    dealerId: string;
+    manualCompanyId: string;
+    items: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      unit?: string;
+    }>;
+    notes?: string;
+    date: Date;
+    invoiceNumber?: string;
+  }) {
+    const { dealerId, manualCompanyId, items, notes, date, invoiceNumber: customInvoiceNumber } = data;
+
+    if (!manualCompanyId || typeof manualCompanyId !== "string") {
+      throw new Error("Manual company ID is required");
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("At least one item is required");
+    }
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      throw new Error("A valid sale date is required");
+    }
+
+    const normalizedItems = items.map((item, index) => {
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.unitPrice);
+      const productId = typeof item.productId === "string" ? item.productId.trim() : "";
+      const unit = typeof item.unit === "string" && item.unit.trim() ? item.unit.trim() : undefined;
+
+      if (!productId) throw new Error(`Product ID is required for item ${index + 1}`);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error(`Quantity must be a positive number for item ${index + 1}`);
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        throw new Error(`Rate must be a positive number for item ${index + 1}`);
+      }
+
+      return { productId, quantity, unitPrice, unit };
+    });
+
+    if (new Set(normalizedItems.map((item) => item.productId)).size !== normalizedItems.length) {
+      throw new Error("Each inventory product can only be included once");
+    }
+
+    const saleId = await prisma.$transaction(async (tx) => {
+      const manualCompany = await tx.dealerManualCompany.findFirst({
+        where: {
+          id: manualCompanyId,
+          dealerId,
+          archivedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!manualCompany) {
+        throw new Error("Active manual company supplier not found");
+      }
+
+      const products = await tx.dealerProduct.findMany({
+        where: {
+          id: { in: normalizedItems.map((item) => item.productId) },
+          dealerId,
+          hiddenAt: null,
+          currentStock: { gt: new Prisma.Decimal(0) },
+        },
+        include: {
+          unitConversions: true,
+          companyProduct: { include: { unitConversions: true } },
+        },
+      });
+      const productsById = new Map(products.map((product) => [product.id, product]));
+
+      const resolvedItems = normalizedItems.map((item) => {
+        const product = productsById.get(item.productId);
+        if (!product) {
+          throw new Error("Product not found, inactive, or unavailable in this dealer inventory");
+        }
+
+        const unit = item.unit || product.unit;
+        let baseQuantity = item.quantity;
+        if (unit !== product.unit) {
+          const conversion = [
+            ...product.unitConversions,
+            ...(product.companyProduct?.unitConversions || []),
+          ].find((entry) => entry.unitName === unit);
+          if (!conversion) {
+            throw new Error(`Unit ${unit} is not available for product ${product.name}`);
+          }
+          baseQuantity = item.quantity * Number(conversion.conversionFactor);
+        }
+
+        if (!Number.isFinite(baseQuantity) || baseQuantity <= 0) {
+          throw new Error(`Quantity must be a positive number for product ${product.name}`);
+        }
+
+        const lineTotal = Math.round(item.quantity * item.unitPrice * 100) / 100;
+        return {
+          ...item,
+          product,
+          unit,
+          baseQuantity,
+          lineTotal,
+        };
+      });
+
+      const totalAmount = Math.round(
+        resolvedItems.reduce((sum, item) => sum + item.lineTotal, 0) * 100
+      ) / 100;
+      if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+        throw new Error("Settlement sale total must be positive");
+      }
+
+      const invoiceNumber =
+        customInvoiceNumber?.trim() || (await generateNextInvoiceNumber(dealerId, tx));
+      const sale = await tx.dealerSale.create({
+        data: {
+          invoiceNumber,
+          date,
+          totalAmount: new Prisma.Decimal(totalAmount),
+          paidAmount: new Prisma.Decimal(0),
+          dueAmount: null,
+          isCredit: false,
+          isSupplierSettlementSale: true,
+          notes: notes?.trim() || null,
+          dealerId,
+          manualCompanyId: manualCompany.id,
+        },
+      });
+
+      for (const item of resolvedItems) {
+        // The guarded decrement closes the read/update race and guarantees that
+        // a second concurrent sale cannot take stock below zero.
+        const stockUpdate = await tx.dealerProduct.updateMany({
+          where: {
+            id: item.productId,
+            dealerId,
+            hiddenAt: null,
+            currentStock: { gte: new Prisma.Decimal(item.baseQuantity) },
+          },
+          data: {
+            currentStock: { decrement: new Prisma.Decimal(item.baseQuantity) },
+          },
+        });
+        if (stockUpdate.count !== 1) {
+          throw new Error(
+            `Insufficient stock for product ${item.product.name}. Available: ${item.product.currentStock}, Requested: ${item.baseQuantity}`
+          );
+        }
+      }
+
+      await Promise.all([
+        tx.dealerSaleItem.createMany({
+          data: resolvedItems.map((item) => ({
+            saleId: sale.id,
+            productId: item.productId,
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: new Prisma.Decimal(item.unitPrice),
+            totalAmount: new Prisma.Decimal(item.lineTotal),
+            unit: item.unit,
+            baseQuantity: new Prisma.Decimal(item.baseQuantity),
+          })),
+        }),
+        tx.dealerProductTransaction.createMany({
+          data: resolvedItems.map((item) => ({
+            type: "SALE",
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: new Prisma.Decimal(item.unitPrice),
+            totalAmount: new Prisma.Decimal(item.lineTotal),
+            date,
+            description: `Supplier settlement sale - Invoice ${invoiceNumber}`,
+            reference: invoiceNumber,
+            productId: item.productId,
+            dealerSaleId: sale.id,
+            unit: item.unit,
+          })),
+        }),
+      ]);
+
+      const supplierUpdate = await tx.dealerManualCompany.updateMany({
+        where: { id: manualCompany.id, dealerId, archivedAt: null },
+        data: {
+          balance: { decrement: new Prisma.Decimal(totalAmount) },
+          totalSettlementSales: { increment: new Prisma.Decimal(totalAmount) },
+        },
+      });
+      if (supplierUpdate.count !== 1) {
+        throw new Error("Active manual company supplier not found");
+      }
+
+      return sale.id;
+    });
+
+    return prisma.dealerSale.findUnique({
+      where: { id: saleId },
+      include: {
+        manualCompany: true,
+        items: { include: { product: true } },
+        payments: true,
       },
     });
   }
@@ -596,6 +805,7 @@ export class DealerService {
         include: {
           items: true,
           customer: { select: { id: true, farmerId: true } },
+          manualCompany: { select: { id: true, dealerId: true } },
         },
       });
 
@@ -603,6 +813,12 @@ export class DealerService {
       if (sale.dealerId !== data.dealerId) throw new Error("Unauthorized");
       if (sale.customer?.farmerId) throw new Error("Cannot delete connected farmer sales");
       if (sale.settlementId) throw new Error("Settled Broiler sales cannot be deleted");
+      if (sale.isSupplierSettlementSale && (!sale.manualCompanyId || sale.manualCompany?.dealerId !== data.dealerId)) {
+        throw new Error("Supplier settlement sale is missing its manual company");
+      }
+      if (sale.isSupplierSettlementSale && sale.customerId) {
+        throw new Error("Supplier settlement sales cannot be linked to a customer");
+      }
 
       const totalAmount = Number(sale.totalAmount);
       const initialPaidAmount = Number(sale.paidAmount);
@@ -626,6 +842,18 @@ export class DealerService {
             balance: { decrement: new Prisma.Decimal(dueAmount) },
             totalSales: { decrement: new Prisma.Decimal(totalAmount) },
             totalPayments: { decrement: new Prisma.Decimal(initialPaidAmount) },
+          },
+        });
+      }
+
+      // Supplier settlement sales have no customer balance or payment to undo.
+      // Returning the goods reverses only their supplier-payable settlement.
+      if (sale.isSupplierSettlementSale && sale.manualCompanyId) {
+        await tx.dealerManualCompany.update({
+          where: { id: sale.manualCompanyId },
+          data: {
+            balance: { increment: new Prisma.Decimal(totalAmount) },
+            totalSettlementSales: { decrement: new Prisma.Decimal(totalAmount) },
           },
         });
       }

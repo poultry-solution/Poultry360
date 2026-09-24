@@ -48,6 +48,36 @@ export class ApiHelper {
   }
 
   /**
+   * Make a PATCH request using SuperTest
+   */
+  async patch(url: string, data?: any) {
+    const req = request(app)
+      .patch(`/api/v1${url}`)
+      .send(data);
+
+    if (this.authToken) {
+      req.set('Authorization', `Bearer ${this.authToken}`);
+    }
+
+    return req;
+  }
+
+  /**
+   * Make a DELETE request, optionally with a JSON request body.
+   */
+  async delete(url: string, data?: any) {
+    const req = request(app)
+      .delete(`/api/v1${url}`)
+      .send(data);
+
+    if (this.authToken) {
+      req.set('Authorization', `Bearer ${this.authToken}`);
+    }
+
+    return req;
+  }
+
+  /**
    * Set authentication token for subsequent requests
    */
   setAuthToken(token: string) {

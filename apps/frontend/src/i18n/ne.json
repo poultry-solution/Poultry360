@@ -78,6 +78,9 @@
       "hatchery": {
         "subtitle": "ह्याचरी व्यवस्थापन",
         "userTitle": "ह्याचरी"
+      },
+      "staff": {
+        "userTitle": "कर्मचारी"
       }
     },
     "nav": {

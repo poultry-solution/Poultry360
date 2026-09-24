@@ -16,10 +16,13 @@ import {
   unarchiveDealerCustomer,
   deleteDealerCustomer,
   deleteDealerSale,
+  createSupplierSettlementSale,
 } from "../controller/dealerSaleController";
 
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
 import { StaffPermission } from "@prisma/client";
+import { requireAccountFeature } from "../middelware/accountFeatureMiddleware";
+import { ACCOUNT_FEATURE_KEYS } from "../services/accountFeatureService";
 
 const router = express.Router();
 
@@ -31,6 +34,14 @@ router.use((req, res, next) => {
 // ==================== DEALER SALE ROUTES ====================
 // Create dealer sale
 router.post("/", createDealerSale);
+
+// Experimental, admin-enabled flow: sell dealer inventory to a Manual Company
+// supplier and settle its payable with goods instead of cash.
+router.post(
+  "/supplier-settlement-sales",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES),
+  createSupplierSettlementSale
+);
 
 // Get all dealer sales with pagination and filters
 router.get("/", getDealerSales);

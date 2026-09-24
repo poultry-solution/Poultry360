@@ -7,6 +7,7 @@ export const ACCOUNT_FEATURE_KEYS = {
   HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
   COMPANY_STAFF_OPERATIONS: "COMPANY_STAFF_OPERATIONS",
+  DEALER_SUPPLIER_SETTLEMENT_SALES: "DEALER_SUPPLIER_SETTLEMENT_SALES",
 } as const;
 
 export type AccountFeatureKey =
@@ -63,6 +64,14 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
       "Manage staff login access and owner-visible Company activity history.",
     applicableRoles: [UserRole.COMPANY],
     defaultEnabled: true,
+  },
+  DEALER_SUPPLIER_SETTLEMENT_SALES: {
+    key: ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES,
+    name: "Dealer Supplier Settlement Sales",
+    description:
+      "Sell inventory to a Manual Company supplier and settle its outstanding balance with the sale value.",
+    applicableRoles: [UserRole.DEALER],
+    defaultEnabled: false,
   },
 };
 

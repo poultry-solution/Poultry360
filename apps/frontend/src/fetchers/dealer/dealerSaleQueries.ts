@@ -27,16 +27,19 @@ export interface DealerSale {
   dueAmount?: number;
   isCredit: boolean;
   isChickenSale: boolean;
+  isSupplierSettlementSale: boolean;
   paymentMethod?: string;
   notes?: string;
   dealerId: string;
   customerId?: string;
   sourceFarmerId?: string | null;
+  manualCompanyId?: string | null;
   settlementId?: string | null;
   farmerId?: string;
   accountId?: string;
   customer?: any;
   sourceFarmer?: any;
+  manualCompany?: any;
   farmer?: any;
   items: DealerSaleItem[];
   payments: DealerSalePayment[];
@@ -82,6 +85,19 @@ export interface CreateDealerSaleInput {
   invoiceNumber?: string;
   isChickenSale?: boolean;
   sourceFarmerId?: string;
+}
+
+export interface CreateSupplierSettlementSaleInput {
+  manualCompanyId: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    unit?: string;
+  }>;
+  notes?: string;
+  date?: Date;
+  invoiceNumber?: string;
 }
 
 export interface ChickenSalesByFarmerRow {
@@ -292,6 +308,27 @@ export const useCreateDealerSale = () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
       queryClient.invalidateQueries({ queryKey: ["dealerProducts"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+    },
+  });
+};
+
+export const useCreateSupplierSettlementSale = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateSupplierSettlementSaleInput) => {
+      const { data } = await axiosInstance.post(
+        "/dealer/sales/supplier-settlement-sales",
+        input
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-manual-companies"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
     },
   });
