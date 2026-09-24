@@ -20,15 +20,19 @@ import {
   softDeleteCustomerPayment,
   getAllSalePayments,
 } from "../controller/salesController";
-import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
-import { StaffPermission } from "@prisma/client";
+import { authMiddleware } from "../middelware/middelware";
 import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authMiddleware);
-router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
+
+// Customer and sales operations are deliberately available to all active
+// staff, within their owner's data scope. Each business module uses these
+// operations for day-to-day sales, account payments, and customer handling.
+// Financial summaries, cash history, analytics, and staff administration stay
+// behind their dedicated permissions in their own routers.
 router.use(auditSuccessfulFarmerMutation);
 
 // ==================== SALES ROUTES ====================
@@ -48,13 +52,13 @@ router.post("/categories", createSalesCategory);
 // GET /api/sales/customers - Get customers for sales dropdown
 router.get("/customers", getCustomersForSales);
 
+// GET /api/sales/customers/:id - Get one customer account
+router.get("/customers/:id", getCustomerById);
+
 // GET /api/sales/statistics - Get sales statistics
 router.get("/statistics", getSaleStatistics);
 
 // ==================== CUSTOMER MANAGEMENT ROUTES ====================
-
-// GET /api/sales/customers/:id - Get customer by ID
-router.get("/customers/:id", getCustomerById);
 
 // POST /api/sales/customers - Create new customer
 router.post("/customers", createCustomer);
