@@ -183,6 +183,8 @@ model User {
 
   role     UserRole   @default(OWNER)
   status   UserStatus @default(PENDING_VERIFICATION)
+  isTestAccount Boolean @default(false)
+  adminNotes String?
   isOnline Boolean    @default(false)
   lastSeen DateTime?
 
@@ -299,6 +301,9 @@ model User {
   // Independently controlled, admin-managed feature access for this account.
   accountFeatures AccountFeature[] @relation("UserAccountFeatures")
 
+  // Admin-recorded customer payments. These do not control account approval.
+  accountPayments AccountPayment[] @relation("UserAccountPayments")
+
   // Admin-gated onboarding approval (new users only)
   onboarding UserOnboardingPayment?
 
@@ -320,6 +325,34 @@ model AccountFeature {
 
   @@id([accountId, featureKey])
   @@index([featureKey])
+}
+
+enum AccountPaymentType {
+  INITIAL
+  MAINTENANCE
+}
+
+model AccountPayment {
+  id        String             @id @default(cuid())
+  accountId String
+  account   User               @relation("UserAccountPayments", fields: [accountId], references: [id], onDelete: Cascade)
+  type      AccountPaymentType
+  amount    Decimal            @db.Decimal(10, 2)
+  paidAt    DateTime           @db.Date
+  createdAt DateTime           @default(now())
+
+  @@index([accountId, paidAt])
+  @@index([accountId, type])
+}
+
+model AdminExpense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  spentAt     DateTime @db.Date
+  createdAt   DateTime @default(now())
+
+  @@index([spentAt])
 }
 
 // Account approval gate for new signups. Pricing is handled offline by the admin;

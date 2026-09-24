@@ -367,6 +367,7 @@ const adminNavigation: NavigationItem[] = [
     icon: BarChart3,
   },
   { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
+  { nameKey: "sidebar.nav.financial", href: "/admin/dashboard/finances", icon: Wallet },
   { nameKey: "sidebar.nav.activity", href: "/admin/dashboard/activity", icon: FileText },
   {
     nameKey: "sidebar.nav.paymentApprovals",

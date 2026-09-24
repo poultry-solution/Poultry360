@@ -357,6 +357,149 @@ describe("Account feature API", () => {
     );
   });
 
+  it("records customer payments, derives the annual payment status, and labels test accounts", async () => {
+    await prisma.accountPayment.deleteMany({ where: { accountId: dealerId } });
+    await prisma.user.update({ where: { id: dealerId }, data: { isTestAccount: false } });
+
+    try {
+      await login(TEST_ACCOUNTS.dealer);
+      expect((await apiHelper.post(`/admin/users/${dealerId}/payments`, {
+        type: "INITIAL",
+        amount: 1000,
+        paidAt: "2024-01-01",
+      })).status).toBe(403);
+
+      await login(TEST_ACCOUNTS.admin);
+      const notes = "Capacity: 12,000 birds. Broiler farm expanding next season; review agreed price when capacity exceeds 15,000 birds.";
+      const savedNotes = await apiHelper.patch(`/admin/users/${dealerId}/admin-notes`, { adminNotes: notes });
+      expect(savedNotes.status).toBe(200);
+      expect(savedNotes.body.data.adminNotes).toBe(notes);
+
+      const initial = await apiHelper.post(`/admin/users/${dealerId}/payments`, {
+        type: "INITIAL",
+        amount: "1000.50",
+        paidAt: "2024-01-01",
+      });
+      expect(initial.status).toBe(201);
+      expect(initial.body.data).toMatchObject({ type: "INITIAL", amount: 1000.5 });
+
+      const duplicateInitial = await apiHelper.post(`/admin/users/${dealerId}/payments`, {
+        type: "INITIAL",
+        amount: 1000,
+        paidAt: "2024-01-01",
+      });
+      expect(duplicateInitial.status).toBe(409);
+
+      const expiredDetail = await apiHelper.get(`/admin/users/${dealerId}`);
+      expect(expiredDetail.status).toBe(200);
+      expect(expiredDetail.body.data).toMatchObject({ paymentStatus: "NOT_PAID", adminNotes: notes });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const maintenance = await apiHelper.post(`/admin/users/${dealerId}/payments`, {
+        type: "MAINTENANCE",
+        amount: 500,
+        paidAt: today,
+      });
+      expect(maintenance.status).toBe(201);
+
+      const markedTest = await apiHelper.patch(`/admin/users/${dealerId}/test-account`, {
+        isTestAccount: true,
+      });
+      expect(markedTest.status).toBe(200);
+      expect(markedTest.body.data).toMatchObject({ id: dealerId, isTestAccount: true });
+
+      const paidDetail = await apiHelper.get(`/admin/users/${dealerId}`);
+      expect(paidDetail.status).toBe(200);
+      expect(paidDetail.body.data).toMatchObject({ paymentStatus: "PAID", isTestAccount: true });
+      expect(paidDetail.body.data.accountPayments).toHaveLength(2);
+    } finally {
+      await prisma.accountPayment.deleteMany({ where: { accountId: dealerId } });
+      await prisma.user.update({ where: { id: dealerId }, data: { isTestAccount: false, adminNotes: null } });
+    }
+  });
+
+  it("requires a target-specific confirmation phrase before permanently deleting a user", async () => {
+    await login(TEST_ACCOUNTS.admin);
+    const phone = `+97798${Date.now().toString().slice(-8)}`;
+    const target = await prisma.user.create({
+      data: {
+        phone,
+        password: await bcrypt.hash(TEST_PASSWORD, 10),
+        name: "Temporary deletion safeguard account",
+        role: UserRole.OWNER,
+        status: "ACTIVE",
+      },
+    });
+
+    try {
+      const rejected = await apiHelper.delete(`/admin/users/${target.id}`, {
+        password: TEST_PASSWORD,
+        confirmation: "DELETE wrong-account",
+      });
+      expect(rejected.status).toBe(400);
+      expect(await prisma.user.findUnique({ where: { id: target.id } })).not.toBeNull();
+
+      const deleted = await apiHelper.delete(`/admin/users/${target.id}`, {
+        password: TEST_PASSWORD,
+        confirmation: `DELETE ${phone}`,
+      });
+      expect(deleted.status).toBe(200);
+      expect(await prisma.user.findUnique({ where: { id: target.id } })).toBeNull();
+    } finally {
+      await prisma.user.deleteMany({ where: { id: target.id } });
+    }
+  });
+
+  it("tracks real customer income and admin expenses while excluding test accounts", async () => {
+    await prisma.accountPayment.deleteMany({ where: { accountId: dealerId } });
+    await prisma.user.update({ where: { id: dealerId }, data: { isTestAccount: false } });
+    let expenseId: string | undefined;
+
+    try {
+      await login(TEST_ACCOUNTS.dealer);
+      expect((await apiHelper.get("/admin/finances")).status).toBe(403);
+
+      await login(TEST_ACCOUNTS.admin);
+      const baseline = await apiHelper.get("/admin/finances");
+      expect(baseline.status).toBe(200);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const payment = await apiHelper.post(`/admin/users/${dealerId}/payments`, {
+        type: "INITIAL",
+        amount: 1000,
+        paidAt: today,
+      });
+      expect(payment.status).toBe(201);
+
+      const withIncome = await apiHelper.get("/admin/finances");
+      expect(withIncome.status).toBe(200);
+      expect(withIncome.body.data.totalIncome).toBeCloseTo(baseline.body.data.totalIncome + 1000);
+
+      const expense = await apiHelper.post("/admin/finances/expenses", {
+        description: "Account feature finance test expense",
+        amount: 250.5,
+        spentAt: today,
+      });
+      expect(expense.status).toBe(201);
+      expenseId = expense.body.data.id;
+
+      const withExpense = await apiHelper.get("/admin/finances");
+      expect(withExpense.body.data.totalExpenses).toBeCloseTo(baseline.body.data.totalExpenses + 250.5);
+      expect(withExpense.body.data.entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ description: "Account feature finance test expense", expense: 250.5 }),
+      ]));
+
+      const markedTest = await apiHelper.patch(`/admin/users/${dealerId}/test-account`, { isTestAccount: true });
+      expect(markedTest.status).toBe(200);
+      const withoutTestIncome = await apiHelper.get("/admin/finances");
+      expect(withoutTestIncome.body.data.totalIncome).toBeCloseTo(baseline.body.data.totalIncome);
+    } finally {
+      if (expenseId) await prisma.adminExpense.deleteMany({ where: { id: expenseId } });
+      await prisma.accountPayment.deleteMany({ where: { accountId: dealerId } });
+      await prisma.user.update({ where: { id: dealerId }, data: { isTestAccount: false } });
+    }
+  });
+
   it("authenticates a Farmer staff identity with access to daily farm operations only", async () => {
     const response = await apiHelper.post("/staff-auth/login", {
       emailOrPhone: TEST_ACCOUNTS.farmerStaff,

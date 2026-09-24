@@ -5,6 +5,7 @@ import type {
   AccountFeatureKey,
 } from "@/fetchers/accountFeatureQueries";
 import { adminDashboardKeys } from "@/fetchers/admin/dashboardQueries";
+import { adminFinanceKeys } from "@/fetchers/admin/adminFinanceQueries";
 
 // ==================== QUERY KEYS ====================
 export const adminUserKeys = {
@@ -24,6 +25,8 @@ export interface AdminUser {
   phone: string;
   role: string;
   status: string;
+  isTestAccount: boolean;
+  paymentStatus: "PAID" | "NOT_PAID";
   companyName: string | null;
   CompanyFarmLocation: string | null;
   isOnline: boolean;
@@ -95,6 +98,9 @@ export interface AdminUserDetail {
   phone: string;
   role: string;
   status: string;
+  isTestAccount: boolean;
+  paymentStatus: "PAID" | "NOT_PAID";
+  adminNotes: string | null;
   companyName: string | null;
   CompanyFarmLocation: string | null;
   isOnline: boolean;
@@ -104,6 +110,7 @@ export interface AdminUserDetail {
   createdAt: string;
   updatedAt: string;
   accountFeatures: AccountFeature[];
+  accountPayments: AdminAccountPayment[];
   ownedFarms: Array<{
     id: string;
     name: string;
@@ -169,6 +176,14 @@ export interface AdminUserDetail {
   }>;
 }
 
+export interface AdminAccountPayment {
+  id: string;
+  type: "INITIAL" | "MAINTENANCE";
+  amount: number;
+  paidAt: string;
+  createdAt: string;
+}
+
 export interface AdminUserDetailResponse {
   success: boolean;
   data: AdminUserDetail;
@@ -197,6 +212,14 @@ export interface AdminAccountUsageResponse {
 export interface HardDeleteAdminUserInput {
   id: string;
   password: string;
+  confirmation: string;
+}
+
+export interface CreateAdminAccountPaymentInput {
+  accountId: string;
+  type: AdminAccountPayment["type"];
+  amount: number;
+  paidAt: string;
 }
 
 export interface UpdateAdminUserFeatureInput {
@@ -241,16 +264,60 @@ export const useHardDeleteAdminUser = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, password }: HardDeleteAdminUserInput) => {
+    mutationFn: async ({ id, password, confirmation }: HardDeleteAdminUserInput) => {
       const { data } = await axiosInstance.delete(`/admin/users/${id}`, {
-        data: { password },
+        data: { password, confirmation },
       });
       return data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
       queryClient.invalidateQueries({ queryKey: adminDashboardKeys.all });
+      queryClient.invalidateQueries({ queryKey: adminFinanceKeys.all });
       queryClient.removeQueries({ queryKey: adminUserKeys.detail(variables.id) });
+    },
+  });
+};
+
+export const useCreateAdminAccountPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ accountId, ...input }: CreateAdminAccountPaymentInput) => {
+      const { data } = await axiosInstance.post(`/admin/users/${accountId}/payments`, input);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: adminFinanceKeys.all });
+    },
+  });
+};
+
+export const useUpdateAdminTestAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ accountId, isTestAccount }: { accountId: string; isTestAccount: boolean }) => {
+      const { data } = await axiosInstance.patch(`/admin/users/${accountId}/test-account`, { isTestAccount });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(variables.accountId) });
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: adminFinanceKeys.all });
+    },
+  });
+};
+
+export const useUpdateAdminNotes = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ accountId, adminNotes }: { accountId: string; adminNotes: string }) => {
+      const { data } = await axiosInstance.patch(`/admin/users/${accountId}/admin-notes`, { adminNotes });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminUserKeys.detail(variables.accountId) });
     },
   });
 };

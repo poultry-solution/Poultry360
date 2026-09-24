@@ -89,6 +89,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [deleteUser, setDeleteUser] = useState<AdminUser | null>(null);
   const [adminPassword, setAdminPassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   // Debounce search
   useEffect(() => {
@@ -133,6 +134,7 @@ export default function AdminUsersPage() {
     if (hardDeleteUser.isPending) return;
     setDeleteUser(null);
     setAdminPassword("");
+    setDeleteConfirmation("");
   };
 
   const handleHardDelete = async (e: React.FormEvent) => {
@@ -144,11 +146,17 @@ export default function AdminUsersPage() {
       toast.error("Admin password is required");
       return;
     }
+    const confirmationPhrase = `DELETE ${deleteUser.phone}`;
+    if (deleteConfirmation.trim() !== confirmationPhrase) {
+      toast.error(`Type ${confirmationPhrase} to confirm deletion`);
+      return;
+    }
 
     try {
       const response = await hardDeleteUser.mutateAsync({
         id: deleteUser.id,
         password: adminPassword,
+        confirmation: deleteConfirmation,
       });
       toast.success(response.message || "User deleted successfully");
       closeDeleteDialog();
@@ -287,6 +295,7 @@ export default function AdminUsersPage() {
                   <TableHead>Phone</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Payment</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -315,12 +324,30 @@ export default function AdminUsersPage() {
                       </span>
                     </TableCell>
                     <TableCell>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[user.status] ?? ""}`}
+                        >
+                          {user.status === "PENDING_VERIFICATION"
+                            ? "PENDING"
+                            : user.status}
+                        </span>
+                        {user.isTestAccount && (
+                          <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800">
+                            TEST ACCOUNT
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[user.status] ?? ""}`}
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          user.paymentStatus === "PAID"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
                       >
-                        {user.status === "PENDING_VERIFICATION"
-                          ? "PENDING"
-                          : user.status}
+                        {user.paymentStatus === "PAID" ? "PAID" : "NOT PAID"}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -394,7 +421,12 @@ export default function AdminUsersPage() {
 
             <div className="space-y-4 py-4">
               <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                Hard delete will remove the user record and dependent data from the database.
+                Hard delete will permanently remove this user record and dependent data from the database.
+              </div>
+
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="font-medium text-foreground">Target account</p>
+                <p className="mt-1 text-muted-foreground">{deleteUser?.name} · {deleteUser?.phone}</p>
               </div>
 
               <div className="space-y-2">
@@ -406,6 +438,21 @@ export default function AdminUsersPage() {
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="Enter your password"
                   autoComplete="current-password"
+                  disabled={hardDeleteUser.isPending}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="delete-confirmation">
+                  Type <span className="font-mono">DELETE {deleteUser?.phone}</span> to confirm
+                </Label>
+                <Input
+                  id="delete-confirmation"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder={`DELETE ${deleteUser?.phone ?? ""}`}
+                  autoComplete="off"
+                  spellCheck={false}
                   disabled={hardDeleteUser.isPending}
                 />
               </div>
@@ -423,7 +470,11 @@ export default function AdminUsersPage() {
               <Button
                 type="submit"
                 variant="destructive"
-                disabled={!adminPassword.trim() || hardDeleteUser.isPending}
+                disabled={
+                  !adminPassword.trim() ||
+                  deleteConfirmation.trim() !== `DELETE ${deleteUser?.phone ?? ""}` ||
+                  hardDeleteUser.isPending
+                }
               >
                 {hardDeleteUser.isPending ? "Deleting..." : "Delete Permanently"}
               </Button>

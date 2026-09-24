@@ -1,14 +1,18 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
+import { Textarea } from "@/common/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -31,10 +35,15 @@ import {
   CircleDot,
   Layers,
   SlidersHorizontal,
+  CreditCard,
+  FlaskConical,
 } from "lucide-react";
 import {
   useGetAdminUserById,
   useGetAdminAccountUsage,
+  useCreateAdminAccountPayment,
+  useUpdateAdminNotes,
+  useUpdateAdminTestAccount,
   useUpdateAdminUserFeature,
   type AdminAccountUsageSummary,
   type AdminUserDetail,
@@ -280,6 +289,209 @@ function DoctorConversationsSection({ conversations }: {
             ))}
           </TableBody>
         </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CustomerReferenceNotesSection({
+  accountId,
+  adminNotes,
+}: {
+  accountId: string;
+  adminNotes: string | null;
+}) {
+  const updateNotes = useUpdateAdminNotes();
+  const [notes, setNotes] = useState(adminNotes ?? "");
+
+  const saveNotes = async () => {
+    try {
+      await updateNotes.mutateAsync({ accountId, adminNotes: notes });
+      toast.success(notes.trim() ? "Customer reference notes saved" : "Customer reference notes cleared");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not save customer reference notes");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Customer reference notes</CardTitle>
+        <CardDescription>Internal Admin context for pricing and future account reviews. The customer cannot see these notes.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Textarea
+          value={notes}
+          maxLength={4000}
+          rows={6}
+          placeholder="Record what the customer told us: farm or business capacity, current scale, nature of business, agreed price and why, expected growth, and what should trigger the next price review."
+          onChange={(event) => setNotes(event.target.value)}
+          disabled={updateNotes.isPending}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{notes.length.toLocaleString()} / 4,000 characters</p>
+          <Button onClick={saveNotes} disabled={updateNotes.isPending}>
+            {updateNotes.isPending ? "Saving..." : "Save notes"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccountPaymentsSection({
+  accountId,
+  isTestAccount,
+  paymentStatus,
+  payments,
+}: {
+  accountId: string;
+  isTestAccount: boolean;
+  paymentStatus: AdminUserDetail["paymentStatus"];
+  payments: AdminUserDetail["accountPayments"];
+}) {
+  const createPayment = useCreateAdminAccountPayment();
+  const updateTestAccount = useUpdateAdminTestAccount();
+  const hasInitialPayment = payments.some((payment) => payment.type === "INITIAL");
+  const [form, setForm] = useState({
+    type: hasInitialPayment ? "MAINTENANCE" as const : "INITIAL" as const,
+    amount: "",
+    paidAt: new Date().toISOString().slice(0, 10),
+  });
+
+  const submitPayment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const amount = Number(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !form.paidAt) {
+      toast.error("Enter a positive amount and paid date");
+      return;
+    }
+
+    try {
+      await createPayment.mutateAsync({ accountId, type: form.type, amount, paidAt: form.paidAt });
+      setForm({ type: "MAINTENANCE", amount: "", paidAt: new Date().toISOString().slice(0, 10) });
+      toast.success("Payment recorded");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not record payment");
+    }
+  };
+
+  const toggleTestAccount = async (nextValue: boolean) => {
+    try {
+      await updateTestAccount.mutateAsync({ accountId, isTestAccount: nextValue });
+      toast.success(nextValue ? "Account marked as test" : "Test-account label removed");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not update test-account status");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <CreditCard className="size-4" />
+          Customer payments
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              paymentStatus === "PAID"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {paymentStatus === "PAID" ? "PAID" : "NOT PAID"}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 font-medium"><FlaskConical className="size-4" /> Test account</p>
+            <p className="mt-1 text-sm text-muted-foreground">Adds a visible label in the Admin user list without changing access or billing.</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            {isTestAccount ? "Marked" : "Not marked"}
+            <input
+              type="checkbox"
+              checked={isTestAccount}
+              disabled={updateTestAccount.isPending}
+              onChange={(event) => toggleTestAccount(event.target.checked)}
+            />
+          </label>
+        </div>
+
+        <form onSubmit={submitPayment} className="grid gap-3 rounded-lg border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+          <div className="space-y-2">
+            <Label htmlFor="payment-type">Payment type</Label>
+            <select
+              id="payment-type"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={form.type}
+              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as "INITIAL" | "MAINTENANCE" }))}
+              disabled={createPayment.isPending}
+            >
+              <option value="INITIAL" disabled={hasInitialPayment}>First-time payment</option>
+              <option value="MAINTENANCE">Annual maintenance</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="payment-amount">Amount</Label>
+            <Input
+              id="payment-amount"
+              required
+              min="0.01"
+              step="0.01"
+              inputMode="decimal"
+              type="number"
+              value={form.amount}
+              onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+              disabled={createPayment.isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="payment-date">Paid date</Label>
+            <Input
+              id="payment-date"
+              required
+              max={new Date().toISOString().slice(0, 10)}
+              type="date"
+              value={form.paidAt}
+              onChange={(event) => setForm((current) => ({ ...current, paidAt: event.target.value }))}
+              disabled={createPayment.isPending}
+            />
+          </div>
+          <Button disabled={createPayment.isPending}>
+            {createPayment.isPending ? "Saving..." : "Record payment"}
+          </Button>
+        </form>
+
+        {payments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No payments recorded. The account remains Not paid until a payment is entered.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Paid date</TableHead>
+                  <TableHead>Recorded</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-medium">
+                      {payment.type === "INITIAL" ? "First-time payment" : "Annual maintenance"}
+                    </TableCell>
+                    <TableCell>{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell>{new Date(payment.paidAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-muted-foreground">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -578,6 +790,20 @@ export default function AdminUserDetailPage({
                 >
                   {user.status === "PENDING_VERIFICATION" ? "PENDING" : user.status}
                 </span>
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    user.paymentStatus === "PAID"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {user.paymentStatus === "PAID" ? "PAID" : "NOT PAID"}
+                </span>
+                {user.isTestAccount && (
+                  <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-800">
+                    TEST ACCOUNT
+                  </span>
+                )}
                 {user.isOnline && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                     <CircleDot className="size-3" />
@@ -658,6 +884,18 @@ export default function AdminUserDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <CustomerReferenceNotesSection
+        accountId={user.id}
+        adminNotes={user.adminNotes}
+      />
+
+      <AccountPaymentsSection
+        accountId={user.id}
+        isTestAccount={user.isTestAccount}
+        paymentStatus={user.paymentStatus}
+        payments={user.accountPayments}
+      />
 
       <AccountFeaturesSection
         accountId={user.id}
