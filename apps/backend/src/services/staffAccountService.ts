@@ -12,6 +12,7 @@ type StaffAccountModule = {
   businessType: "DEALER" | "HATCHERY" | "FARMER" | "COMPANY";
   displayName: string;
   defaultPermissions: StaffPermission[];
+  requiredPermissions: StaffPermission[];
   supportedPermissions: StaffPermission[];
   getBusiness: (ownerId: string) => Promise<StaffBusinessSummary | null>;
 };
@@ -36,6 +37,7 @@ export const STAFF_ACCOUNT_MODULES = {
     businessType: "DEALER",
     displayName: "Feed Dealer",
     defaultPermissions: [],
+    requiredPermissions: [],
     supportedPermissions: [
       StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES,
       StaffPermission.DEALER_VIEW_CASH_HISTORY,
@@ -52,6 +54,7 @@ export const STAFF_ACCOUNT_MODULES = {
     businessType: "HATCHERY",
     displayName: "Hatchery",
     defaultPermissions: [StaffPermission.HATCHERY_MANAGE_OPERATIONS],
+    requiredPermissions: [StaffPermission.HATCHERY_MANAGE_OPERATIONS],
     supportedPermissions: [
       StaffPermission.HATCHERY_MANAGE_OPERATIONS,
       StaffPermission.HATCHERY_VIEW_ANALYTICS,
@@ -68,6 +71,7 @@ export const STAFF_ACCOUNT_MODULES = {
     businessType: "FARMER",
     displayName: "Farmer",
     defaultPermissions: [StaffPermission.FARMER_MANAGE_OPERATIONS],
+    requiredPermissions: [StaffPermission.FARMER_MANAGE_OPERATIONS],
     supportedPermissions: [
       StaffPermission.FARMER_MANAGE_OPERATIONS,
       StaffPermission.FARMER_VIEW_FINANCIAL_SUMMARIES,
@@ -97,6 +101,7 @@ export const STAFF_ACCOUNT_MODULES = {
     businessType: "COMPANY",
     displayName: "Company",
     defaultPermissions: [StaffPermission.COMPANY_MANAGE_OPERATIONS],
+    requiredPermissions: [StaffPermission.COMPANY_MANAGE_OPERATIONS],
     supportedPermissions: [
       StaffPermission.COMPANY_MANAGE_OPERATIONS,
       StaffPermission.COMPANY_VIEW_FINANCIAL_SUMMARIES,

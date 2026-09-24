@@ -162,12 +162,13 @@ export const staffLogout = async (req: Request, res: Response): Promise<any> => 
 };
 
 function parsePermissions(input: unknown, accountRole: UserRole): StaffPermission[] | null {
-  if (input === undefined) return getStaffAccountModule(accountRole)?.defaultPermissions ?? [];
+  const module = getStaffAccountModule(accountRole);
+  if (input === undefined) return module?.defaultPermissions ?? [];
   const allowed = new Set(getAllowedStaffPermissions(accountRole));
   if (!Array.isArray(input) || input.some((permission) => typeof permission !== "string" || !allowed.has(permission as StaffPermission))) {
     return null;
   }
-  return [...new Set(input as StaffPermission[])];
+  return [...new Set([...(input as StaffPermission[]), ...(module?.requiredPermissions ?? [])])];
 }
 
 async function ownerStaffContext(ownerId: string) {

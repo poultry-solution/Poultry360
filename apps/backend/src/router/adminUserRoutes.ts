@@ -1,5 +1,13 @@
 import { Router } from "express";
-import { getAllUsers, getUserById, getUserUsageById, hardDeleteUser } from "../controller/adminUserController";
+import {
+  getAllUsers,
+  getUserById,
+  getUserUsageById,
+  hardDeleteUser,
+  recordAccountPayment,
+  updateAdminNotes,
+  updateTestAccount,
+} from "../controller/adminUserController";
 import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
 import { updateAdminAccountFeature } from "../controller/accountFeatureController";
@@ -25,6 +33,11 @@ router.get("/:id", getUserById);
 
 // Independently grant or revoke a feature for one account
 router.put("/:id/features/:featureKey", updateAdminAccountFeature);
+
+// Customer-account bookkeeping managed by the Super Admin.
+router.post("/:id/payments", recordAccountPayment);
+router.patch("/:id/test-account", updateTestAccount);
+router.patch("/:id/admin-notes", updateAdminNotes);
 
 // Hard delete user with super admin password confirmation
 router.delete("/:id", hardDeleteUser);

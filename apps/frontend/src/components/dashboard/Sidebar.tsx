@@ -100,7 +100,6 @@ export const farmerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.staffManagement",
     href: "/farmer/dashboard/staff",
     icon: Users,
-    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
     requiredStaffPermission: "FARMER_VIEW_STAFF_MANAGEMENT",
   },
   {
@@ -193,7 +192,6 @@ export const dealerNavigation: NavigationItem[] = [
     href: "/dealer/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
-    requiredFeature: ACCOUNT_FEATURE_KEYS.DEALER_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.cashInHand",
@@ -259,7 +257,6 @@ export const companyNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.staffManagement",
     href: "/company/dashboard/staff",
     icon: Users,
-    requiredFeature: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
     requiredStaffPermission: "COMPANY_VIEW_STAFF_MANAGEMENT",
   },
   {
@@ -340,7 +337,6 @@ export const hatcheryNavigation: NavigationItem[] = [
     href: "/hatchery/dashboard/staff",
     icon: Users,
     requiredStaffPermission: "HATCHERY_VIEW_STAFF_MANAGEMENT",
-    requiredFeature: ACCOUNT_FEATURE_KEYS.HATCHERY_STAFF_OPERATIONS,
   },
   {
     nameKey: "sidebar.nav.staffAccess",
@@ -371,6 +367,7 @@ const adminNavigation: NavigationItem[] = [
     icon: BarChart3,
   },
   { nameKey: "sidebar.nav.users", href: "/admin/dashboard/users", icon: Users },
+  { nameKey: "sidebar.nav.financial", href: "/admin/dashboard/finances", icon: Wallet },
   { nameKey: "sidebar.nav.activity", href: "/admin/dashboard/activity", icon: FileText },
   {
     nameKey: "sidebar.nav.paymentApprovals",
@@ -452,39 +449,40 @@ export default function Sidebar({
 
   // Get role display info
   const getRoleInfo = () => {
+    const userTitle = user?.isStaff ? t("sidebar.roles.staff.userTitle") : undefined;
     if (role === "DOCTOR") {
       return {
         subtitle: t("sidebar.roles.doctor.subtitle"),
-        userTitle: t("sidebar.roles.doctor.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.doctor.userTitle"),
       };
     }
     if (role === "SUPER_ADMIN") {
       return {
         subtitle: t("sidebar.roles.admin.subtitle"),
-        userTitle: t("sidebar.roles.admin.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.admin.userTitle"),
       };
     }
     if (role === "DEALER") {
       return {
         subtitle: t("sidebar.roles.dealer.subtitle"),
-        userTitle: t("sidebar.roles.dealer.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.dealer.userTitle"),
       };
     }
     if (role === "COMPANY") {
       return {
         subtitle: t("sidebar.roles.company.subtitle"),
-        userTitle: t("sidebar.roles.company.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.company.userTitle"),
       };
     }
     if (role === "HATCHERY") {
       return {
         subtitle: t("sidebar.roles.hatchery.subtitle"),
-        userTitle: t("sidebar.roles.hatchery.userTitle"),
+        userTitle: userTitle ?? t("sidebar.roles.hatchery.userTitle"),
       };
     }
     return {
       subtitle: t("sidebar.roles.farmer.subtitle"),
-      userTitle: t("sidebar.roles.farmer.userTitle"),
+      userTitle: userTitle ?? t("sidebar.roles.farmer.userTitle"),
     };
   };
 

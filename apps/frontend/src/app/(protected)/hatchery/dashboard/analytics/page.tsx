@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, BarChart3, Loader2, Repeat, ShieldAlert } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -35,6 +36,7 @@ import {
   ProductionAnalyticsLoadingState,
   SalesAnalyticsLoadingState,
 } from "./_components/LoadingStates";
+import { useAuthStore } from "@/common/store/store";
 
 function QueryErrorCard({
   title,
@@ -61,7 +63,7 @@ function QueryErrorCard({
   );
 }
 
-export default function HatcheryAnalyticsPage() {
+function HatcheryAnalyticsContent() {
   const [rangePreset, setRangePreset] = useState<AnalyticsRangePreset>("30d");
   const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview");
   const [batchPage, setBatchPage] = useState(1);
@@ -310,4 +312,25 @@ export default function HatcheryAnalyticsPage() {
       </Tabs>
     </div>
   );
+}
+
+export default function HatcheryAnalyticsPage() {
+  const user = useAuthStore((state) => state.user);
+  const router = useRouter();
+  const canViewAnalytics =
+    !user?.isStaff || user.permissions?.includes("HATCHERY_VIEW_ANALYTICS");
+
+  // The API retains its own permission check. This guard prevents a staff
+  // member who opens the URL directly from mounting any analytics queries.
+  // Analytics is intentionally hidden, so return them to their normal home
+  // instead of presenting an access error.
+  useEffect(() => {
+    if (!canViewAnalytics) router.replace("/hatchery/dashboard/home");
+  }, [canViewAnalytics, router]);
+
+  if (!canViewAnalytics) {
+    return null;
+  }
+
+  return <HatcheryAnalyticsContent />;
 }

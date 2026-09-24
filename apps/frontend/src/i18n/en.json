@@ -78,6 +78,9 @@
       "hatchery": {
         "subtitle": "Hatchery Management",
         "userTitle": "Hatchery"
+      },
+      "staff": {
+        "userTitle": "Staff"
       }
     },
     "nav": {

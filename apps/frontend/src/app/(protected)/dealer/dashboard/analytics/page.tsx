@@ -280,6 +280,8 @@ function DealerAnalyticsContent() {
   const salesTotal = Number(salesStats?.totalRevenue || 0);
   const paidAtSale = Number(salesStats?.totalPaid || 0);
   const dueAtSale = Number(salesStats?.totalDue || 0);
+  const supplierSettlementSales = Number(salesStats?.supplierSettlementSales || 0);
+  const supplierSettlementRevenue = Number(salesStats?.supplierSettlementRevenue || 0);
   const lifetimeSalesTotal = Number(lifetimeSalesStats?.totalRevenue || 0);
   const totalPurchases = Number(profitSummary?.totalPurchases || 0);
   const totalPaymentsReceived = Number(lifetimeLedgerSummary?.totalPaymentsReceived || 0);
@@ -389,11 +391,11 @@ function DealerAnalyticsContent() {
           </div>
           <Badge variant="secondary">Selected dates</Badge>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             title="Sales"
             value={salesStatsQuery.isLoading ? "..." : formatMoney(salesTotal)}
-            description="Product sales in these dates"
+            description="Product sales in these dates, including supplier settlements"
             icon={ReceiptText}
             tone="text-green-600"
             scopeBadge="Selected range"
@@ -407,6 +409,15 @@ function DealerAnalyticsContent() {
             tone="text-blue-600"
             scopeBadge="Selected range"
             badge={`${formatMoney(dueAtSale)} sold on credit`}
+          />
+          <MetricCard
+            title="Supplier settlements"
+            value={salesStatsQuery.isLoading ? "..." : formatMoney(supplierSettlementRevenue)}
+            description="Inventory supplied to Manual Company suppliers to settle their balances"
+            icon={Building2}
+            tone="text-blue-600"
+            scopeBadge="Selected range"
+            badge={`${formatNumber(supplierSettlementSales)} settlement sale${supplierSettlementSales === 1 ? "" : "s"}`}
           />
         </div>
       </div>

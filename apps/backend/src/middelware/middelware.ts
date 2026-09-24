@@ -228,7 +228,13 @@ export const auditSuccessfulAdminMutation = (targetType: string) => (
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) return next();
   // Account approvals and feature changes add richer, account-scoped records
   // directly in their controllers.
-  if (req.originalUrl.includes("/payment-approvals/") || req.originalUrl.includes("/features/")) return next();
+  if (
+    req.originalUrl.includes("/payment-approvals/") ||
+    req.originalUrl.includes("/features/") ||
+    req.originalUrl.includes("/payments") ||
+    req.originalUrl.includes("/test-account") ||
+    req.originalUrl.includes("/admin-notes")
+  ) return next();
   let responseBody: any;
   const originalJson = res.json.bind(res);
   res.json = ((body: any) => { responseBody = body; return originalJson(body); }) as typeof res.json;

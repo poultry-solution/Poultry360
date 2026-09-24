@@ -57,7 +57,7 @@ export default function ManualCompanyAccountPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
-    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "adjustments" | "voided">("purchases");
+    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "settlements" | "adjustments" | "voided">("purchases");
     const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
     const [openingAmount, setOpeningAmount] = useState<string>("");
     const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
@@ -228,7 +228,7 @@ export default function ManualCompanyAccountPage() {
             </Card>
 
             {/* Balance Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <Card className="border-l-4 border-l-blue-400">
                     <CardContent className="pt-4 pb-4">
                         <div className="flex items-start justify-between gap-2">
@@ -283,12 +283,19 @@ export default function ManualCompanyAccountPage() {
                         <div className="text-2xl font-bold">{formatCurrency(company.totalPayments)}</div>
                     </CardContent>
                 </Card>
+                <Card className="border-l-4 border-l-blue-400">
+                    <CardContent className="pt-4 pb-4">
+                        <div className="text-sm text-muted-foreground">Supplier Settlement Sales</div>
+                        <div className="text-2xl font-bold text-blue-700">{formatCurrency(Number(company.totalSettlementSales || 0))}</div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Transaction History — Tabbed */}
             {(() => {
                 const purchases = transactions.filter((t: any) => t.type === "PURCHASE");
                 const payments = transactions.filter((t: any) => t.type === "PAYMENT");
+                const settlements = transactions.filter((t: any) => t.type === "SUPPLIER_SETTLEMENT_SALE");
                 const adjustments = transactions.filter((t: any) => t.type === "OPENING_BALANCE" || t.type === "ADJUSTMENT");
                 const voided = Array.isArray(voidedTransactions) ? voidedTransactions : [];
 
@@ -317,6 +324,16 @@ export default function ManualCompanyAccountPage() {
                                 >
                                     <Wallet className="inline h-4 w-4 mr-1.5 -mt-0.5" />
                                     Payments ({payments.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("settlements")}
+                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "settlements"
+                                        ? "border-b-2 border-blue-500 text-blue-600"
+                                        : "text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Package className="inline h-4 w-4 mr-1.5 -mt-0.5" />
+                                    Settlement sales ({settlements.length})
                                 </button>
                                 <button
                                     onClick={() => setActiveTab("adjustments")}
@@ -515,6 +532,54 @@ export default function ManualCompanyAccountPage() {
                                                 {txn.reference && (
                                                     <div className="mt-1 text-xs text-muted-foreground">Ref: {txn.reference}</div>
                                                 )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )
+                            )}
+
+                            {/* Supplier settlement sales tab */}
+                            {activeTab === "settlements" && (
+                                settlements.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Package className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                                        <p>No supplier settlement sales recorded yet</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {settlements.map((txn: any) => (
+                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-blue-400">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <Package className="h-4 w-4 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">Supplier settlement sale</p>
+                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                <Calendar className="h-3 w-3" />
+                                                                <DateDisplay date={txn.date} format="long" />
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold text-blue-700">- {formatCurrency(Number(txn.amount))}</p>
+                                                        <Badge variant="outline" className="mt-1 border-blue-300 text-blue-800">No cash payment</Badge>
+                                                    </div>
+                                                </div>
+                                                <p className="mt-2 text-xs text-blue-800">Goods supplied to the company; this amount reduced its payable balance.</p>
+                                                {txn.reference ? <div className="mt-2 text-xs text-muted-foreground">Invoice: {txn.reference}</div> : null}
+                                                {txn.items?.length ? (
+                                                    <div className="mt-3 border-t pt-3 space-y-1.5">
+                                                        {txn.items.map((item: any) => (
+                                                            <div key={item.id} className="flex justify-between gap-3 rounded bg-muted/40 px-3 py-1.5 text-sm">
+                                                                <span>{item.product?.name || "Product"}</span>
+                                                                <span>{Number(item.quantity).toFixed(2)} {item.unit || item.product?.unit || ""} × रू {Number(item.unitPrice).toFixed(2)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                                {txn.notes ? <div className="mt-2 text-xs text-muted-foreground italic">Note: {txn.notes}</div> : null}
                                             </div>
                                         ))}
                                     </div>

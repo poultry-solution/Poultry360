@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, Bird } from "lucide-react";
+import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, Bird, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { useAuthStore } from "@/common/store/store";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
 export default function DealerSalesPage() {
   const router = useRouter();
@@ -44,6 +45,9 @@ export default function DealerSalesPage() {
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
+  const supplierSettlementFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES
+  );
   const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
 
   // Get sales
@@ -108,6 +112,16 @@ export default function DealerSalesPage() {
             <span className="hidden sm:inline">{t("dealer.sales.buttons.newSale")}</span>
             <span className="sm:hidden">{t("dealer.sales.buttons.newSale")}</span>
           </Button>
+          {supplierSettlementFeature.isEnabled ? (
+            <Button
+              onClick={() => router.push("/dealer/dashboard/sales/supplier-settlement")}
+              variant="outline"
+              className="w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Sell to company
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -169,20 +183,28 @@ export default function DealerSalesPage() {
                 key: 'customer',
                 label: t("dealer.sales.table.customer"),
                 width: '140px',
-                render: (val) => (
-                  val ? (
+                render: (val, row) => {
+                  const party = row.isSupplierSettlementSale ? row.manualCompany : val;
+                  return party ? (
                     <div>
-                      <div className="font-medium truncate max-w-[120px]">{val.name}</div>
-                      <div className="text-xs text-muted-foreground">{val.phone}</div>
+                      <div className="font-medium truncate max-w-[120px]">{party.name}</div>
+                      <div className="text-xs text-muted-foreground">{row.isSupplierSettlementSale ? "Manual Company supplier" : party.phone}</div>
                     </div>
-                  ) : '-'
-                )
+                  ) : '-';
+                }
               },
               {
                 key: 'sourceFarmer',
                 label: 'Sale type',
                 width: '150px',
-                render: (_val, row) => row.isChickenSale ? (
+                render: (_val, row) => row.isSupplierSettlementSale ? (
+                  <div>
+                    <Badge variant="outline" className="border-blue-300 bg-blue-50 text-blue-800">Supplier settlement sale</Badge>
+                    <div className="mt-1 truncate text-xs text-muted-foreground max-w-[140px]">
+                      Settles: {row.manualCompany?.name || "Manual Company supplier"}
+                    </div>
+                  </div>
+                ) : row.isChickenSale ? (
                   <div>
                     <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">Broiler sale</Badge>
                     <div className="mt-1 truncate text-xs text-muted-foreground max-w-[140px]">
@@ -223,6 +245,9 @@ export default function DealerSalesPage() {
                 label: t("dealer.sales.table.type"),
                 width: '70px',
                 render: (_val, row) => {
+                  if (row.isSupplierSettlementSale) {
+                    return <Badge variant="outline" className="border-blue-300 text-blue-800">Settled</Badge>;
+                  }
                   const hadInitialPayment = Number(row.paidAmount) > 0;
                   return (
                     <Badge variant={hadInitialPayment ? "default" : "secondary"} className="text-xs">
@@ -398,19 +423,19 @@ export default function DealerSalesPage() {
               {/* Customer & Payment Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 border rounded-lg space-y-2">
-                  <h4 className="font-semibold text-sm">{sale.isChickenSale ? "Buyer Information" : "Customer Information"}</h4>
+                  <h4 className="font-semibold text-sm">{sale.isSupplierSettlementSale ? "Supplier Information" : sale.isChickenSale ? "Buyer Information" : "Customer Information"}</h4>
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{sale.customer?.name || "N/A"}</span>
+                    <span>{sale.isSupplierSettlementSale ? sale.manualCompany?.name || "Manual Company supplier" : sale.customer?.name || "N/A"}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
+                  {!sale.isSupplierSettlementSale && <div className="flex items-center gap-2 text-sm">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>{sale.customer?.phone || "N/A"}</span>
-                  </div>
-                  {sale.customer?.address && (
+                  </div>}
+                  {(sale.isSupplierSettlementSale ? sale.manualCompany?.address : sale.customer?.address) && (
                     <div className="flex items-start gap-2 text-sm">
                       <Package className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                      <span>{sale.customer.address}</span>
+                      <span>{sale.isSupplierSettlementSale ? sale.manualCompany.address : sale.customer.address}</span>
                     </div>
                   )}
                 </div>
@@ -426,6 +451,9 @@ export default function DealerSalesPage() {
                 )}
                 <div className="p-4 border rounded-lg space-y-2">
                   <h4 className="font-semibold text-sm">Payment Information</h4>
+                  {sale.isSupplierSettlementSale ? (
+                    <p className="text-sm text-blue-800">Supplier settlement sale — no cash payment or customer transaction was recorded.</p>
+                  ) : <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Method</span>
                     <span className="font-medium">{sale.paymentMethod || "—"}</span>
@@ -439,6 +467,7 @@ export default function DealerSalesPage() {
                   <p className="text-xs text-muted-foreground mt-2">
                     Payments are tracked at the customer account level.
                   </p>
+                  </>}
                 </div>
               </div>
 

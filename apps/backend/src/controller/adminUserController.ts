@@ -1,9 +1,39 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { BatchStatus, UserRole, UserStatus } from "@prisma/client";
+import { AccountPaymentType, BatchStatus, Prisma, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { getResolvedAccountFeatures } from "../services/accountFeatureService";
 import { getAdminAccountUsageSummary } from "../services/adminAccountUsageService";
+import { writeBusinessAudit } from "../services/businessAuditService";
+
+type RecentAccountPayment = { paidAt: Date } | undefined;
+
+function getAccountPaymentStatus(payment: RecentAccountPayment) {
+  if (!payment) return "NOT_PAID" as const;
+
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
+  cutoff.setHours(0, 0, 0, 0);
+  return payment.paidAt >= cutoff ? "PAID" as const : "NOT_PAID" as const;
+}
+
+function parsePaymentAmount(value: unknown): Prisma.Decimal | null {
+  const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(raw)) return null;
+
+  const amount = new Prisma.Decimal(raw);
+  return amount.greaterThan(0) && amount.lessThanOrEqualTo("99999999.99") ? amount : null;
+}
+
+function parsePaidAt(value: unknown): Date | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const paidAt = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(paidAt.getTime()) || paidAt.toISOString().slice(0, 10) !== value) return null;
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return paidAt <= today ? paidAt : null;
+}
 
 // ==================== GET ALL USERS ====================
 export const getAllUsers = async (
@@ -54,6 +84,7 @@ export const getAllUsers = async (
           phone: true,
           role: true,
           status: true,
+          isTestAccount: true,
           companyName: true,
           CompanyFarmLocation: true,
           isOnline: true,
@@ -76,6 +107,11 @@ export const getAllUsers = async (
             select: { id: true, name: true },
             take: 5,
           },
+          accountPayments: {
+            select: { paidAt: true },
+            orderBy: { paidAt: "desc" },
+            take: 1,
+          },
         },
       }),
       prisma.user.count({ where }),
@@ -83,6 +119,8 @@ export const getAllUsers = async (
 
     const normalizedUsers = users.map((user: any) => ({
       ...user,
+      paymentStatus: getAccountPaymentStatus(user.accountPayments[0]),
+      accountPayments: undefined,
       _count: {
         ownedFarms: user._count.ownedFarms,
         managedFarms: user._count.managedFarms,
@@ -125,6 +163,8 @@ export const getUserById = async (
         phone: true,
         role: true,
         status: true,
+        isTestAccount: true,
+        adminNotes: true,
         companyName: true,
         CompanyFarmLocation: true,
         isOnline: true,
@@ -133,6 +173,16 @@ export const getUserById = async (
         calendarType: true,
         createdAt: true,
         updatedAt: true,
+        accountPayments: {
+          select: {
+            id: true,
+            type: true,
+            amount: true,
+            paidAt: true,
+            createdAt: true,
+          },
+          orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+        },
         // Farms
         ownedFarms: {
           select: {
@@ -283,6 +333,11 @@ export const getUserById = async (
     ]);
     const normalizedUser = {
       ...user,
+      paymentStatus: getAccountPaymentStatus(user.accountPayments[0]),
+      accountPayments: user.accountPayments.map((payment) => ({
+        ...payment,
+        amount: Number(payment.amount),
+      })),
       accountFeatures,
       ownedFarms,
       managedFarms,
@@ -330,6 +385,167 @@ export const getUserUsageById = async (
       success: false,
       message: "Failed to fetch account usage",
     });
+  }
+};
+
+export const recordAccountPayment = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const type = req.body?.type as AccountPaymentType;
+    const amount = parsePaymentAmount(req.body?.amount);
+    const paidAt = parsePaidAt(req.body?.paidAt);
+
+    if (!Object.values(AccountPaymentType).includes(type) || !amount || !paidAt) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid payment type, positive amount, and non-future paid date are required",
+      });
+    }
+
+    const account = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, role: true },
+    });
+    if (!account) return res.status(404).json({ success: false, message: "User not found" });
+    if (account.role === UserRole.SUPER_ADMIN) {
+      return res.status(403).json({ success: false, message: "Super admin accounts cannot have customer payments" });
+    }
+
+    let payment;
+    try {
+      payment = await prisma.$transaction(async (tx) => {
+        if (type === AccountPaymentType.INITIAL) {
+          const existingInitial = await tx.accountPayment.findFirst({
+            where: { accountId: id, type: AccountPaymentType.INITIAL },
+            select: { id: true },
+          });
+          if (existingInitial) throw new Error("INITIAL_PAYMENT_ALREADY_RECORDED");
+        }
+        const createdPayment = await tx.accountPayment.create({
+          data: { accountId: id, type, amount, paidAt },
+          select: { id: true, type: true, amount: true, paidAt: true, createdAt: true },
+        });
+        await writeBusinessAudit(req, {
+          action: "admin.account_payment.recorded",
+          targetType: "AccountPayment",
+          targetId: createdPayment.id,
+          description: `Recorded ${type.toLowerCase()} payment for ${account.name}`,
+          accountOwnerId: id,
+          businessType: "ADMIN",
+          metadata: { type, amount: amount.toString(), paidAt: paidAt.toISOString().slice(0, 10) },
+        }, tx);
+        return createdPayment;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error: any) {
+      if (error?.message === "INITIAL_PAYMENT_ALREADY_RECORDED") {
+        return res.status(409).json({ success: false, message: "An initial payment is already recorded for this account" });
+      }
+      throw error;
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: { ...payment, amount: Number(payment.amount) },
+    });
+  } catch (error) {
+    console.error("Record account payment error:", error);
+    return res.status(500).json({ success: false, message: "Failed to record account payment" });
+  }
+};
+
+export const updateTestAccount = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { isTestAccount } = req.body;
+    if (typeof isTestAccount !== "boolean") {
+      return res.status(400).json({ success: false, message: "isTestAccount must be a boolean" });
+    }
+
+    const account = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, role: true },
+    });
+    if (!account) return res.status(404).json({ success: false, message: "User not found" });
+    if (account.role === UserRole.SUPER_ADMIN) {
+      return res.status(403).json({ success: false, message: "Super admin accounts cannot be test accounts" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedAccount = await tx.user.update({
+        where: { id },
+        data: { isTestAccount },
+        select: { id: true, isTestAccount: true },
+      });
+      await writeBusinessAudit(req, {
+        action: "admin.account_test_status.updated",
+        targetType: "User",
+        targetId: id,
+        description: `${isTestAccount ? "Marked" : "Unmarked"} ${account.name} as a test account`,
+        accountOwnerId: id,
+        businessType: "ADMIN",
+        metadata: { isTestAccount },
+      }, tx);
+      return updatedAccount;
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Update test account error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update test-account status" });
+  }
+};
+
+export const updateAdminNotes = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    if (typeof req.body?.adminNotes !== "string") {
+      return res.status(400).json({ success: false, message: "Admin notes must be text" });
+    }
+    const adminNotes = req.body.adminNotes.trim();
+    if (adminNotes.length > 4000) {
+      return res.status(400).json({ success: false, message: "Admin notes must be 4,000 characters or fewer" });
+    }
+
+    const account = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, role: true },
+    });
+    if (!account) return res.status(404).json({ success: false, message: "User not found" });
+    if (account.role === UserRole.SUPER_ADMIN) {
+      return res.status(403).json({ success: false, message: "Super admin accounts cannot have customer reference notes" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedAccount = await tx.user.update({
+        where: { id },
+        data: { adminNotes: adminNotes || null },
+        select: { id: true, adminNotes: true },
+      });
+      await writeBusinessAudit(req, {
+        action: "admin.customer_reference_notes.updated",
+        targetType: "User",
+        targetId: id,
+        description: `${adminNotes ? "Updated" : "Cleared"} customer reference notes for ${account.name}`,
+        accountOwnerId: id,
+        businessType: "ADMIN",
+        metadata: { hasNotes: Boolean(adminNotes) },
+      }, tx);
+      return updatedAccount;
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Update admin notes error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update customer reference notes" });
   }
 };
 
@@ -622,7 +838,7 @@ export const hardDeleteUser = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
-    const { password } = req.body;
+    const { password, confirmation } = req.body;
     const adminUserId = req.userId;
 
     if (!adminUserId) {
@@ -660,6 +876,7 @@ export const hardDeleteUser = async (
         select: {
           id: true,
           name: true,
+          phone: true,
           role: true,
         },
       }),
@@ -683,6 +900,13 @@ export const hardDeleteUser = async (
       return res.status(403).json({
         success: false,
         message: "Super admin accounts cannot be deleted from this screen",
+      });
+    }
+
+    if (typeof confirmation !== "string" || confirmation.trim() !== `DELETE ${targetUser.phone}`) {
+      return res.status(400).json({
+        success: false,
+        message: `Type DELETE ${targetUser.phone} to confirm permanent deletion`,
       });
     }
 
