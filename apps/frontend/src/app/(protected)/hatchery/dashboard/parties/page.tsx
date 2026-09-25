@@ -20,6 +20,8 @@ import {
   useCreateHatcheryParty,
   type HatcheryParty,
 } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function HatcheryPartiesPage() {
   const router = useRouter();
@@ -64,6 +66,24 @@ export default function HatcheryPartiesPage() {
     setShowModal(false);
   };
 
+  const downloadParties = async () => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data: response } = await axiosInstance.get("/hatchery/parties", { params: { page: downloadPage, limit, search: search || undefined } });
+      return { rows: response.parties || [], total: response.total };
+    });
+    return {
+      columns: [
+        { label: "Name", value: (row: HatcheryParty) => row.name },
+        { label: "Phone", value: (row: HatcheryParty) => row.phone },
+        { label: "Address", value: (row: HatcheryParty) => row.address || "" },
+        { label: "Balance", value: (row: HatcheryParty) => Number(row.balance || 0).toFixed(2) },
+        { label: "Added", value: (row: HatcheryParty) => new Date(row.createdAt).toLocaleDateString() },
+      ],
+      rows,
+      summary: [{ label: "Total parties", value: rows.length }],
+    };
+  };
+
   const columns: Column<HatcheryParty>[] = [
     { key: "name", label: "Name" },
     { key: "phone", label: "Phone" },
@@ -102,9 +122,12 @@ export default function HatcheryPartiesPage() {
             ({data?.total ?? 0} total)
           </span>
         </div>
-        <Button size="sm" onClick={() => setShowModal(true)}>
-          <Plus className="h-4 w-4 mr-1" /> Add Party
-        </Button>
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="parties" fileName="hatchery-parties" getData={downloadParties} hasDateFilter={false} />
+          <Button size="sm" onClick={() => setShowModal(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add Party
+          </Button>
+        </div>
       </div>
 
       <Input

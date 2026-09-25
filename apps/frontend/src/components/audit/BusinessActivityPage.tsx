@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuthStore } from "@/common/store/store";
 import { exportBusinessAudit, type AuditFilters, type BusinessAuditLog, useBusinessAudit } from "@/fetchers/businessAuditQueries";
 import { toast } from "sonner";
+import { downloadBusinessData } from "@/components/downloads/BusinessDownloadDialog";
 
 function download(content: BlobPart | BlobPart[], type: string, filename: string) {
   const url = URL.createObjectURL(new Blob(Array.isArray(content) ? content : [content], { type }));
@@ -76,17 +77,23 @@ function exportExcel(logs: BusinessAuditLog[], scope: "account" | "admin", busin
   download([`<html><head><meta charset="utf-8"></head><body><table>${cells}</table></body></html>`], "application/vnd.ms-excel", "activity.xls");
 }
 function exportPdf(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
-  const lines = rows(logs, scope, businessName).map((row) => `${row[0]} | ${row[1]} | ${row[3]} | ${row[4]} | ${row[5]}`.replace(/[()\\]/g, "\\$&").slice(0, 140));
-  const pages = Array.from({ length: Math.max(1, Math.ceil(lines.length / 42)) }, (_, index) => lines.slice(index * 42, index * 42 + 42));
-  const objects: string[] = ["<< /Type /Catalog /Pages 2 0 R >>", `<< /Type /Pages /Kids [${pages.map((_, index) => `${3 + index * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`];
-  pages.forEach((page, index) => {
-    const pageId = 3 + index * 2; const contentId = pageId + 1;
-    const content = ["BT /F1 10 Tf 42 800 Td (Poultry360 activity) Tj 0 -18 Td", ...page.map((line) => `(${line}) Tj 0 -16 Td`), "ET"].join("\n");
-    objects.push(`<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> /MediaBox [0 0 612 842] /Contents ${contentId} 0 R >>`, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  downloadBusinessData({
+    businessName: businessName || "Poultry360",
+    title: "Activity history",
+    fileName: "activity",
+    format: "pdf",
+    data: {
+      columns: [
+        { label: "Time", value: (row: BusinessAuditLog) => new Date(row.createdAt).toLocaleString() },
+        { label: "Actor", value: (row: BusinessAuditLog) => actorDisplayName(row, scope, businessName) },
+        { label: "Role", value: actorRoleLabel },
+        { label: "Action", value: activityDescription },
+        { label: "Related to", value: relatedRecord },
+        { label: "Details", value: (row: BusinessAuditLog) => readableDetails(row.metadata, row.securityMetadata) },
+      ],
+      rows: logs,
+    },
   });
-  let pdf = "%PDF-1.4\n"; const offsets = [0]; objects.forEach((object, index) => { offsets.push(pdf.length); pdf += `${index + 1} 0 obj\n${object}\nendobj\n`; });
-  const xref = pdf.length; pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  download([pdf], "application/pdf", "activity.pdf");
 }
 
 const recordLabels: Record<string, string> = {

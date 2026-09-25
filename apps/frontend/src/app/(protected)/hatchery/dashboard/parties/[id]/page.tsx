@@ -25,6 +25,8 @@ import {
   type HatcheryPartyTxn,
   type HatcheryPartyPayment,
 } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 
 const TXN_TYPE_LABEL: Record<string, { label: string; color: string }> = {
   SALE: { label: "Sale", color: "bg-red-100 text-red-800" },
@@ -122,6 +124,29 @@ export default function HatcheryPartyDetailPage() {
     },
   ];
 
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const allRows = await fetchAllPages<HatcheryPartyTxn>(async (page, limit) => {
+      const { data } = await axiosInstance.get(`/hatchery/parties/${id}/txns`, { params: { page, limit } });
+      return { rows: data.txns || [], total: data.total };
+    });
+    const rows = filterRowsByDate(allRows, range, (row: HatcheryPartyTxn) => row.date);
+    const columns = [
+        { label: "Date", value: (row: HatcheryPartyTxn) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: HatcheryPartyTxn) => TXN_TYPE_LABEL[row.type]?.label || row.type },
+        { label: "Amount", value: (row: HatcheryPartyTxn) => Number(row.amount || 0).toFixed(2) },
+        { label: "Balance", value: (row: HatcheryPartyTxn) => Number(row.balanceAfter || 0).toFixed(2) },
+        { label: "Note", value: (row: HatcheryPartyTxn) => row.note || "" },
+      ];
+    return {
+      sections: [
+        { title: "Sales", columns, rows: rows.filter((row: HatcheryPartyTxn) => String(row.type).includes("SALE")) },
+        { title: "Payments", columns, rows: rows.filter((row: HatcheryPartyTxn) => String(row.type).includes("PAYMENT")) },
+        { title: "Other records", columns, rows: rows.filter((row: HatcheryPartyTxn) => !String(row.type).includes("SALE") && !String(row.type).includes("PAYMENT")) },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(party?.balance || 0).toFixed(2)}` }, { label: "Total sales", value: `Rs ${Number(party?.totalSales || 0).toFixed(2)}` }, { label: "Total payments", value: `Rs ${Number(party?.totalPayments || 0).toFixed(2)}` }],
+    };
+  };
+
   if (partyLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -149,6 +174,7 @@ export default function HatcheryPartyDetailPage() {
           <h1 className="text-xl font-semibold">{party.name}</h1>
           <p className="text-sm text-muted-foreground">{party.phone}{party.address ? ` · ${party.address}` : ""}</p>
         </div>
+        <BusinessDownloadDialog title={`${party.name} statement`} fileName={`${party.name}-statement`} getData={downloadStatement} />
       </div>
 
       {/* KPI cards */}

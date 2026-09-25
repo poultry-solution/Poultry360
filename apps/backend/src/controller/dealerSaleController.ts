@@ -252,6 +252,8 @@ export const getDealerSales = async (
       customerId,
       isChickenSale,
       sourceFarmerId,
+      startDate,
+      endDate,
     } = req.query;
 
     // Get the dealer record
@@ -299,6 +301,16 @@ export const getDealerSales = async (
 
     if (sourceFarmerId) {
       where.sourceFarmerId = sourceFarmerId;
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setUTCHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
     }
 
     const [sales, total] = await Promise.all([

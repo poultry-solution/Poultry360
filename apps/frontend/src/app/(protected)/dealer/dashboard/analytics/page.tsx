@@ -36,6 +36,7 @@ import { useGetSalesStatistics, useGetDealerCustomers } from "@/fetchers/dealer/
 import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetManualCompanies, useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useAuthStore } from "@/common/store/store";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 const quickRanges = [
   { value: "7d", label: "Last 7 days" },
@@ -288,6 +289,34 @@ function DealerAnalyticsContent() {
   const netCustomerBalance = Number(lifetimeLedgerSummary?.netCustomerBalance || 0);
   const netCompanyBalance = Number(lifetimeLedgerSummary?.netCompanyBalance || 0);
   const profit = Number(profitSummary?.profit || 0);
+  const downloadAnalytics = async () => ({
+    sections: [
+      {
+        title: "Summary",
+        columns: [{ label: "Item", value: (row: any) => row.label }, { label: "Amount", value: (row: any) => row.value }],
+        rows: [
+          { label: "Sales", value: formatMoney(salesTotal) },
+          { label: "Paid at sale", value: formatMoney(paidAtSale) },
+          { label: "Due at sale", value: formatMoney(dueAtSale) },
+          { label: "Supplier settlement sales", value: formatMoney(supplierSettlementRevenue) },
+          { label: "Profit", value: formatMoney(profit) },
+          { label: "Customer balance", value: formatMoney(netCustomerBalance) },
+          { label: "Supplier balance", value: formatMoney(netCompanyBalance) },
+        ],
+      },
+      {
+        title: "Customers with balance",
+        columns: [{ label: "Customer", value: (row: any) => row.name }, { label: "Balance", value: (row: any) => formatMoney(row.balance) }],
+        rows: overdueCustomers,
+      },
+      {
+        title: "Low stock products",
+        columns: [{ label: "Product", value: (row: any) => row.name }, { label: "Stock", value: (row: any) => `${Number(row.currentStock || 0).toFixed(2)} ${row.unit || ""}` }],
+        rows: lowStockProducts,
+      },
+    ],
+    summary: [{ label: "Range", value: rangeLabel }, { label: "Settlement sales", value: supplierSettlementSales }],
+  });
 
   return (
     <div className="space-y-6">
@@ -299,6 +328,7 @@ function DealerAnalyticsContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <BusinessDownloadDialog title="analytics" fileName="dealer-analytics" getData={downloadAnalytics} hasDateFilter={false} buttonLabel="Download analytics" />
           <Button asChild variant="outline" className="gap-2">
             <Link href="/dealer/dashboard/home">
               <LayoutDashboard className="h-4 w-4" />

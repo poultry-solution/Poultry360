@@ -65,6 +65,8 @@ import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 const PURCHASE_CATEGORY_VALUES = [
   "FEED",
@@ -216,6 +218,21 @@ export default function SupplierLedgerPage() {
 
   // Extract data
   const suppliers = dealersResponse?.data || [];
+
+  const downloadSuppliers = async () => {
+    const { data } = await axiosInstance.get("/dealers", { params: { all: true } });
+    const rows = data.data || [];
+    return {
+      columns: [
+        { label: "Supplier", value: (row: any) => row.name },
+        { label: "Phone", value: (row: any) => row.contact || "" },
+        { label: "Address", value: (row: any) => row.address || "" },
+        { label: "Balance", value: (row: any) => Number(row.balance || 0).toFixed(2) },
+      ],
+      rows,
+      summary: [{ label: "Total suppliers", value: rows.length }],
+    };
+  };
   const statistics = statisticsResponse?.data || {};
   const activeSupplier = activeSupplierResponse?.data;
   const activePurchases = activePurchasesResponse?.data || [];
@@ -619,6 +636,7 @@ export default function SupplierLedgerPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
+          <BusinessDownloadDialog title="suppliers" fileName="farmer-suppliers" getData={downloadSuppliers} hasDateFilter={false} />
           <Button
             size="sm"
             className="text-xs md:text-sm h-9"

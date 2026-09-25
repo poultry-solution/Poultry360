@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 interface Customer {
   id: string;
@@ -110,6 +111,27 @@ export default function DealerCustomersPage() {
   const customers: Customer[] = (customersData?.data || []).sort((a: Customer, b: Customer) => {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+  const downloadCustomers = async () => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/dealer/sales/customers", {
+        params: { page: downloadPage, limit, search: search || undefined, archived: customerTab === "archived" },
+      });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    return {
+      columns: [
+        { label: "Name", value: (row: any) => row.name },
+        { label: "Phone", value: (row: any) => row.phone || "" },
+        { label: "Address", value: (row: any) => row.address || "" },
+        { label: "Category", value: (row: any) => row.category || "" },
+        { label: "Balance", value: (row: any) => Number(row.balance || 0).toFixed(2) },
+        { label: "Status", value: (row: any) => row.archivedAt ? "Archived" : "Active" },
+      ],
+      rows,
+      summary: [{ label: "Total customers", value: rows.length }],
+    };
+  };
 
   useEffect(() => {
     setPage(1);
@@ -330,6 +352,7 @@ export default function DealerCustomersPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <BusinessDownloadDialog title="customers" fileName="dealer-customers" getData={downloadCustomers} hasDateFilter={false} />
           <Button
             variant="outline"
             onClick={() => setIsAddPaymentOpen(true)}

@@ -42,6 +42,8 @@ import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 // ==================== HELPERS ====================
 
@@ -158,6 +160,22 @@ export default function HatcheryInventoryPage() {
       (isSelfFeedEnabled ? 0 : Number(stats.rawMaterialCount ?? 0))
   );
   const visibleLowStockCount = lowStockItems.length;
+  const downloadInventory = async () => {
+    const { data } = await axiosInstance.get("/hatchery/inventory/table");
+    const rows = (data.data || []).filter((item: HatcheryInventoryItem) => Number(item.currentStock || 0) > 0 && (isSelfFeedEnabled || item.itemType !== "RAW_MATERIAL"));
+    return {
+      columns: [
+        { label: "Item", value: (row: HatcheryInventoryItem) => row.name },
+        { label: "Type", value: (row: HatcheryInventoryItem) => row.itemType },
+        { label: "Stock", value: (row: HatcheryInventoryItem) => `${fmtStock(row.currentStock)} ${row.unit}` },
+        { label: "Min stock", value: (row: HatcheryInventoryItem) => Number(row.minStock || 0).toFixed(2) },
+        { label: "Cost per unit", value: (row: HatcheryInventoryItem) => Number(row.effectiveUnitCost ?? row.unitPrice ?? 0).toFixed(2) },
+        { label: "Supplier", value: (row: HatcheryInventoryItem) => row.supplier?.name || "" },
+      ],
+      rows,
+      summary: [{ label: "Items with stock", value: rows.length }],
+    };
+  };
 
   const openReorder = (item: HatcheryInventoryItem) => {
     setSelectedItem(item);
@@ -413,7 +431,10 @@ export default function HatcheryInventoryPage() {
           </p>
           </div>
         </div>
-        {activeTab === "SELF_MADE" && <Button onClick={() => { setEditingProduct(null); setProductForm({ name: "", unit: "kg", minStock: "" }); setIsProductOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Product</Button>}
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="inventory" fileName="hatchery-inventory" getData={downloadInventory} hasDateFilter={false} buttonLabel="Download inventory" />
+          {activeTab === "SELF_MADE" && <Button onClick={() => { setEditingProduct(null); setProductForm({ name: "", unit: "kg", minStock: "" }); setIsProductOpen(true); }}><Plus className="h-4 w-4 mr-1" /> Add Product</Button>}
+        </div>
       </div>
 
       {/* Stats */}

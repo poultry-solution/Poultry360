@@ -52,6 +52,7 @@ import {
   SelectValue,
 } from "@/common/components/ui/select";
 import { toast } from "sonner";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function CustomerAccountPage() {
   const params = useParams();
@@ -111,6 +112,35 @@ export default function CustomerAccountPage() {
   const totalSales = Number(customer?.totalSales ?? 0);
   const totalPaid = Number(customer?.totalPayments ?? 0);
   const currentBalance = Number(customer?.balance ?? 0);
+
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const [allSales, allPayments] = await Promise.all([
+      fetchAllPages(async (page, limit) => {
+        const { data } = await axiosInstance.get("/dealer/sales", { params: { customerId, page, limit, ...range } });
+        return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+      }),
+      fetchAllPages(async (page, limit) => {
+        const { data } = await axiosInstance.get("/dealer/ledger", { params: { partyId: customerId, type: "PAYMENT_RECEIVED,PAYMENT_MADE", page, limit, ...range } });
+        return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+      }),
+    ]);
+    const salesRows = allSales.map((sale: any) => ({ date: sale.date, type: "Sale", reference: sale.invoiceNumber || sale.id?.slice(0, 8), amount: Number(sale.totalAmount || 0), note: sale.notes || "" }));
+    const paymentRows = allPayments.map((payment: any) => ({ date: payment.date, type: payment.type === "PAYMENT_MADE" ? "Payment made" : "Payment received", reference: payment.reference || "", amount: Number(payment.amount || 0), note: payment.description || "" }));
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.type },
+        { label: "Reference", value: (row: any) => row.reference },
+        { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
+        { label: "Note", value: (row: any) => row.note },
+      ];
+    return {
+      sections: [
+        { title: "Sales", columns, rows: salesRows },
+        { title: "Payments", columns, rows: paymentRows },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${currentBalance.toFixed(2)}` }, { label: "Sales", value: `Rs ${allSales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount || 0), 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0).toFixed(2)}` }],
+    };
+  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -240,10 +270,13 @@ export default function CustomerAccountPage() {
             {customer.phone || "—"} {customer.address && `• ${customer.address}`}
           </p>
         </div>
-        <Button onClick={() => setIsPaymentDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Record Payment
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <BusinessDownloadDialog title={`${customer.name} statement`} fileName={`${customer.name}-statement`} getData={downloadStatement} />
+          <Button onClick={() => setIsPaymentDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        </div>
       </div>
 
       {/* Account Summary Cards */}

@@ -20,6 +20,8 @@ import {
   useGetSales,
   useSetCustomerOpeningBalance,
 } from "@/fetchers/sale/saleQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function PartyDetailsPage() {
   const { t } = useI18n();
@@ -93,6 +95,34 @@ export default function PartyDetailsPage() {
     return { totalSales, totalPayments };
   }, [sales, payments]);
 
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const [allSales, allPayments] = await Promise.all([
+      fetchAllPages(async (page, limit) => {
+        const { data } = await axiosInstance.get("/sales", { params: { customerId: partyId, page, limit, ...range } });
+        return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+      }),
+      fetchAllPages(async (page, limit) => {
+        const { data } = await axiosInstance.get("/sales/payments", { params: { customerId: partyId, page, limit, ...range } });
+        return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+      }),
+    ]);
+    const salesRows = allSales.map((sale: any) => ({ date: sale.date, type: "Sale", amount: Number(sale.amount || sale.totalAmount || 0), note: sale.description || "" }));
+    const paymentRows = allPayments.map((payment: any) => ({ date: payment.date, type: "Payment", amount: Number(payment.amount || 0), note: payment.description || "" }));
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.type },
+        { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
+        { label: "Note", value: (row: any) => row.note },
+      ];
+    return {
+      sections: [
+        { title: "Sales", columns, rows: salesRows },
+        { title: "Payments", columns, rows: paymentRows },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(party.balance || 0).toFixed(2)}` }, { label: "Sales", value: `Rs ${allSales.reduce((sum: number, sale: any) => sum + Number(sale.amount || sale.totalAmount || 0), 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0).toFixed(2)}` }],
+    };
+  };
+
   if (partyLoading) {
     return (
       <div className="py-10 flex items-center justify-center">
@@ -133,6 +163,7 @@ export default function PartyDetailsPage() {
             </span>
           </div>
         </div>
+        <BusinessDownloadDialog title={`${party.name} statement`} fileName={`${party.name}-statement`} getData={downloadStatement} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -358,4 +389,3 @@ export default function PartyDetailsPage() {
     </div>
   );
 }
-

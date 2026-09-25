@@ -52,6 +52,8 @@ import {
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useQueryClient } from "@tanstack/react-query";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function ManualCompanyAccountPage() {
     const params = useParams();
@@ -86,6 +88,30 @@ export default function ManualCompanyAccountPage() {
     const transactions = data?.transactions || [];
     const voidedTransactions = (data as any)?.voidedTransactions || [];
     const openingBalance = data?.openingBalance;
+
+    const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+        const allTransactions = await fetchAllPages(async (page, limit) => {
+            const { data: response } = await axiosInstance.get(`/dealer/manual-companies/${id}/statement`, { params: { page, limit } });
+            return { rows: response.data?.transactions || [], totalPages: response.data?.pagination?.totalPages };
+        });
+        const rows = filterRowsByDate(allTransactions, range, (row: any) => row.date);
+        const columns = [
+                { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+                { label: "Type", value: (row: any) => String(row.type || "").replaceAll("_", " ") },
+                { label: "Reference", value: (row: any) => row.reference || "" },
+                { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
+                { label: "Note", value: (row: any) => row.notes || "" },
+            ];
+        return {
+            sections: [
+                { title: "Purchases", columns, rows: rows.filter((row: any) => row.type === "PURCHASE") },
+                { title: "Payments", columns, rows: rows.filter((row: any) => row.type === "PAYMENT") },
+                { title: "Supplier settlement sales", columns, rows: rows.filter((row: any) => row.type === "SUPPLIER_SETTLEMENT_SALE") },
+                { title: "Other records", columns, rows: rows.filter((row: any) => !["PURCHASE", "PAYMENT", "SUPPLIER_SETTLEMENT_SALE"].includes(row.type)) },
+            ],
+            summary: [{ label: "Current balance", value: `Rs ${Number(company.balance || 0).toFixed(2)}` }, { label: "Purchases", value: `Rs ${Number(company.totalPurchases || 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${Number(company.totalPayments || 0).toFixed(2)}` }],
+        };
+    };
 
     const formatCurrency = (amount: number) => {
         return `रू ${Math.abs(amount).toFixed(2)}`;
@@ -219,10 +245,13 @@ export default function ManualCompanyAccountPage() {
                                 )}
                             </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={openEditCompany}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                            <BusinessDownloadDialog title={`${company.name} statement`} fileName={`${company.name}-statement`} getData={downloadStatement} />
+                            <Button variant="outline" size="sm" onClick={openEditCompany}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
             </Card>

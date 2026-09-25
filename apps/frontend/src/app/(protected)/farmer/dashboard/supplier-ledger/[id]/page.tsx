@@ -52,6 +52,8 @@ import {
   useSetDealerOpeningBalance,
 } from "@/fetchers/dealers/dealerQueries";
 import { toast } from "sonner";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
@@ -270,6 +272,28 @@ export default function SupplierDetailPage() {
     }
   }
 
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const rows = await fetchAllPages(async (page, limit) => {
+      const { data } = await axiosInstance.get(`/dealers/${supplierId}/transactions`, { params: { page, limit, ...range } });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.type || "" },
+        { label: "Item", value: (row: any) => row.itemName || "" },
+        { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
+        { label: "Balance", value: (row: any) => Number(row.balanceAfter || 0).toFixed(2) },
+        { label: "Note", value: (row: any) => row.description || "" },
+      ];
+    return {
+      sections: [
+        { title: "Purchases", columns, rows: rows.filter((row: any) => !String(row.type || "").toUpperCase().includes("PAYMENT")) },
+        { title: "Payments", columns, rows: rows.filter((row: any) => String(row.type || "").toUpperCase().includes("PAYMENT")) },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(supplier.balance || 0).toFixed(2)}` }, { label: "Records", value: rows.length }],
+    };
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -323,6 +347,7 @@ export default function SupplierDetailPage() {
               {supplier.name}
             </h1>
           </div>
+          <BusinessDownloadDialog title={`${supplier.name} statement`} fileName={`${supplier.name}-statement`} getData={downloadStatement} />
         </div>
         <p className="text-muted-foreground">
           {supplier.contact}

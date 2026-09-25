@@ -23,6 +23,8 @@ import {
 } from "@/common/components/ui/dialog";
 import { useGetCompanySuppliers, useCreateSupplier, type Supplier } from "@/fetchers/company/companySupplierQueries";
 import { toast } from "sonner";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function CompanySuppliersPage() {
   const router = useRouter();
@@ -35,6 +37,21 @@ export default function CompanySuppliersPage() {
   const createMutation = useCreateSupplier();
 
   const suppliers: Supplier[] = suppliersData?.data ?? [];
+
+  const downloadSuppliers = async () => {
+    const { data } = await axiosInstance.get("/company/suppliers");
+    const rows = data.data || [];
+    return {
+      columns: [
+        { label: "Supplier", value: (row: Supplier) => row.name },
+        { label: "Phone", value: (row: Supplier) => row.contact || "" },
+        { label: "Address", value: (row: Supplier) => row.address || "" },
+        { label: "Added", value: (row: Supplier) => new Date(row.createdAt).toLocaleDateString() },
+      ],
+      rows,
+      summary: [{ label: "Total suppliers", value: rows.length }],
+    };
+  };
 
   const handleAddSupplier = async () => {
     if (!name.trim()) {
@@ -66,10 +83,13 @@ export default function CompanySuppliersPage() {
             Manage suppliers and view purchase history and balance
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Supplier
-        </Button>
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="suppliers" fileName="company-suppliers" getData={downloadSuppliers} hasDateFilter={false} />
+          <Button onClick={() => setAddOpen(true)} className="bg-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Supplier
+          </Button>
+        </div>
       </div>
 
       <Card>

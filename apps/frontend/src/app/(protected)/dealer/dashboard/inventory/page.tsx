@@ -31,6 +31,8 @@ import { useI18n } from "@/i18n/useI18n";
 import { toast } from "sonner";
 import BulkReorderDialog from "./BulkReorderDialog";
 import { useAuthStore } from "@/common/store/store";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 // Inline editable price cell component
 function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
@@ -140,6 +142,23 @@ export default function DealerInventoryPage() {
   const summary = summaryData?.data;
   const products = productsData?.data || [];
   const pagination = productsData?.pagination;
+  const downloadInventory = async () => {
+    const allProducts = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/dealer/products", { params: { page: downloadPage, limit, includeHidden: false } });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    const rows = allProducts.filter((product: any) => Number(product.currentStock || 0) > 0);
+    const columns = [
+      { label: "Product", value: (row: any) => row.name || "" },
+      { label: "Type", value: (row: any) => row.type || "" },
+      { label: "Company", value: (row: any) => row.manualCompany?.name || row.supplierCompany?.name || "" },
+      { label: "Stock", value: (row: any) => `${Number(row.currentStock || 0).toFixed(2)} ${row.unit || ""}` },
+      { label: "Min stock", value: (row: any) => Number(row.minStock || 0).toFixed(2) },
+      { label: "Selling price", value: (row: any) => Number(row.sellingPrice || 0).toFixed(2) },
+    ];
+    if (canViewFinancialSummaries) columns.push({ label: "Cost price", value: (row: any) => Number(row.costPrice || 0).toFixed(2) });
+    return { columns, rows, summary: [{ label: "Products with stock", value: rows.length }] };
+  };
 
   return (
     <div className="space-y-6">
@@ -151,6 +170,7 @@ export default function DealerInventoryPage() {
             {t("dealer.inventory.subtitle")}
           </p>
         </div>
+        <BusinessDownloadDialog title="inventory" fileName="dealer-inventory" getData={downloadInventory} hasDateFilter={false} buttonLabel="Download inventory" />
       </div>
 
       {/* Summary Cards */}

@@ -46,6 +46,8 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 import {
     useGetManualCompanies,
     useCreateManualCompany,
@@ -106,6 +108,29 @@ export default function DealerCompanyPage() {
     const archiveManualMutation = useArchiveManualCompany();
     const unarchiveManualMutation = useUnarchiveManualCompany();
     const manualCompanies = manualCompaniesData || [];
+
+    const downloadCompanies = async () => {
+        const { data } = await axiosInstance.get("/dealer/manual-companies", {
+            params: { archived: manualTab === "archived" },
+        });
+        const rows = (data.data || []).filter((company: ManualCompany) => {
+            const text = `${company.name} ${company.phone || ""} ${company.address || ""}`.toLowerCase();
+            return text.includes(search.toLowerCase());
+        });
+        return {
+            columns: [
+                { label: "Company", value: (row: ManualCompany) => row.name },
+                { label: "Phone", value: (row: ManualCompany) => row.phone || "" },
+                { label: "Address", value: (row: ManualCompany) => row.address || "" },
+                { label: "Balance", value: (row: ManualCompany) => Number(row.balance || 0).toFixed(2) },
+                { label: "Purchases", value: (row: ManualCompany) => Number(row.totalPurchases || 0).toFixed(2) },
+                { label: "Payments", value: (row: ManualCompany) => Number(row.totalPayments || 0).toFixed(2) },
+                { label: "Status", value: (row: ManualCompany) => row.archivedAt ? "Archived" : "Active" },
+            ],
+            rows,
+            summary: [{ label: "Total suppliers", value: rows.length }],
+        };
+    };
 
     // Format currency
     const formatCurrency = (amount: number) => {
@@ -290,6 +315,7 @@ export default function DealerCompanyPage() {
             <div>
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
             </div>
+            <BusinessDownloadDialog title="suppliers" fileName="dealer-suppliers" getData={downloadCompanies} hasDateFilter={false} buttonLabel="Download suppliers" />
         </div>
 
             <>
@@ -335,15 +361,17 @@ export default function DealerCompanyPage() {
                                         </button>
                                     </div>
                                 </div>
-                                <Button
-                                    onClick={() => setIsAddManualOpen(true)}
-                                    size="sm"
-                                    className="hover:bg-green-50 hover:text-green-700 border-green-200"
-                                    variant="outline"
-                                >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add Company
-                                </Button>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        onClick={() => setIsAddManualOpen(true)}
+                                        size="sm"
+                                        className="hover:bg-green-50 hover:text-green-700 border-green-200"
+                                        variant="outline"
+                                    >
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add Company
+                                    </Button>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent>
