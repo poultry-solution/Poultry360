@@ -5,6 +5,11 @@ import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
 import bcrypt from "bcrypt";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import {
+  ACCOUNT_FEATURE_DEFINITIONS,
+  ACCOUNT_FEATURE_KEYS,
+  isAccountFeatureEnabled,
+} from "../services/accountFeatureService";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -48,6 +53,21 @@ export const createDealerSale = async (
 
     if (typeof isChickenSale !== "boolean") {
       return res.status(400).json({ message: "Broiler sale flag must be a boolean" });
+    }
+
+    if (
+      isChickenSale &&
+      !(await isAccountFeatureEnabled(
+        userId!,
+        ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
+      ))
+    ) {
+      const featureKey = ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS;
+      return res.status(403).json({
+        code: "ACCOUNT_FEATURE_DISABLED",
+        featureKey,
+        message: `${ACCOUNT_FEATURE_DEFINITIONS[featureKey].name} is not enabled for this account`,
+      });
     }
 
     if (isChickenSale && !sourceFarmerId) {
@@ -232,6 +252,8 @@ export const getDealerSales = async (
       customerId,
       isChickenSale,
       sourceFarmerId,
+      startDate,
+      endDate,
     } = req.query;
 
     // Get the dealer record
@@ -279,6 +301,16 @@ export const getDealerSales = async (
 
     if (sourceFarmerId) {
       where.sourceFarmerId = sourceFarmerId;
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setUTCHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
     }
 
     const [sales, total] = await Promise.all([

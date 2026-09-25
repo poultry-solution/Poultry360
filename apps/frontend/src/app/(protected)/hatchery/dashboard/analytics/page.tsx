@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, BarChart3, Loader2, Repeat, ShieldAlert } from "lucide-react";
+import { BarChart3, Loader2, Repeat, ShieldAlert } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
@@ -18,7 +18,6 @@ import { AnalyticsFilters } from "./_components/AnalyticsFilters";
 import {
   ANALYTICS_TABS,
   getRangeBounds,
-  QUICK_RANGES,
   type AnalyticsRangePreset,
   type AnalyticsTab,
   type IncubationStageFilter,
@@ -37,6 +36,7 @@ import {
   SalesAnalyticsLoadingState,
 } from "./_components/LoadingStates";
 import { useAuthStore } from "@/common/store/store";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 function QueryErrorCard({
   title,
@@ -165,6 +165,32 @@ function HatcheryAnalyticsContent() {
     () => (parentBatchList?.batches ?? []).filter((batch) => batch.type === "PARENT_FLOCK").map((batch) => ({ id: batch.id, code: batch.code })),
     [parentBatchList?.batches]
   );
+  const downloadAnalytics = async () => {
+    const overview = overviewQuery.data?.overview;
+    const trends = overviewQuery.data?.trends.daily || [];
+    return {
+      sections: [
+        {
+          title: "Summary",
+          columns: [{ label: "Item", value: (row: any) => row.label }, { label: "Value", value: (row: any) => row.value }],
+          rows: [
+            { label: "Revenue", value: Number(overview?.totalRevenue || 0).toFixed(2) },
+            { label: "Expenses", value: Number(overview?.totalExpenses || 0).toFixed(2) },
+            { label: "Net profit", value: Number(overview?.netProfit || 0).toFixed(2) },
+            { label: "Active batches", value: overview?.activeBatches || 0 },
+            { label: "Active incubations", value: overview?.activeIncubations || 0 },
+            { label: "Egg stock", value: overview?.totalEggStock || 0 },
+          ],
+        },
+        {
+          title: "Daily result",
+          columns: [{ label: "Date", value: (row: any) => row.label || row.date }, { label: "Revenue", value: (row: any) => Number(row.revenue || 0).toFixed(2) }, { label: "Expenses", value: (row: any) => Number(row.expenses || 0).toFixed(2) }, { label: "Profit", value: (row: any) => Number(row.profit || 0).toFixed(2) }],
+          rows: trends,
+        },
+      ],
+      summary: [{ label: "Period", value: `${rangeBounds.startDate} to ${rangeBounds.endDate}` }],
+    };
+  };
 
   return (
     <div className="space-y-5">
@@ -182,13 +208,10 @@ function HatcheryAnalyticsContent() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <BusinessDownloadDialog title="analytics" fileName="hatchery-analytics" getData={downloadAnalytics} hasDateFilter={false} buttonLabel="Download analytics" />
           <Button variant="outline" className="rounded-xl" onClick={() => overviewQuery.refetch()} disabled={overviewQuery.isFetching}>
             {overviewQuery.isFetching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Repeat className="mr-2 h-4 w-4" />}
             Refresh
-          </Button>
-          <Button variant="outline" className="rounded-xl opacity-70" disabled title="Coming next">
-            <ArrowUpRight className="mr-2 h-4 w-4" />
-            Export
           </Button>
         </div>
       </div>

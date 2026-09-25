@@ -18,6 +18,8 @@ import {
   type CompanySale,
 } from "@/fetchers/company/companySaleQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function CompanySalesPage() {
   const router = useRouter();
@@ -31,6 +33,24 @@ export default function CompanySalesPage() {
 
   const sales: CompanySale[] = salesData?.data || [];
   const pagination = salesData?.pagination;
+
+  const downloadSales = async (range: { startDate?: string; endDate?: string }) => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/company/sales", { params: { page: downloadPage, limit, ...range } });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    return {
+      columns: [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Invoice", value: (row: any) => row.invoiceNumber || row.id?.slice(0, 8) },
+        { label: "Dealer", value: (row: any) => row.dealer?.name || "—" },
+        { label: "Total", value: (row: any) => Number(row.totalAmount || 0).toFixed(2) },
+        { label: "Note", value: (row: any) => row.notes || "" },
+      ],
+      rows,
+      summary: [{ label: "Total sales", value: rows.length }, { label: "Sales value", value: `Rs ${rows.reduce((sum: number, row: any) => sum + Number(row.totalAmount || 0), 0).toFixed(2)}` }],
+    };
+  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -46,14 +66,17 @@ export default function CompanySalesPage() {
             Track and manage sales to dealers
           </p>
         </div>
-        <Button
-          onClick={() => router.push("/company/dashboard/sales/new")}
-          className="bg-primary"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">New Sale</span>
-          <span className="sm:hidden">Create</span>
-        </Button>
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="sales" fileName="company-sales" getData={downloadSales} />
+          <Button
+            onClick={() => router.push("/company/dashboard/sales/new")}
+            className="bg-primary"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">New Sale</span>
+            <span className="sm:hidden">Create</span>
+          </Button>
+        </div>
       </div>
 
       {/* Sales Table */}
@@ -167,4 +190,3 @@ export default function CompanySalesPage() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
@@ -48,6 +48,7 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
 interface UnitConversion {
   unitName: string;
@@ -99,6 +100,24 @@ export default function NewSalePage() {
 
   const createSaleMutation = useCreateDealerSale();
   const createCustomerMutation = useCreateCustomer();
+  const broilerFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
+  );
+
+  const exitBroilerSaleMode = () => {
+    setIsChickenSale(false);
+    setSourceFarmerId("");
+    setSelectedProductId("");
+    setItems([]);
+  };
+
+  // An Admin can turn the feature off while this form is open. Return the
+  // form to its normal sale state without showing a feature-access error.
+  useEffect(() => {
+    if (!broilerFeature.isLoading && !broilerFeature.isEnabled && isChickenSale) {
+      exitBroilerSaleMode();
+    }
+  }, [broilerFeature.isEnabled, broilerFeature.isLoading, isChickenSale]);
 
   /**
    * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
@@ -210,6 +229,11 @@ export default function NewSalePage() {
       return;
     }
 
+    if (isChickenSale && !broilerFeature.isEnabled) {
+      exitBroilerSaleMode();
+      return;
+    }
+
     if (isChickenSale && !sourceFarmerId) {
       toast.error("Select the source farmer for this broiler sale");
       return;
@@ -261,6 +285,10 @@ export default function NewSalePage() {
       setSavedSaleForPrint(result?.data ?? result);
       setIsPrintPromptOpen(true);
     } catch (error: any) {
+      if (error.response?.data?.code === "ACCOUNT_FEATURE_DISABLED") {
+        exitBroilerSaleMode();
+        return;
+      }
       toast.error(error.response?.data?.message || t("dealer.newSale.messages.failed"));
     }
   };
@@ -340,32 +368,36 @@ export default function NewSalePage() {
                 />
               </div>
 
-              <button
-                type="button"
-                className={`flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
-                  isChickenSale
-                    ? "border-amber-300 bg-amber-50 text-amber-950"
-                    : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
-                }`}
-                onClick={() => {
-                  const nextIsChickenSale = !isChickenSale;
-                  setIsChickenSale(nextIsChickenSale);
-                  setSourceFarmerId("");
-                  setSelectedProductId("");
-                  setItems(nextIsChickenSale
-                    ? [{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]
-                    : []);
-                }}
-              >
-                <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${isChickenSale ? "border-amber-600 bg-amber-600 text-white" : "border-muted-foreground/50"}`}>
-                  {isChickenSale && <span className="text-xs leading-none">✓</span>}
-                </span>
-                <Bird className="h-4 w-4" />
-                <span>
-                  <span className="block font-medium">Broiler Sale</span>
-                  <span className="block text-xs opacity-80">Record the farmer that supplied the broilers for later manual settlement.</span>
-                </span>
-              </button>
+              {broilerFeature.isEnabled ? (
+                <button
+                  type="button"
+                  className={`flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
+                    isChickenSale
+                      ? "border-amber-300 bg-amber-50 text-amber-950"
+                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                  onClick={() => {
+                    const nextIsChickenSale = !isChickenSale;
+                    if (!nextIsChickenSale) {
+                      exitBroilerSaleMode();
+                      return;
+                    }
+                    setIsChickenSale(true);
+                    setSourceFarmerId("");
+                    setSelectedProductId("");
+                    setItems([{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]);
+                  }}
+                >
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${isChickenSale ? "border-amber-600 bg-amber-600 text-white" : "border-muted-foreground/50"}`}>
+                    {isChickenSale && <span className="text-xs leading-none">✓</span>}
+                  </span>
+                  <Bird className="h-4 w-4" />
+                  <span>
+                    <span className="block font-medium">Broiler Sale</span>
+                    <span className="block text-xs opacity-80">Record the farmer that supplied the broilers for later manual settlement.</span>
+                  </span>
+                </button>
+              ) : null}
 
               {isChickenSale && (
                 <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">

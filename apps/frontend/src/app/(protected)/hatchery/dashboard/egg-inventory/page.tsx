@@ -11,6 +11,8 @@ import {
   type HatcheryEggStockRow,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function HatcheryEggInventoryPage() {
   const [selectedBatchId, setSelectedBatchId] = useState("");
@@ -35,6 +37,23 @@ export default function HatcheryEggInventoryPage() {
   const currentPage = Math.max(1, Number(pagination?.page ?? page));
   const totalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
   const pageLimit = Number(pagination?.limit ?? 10);
+  const downloadEggInventory = async () => {
+    const allRows = await fetchAllPages<HatcheryEggStockRow>(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/hatchery/batches/egg-inventory", { params: { page: downloadPage, limit } });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    const rows = allRows.filter((row: HatcheryEggStockRow) => Number(row.currentStock || 0) > 0);
+    return {
+      columns: [
+        { label: "Batch", value: (row: HatcheryEggStockRow) => row.batch?.code || "" },
+        { label: "Egg type", value: (row: HatcheryEggStockRow) => row.eggType?.name || "" },
+        { label: "Hatchable", value: (row: HatcheryEggStockRow) => row.eggType?.isHatchable ? "Yes" : "No" },
+        { label: "Stock", value: (row: HatcheryEggStockRow) => Number(row.currentStock || 0).toLocaleString() },
+      ],
+      rows,
+      summary: [{ label: "Rows with stock", value: rows.length }],
+    };
+  };
 
   useEffect(() => {
     setPage(1);
@@ -100,7 +119,8 @@ export default function HatcheryEggInventoryPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Egg className="h-6 w-6 text-yellow-600" />
           Egg Inventory
@@ -108,6 +128,8 @@ export default function HatcheryEggInventoryPage() {
         <p className="text-sm text-gray-500 mt-1">
           Batch-wise egg stock overview. Filter by batch or egg type.
         </p>
+        </div>
+        <BusinessDownloadDialog title="egg inventory" fileName="hatchery-egg-inventory" getData={downloadEggInventory} hasDateFilter={false} buttonLabel="Download inventory" />
       </div>
 
       {/* Summary */}

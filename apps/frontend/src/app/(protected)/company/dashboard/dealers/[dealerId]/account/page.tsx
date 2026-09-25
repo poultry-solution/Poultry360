@@ -51,6 +51,8 @@ import {
   useRecordDealerPayment,
   useSetDealerBalanceLimit,
 } from "@/fetchers/company/companyDealerAccountQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function DealerAccountPage() {
   const params = useParams();
@@ -130,6 +132,32 @@ export default function DealerAccountPage() {
     return `रू ${amount.toFixed(2)}`;
   };
 
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const records = await fetchAllPages(async (page, limit) => {
+      const { data } = await axiosInstance.get(`/company/dealers/${dealerId}/statement`, { params: { page, limit, ...range } });
+      return { rows: data.data?.transactions || [], totalPages: data.data?.pagination?.totalPages };
+    });
+    const rows = records.map((row: any) => ({
+      ...row,
+      label: row.type === "SALE" ? "Sale" : "Payment",
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.label },
+        { label: "Reference", value: (row: any) => row.reference || "" },
+        { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
+        { label: "Method", value: (row: any) => row.paymentMethod || "" },
+        { label: "Note", value: (row: any) => row.notes || "" },
+      ];
+    return {
+      sections: [
+        { title: "Sales", columns, rows: rows.filter((row: any) => row.type === "SALE") },
+        { title: "Payments", columns, rows: rows.filter((row: any) => row.type !== "SALE") },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(account?.balance || 0).toFixed(2)}` }, { label: "Sales", value: `Rs ${Number(account?.totalSales || 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${Number(account?.totalPayments || 0).toFixed(2)}` }],
+    };
+  };
+
   if (accountLoading || statementLoading) {
     return (
       <div className="space-y-6">
@@ -164,10 +192,13 @@ export default function DealerAccountPage() {
             {account?.dealer.contact} • {account?.dealer.address}
           </p>
         </div>
-        <Button onClick={() => setIsPaymentDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Record Payment
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {account ? <BusinessDownloadDialog title={`${account.dealer.name} statement`} fileName={`${account.dealer.name}-statement`} getData={downloadStatement} /> : null}
+          <Button onClick={() => setIsPaymentDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Record Payment
+          </Button>
+        </div>
       </div>
 
       {/* Account Summary Cards */}

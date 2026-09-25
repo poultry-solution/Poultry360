@@ -21,6 +21,7 @@ import { useGetSupplierLedger, useRecordSupplierPayment } from "@/fetchers/compa
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
+import { BusinessDownloadDialog, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 
 const formatCurrency = (n: number | string) =>
   `रू ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
@@ -126,6 +127,26 @@ export default function SupplierLedgerPage() {
     notes: pmt.notes,
   }));
 
+  const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const purchases = filterRowsByDate(purchaseRows.map((row) => ({ date: row._purchaseDate, type: "Purchase", item: row.rawMaterial?.name || "", amount: Number(row.totalAmount || 0), method: "", note: row._purchaseNotes || "" })), range, (row) => row.date);
+    const payments = filterRowsByDate(paymentRows.map((row) => ({ date: row.paymentDate, type: "Payment", item: "", amount: Number(row.amount || 0), method: row.paymentMethod || "", note: row.notes || "" })), range, (row) => row.date);
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.type },
+        { label: "Item", value: (row: any) => row.item },
+        { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
+        { label: "Method", value: (row: any) => row.method },
+        { label: "Note", value: (row: any) => row.note },
+      ];
+    return {
+      sections: [
+        { title: "Purchases", columns, rows: purchases },
+        { title: "Payments", columns, rows: payments },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(balance).toFixed(2)}` }, { label: "Purchased", value: `Rs ${Number(purchased).toFixed(2)}` }, { label: "Paid", value: `Rs ${Number(paid).toFixed(2)}` }],
+    };
+  };
+
   const handlePay = async () => {
     const amt = Number(payAmount);
     if (!(amt > 0)) {
@@ -175,6 +196,7 @@ export default function SupplierLedgerPage() {
             {supplier?.name ?? "..."}
           </h1>
           <div className="flex flex-wrap gap-2">
+            {supplier ? <BusinessDownloadDialog title={`${supplier.name} statement`} fileName={`${supplier.name}-statement`} getData={downloadStatement} /> : null}
             <Button variant="outline" size="sm" onClick={() => setPayOpen(true)}>
               <DollarSign className="h-4 w-4 mr-1" />
               Pay

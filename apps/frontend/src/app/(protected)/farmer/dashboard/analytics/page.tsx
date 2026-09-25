@@ -85,6 +85,7 @@ import {
   useGetFarmerAnalyticsOverview,
 } from "@/fetchers/analytics/farmerAnalyticsQueries";
 import { useAuthStore } from "@/common/store/store";
+import { downloadBusinessData } from "@/components/downloads/BusinessDownloadDialog";
 
 type DatePreset =
   | "today"
@@ -312,91 +313,22 @@ function exportReportCsv(report: FarmerReportAnalytics) {
   );
 }
 
-function sanitizePdfText(value: string): string {
-  return value
-    .replace(/₹/g, "Rs ")
-    .replace(/[^\x20-\x7E]/g, " ")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
-}
-
-function makePdfContentLines(report: FarmerReportAnalytics): string[] {
-  const lines = [
-    report.title,
-    `Generated: ${new Date(report.generatedAt).toLocaleString()}`,
-    "",
-    ...report.summary.map((item) => `${item.label}: ${formatReportValue(item.value)}`),
-    "",
-    report.columns.map((column) => column.label).join(" | "),
-    "-".repeat(110),
-    ...report.rows.map((row) =>
-      report.columns
-        .map((column) => formatReportValue(row[column.key], column.format))
-        .join(" | ")
-    ),
-  ];
-  return lines.map((line) => line.slice(0, 150));
-}
-
-function createSimplePdf(report: FarmerReportAnalytics): string {
-  const lines = makePdfContentLines(report);
-  const pageLineCount = 34;
-  const pages: string[][] = [];
-  for (let index = 0; index < lines.length; index += pageLineCount) {
-    pages.push(lines.slice(index, index + pageLineCount));
-  }
-
-  const objects: string[] = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-  ];
-  const pageObjectNumbers: number[] = [];
-
-  pages.forEach((pageLines) => {
-    const pageObjectNumber = objects.length + 1;
-    const contentObjectNumber = pageObjectNumber + 1;
-    pageObjectNumbers.push(pageObjectNumber);
-    const content = [
-      "BT",
-      "/F1 10 Tf",
-      "12 TL",
-      "40 555 Td",
-      ...pageLines.map((line) => `(${sanitizePdfText(line)}) Tj T*`),
-      "ET",
-    ].join("\n");
-    objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`
-    );
-    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-  });
-
-  objects[1] = `<< /Type /Pages /Kids [${pageObjectNumbers
-    .map((number) => `${number} 0 R`)
-    .join(" ")}] /Count ${pageObjectNumbers.length} >>`;
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  objects.forEach((object, index) => {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
-  });
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-  return pdf;
-}
-
 function exportReportPdf(report: FarmerReportAnalytics) {
-  downloadBlob(
-    `${report.reportType}-report.pdf`,
-    "application/pdf",
-    createSimplePdf(report)
-  );
+  downloadBusinessData({
+    businessName: "Farm analytics",
+    title: report.title,
+    fileName: `${report.reportType}-report`,
+    period: new Date(report.generatedAt).toLocaleDateString(),
+    format: "pdf",
+    data: {
+      columns: report.columns.map((column) => ({
+        label: column.label,
+        value: (row: Record<string, any>) => formatReportValue(row[column.key], column.format),
+      })),
+      rows: report.rows,
+      summary: report.summary.map((item) => ({ label: item.label, value: formatReportValue(item.value) })),
+    },
+  });
 }
 
 function SummaryCard({

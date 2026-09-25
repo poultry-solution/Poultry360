@@ -33,6 +33,8 @@ import {
 import { useI18n } from "@/i18n/useI18n";
 import { useAuthStore } from "@/common/store/store";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function DealerSalesPage() {
   const router = useRouter();
@@ -47,6 +49,9 @@ export default function DealerSalesPage() {
   const deleteSaleMutation = useDeleteDealerSale();
   const supplierSettlementFeature = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES
+  );
+  const broilerFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
   );
   const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
 
@@ -68,6 +73,29 @@ export default function DealerSalesPage() {
   const sale = saleDetailData?.data;
   const emptyTableMessage = t("dealer.sales.table.empty");
   const lifetimeSalesAmount = salesStatsData?.data?.totalRevenue || 0;
+
+  const downloadSales = async (range: { startDate?: string; endDate?: string }) => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/dealer/sales", {
+        params: { page: downloadPage, limit, search: search || undefined, ...range },
+      });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    return {
+      columns: [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Invoice", value: (row: any) => row.invoiceNumber || row.id?.slice(0, 8) },
+        { label: "Customer", value: (row: any) => row.customer?.name || row.manualCompany?.name || row.sourceFarmer?.name || "—" },
+        { label: "Type", value: (row: any) => row.isSupplierSettlementSale ? "Supplier settlement" : row.isChickenSale ? "Broiler sale" : "Sale" },
+        { label: "Total", value: (row: any) => Number(row.totalAmount || 0).toFixed(2) },
+        { label: "Paid", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
+        { label: "Due", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
+        { label: "Note", value: (row: any) => row.notes || "" },
+      ],
+      rows,
+      summary: [{ label: "Total sales", value: rows.length }, { label: "Sales value", value: `Rs ${rows.reduce((sum: number, row: any) => sum + Number(row.totalAmount || 0), 0).toFixed(2)}` }],
+    };
+  };
 
   const formatCurrency = (amount: number) => {
     return `रू ${amount.toFixed(2)}`;
@@ -95,14 +123,17 @@ export default function DealerSalesPage() {
           </p>
         </div>
         <div className="flex flex-col items-start sm:items-end gap-2 sm:flex-row">
-          <Button
-            onClick={() => router.push("/dealer/dashboard/sales/chicken-by-farmer")}
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <Bird className="mr-2 h-4 w-4" />
-            Broiler Sales by Farmer
-          </Button>
+          <BusinessDownloadDialog title="sales" fileName="dealer-sales" getData={downloadSales} className="w-full sm:w-auto" />
+          {broilerFeature.isEnabled ? (
+            <Button
+              onClick={() => router.push("/dealer/dashboard/sales/chicken-by-farmer")}
+              variant="outline"
+              className="w-full sm:w-auto"
+            >
+              <Bird className="mr-2 h-4 w-4" />
+              Broiler Sales by Farmer
+            </Button>
+          ) : null}
           <Button
             onClick={() => router.push("/dealer/dashboard/sales/new")}
             variant="outline"

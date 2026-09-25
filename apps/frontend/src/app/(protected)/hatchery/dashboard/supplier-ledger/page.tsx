@@ -56,6 +56,8 @@ import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 // ==================== HELPERS ====================
 
@@ -215,6 +217,51 @@ export default function HatcherySupplierLedgerPage() {
   const suppliers = suppliersRes?.data || [];
   const suppliersPagination = suppliersRes?.pagination;
   const stats = statsRes?.data || {};
+
+  const downloadSuppliers = async () => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/hatchery/suppliers", { params: { page: downloadPage, limit } });
+      return { rows: data.data || [], total: data.pagination?.total };
+    });
+    return {
+      columns: [
+        { label: "Supplier", value: (row: any) => row.name },
+        { label: "Phone", value: (row: any) => row.contact || "" },
+        { label: "Address", value: (row: any) => row.address || "" },
+        { label: "Balance", value: (row: any) => Number(row.balance || 0).toFixed(2) },
+      ],
+      rows,
+      summary: [{ label: "Total suppliers", value: rows.length }],
+    };
+  };
+
+  const downloadSupplierStatement = async (range: { startDate?: string; endDate?: string }) => {
+    const allRows = await fetchAllPages(async (page, limit) => {
+      const { data } = await axiosInstance.get(`/hatchery/suppliers/${activeSupplierId}/transactions`, { params: { page, limit } });
+      return { rows: data.data || [], total: data.pagination?.total };
+    });
+    const start = range.startDate ? new Date(`${range.startDate}T00:00:00`) : null;
+    const end = range.endDate ? new Date(`${range.endDate}T23:59:59.999`) : null;
+    const rows = allRows.filter((row: any) => {
+      const date = new Date(row.date);
+      return (!start || date >= start) && (!end || date <= end);
+    });
+    const columns = [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Type", value: (row: any) => row.type || "" },
+        { label: "Category", value: (row: any) => row.purchaseCategory || "" },
+        { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
+        { label: "Balance", value: (row: any) => Number(row.balanceAfter || 0).toFixed(2) },
+        { label: "Note", value: (row: any) => row.note || "" },
+      ];
+    return {
+      sections: [
+        { title: "Purchases", columns, rows: rows.filter((row: any) => !String(row.type || "").toUpperCase().includes("PAYMENT")) },
+        { title: "Payments", columns, rows: rows.filter((row: any) => String(row.type || "").toUpperCase().includes("PAYMENT")) },
+      ],
+      summary: [{ label: "Current balance", value: `Rs ${Number(activeSupplier?.balance || 0).toFixed(2)}` }, { label: "Records", value: rows.length }],
+    };
+  };
   const activeSupplier =
     suppliers.find((sup: any) => sup.id === activeSupplierId) || null;
   const supplierTotalPages = Math.max(
@@ -516,13 +563,16 @@ export default function HatcherySupplierLedgerPage() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={() => setIsAddSupplierOpen(true)}
-          className="bg-orange-500 hover:bg-orange-600"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Supplier
-        </Button>
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="suppliers" fileName="hatchery-suppliers" getData={downloadSuppliers} hasDateFilter={false} />
+          <Button
+            onClick={() => setIsAddSupplierOpen(true)}
+            className="bg-orange-500 hover:bg-orange-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Supplier
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -653,6 +703,7 @@ export default function HatcherySupplierLedgerPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
+                    {activeSupplier ? <BusinessDownloadDialog title={`${activeSupplier.name} statement`} fileName={`${activeSupplier.name}-statement`} getData={downloadSupplierStatement} /> : null}
                     <Button
                       variant="outline"
                       size="sm"

@@ -38,6 +38,8 @@ import {
   useDeleteCompanyProduct,
   type CreateCompanyProductInput,
 } from "@/fetchers/company/companyProductQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 export default function CompanyProductsPage() {
   const [page, setPage] = useState(1);
@@ -163,6 +165,24 @@ export default function CompanyProductsPage() {
 
   const products = productsData?.data || [];
   const pagination = productsData?.pagination;
+  const downloadInventory = async () => {
+    const allProducts = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/company/products", { params: { page: downloadPage, limit } });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    const rows = allProducts.filter((product: any) => Number(product.currentStock ?? product.quantity ?? 0) > 0);
+    return {
+      columns: [
+        { label: "Product", value: (row: any) => row.name || "" },
+        { label: "Type", value: (row: any) => row.type || "" },
+        { label: "Stock", value: (row: any) => `${Number(row.currentStock ?? row.quantity ?? 0).toFixed(2)} ${row.unit || ""}` },
+        { label: "Selling price", value: (row: any) => Number(row.unitSellingPrice || 0).toFixed(2) },
+        { label: "Cost price", value: (row: any) => Number(row.unitCostPrice || 0).toFixed(2) },
+      ],
+      rows,
+      summary: [{ label: "Products with stock", value: rows.length }],
+    };
+  };
 
   return (
     <div className="space-y-6">
@@ -174,11 +194,14 @@ export default function CompanyProductsPage() {
             Manage your products available for dealers
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Add Product</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <BusinessDownloadDialog title="inventory" fileName="company-inventory" getData={downloadInventory} hasDateFilter={false} buttonLabel="Download inventory" />
+          <Button onClick={() => handleOpenDialog()} className="bg-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Add Product</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -594,7 +617,7 @@ export default function CompanyProductsPage() {
             <DialogDescription>
               Are you sure you want to delete{" "}
               <span className="font-semibold text-foreground">
-                "{productToDelete?.name}"
+                &ldquo;{productToDelete?.name}&rdquo;
               </span>
               ? This action cannot be undone.
             </DialogDescription>

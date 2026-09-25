@@ -33,6 +33,7 @@ import {
 import { useGetCompanyAnalytics } from "@/fetchers/company/companyAnalyticsQueries";
 import { useCalendar } from "@/common/hooks/useCalendar";
 import { useAuth } from "@/common/store/store";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 function CompanyAnalyticsContent() {
   const [period, setPeriod] = useState("30");
@@ -82,6 +83,37 @@ function CompanyAnalyticsContent() {
     );
   }
 
+  const downloadAnalytics = async () => ({
+    sections: [
+      {
+        title: "Summary",
+        columns: [{ label: "Item", value: (row: any) => row.label }, { label: "Value", value: (row: any) => row.value }],
+        rows: [
+          { label: "Total revenue", value: formatCurrency(analytics.overview.totalRevenue) },
+          { label: "Total sales", value: analytics.overview.totalSales },
+          { label: "Outstanding", value: formatCurrency(analytics.overview.totalOutstanding) },
+          { label: "Payments received", value: formatCurrency(analytics.overview.totalPayments) },
+        ],
+      },
+      {
+        title: "Sales by dealer",
+        columns: [{ label: "Dealer", value: (row: any) => row.dealerName }, { label: "Sales", value: (row: any) => row.totalSales }, { label: "Amount", value: (row: any) => formatCurrency(row.totalAmount) }],
+        rows: analytics.salesByDealer,
+      },
+      {
+        title: "Product performance",
+        columns: [{ label: "Product", value: (row: any) => row.productName }, { label: "Quantity", value: (row: any) => `${Number(row.totalQuantity || 0).toFixed(2)} ${row.unit || ""}` }, { label: "Amount", value: (row: any) => formatCurrency(row.totalAmount) }],
+        rows: analytics.productPerformance,
+      },
+      {
+        title: "Payments by method",
+        columns: [{ label: "Method", value: (row: any) => row.method }, { label: "Payments", value: (row: any) => row.count }, { label: "Amount", value: (row: any) => formatCurrency(row.totalAmount) }],
+        rows: analytics.payments.byMethod,
+      },
+    ],
+    summary: [{ label: "Period", value: `Last ${period} days` }],
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -92,17 +124,20 @@ function CompanyAnalyticsContent() {
             Comprehensive analytics for your distribution network
           </p>
         </div>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-2">
+          <BusinessDownloadDialog title="analytics" fileName="company-analytics" getData={downloadAnalytics} hasDateFilter={false} buttonLabel="Download analytics" />
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="365">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Overview Cards */}

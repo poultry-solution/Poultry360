@@ -77,6 +77,8 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 // Types
 type TabType = "overview" | "sales" | "parties" | "payments";
@@ -327,6 +329,55 @@ export default function SalesLedgerPage() {
   const payments = paymentsResponse?.data || [];
   const paymentsPagination = paymentsResponse?.pagination;
   const paymentsSummary = paymentsResponse?.summary;
+
+  const downloadSales = async (range: { startDate?: string; endDate?: string }) => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/sales", {
+        params: {
+          page: downloadPage,
+          limit,
+          search: salesFilters.search || undefined,
+          itemType: salesFilters.itemType || undefined,
+          isCredit: salesFilters.isCredit || undefined,
+          customerId: salesFilters.customerId || undefined,
+          ...range,
+        },
+      });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    return {
+      columns: [
+        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Customer", value: (row: any) => row.customer?.name || "—" },
+        { label: "Item", value: (row: any) => row.itemType || row.description || "—" },
+        { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
+        { label: "Payment", value: (row: any) => row.isCredit ? "Credit" : "Cash" },
+        { label: "Note", value: (row: any) => row.description || "" },
+      ],
+      rows,
+      summary: [{ label: "Total sales", value: rows.length }, { label: "Sales value", value: `Rs ${rows.reduce((sum: number, row: any) => sum + Number(row.amount || row.totalAmount || 0), 0).toFixed(2)}` }],
+    };
+  };
+
+  const downloadParties = async () => {
+    const rows = await fetchAllPages(async (downloadPage, limit) => {
+      const { data } = await axiosInstance.get("/sales/customers", {
+        params: { page: downloadPage, limit, search: partyFilters.search || undefined, category: partyFilters.category || undefined, hasBalance: partyFilters.hasBalance || undefined },
+      });
+      return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+    });
+    return {
+      columns: [
+        { label: "Name", value: (row: any) => row.name },
+        { label: "Phone", value: (row: any) => row.phone || "" },
+        { label: "Category", value: (row: any) => row.category || "" },
+        { label: "Address", value: (row: any) => row.address || "" },
+        { label: "Balance", value: (row: any) => Number(row.balance || 0).toFixed(2) },
+      ],
+      rows,
+      summary: [{ label: "Total parties", value: rows.length }],
+    };
+  };
 
   const salesTotalRows = Number(pagination?.total ?? 0);
   const salesTotalPages = Math.max(1, Number(pagination?.totalPages ?? 1));
@@ -1146,7 +1197,8 @@ export default function SalesLedgerPage() {
             {t("farmer.salesLedger.subtitle")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {activeTab === "parties" ? <BusinessDownloadDialog title="parties" fileName="farmer-parties" getData={downloadParties} hasDateFilter={false} /> : <BusinessDownloadDialog title="sales" fileName="farmer-sales" getData={downloadSales} />}
           <Button
             variant="outline"
             size="sm"

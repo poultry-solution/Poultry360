@@ -60,6 +60,8 @@ import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
+import axiosInstance from "@/common/lib/axios";
+import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 
 const PRODUCT_TYPES: Array<{
   value: FarmerProductOutputType;
@@ -196,6 +198,30 @@ export default function InventoryPage() {
   };
 
   const filteredInventory = getFilteredInventory();
+  const downloadInventory = async () => {
+    const { data } = await axiosInstance.get("/inventory/table");
+    const purchasedRows = (data.data || []).filter((item: any) => Number(item.quantity ?? item.currentStock ?? 0) > 0);
+    const selfMadeRows = manufacturedProducts
+      .filter((product: any) => Number(product.currentStock || 0) > 0)
+      .map((product: any) => ({
+        ...product,
+        itemType: product.outputItemType || "SELF_MADE",
+        quantity: product.currentStock,
+        rate: product.unitCost || product.unitPrice || 0,
+      }));
+    const rows = [...purchasedRows, ...selfMadeRows];
+    return {
+      columns: [
+        { label: "Item", value: (row: any) => row.name || "" },
+        { label: "Type", value: (row: any) => row.itemType || "" },
+        { label: "Stock", value: (row: any) => `${Number(row.quantity ?? row.currentStock ?? 0).toFixed(2)} ${row.unit || ""}` },
+        { label: "Cost per unit", value: (row: any) => Number(row.rate || row.unitCost || 0).toFixed(2) },
+        { label: "Supplier", value: (row: any) => row.dealer?.name || row.supplier?.name || "" },
+      ],
+      rows,
+      summary: [{ label: "Items with stock", value: rows.length }],
+    };
+  };
   const activeTabLabel =
     activeTab === "feed"
       ? t("farmer.inventory.tabs.feed")
@@ -663,6 +689,8 @@ export default function InventoryPage() {
                 : t("farmer.inventory.subtitleDefault")}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <BusinessDownloadDialog title="inventory" fileName="farmer-inventory" getData={downloadInventory} hasDateFilter={false} buttonLabel="Download inventory" />
         {activeTab === "eggs" ? (
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
             <Label htmlFor="egg-batch-select" className="text-sm font-medium whitespace-nowrap">
@@ -704,6 +732,7 @@ export default function InventoryPage() {
               : t("farmer.inventory.dealerLedger")}
           </div>
         )}
+        </div>
       </div>
 
       {/* Stats Cards */}
