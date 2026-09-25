@@ -8,6 +8,7 @@ export const ACCOUNT_FEATURE_KEYS = {
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
   COMPANY_STAFF_OPERATIONS: "COMPANY_STAFF_OPERATIONS",
   DEALER_SUPPLIER_SETTLEMENT_SALES: "DEALER_SUPPLIER_SETTLEMENT_SALES",
+  DEALER_BROILER_SALES_AND_SETTLEMENTS: "DEALER_BROILER_SALES_AND_SETTLEMENTS",
 } as const;
 
 export type AccountFeatureKey =
@@ -70,6 +71,14 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     name: "Dealer Supplier Settlement Sales",
     description:
       "Sell inventory to a Manual Company supplier and settle its outstanding balance with the sale value.",
+    applicableRoles: [UserRole.DEALER],
+    defaultEnabled: false,
+  },
+  DEALER_BROILER_SALES_AND_SETTLEMENTS: {
+    key: ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS,
+    name: "Dealer Broiler Sales & Settlement",
+    description:
+      "Record no-inventory Broiler sales and settle the proceeds with the Manual Customer farmer who supplied the birds.",
     applicableRoles: [UserRole.DEALER],
     defaultEnabled: false,
   },

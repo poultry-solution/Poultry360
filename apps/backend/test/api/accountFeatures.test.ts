@@ -7,6 +7,7 @@ const FEATURE_KEY = "DEALER_STAFF_OPERATIONS";
 const HATCHERY_FEATURE_KEY = "HATCHERY_STAFF_OPERATIONS";
 const FARMER_FEATURE_KEY = "FARMER_STAFF_OPERATIONS";
 const SUPPLIER_SETTLEMENT_FEATURE_KEY = "DEALER_SUPPLIER_SETTLEMENT_SALES";
+const BROILER_FEATURE_KEY = "DEALER_BROILER_SALES_AND_SETTLEMENTS";
 const TEST_PASSWORD = "password123";
 const TEST_ACCOUNTS = {
   admin: "+9779800000881",
@@ -954,6 +955,146 @@ describe("Account feature API", () => {
         expect.objectContaining({ action: "admin.account_feature.changed" }),
       ])
     );
+  });
+
+  it("gates Dealer Broiler sales and settlements for both the owner and staff", async () => {
+    const dealer = await prisma.dealer.findUniqueOrThrow({
+      where: { ownerId: dealerId },
+      select: { id: true },
+    });
+    const suffix = Date.now();
+    const sourceFarmer = await prisma.customer.create({
+      data: {
+        userId: dealerId,
+        name: `Account Feature Broiler Source Farmer ${suffix}`,
+      },
+    });
+    const product = await prisma.dealerProduct.create({
+      data: {
+        dealerId: dealer.id,
+        name: `Account Feature Regular Sale Product ${suffix}`,
+        type: InventoryItemType.FEED,
+        unit: "kg",
+        costPrice: 50,
+        sellingPrice: 75,
+        currentStock: 5,
+      },
+    });
+    let regularSaleId: string | undefined;
+    let broilerSaleId: string | undefined;
+
+    await prisma.accountFeature.deleteMany({
+      where: { accountId: dealerId, featureKey: BROILER_FEATURE_KEY },
+    });
+
+    try {
+      await login(TEST_ACCOUNTS.dealer);
+      const featuresBeforeEnable = await apiHelper.get("/account-features");
+      expect(featuresBeforeEnable.body.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: BROILER_FEATURE_KEY, enabled: false }),
+        ])
+      );
+
+      const broilerPayload = {
+        customerId: dealerCustomerId,
+        sourceFarmerId: sourceFarmer.id,
+        isChickenSale: true,
+        items: [{ quantity: 10, unitPrice: 250, unit: "kg", broilerCount: 8 }],
+        paidAmount: 2500,
+        paymentMethod: "CASH",
+      };
+
+      const disabledCreate = await apiHelper.post("/dealer/sales", broilerPayload);
+      expect(disabledCreate.status).toBe(403);
+      expect(disabledCreate.body).toMatchObject({
+        code: "ACCOUNT_FEATURE_DISABLED",
+        featureKey: BROILER_FEATURE_KEY,
+      });
+      expect((await apiHelper.get("/dealer/sales/chicken-by-farmer")).status).toBe(403);
+      expect((await apiHelper.get("/dealer/sales/broiler-settlements")).status).toBe(403);
+      expect((await apiHelper.post("/dealer/sales/broiler-settlements", {
+        sourceFarmerId: sourceFarmer.id,
+        marginAmount: 0,
+      })).status).toBe(403);
+
+      // Ordinary inventory sales are not part of the Broiler feature and
+      // continue to work while it is disabled.
+      const regularSale = await apiHelper.post("/dealer/sales", {
+        customerId: dealerCustomerId,
+        items: [{ productId: product.id, quantity: 1, unitPrice: 75, unit: "kg" }],
+        paidAmount: 75,
+        paymentMethod: "CASH",
+      });
+      expect(regularSale.status).toBe(201);
+      regularSaleId = regularSale.body.data.id;
+
+      const staffLogin = await apiHelper.post("/staff-auth/login", {
+        emailOrPhone: TEST_ACCOUNTS.managedStaff,
+        password: TEST_PASSWORD,
+      });
+      expect(staffLogin.status).toBe(200);
+      apiHelper.setAuthToken(staffLogin.body.accessToken);
+      const staffFeatures = await apiHelper.get("/account-features");
+      expect(staffFeatures.body.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: BROILER_FEATURE_KEY, enabled: false }),
+        ])
+      );
+      expect((await apiHelper.get("/dealer/sales/chicken-by-farmer")).status).toBe(403);
+
+      await login(TEST_ACCOUNTS.admin);
+      const enabled = await apiHelper.put(
+        `/admin/users/${dealerId}/features/${BROILER_FEATURE_KEY}`,
+        { enabled: true }
+      );
+      expect(enabled.status).toBe(200);
+      expect(enabled.body.data).toMatchObject({
+        key: BROILER_FEATURE_KEY,
+        enabled: true,
+      });
+
+      await login(TEST_ACCOUNTS.dealer);
+      const createdBroilerSale = await apiHelper.post("/dealer/sales", broilerPayload);
+      expect(createdBroilerSale.status).toBe(201);
+      broilerSaleId = createdBroilerSale.body.data.id;
+      expect(createdBroilerSale.body.data).toMatchObject({
+        isChickenSale: true,
+        sourceFarmerId: sourceFarmer.id,
+      });
+      expect((await apiHelper.get("/dealer/sales/chicken-by-farmer")).status).toBe(200);
+
+      const enabledStaffLogin = await apiHelper.post("/staff-auth/login", {
+        emailOrPhone: TEST_ACCOUNTS.managedStaff,
+        password: TEST_PASSWORD,
+      });
+      expect(enabledStaffLogin.status).toBe(200);
+      apiHelper.setAuthToken(enabledStaffLogin.body.accessToken);
+      expect((await apiHelper.get("/dealer/sales/chicken-by-farmer")).status).toBe(200);
+
+      await login(TEST_ACCOUNTS.admin);
+      const disabled = await apiHelper.put(
+        `/admin/users/${dealerId}/features/${BROILER_FEATURE_KEY}`,
+        { enabled: false }
+      );
+      expect(disabled.status).toBe(200);
+
+      await login(TEST_ACCOUNTS.dealer);
+      expect((await apiHelper.get("/dealer/sales")).status).toBe(200);
+      expect((await apiHelper.get("/dealer/sales/chicken-by-farmer")).status).toBe(403);
+    } finally {
+      await login(TEST_ACCOUNTS.dealer);
+      for (const saleId of [broilerSaleId, regularSaleId].filter(
+        (id): id is string => Boolean(id)
+      )) {
+        await apiHelper.delete(`/dealer/sales/${saleId}`, { password: TEST_PASSWORD });
+      }
+      await prisma.accountFeature.deleteMany({
+        where: { accountId: dealerId, featureKey: BROILER_FEATURE_KEY },
+      });
+      await prisma.dealerProduct.deleteMany({ where: { id: product.id } });
+      await prisma.customer.deleteMany({ where: { id: sourceFarmer.id } });
+    }
   });
 
   it("limits Dealer activity and exports to the owner and that owner's managed staff", async () => {

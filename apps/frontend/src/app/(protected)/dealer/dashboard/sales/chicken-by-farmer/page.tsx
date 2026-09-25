@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bird, CircleDollarSign, Users } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
@@ -15,8 +15,28 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { toast } from "sonner";
 import { ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer } from "@/fetchers/dealer/dealerSaleQueries";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
 export default function ChickenSalesByFarmerPage() {
+  const router = useRouter();
+  const broilerFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
+  );
+
+  // Do not mount the Broiler data queries when the account is not enabled.
+  // A pasted or old URL simply returns the user to normal Dealer Sales.
+  useEffect(() => {
+    if (!broilerFeature.isLoading && !broilerFeature.isEnabled) {
+      router.replace("/dealer/dashboard/sales");
+    }
+  }, [broilerFeature.isEnabled, broilerFeature.isLoading, router]);
+
+  if (!broilerFeature.isEnabled) return null;
+
+  return <ChickenSalesByFarmerContent />;
+}
+
+function ChickenSalesByFarmerContent() {
   const router = useRouter();
   const [sourceFarmerId, setSourceFarmerId] = useState("");
   const [settlementTarget, setSettlementTarget] = useState<ChickenSalesByFarmerRow | null>(null);
@@ -25,11 +45,28 @@ export default function ChickenSalesByFarmerPage() {
   const [settlementDate, setSettlementDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const sourceFarmerSelect = useSearchableCustomerSelect();
-  const { data, isLoading } = useGetChickenSalesByFarmer(sourceFarmerId || undefined);
-  const { data: settlementsData, isLoading: settlementsLoading } = useGetBroilerSettlements(sourceFarmerId || undefined);
+  const {
+    data,
+    isLoading,
+    error: chickenSalesError,
+  } = useGetChickenSalesByFarmer(sourceFarmerId || undefined);
+  const {
+    data: settlementsData,
+    isLoading: settlementsLoading,
+    error: settlementsError,
+  } = useGetBroilerSettlements(sourceFarmerId || undefined);
   const createSettlement = useCreateBroilerSettlement();
   const rows = data?.data ?? [];
   const settlements = settlementsData?.data ?? [];
+
+  // Covers the narrow race where Admin turns the feature off after this page
+  // has mounted but before one of its background requests completes.
+  useEffect(() => {
+    const errors = [chickenSalesError, settlementsError] as any[];
+    if (errors.some((error) => error?.response?.data?.code === "ACCOUNT_FEATURE_DISABLED")) {
+      router.replace("/dealer/dashboard/sales");
+    }
+  }, [chickenSalesError, router, settlementsError]);
 
   const formatCurrency = (amount: number) => `रू ${Math.abs(Number(amount) || 0).toFixed(2)}`;
   const settlementAmounts = settlementTarget ? (() => {
@@ -65,6 +102,10 @@ export default function ChickenSalesByFarmerPage() {
       toast.success("Broiler sales settled successfully");
       setSettlementTarget(null);
     } catch (error: any) {
+      if (error.response?.data?.code === "ACCOUNT_FEATURE_DISABLED") {
+        router.replace("/dealer/dashboard/sales");
+        return;
+      }
       toast.error(error.response?.data?.message || "Unable to settle Broiler sales");
     }
   };
