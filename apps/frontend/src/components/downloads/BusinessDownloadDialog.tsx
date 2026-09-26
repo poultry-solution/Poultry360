@@ -119,7 +119,7 @@ function createTablePdf({
   y += 17;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Period: ${cleanPdfText(period)}    Downloaded: ${new Date().toLocaleString()}`, margin, y);
+  doc.text(`Period: ${cleanPdfText(period)}`, margin, y);
   y += 17;
 
   const writeSummary = (summary?: Array<{ label: string; value: string | number }>) => {

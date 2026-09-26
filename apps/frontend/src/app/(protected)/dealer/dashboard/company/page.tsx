@@ -117,6 +117,10 @@ export default function DealerCompanyPage() {
             const text = `${company.name} ${company.phone || ""} ${company.address || ""}`.toLowerCase();
             return text.includes(search.toLowerCase());
         });
+        const totalPurchaseValue = rows.reduce(
+            (total: number, company: ManualCompany) => total + Number(company.totalPurchases || 0),
+            0,
+        );
         return {
             columns: [
                 { label: "Company", value: (row: ManualCompany) => row.name },
@@ -128,7 +132,10 @@ export default function DealerCompanyPage() {
                 { label: "Status", value: (row: ManualCompany) => row.archivedAt ? "Archived" : "Active" },
             ],
             rows,
-            summary: [{ label: "Total suppliers", value: rows.length }],
+            summary: [
+                { label: "Total suppliers", value: rows.length },
+                { label: "Total purchase value", value: `Rs ${totalPurchaseValue.toFixed(2)}` },
+            ],
         };
     };
 
