@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma } from "@prisma/client";
+import { Prisma, TransactionType } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
@@ -619,6 +619,30 @@ export const getDealerCustomers = async (
     const dealerId = dealer?.id;
     const customerIds = customers.map((c) => c.id);
 
+    const openingTransactions = customerIds.length
+      ? await prisma.customerTransaction.findMany({
+          where: {
+            customerId: { in: customerIds },
+            type: TransactionType.OPENING_BALANCE,
+          },
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+          select: { customerId: true, amount: true },
+        }).catch((error) => {
+          console.warn("Could not load customer opening balances for list:", error);
+          return [];
+        })
+      : [];
+    const openingBalanceByCustomerId = new Map<string, number>();
+    for (const transaction of openingTransactions) {
+      if (!openingBalanceByCustomerId.has(transaction.customerId)) {
+        const amount = Number(transaction.amount);
+        openingBalanceByCustomerId.set(
+          transaction.customerId,
+          Number.isFinite(amount) ? amount : 0,
+        );
+      }
+    }
+
     let dealerSalesByCustomerId = new Map<string, number>();
     let paymentReceivedByCustomerId = new Map<string, number>();
 
@@ -662,6 +686,7 @@ export const getDealerCustomers = async (
 
       return {
         ...c,
+        openingBalance: openingBalanceByCustomerId.get(c.id) ?? 0,
         hasDealerSales,
         hasPayments,
       };

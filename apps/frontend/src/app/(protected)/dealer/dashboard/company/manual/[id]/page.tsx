@@ -95,6 +95,8 @@ export default function ManualCompanyAccountPage() {
             return { rows: response.data?.transactions || [], totalPages: response.data?.pagination?.totalPages };
         });
         const rows = filterRowsByDate(allTransactions, range, (row: any) => row.date);
+        const rawOpeningAmount = Number(openingBalance?.amount || 0);
+        const openingAmount = Number.isFinite(rawOpeningAmount) ? rawOpeningAmount : 0;
         const columns = [
                 { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
                 { label: "Type", value: (row: any) => String(row.type || "").replaceAll("_", " ") },
@@ -109,7 +111,17 @@ export default function ManualCompanyAccountPage() {
                 { title: "Supplier settlement sales", columns, rows: rows.filter((row: any) => row.type === "SUPPLIER_SETTLEMENT_SALE") },
                 { title: "Other records", columns, rows: rows.filter((row: any) => !["PURCHASE", "PAYMENT", "SUPPLIER_SETTLEMENT_SALE"].includes(row.type)) },
             ],
-            summary: [{ label: "Current balance", value: `Rs ${Number(company.balance || 0).toFixed(2)}` }, { label: "Purchases", value: `Rs ${Number(company.totalPurchases || 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${Number(company.totalPayments || 0).toFixed(2)}` }],
+            summary: [
+                {
+                    label: "Opening balance",
+                    value: openingAmount === 0
+                        ? "Rs 0.00"
+                        : `Rs ${Math.abs(openingAmount).toFixed(2)} (${openingAmount > 0 ? "payable" : "advance"})`,
+                },
+                { label: "Current balance", value: `Rs ${Number(company.balance || 0).toFixed(2)}` },
+                { label: "Purchases", value: `Rs ${Number(company.totalPurchases || 0).toFixed(2)}` },
+                { label: "Payments", value: `Rs ${Number(company.totalPayments || 0).toFixed(2)}` },
+            ],
         };
     };
 

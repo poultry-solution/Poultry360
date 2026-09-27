@@ -2368,17 +2368,28 @@ export const getCustomerById = async (
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    const latestOpening = await prisma.customerTransaction.findFirst({
+    const latestOpeningPromise = prisma.customerTransaction.findFirst({
       where: { customerId: id, type: TransactionType.OPENING_BALANCE },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       select: { amount: true, date: true, description: true, reference: true },
+    }).catch((error) => {
+      console.warn("Could not load customer opening balance:", error);
+      return null;
     });
 
-    const openingBalanceHistory = await prisma.customerTransaction.findMany({
+    const openingBalanceHistoryPromise = prisma.customerTransaction.findMany({
       where: { customerId: id, type: TransactionType.OPENING_BALANCE },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       select: { id: true, amount: true, date: true, description: true, reference: true },
+    }).catch((error) => {
+      console.warn("Could not load customer opening balance history:", error);
+      return [];
     });
+
+    const [latestOpening, openingBalanceHistory] = await Promise.all([
+      latestOpeningPromise,
+      openingBalanceHistoryPromise,
+    ]);
 
     return res.json({
       success: true,
