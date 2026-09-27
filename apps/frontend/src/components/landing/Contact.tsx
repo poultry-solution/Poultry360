@@ -55,11 +55,16 @@ export default function Contact() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Contact Form */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">{t("landing.contact.sendMessage")}</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">
+              {t("landing.contact.sendMessage")}
+            </h3>
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="firstName"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     {t("landing.contact.firstName")}
                   </label>
                   <input
@@ -74,7 +79,10 @@ export default function Contact() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label
+                    htmlFor="lastName"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
                     {t("landing.contact.lastName")}
                   </label>
                   <input
@@ -91,7 +99,10 @@ export default function Contact() {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   {t("landing.contact.email")}
                 </label>
                 <input
@@ -107,7 +118,10 @@ export default function Contact() {
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   {t("landing.contact.phone")}
                 </label>
                 <input
@@ -122,7 +136,10 @@ export default function Contact() {
               </div>
 
               <div>
-                <label htmlFor="farmType" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="farmType"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   {t("landing.contact.farmType")}
                 </label>
                 <select
@@ -132,18 +149,35 @@ export default function Contact() {
                   onChange={(e) => setFarmType(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  <option value="">{t("landing.contact.farmTypePlaceholder")}</option>
-                  <option value="broiler">{t("landing.contact.farmBroiler")}</option>
-                  <option value="layer">{t("landing.contact.farmLayer")}</option>
-                  <option value="hatchery">{t("landing.contact.farmHatchery")}</option>
-                  <option value="feed-dealer">{t("landing.contact.farmFeedDealer")}</option>
-                  <option value="mixed">{t("landing.contact.farmMixed")}</option>
-                  <option value="other">{t("landing.contact.farmOther")}</option>
+                  <option value="">
+                    {t("landing.contact.farmTypePlaceholder")}
+                  </option>
+                  <option value="broiler">
+                    {t("landing.contact.farmBroiler")}
+                  </option>
+                  <option value="layer">
+                    {t("landing.contact.farmLayer")}
+                  </option>
+                  <option value="hatchery">
+                    {t("landing.contact.farmHatchery")}
+                  </option>
+                  <option value="feed-dealer">
+                    {t("landing.contact.farmFeedDealer")}
+                  </option>
+                  <option value="mixed">
+                    {t("landing.contact.farmMixed")}
+                  </option>
+                  <option value="other">
+                    {t("landing.contact.farmOther")}
+                  </option>
                 </select>
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                <label
+                  htmlFor="message"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
                   {t("landing.contact.message")}
                 </label>
                 <textarea
@@ -172,7 +206,9 @@ export default function Contact() {
           {/* Contact Information */}
           <div className="space-y-8">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">{t("landing.contact.contactInfo")}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                {t("landing.contact.contactInfo")}
+              </h3>
               <p className="text-gray-600 mb-8">
                 {t("landing.contact.contactInfoDesc")}
               </p>
@@ -184,9 +220,10 @@ export default function Contact() {
                   <Mail className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">{t("landing.contact.emailLabel")}</h4>
+                  <h4 className="font-semibold text-gray-900">
+                    {t("landing.contact.emailLabel")}
+                  </h4>
                   <p className="text-gray-600">reevasnp123@gmail.com</p>
-
                 </div>
               </div>
 
@@ -195,9 +232,10 @@ export default function Contact() {
                   <Phone className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">{t("landing.contact.phoneLabel")}</h4>
+                  <h4 className="font-semibold text-gray-900">
+                    {t("landing.contact.phoneLabel")}
+                  </h4>
                   <p className="text-gray-600">+977 9705428337</p>
-                  <p className="text-gray-600">+977 9857831027</p>
                 </div>
               </div>
 
@@ -206,8 +244,12 @@ export default function Contact() {
                   <MapPin className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-900">{t("landing.contact.officeLabel")}</h4>
-                  <p className="text-gray-600">Poultry360 Solutions Pvt. Ltd.</p>
+                  <h4 className="font-semibold text-gray-900">
+                    {t("landing.contact.officeLabel")}
+                  </h4>
+                  <p className="text-gray-600">
+                    Poultry360 Solutions Pvt. Ltd.
+                  </p>
                   <p className="text-gray-600">Province 5, Lumbini </p>
                   <p className="text-gray-600">Lamahi, Dang</p>
                 </div>
@@ -215,7 +257,9 @@ export default function Contact() {
             </div>
 
             <div className="bg-white rounded-xl p-6 shadow-md">
-              <h4 className="font-semibold text-gray-900 mb-3">{t("landing.contact.businessHours")}</h4>
+              <h4 className="font-semibold text-gray-900 mb-3">
+                {t("landing.contact.businessHours")}
+              </h4>
               <div className="space-y-2 text-gray-600">
                 <div className="flex justify-between">
                   <span>{t("landing.contact.monFri")}</span>
