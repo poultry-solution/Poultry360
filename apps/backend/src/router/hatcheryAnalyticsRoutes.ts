@@ -7,6 +7,7 @@ import {
   getHatcheryAnalyticsProduction,
   getHatcheryAnalyticsSales,
   getHatcheryAnalyticsOverview,
+  getHatcheryTodaySummary,
 } from "../controller/hatcheryAnalyticsController";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.use((req, res, next) => {
 router.use(requireStaffPermission(StaffPermission.HATCHERY_VIEW_ANALYTICS));
 
 router.get("/overview", getHatcheryAnalyticsOverview);
+router.get("/today", getHatcheryTodaySummary);
 router.get("/batches", getHatcheryAnalyticsBatches);
 router.get("/incubations", getHatcheryAnalyticsIncubations);
 router.get("/production", getHatcheryAnalyticsProduction);
