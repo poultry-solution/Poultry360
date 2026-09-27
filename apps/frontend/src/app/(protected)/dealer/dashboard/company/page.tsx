@@ -126,6 +126,16 @@ export default function DealerCompanyPage() {
                 { label: "Company", value: (row: ManualCompany) => row.name },
                 { label: "Phone", value: (row: ManualCompany) => row.phone || "" },
                 { label: "Address", value: (row: ManualCompany) => row.address || "" },
+                {
+                    label: "Opening balance",
+                    value: (row: ManualCompany) => {
+                        const rawAmount = Number(row.openingBalance || 0);
+                        const amount = Number.isFinite(rawAmount) ? rawAmount : 0;
+                        return amount === 0
+                            ? "Rs 0.00"
+                            : `Rs ${Math.abs(amount).toFixed(2)} (${amount > 0 ? "payable" : "advance"})`;
+                    },
+                },
                 { label: "Balance", value: (row: ManualCompany) => Number(row.balance || 0).toFixed(2) },
                 { label: "Purchases", value: (row: ManualCompany) => Number(row.totalPurchases || 0).toFixed(2) },
                 { label: "Payments", value: (row: ManualCompany) => Number(row.totalPayments || 0).toFixed(2) },

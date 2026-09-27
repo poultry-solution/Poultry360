@@ -112,6 +112,7 @@ export default function CustomerAccountPage() {
   const totalSales = Number(customer?.totalSales ?? 0);
   const totalPaid = Number(customer?.totalPayments ?? 0);
   const currentBalance = Number(customer?.balance ?? 0);
+  const openingBalance = customer?.openingBalance;
 
   const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
     const [allSales, allPayments] = await Promise.all([
@@ -126,6 +127,8 @@ export default function CustomerAccountPage() {
     ]);
     const salesRows = allSales.map((sale: any) => ({ date: sale.date, type: "Sale", reference: sale.invoiceNumber || sale.id?.slice(0, 8), amount: Number(sale.totalAmount || 0), note: sale.notes || "" }));
     const paymentRows = allPayments.map((payment: any) => ({ date: payment.date, type: payment.type === "PAYMENT_MADE" ? "Payment made" : "Payment received", reference: payment.reference || "", amount: Number(payment.amount || 0), note: payment.description || "" }));
+    const rawOpeningAmount = Number(openingBalance?.amount || 0);
+    const openingAmount = Number.isFinite(rawOpeningAmount) ? rawOpeningAmount : 0;
     const columns = [
         { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
         { label: "Type", value: (row: any) => row.type },
@@ -138,7 +141,17 @@ export default function CustomerAccountPage() {
         { title: "Sales", columns, rows: salesRows },
         { title: "Payments", columns, rows: paymentRows },
       ],
-      summary: [{ label: "Current balance", value: `Rs ${currentBalance.toFixed(2)}` }, { label: "Sales", value: `Rs ${allSales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount || 0), 0).toFixed(2)}` }, { label: "Payments", value: `Rs ${allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0).toFixed(2)}` }],
+      summary: [
+        {
+          label: "Opening balance",
+          value: openingAmount === 0
+            ? "Rs 0.00"
+            : `Rs ${Math.abs(openingAmount).toFixed(2)} (${openingAmount > 0 ? "customer owes me" : "advance"})`,
+        },
+        { label: "Current balance", value: `Rs ${currentBalance.toFixed(2)}` },
+        { label: "Sales", value: `Rs ${allSales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount || 0), 0).toFixed(2)}` },
+        { label: "Payments", value: `Rs ${allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0).toFixed(2)}` },
+      ],
     };
   };
 
@@ -170,7 +183,6 @@ export default function CustomerAccountPage() {
     }
   }, [paymentsPage, paymentsTotalPages]);
 
-  const openingBalance = customer?.openingBalance;
   const openEditOpening = () => {
     const amt = Number(openingBalance?.amount ?? 0);
     setOpeningDirection(amt < 0 ? "ADVANCE" : "OWED");

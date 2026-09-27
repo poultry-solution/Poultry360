@@ -17,6 +17,7 @@ export interface ManualCompany {
     phone?: string;
     address?: string;
     balance: number;
+    openingBalance?: number;
     totalPurchases: number;
     totalPayments: number;
     totalSettlementSales: number;

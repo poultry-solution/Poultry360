@@ -118,9 +118,37 @@ export const getManualCompanies = async (
             },
         });
 
+        const companyIds = companies.map((company) => company.id);
+        const openingAdjustments = companyIds.length
+            ? await prisma.dealerManualCompanyAdjustment.findMany({
+                where: {
+                    manualCompanyId: { in: companyIds },
+                    type: "OPENING_BALANCE",
+                },
+                orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+                select: { manualCompanyId: true, amount: true },
+            }).catch((error) => {
+                console.warn("Could not load supplier opening balances for list:", error);
+                return [];
+            })
+            : [];
+        const openingBalanceByCompanyId = new Map<string, number>();
+        for (const adjustment of openingAdjustments) {
+            if (!openingBalanceByCompanyId.has(adjustment.manualCompanyId)) {
+                const amount = Number(adjustment.amount);
+                openingBalanceByCompanyId.set(
+                    adjustment.manualCompanyId,
+                    Number.isFinite(amount) ? amount : 0,
+                );
+            }
+        }
+
         return res.status(200).json({
             success: true,
-            data: companies,
+            data: companies.map((company) => ({
+                ...company,
+                openingBalance: openingBalanceByCompanyId.get(company.id) ?? 0,
+            })),
         });
     } catch (error: any) {
         console.error("Get manual companies error:", error);
@@ -884,6 +912,9 @@ export const getManualCompanyStatement = async (
             prisma.dealerManualCompanyAdjustment.findMany({
                 where: { manualCompanyId: id },
                 orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+            }).catch((error) => {
+                console.warn("Could not load supplier opening balance records:", error);
+                return [];
             }),
             prisma.dealerSale.findMany({
                 where: {

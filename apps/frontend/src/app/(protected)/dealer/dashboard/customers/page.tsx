@@ -56,6 +56,7 @@ interface Customer {
   address?: string;
   category?: string;
   balance: number;
+  openingBalance?: number;
   source?: string;
   createdAt: Date;
   archivedAt?: string | null;
@@ -125,6 +126,16 @@ export default function DealerCustomersPage() {
         { label: "Phone", value: (row: any) => row.phone || "" },
         { label: "Address", value: (row: any) => row.address || "" },
         { label: "Category", value: (row: any) => row.category || "" },
+        {
+          label: "Opening balance",
+          value: (row: any) => {
+            const rawAmount = Number(row.openingBalance || 0);
+            const amount = Number.isFinite(rawAmount) ? rawAmount : 0;
+            return amount === 0
+              ? "Rs 0.00"
+              : `Rs ${Math.abs(amount).toFixed(2)} (${amount > 0 ? "customer owes me" : "advance"})`;
+          },
+        },
         { label: "Balance", value: (row: any) => Number(row.balance || 0).toFixed(2) },
         { label: "Status", value: (row: any) => row.archivedAt ? "Archived" : "Active" },
       ],
