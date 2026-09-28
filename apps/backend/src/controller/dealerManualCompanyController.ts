@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { parseDealerExpiryDate } from "../utils/dealerExpiryDate";
 
 // ==================== CREATE MANUAL COMPANY ====================
 export const createManualCompany = async (
@@ -438,7 +439,16 @@ export const recordManualPurchase = async (
             const purchaseItems: any[] = [];
 
             for (const item of items) {
-                const { productName, type, unit, quantity, costPrice, sellingPrice, minStock } = item;
+                const {
+                    productName,
+                    type,
+                    unit,
+                    quantity,
+                    costPrice,
+                    sellingPrice,
+                    minStock,
+                    expiryDate,
+                } = item;
 
                 if (!productName || !type || !unit || !quantity || costPrice === undefined || costPrice === null || sellingPrice === undefined || sellingPrice === null) {
                     throw new Error("Each item must have productName, type, unit, quantity, costPrice, and sellingPrice");
@@ -456,6 +466,8 @@ export const recordManualPurchase = async (
                     throw new Error("Minimum stock must be a valid non-negative number");
                 }
 
+                const parsedExpiry = parseDealerExpiryDate(expiryDate);
+
                 const itemTotal = qty * cost;
                 grossTotalAmount += itemTotal;
 
@@ -468,6 +480,7 @@ export const recordManualPurchase = async (
                         sellingPrice: new Prisma.Decimal(sell),
                         manualCompanyId: id,
                         supplierCompanyId: null,
+                        expiryDateKey: parsedExpiry.expiryDateKey,
                     },
                 });
 
@@ -483,6 +496,8 @@ export const recordManualPurchase = async (
                             ...(minStockValue !== undefined
                                 ? { minStock: new Prisma.Decimal(minStockValue) }
                                 : {}),
+                            expiryDate: parsedExpiry.expiryDate,
+                            expiryDateKey: parsedExpiry.expiryDateKey,
                         },
                     });
                 } else {
@@ -498,6 +513,8 @@ export const recordManualPurchase = async (
                             minStock: minStockValue !== undefined ? new Prisma.Decimal(minStockValue) : null,
                             dealerId: dealer.id,
                             manualCompanyId: id,
+                            expiryDate: parsedExpiry.expiryDate,
+                            expiryDateKey: parsedExpiry.expiryDateKey,
                         },
                     });
                 }
@@ -514,6 +531,7 @@ export const recordManualPurchase = async (
                         reference: reference || null,
                         productId: dealerProduct.id,
                         unit: unit || null,
+                        expiryDate: parsedExpiry.expiryDate,
                     },
                 });
 
@@ -525,6 +543,7 @@ export const recordManualPurchase = async (
                     costPrice: new Prisma.Decimal(cost),
                     sellingPrice: new Prisma.Decimal(sell),
                     totalAmount: new Prisma.Decimal(itemTotal),
+                    expiryDate: parsedExpiry.expiryDate,
                     dealerProductId: dealerProduct.id,
                 });
             }
@@ -592,7 +611,8 @@ export const recordManualPurchase = async (
         if (
             msg.startsWith("Trade discount") ||
             msg.includes("Trade discount") ||
-            msg === "Trade discount must be a valid non-negative number"
+            msg === "Trade discount must be a valid non-negative number" ||
+            msg === "Expiry date must be a valid date"
         ) {
             return res.status(400).json({ message: msg });
         }
@@ -754,6 +774,7 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
                         reference: `VOID_PURCHASE:${purchaseId}`,
                         productId: item.dealerProductId,
                         unit: item.unit || null,
+                        expiryDate: item.expiryDate,
                     },
                 });
             }

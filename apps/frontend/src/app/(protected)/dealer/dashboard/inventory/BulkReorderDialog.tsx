@@ -37,6 +37,7 @@ import { toast } from "sonner";
 interface SelectedItem {
   product: DealerProduct;
   quantity: string;
+  expiryDate: string;
 }
 
 interface BulkReorderDialogProps {
@@ -109,13 +110,26 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
     if (selectedIds.has(product.id)) {
       setSelectedItems((prev) => prev.filter((si) => si.product.id !== product.id));
     } else {
-      setSelectedItems((prev) => [...prev, { product, quantity: "" }]);
+      setSelectedItems((prev) => [
+        ...prev,
+        {
+          product,
+          quantity: "",
+          expiryDate: product.expiryDateKey === "NO_EXPIRY" ? "" : product.expiryDateKey || "",
+        },
+      ]);
     }
   };
 
   const updateQuantity = (productId: string, value: string) => {
     setSelectedItems((prev) =>
       prev.map((si) => (si.product.id === productId ? { ...si, quantity: value } : si))
+    );
+  };
+
+  const updateExpiryDate = (productId: string, value: string) => {
+    setSelectedItems((prev) =>
+      prev.map((si) => (si.product.id === productId ? { ...si, expiryDate: value } : si))
     );
   };
 
@@ -154,14 +168,15 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
         companyId,
         date: new Date((dateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
         tradeDiscountAmount: discountNum || 0,
-        items: selectedItems.map((si) => ({
-          productName: si.product.name,
-          type: si.product.type,
-          unit: si.product.unit,
-          quantity: Number(si.quantity),
-          costPrice: Number(si.product.costPrice),
-          sellingPrice: Number(si.product.sellingPrice),
-        })),
+          items: selectedItems.map((si) => ({
+            productName: si.product.name,
+            type: si.product.type,
+            unit: si.product.unit,
+            quantity: Number(si.quantity),
+            costPrice: Number(si.product.costPrice),
+            sellingPrice: Number(si.product.sellingPrice),
+            expiryDate: si.expiryDate || null,
+          })),
       });
       toast.success("Purchase recorded successfully");
       handleClose();
@@ -353,6 +368,15 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Expiry</Label>
+                      <Input
+                        type="date"
+                        value={si.expiryDate}
+                        onChange={(e) => updateExpiryDate(si.product.id, e.target.value)}
+                        className="w-36 h-8 text-sm"
+                      />
+                    </div>
                     <Label className="text-xs text-muted-foreground sr-only">Qty</Label>
                     <Input
                       type="number"

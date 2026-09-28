@@ -85,6 +85,7 @@ export default function DealerCompanyPage() {
         costPrice: 0,
         sellingPrice: 0,
         minStock: null,
+        expiryDate: null,
     });
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([createEmptyPurchaseItem()]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
@@ -774,6 +775,21 @@ export default function DealerCompanyPage() {
                                             className="mt-1"
                                             min="0"
                                             step="0.01"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Expiry Date (optional)</label>
+                                        <Input
+                                            type="date"
+                                            value={item.expiryDate || ""}
+                                            onChange={(e) =>
+                                                updatePurchaseItem(
+                                                    index,
+                                                    "expiryDate",
+                                                    e.target.value || null
+                                                )
+                                            }
+                                            className="mt-1"
                                         />
                                     </div>
                                     <div>

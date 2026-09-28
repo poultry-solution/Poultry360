@@ -34,6 +34,32 @@ import { useAuthStore } from "@/common/store/store";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
+type ExpiryState = "none" | "expired" | "soon" | "valid";
+
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function expiryState(expiryDateKey?: string | null): ExpiryState {
+  if (!expiryDateKey || expiryDateKey === "NO_EXPIRY") return "none";
+  const today = new Date();
+  const soonEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15);
+  const todayKey = localDateKey(today);
+  const soonEndKey = localDateKey(soonEnd);
+  if (expiryDateKey < todayKey) return "expired";
+  if (expiryDateKey <= soonEndKey) return "soon";
+  return "valid";
+}
+
+function expiryLabel(row: any): string {
+  const state = expiryState(row.expiryDateKey);
+  if (state === "none") return "No expiry";
+  return row.expiryDateKey;
+}
+
 // Inline editable price cell component
 function EditablePriceCell({ value, productId }: { value: number; productId: string }) {
   const { t } = useI18n();
@@ -124,6 +150,7 @@ export default function DealerInventoryPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  const [expiryFilter, setExpiryFilter] = useState<"" | "EXPIRED">("");
   const [showHidden, setShowHidden] = useState(false);
   const [reorderOpen, setReorderOpen] = useState(false);
   const hideMutation = useHideDealerProduct();
@@ -137,6 +164,7 @@ export default function DealerInventoryPage() {
     search,
     type: typeFilter || undefined,
     includeHidden: showHidden,
+    expiryStatus: expiryFilter || undefined,
   });
 
   const summary = summaryData?.data;
@@ -153,6 +181,7 @@ export default function DealerInventoryPage() {
       { label: "Type", value: (row: any) => row.type || "" },
       { label: "Company", value: (row: any) => row.manualCompany?.name || row.supplierCompany?.name || "" },
       { label: "Stock", value: (row: any) => `${Number(row.currentStock || 0).toFixed(2)} ${row.unit || ""}` },
+      { label: "Expiry date", value: (row: any) => expiryLabel(row) },
       { label: "Min stock", value: (row: any) => Number(row.minStock || 0).toFixed(2) },
       { label: "Selling price", value: (row: any) => Number(row.sellingPrice || 0).toFixed(2) },
     ];
@@ -281,6 +310,18 @@ export default function DealerInventoryPage() {
                 <SelectItem value="OTHER">{t("dealer.inventory.filters.other")}</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={expiryFilter}
+              onValueChange={(value) => { setExpiryFilter(value === "ALL" ? "" : value as "EXPIRED"); setPage(1); }}
+            >
+              <SelectTrigger className="w-full sm:w-[160px] bg-white">
+                <SelectValue placeholder="All expiry dates" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="ALL">All expiry dates</SelectItem>
+                <SelectItem value="EXPIRED">Expired items</SelectItem>
+              </SelectContent>
+            </Select>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <Input
                 type="checkbox"
@@ -302,6 +343,12 @@ export default function DealerInventoryPage() {
             data={products}
             loading={isLoading}
             emptyMessage={t("dealer.inventory.table.empty")}
+            rowClassName={(row: any) => {
+              const state = expiryState(row.expiryDateKey);
+              if (state === "expired") return "bg-red-50 hover:bg-red-100 text-red-950";
+              if (state === "soon") return "bg-amber-50 hover:bg-amber-100";
+              return "";
+            }}
             columns={[
               {
                 key: 'name',
@@ -393,6 +440,22 @@ export default function DealerInventoryPage() {
                     <span className="text-[10px] text-muted-foreground ml-1">{row.unit}</span>
                   </div>
                 )
+              },
+              {
+                key: "expiryDateKey",
+                label: "Expiry date",
+                width: "130px",
+                render: (_val, row: any) => {
+                  const state = expiryState(row.expiryDateKey);
+                  if (state === "none") return <span className="text-muted-foreground">No expiry</span>;
+                  if (state === "expired") {
+                    return <span className="font-semibold text-red-700">{row.expiryDateKey} · Expired</span>;
+                  }
+                  if (state === "soon") {
+                    return <span className="font-semibold text-amber-800">{row.expiryDateKey} · Soon</span>;
+                  }
+                  return <span>{row.expiryDateKey}</span>;
+                },
               },
               {
                 key: 'minStock',

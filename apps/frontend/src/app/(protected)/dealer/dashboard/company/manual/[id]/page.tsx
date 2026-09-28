@@ -485,6 +485,9 @@ export default function ManualCompanyAccountPage() {
                                                                     </div>
                                                                     <div className="text-right text-xs">
                                                                         <span>{Number(item.quantity).toFixed(2)} {item.unit}</span>
+                                                                        {item.expiryDate && (
+                                                                            <span className="ml-2">Expiry: {String(item.expiryDate).slice(0, 10)}</span>
+                                                                        )}
                                                                         <span className="mx-1">×</span>
                                                                         <span>रू {Number(item.costPrice).toFixed(2)}</span>
                                                                         <span className="font-medium ml-2">= रू {Number(item.totalAmount).toFixed(2)}</span>

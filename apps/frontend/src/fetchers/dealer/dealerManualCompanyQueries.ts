@@ -34,6 +34,7 @@ export interface PurchaseItem {
     costPrice: number;
     sellingPrice: number;
     minStock?: number | null;
+    expiryDate?: string | null;
 }
 
 export interface RecordPurchaseInput {

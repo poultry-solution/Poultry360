@@ -1659,6 +1659,9 @@ model DealerProduct {
   hiddenAt     DateTime?
   minStock     Decimal?          @db.Decimal(10, 2)
   sku          String?
+  // Date-only expiry for this stock batch. NO_EXPIRY keeps nullable batches unique.
+  expiryDate    DateTime?
+  expiryDateKey String            @default("NO_EXPIRY")
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
@@ -1681,8 +1684,9 @@ model DealerProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([dealerId, name, costPrice, sellingPrice, manualCompanyId, supplierCompanyId])
+  @@unique([dealerId, name, costPrice, sellingPrice, manualCompanyId, supplierCompanyId, expiryDateKey], map: "DealerProduct_identity_with_expiry_key")
   @@index([dealerId])
+  @@index([dealerId, expiryDateKey])
   @@index([manualCompanyId])
   @@index([supplierCompanyId])
   @@index([companyProductId])
@@ -1698,6 +1702,7 @@ model DealerProductTransaction {
   description String?
   reference   String?
   unit        String?
+  expiryDate  DateTime?
 
   productId String
   product   DealerProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -2323,6 +2328,7 @@ model DealerManualPurchaseItem {
   costPrice    Decimal           @db.Decimal(10, 2)
   sellingPrice Decimal           @db.Decimal(10, 2)
   totalAmount  Decimal           @db.Decimal(10, 2)
+  expiryDate   DateTime?
 
   purchaseId String
   purchase   DealerManualPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
