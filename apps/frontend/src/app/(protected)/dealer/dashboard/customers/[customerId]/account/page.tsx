@@ -126,12 +126,20 @@ export default function CustomerAccountPage() {
       }),
     ]);
     const salesRows = allSales.map((sale: any) => ({ date: sale.date, type: "Sale", reference: sale.invoiceNumber || sale.id?.slice(0, 8), amount: Number(sale.totalAmount || 0), note: sale.notes || "" }));
-    const paymentRows = allPayments.map((payment: any) => ({ date: payment.date, type: payment.type === "PAYMENT_MADE" ? "Payment made" : "Payment received", reference: payment.reference || "", amount: Number(payment.amount || 0), note: payment.description || "" }));
+    const paymentRows = allPayments.map((payment: any) => ({
+      date: payment.date,
+      type: payment.type === "PAYMENT_MADE" ? "Payment made" : "Payment received",
+      direction: payment.direction || (payment.type === "PAYMENT_MADE" ? "MADE" : "RECEIVED"),
+      reference: payment.reference || "",
+      amount: Number(payment.amount || 0),
+      note: payment.description || "",
+    }));
     const rawOpeningAmount = Number(openingBalance?.amount || 0);
     const openingAmount = Number.isFinite(rawOpeningAmount) ? rawOpeningAmount : 0;
     const columns = [
         { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
         { label: "Type", value: (row: any) => row.type },
+        { label: "Direction", value: (row: any) => row.direction || "" },
         { label: "Reference", value: (row: any) => row.reference },
         { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
         { label: "Note", value: (row: any) => row.note },
@@ -545,7 +553,11 @@ export default function CustomerAccountPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-medium">{payment.type === "PAYMENT_MADE" ? "Payout" : "Payment"}</p>
+                            <p className="font-medium">
+                              {payment.type === "PAYMENT_MADE"
+                                ? payment.affectsCustomerBalance === true ? "Advance" : "Payout"
+                                : "Payment"}
+                            </p>
                             {payment.reference && (
                               <Badge variant="outline" className="text-xs">
                                 {payment.reference}
@@ -571,12 +583,7 @@ export default function CustomerAccountPage() {
                         <p className={`text-lg font-bold ${payment.type === "PAYMENT_MADE" ? "text-amber-600" : "text-green-600"}`}>
                           {payment.type === "PAYMENT_MADE" ? "+" : "-"}{formatCurrency(Number(payment.amount))}
                         </p>
-                        {(payment.balance !== undefined || payment.balanceAfter !== undefined) && (
-                          <p className="text-xs text-muted-foreground">
-                            Balance: {formatCurrency(Number(payment.balanceAfter ?? payment.balance))}
-                          </p>
-                        )}
-                        {payment.type === "PAYMENT_RECEIVED" &&
+                        {(payment.type === "PAYMENT_RECEIVED" || payment.affectsCustomerBalance === true) &&
                           !payment.saleId && (
                             <Button
                               type="button"

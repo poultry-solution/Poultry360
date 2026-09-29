@@ -160,7 +160,11 @@
     "languageUpdated": "भाषा सफलतापूर्वक अपडेट भयो",
     "languageUpdateFailed": "भाषा अपडेट गर्न असफल भयो",
     "calendarUpdated": "क्यालेन्डर प्राथमिकता सफलतापूर्वक अपडेट भयो",
-    "calendarUpdateFailed": "क्यालेन्डर प्राथमिकता अपडेट गर्न असफल भयो"
+    "calendarUpdateFailed": "क्यालेन्डर प्राथमिकता अपडेट गर्न असफल भयो",
+    "paymentDirection": "उल्टो भुक्तानी विकल्प देखाउनुहोस्",
+    "paymentDirectionDescription": "कम्पनीबाट रकम लिने वा ग्राहकलाई रकम दिने विकल्प देखाउनुहोस्।",
+    "paymentDirectionUpdated": "भुक्तानी विकल्प अपडेट भयो",
+    "paymentDirectionUpdateFailed": "भुक्तानी विकल्प अपडेट गर्न असफल भयो"
   },
   "auth": {
     "login": {
@@ -2598,11 +2602,17 @@
       "titleRecord": "भुक्तानी रेकर्ड गर्नुहोस्",
       "descriptionAdd": "म्यानुअल ग्राहकहरूको लागि मात्र भुक्तानी रेकर्ड गर्नुहोस्। जोडिएका किसानहरूको लागि, कृपया भुक्तानी अनुरोध (Payment Requests) प्रयोग गर्नुहोस्।",
       "descriptionRecord": "{name} बाट प्राप्त भुक्तानी रेकर्ड गर्नुहोस्",
+      "descriptionMade": "{name} लाई गरिएको भुक्तानी रेकर्ड गर्नुहोस्",
       "customer": "ग्राहक *",
       "selectCustomer": "ग्राहक छान्नुहोस्",
       "searchCustomer": "ग्राहक खोज्नुहोस्...",
       "noCustomerFound": "कुनै ग्राहक फेला परेन।",
       "balance": "बाँकी रकम",
+      "direction": "दिशा",
+      "directions": {
+        "received": "ग्राहकले डिलरलाई तिर्छ",
+        "made": "डिलरले ग्राहकलाई अग्रिम दिन्छ"
+      },
       "amount": "रकम *",
       "amountPlaceholder": "0.00",
       "method": "विधि *",

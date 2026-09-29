@@ -36,6 +36,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateInput } from "@/common/components/ui/date-input";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
+import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/common/lib/utils";
@@ -77,6 +78,7 @@ export function DealerAddPaymentDialog({
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
+  const [direction, setDirection] = useState<"RECEIVED" | "MADE">("RECEIVED");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [date, setDate] = useState(new Date().toISOString());
   const [notes, setNotes] = useState("");
@@ -84,6 +86,11 @@ export function DealerAddPaymentDialog({
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
 
   const addDealerPayment = useAddDealerPayment();
+  const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
+  // Fail safe: keep the normal received-payment flow if the setting is not loaded.
+  const paymentDirectionEnabled =
+    dealerSettingsData?.data?.paymentDirectionEnabled === true;
+  const effectiveDirection = paymentDirectionEnabled ? direction : "RECEIVED";
 
   const effectiveCustomerId =
     mode === "single" && customer ? customer.id : selectedCustomerId;
@@ -97,6 +104,7 @@ export function DealerAddPaymentDialog({
     setSelectedCustomerId("");
     setCustomerPopoverOpen(false);
     setAmount(0);
+    setDirection("RECEIVED");
     setPaymentMethod("CASH");
     setDate(new Date().toISOString());
     setNotes("");
@@ -123,6 +131,7 @@ export function DealerAddPaymentDialog({
       await addDealerPayment.mutateAsync({
         customerId: effectiveCustomerId,
         amount,
+        direction: effectiveDirection,
         paymentMethod,
         date,
         notes: notes || undefined,
@@ -140,7 +149,9 @@ export function DealerAddPaymentDialog({
   const title = mode === "single" ? t("dealer.addPaymentDialog.titleRecord") : t("dealer.addPaymentDialog.titleAdd");
   const description =
     mode === "single" && customer
-      ? t("dealer.addPaymentDialog.descriptionRecord", { name: customer.name })
+      ? effectiveDirection === "MADE"
+        ? t("dealer.addPaymentDialog.descriptionMade", { name: customer.name })
+        : t("dealer.addPaymentDialog.descriptionRecord", { name: customer.name })
       : t("dealer.addPaymentDialog.descriptionAdd");
 
   const selectedCustomerLabel = useMemo(() => {
@@ -243,6 +254,23 @@ export function DealerAddPaymentDialog({
             )}
 
             <div className="grid grid-cols-2 gap-4">
+              {paymentDirectionEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="payment-direction">{t("dealer.addPaymentDialog.direction")}</Label>
+                  <Select
+                    value={direction}
+                    onValueChange={(value) => setDirection(value as "RECEIVED" | "MADE")}
+                  >
+                    <SelectTrigger id="payment-direction" className="bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="RECEIVED">{t("dealer.addPaymentDialog.directions.received")}</SelectItem>
+                      <SelectItem value="MADE">{t("dealer.addPaymentDialog.directions.made")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="payment-amount">{t("dealer.addPaymentDialog.amount")}</Label>
                 <Input

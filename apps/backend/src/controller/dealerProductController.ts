@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma, StaffPermission } from "@prisma/client";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { todayDealerDateKey } from "../utils/dealerExpiryDate";
 
 // ==================== CREATE DEALER PRODUCT ====================
 export const createDealerProduct = async (
@@ -102,7 +103,7 @@ export const getDealerProducts = async (
 ): Promise<any> => {
   try {
     const dealerId = req.userId;
-    const { page = 1, limit = 10, search, type, lowStock, includeHidden } = req.query;
+    const { page = 1, limit = 10, search, type, lowStock, includeHidden, expiryStatus } = req.query;
     const includeHiddenBool =
       typeof includeHidden === "string"
         ? includeHidden === "true"
@@ -148,6 +149,14 @@ export const getDealerProducts = async (
       };
     }
 
+    if (expiryStatus === "EXPIRED") {
+      where.currentStock = { gt: new Prisma.Decimal(0) };
+      where.expiryDateKey = {
+        not: "NO_EXPIRY",
+        lt: todayDealerDateKey(),
+      };
+    }
+
     const [products, total] = await Promise.all([
       prisma.dealerProduct.findMany({
         where,
@@ -166,9 +175,16 @@ export const getDealerProducts = async (
       prisma.dealerProduct.count({ where }),
     ]);
 
+    const todayKey = todayDealerDateKey();
+    const data = products.map((product) => ({
+      ...product,
+      isExpired:
+        product.expiryDateKey !== "NO_EXPIRY" && product.expiryDateKey < todayKey,
+    }));
+
     return res.status(200).json({
       success: true,
-      data: products,
+      data,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -623,6 +639,7 @@ export const adjustProductStock = async (
           description: description || `Stock ${type.toLowerCase()}`,
           reference,
           productId: id,
+          expiryDate: product.expiryDate,
         },
       });
 

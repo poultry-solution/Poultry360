@@ -356,13 +356,21 @@ export const getLedgerSummary = async (
     const manualCompanyNetBalance = Number(
       manualCompanyAgg._sum.balance || 0
     );
+    const manualCompanyReceivedAgg = await prisma.dealerManualCompanyPayment.aggregate({
+      where: {
+        manualCompany: { dealerId: dealer.id },
+        voidedAt: null,
+        direction: "RECEIVED",
+      },
+      _sum: { amount: true },
+    });
 
     const netCompanyBalance =
       companyAccountNetBalance + manualCompanyNetBalance;
 
     const totalPaymentsReceived = customers.reduce((sum, customer) => {
       return sum + Number(customer.totalPayments || 0);
-    }, 0);
+    }, 0) + Number(manualCompanyReceivedAgg._sum.amount || 0);
     const totalPurchases = Number(manualCompanyAgg._sum.totalPurchases || 0);
     const customerPayouts = await prisma.dealerLedgerEntry.aggregate({
       where: { dealerId: dealer.id, type: "PAYMENT_MADE" },
@@ -536,10 +544,12 @@ export const addDealerPayment = async (
   try {
     const userId = req.userId;
     const { saleId, customerId, amount, paymentMethod, date, notes, receiptImageUrl, reference } = req.body;
-    const direction = req.body.direction || "RECEIVED";
+    const rawDirection = req.body.direction;
+    const direction = rawDirection === undefined || rawDirection === null ? "RECEIVED" : rawDirection;
 
     // Validation
-    if (!amount || amount <= 0) {
+    const numericAmount = Number(amount);
+    if ((typeof amount !== "number" && typeof amount !== "string") || !String(amount).trim() || !Number.isFinite(numericAmount) || numericAmount <= 0) {
       return res.status(400).json({ message: "Valid amount is required" });
     }
     if (direction !== "RECEIVED" && direction !== "MADE") {
@@ -601,23 +611,29 @@ export const addDealerPayment = async (
     const result = await DealerService.addAccountPayment({
       customerId: resolvedCustomerId,
       dealerId: dealer.id,
-      amount: Number(amount),
+      amount: numericAmount,
       paymentMethod: paymentMethod || "CASH",
       date: date ? new Date(date) : new Date(),
-      description: notes || (direction === "MADE" ? "Payout made" : "Payment received"),
+      description: notes || (direction === "MADE" ? "Advance paid" : "Payment received"),
       receiptUrl: receiptImageUrl,
       reference,
       direction,
+      affectsCustomerBalance: true,
     });
 
     await writeBusinessAudit(req, {
       action: direction === "MADE" ? "dealer.payment.made" : "dealer.payment.received",
       targetType: "Customer",
       targetId: resolvedCustomerId,
-      description: direction === "MADE" ? "Recorded a payment to a customer" : "Recorded a customer payment",
+      description: direction === "MADE" ? "Recorded a customer advance" : "Recorded a customer payment",
       businessType: "DEALER",
       businessId: dealer.id,
-      metadata: { amount: Number(amount), paymentMethod: paymentMethod || "CASH", customerId: resolvedCustomerId },
+      metadata: {
+        amount: numericAmount,
+        direction,
+        paymentMethod: paymentMethod || "CASH",
+        customerId: resolvedCustomerId,
+      },
     });
 
     return res.status(200).json({
@@ -682,7 +698,7 @@ export const deleteDealerManualGeneralPayment = async (
       return res.status(404).json({ message: "Ledger entry not found" });
     }
 
-    if (entry.type !== "PAYMENT_RECEIVED") {
+    if (entry.type !== "PAYMENT_RECEIVED" && entry.type !== "PAYMENT_MADE") {
       return res.status(400).json({
         message: "Only payment entries can be deleted",
       });
@@ -713,6 +729,12 @@ export const deleteDealerManualGeneralPayment = async (
     if (customer.farmerId != null) {
       return res.status(400).json({
         message: "Delete payment is only available for manual customers",
+      });
+    }
+
+    if (entry.type === "PAYMENT_MADE" && entry.affectsCustomerBalance !== true) {
+      return res.status(400).json({
+        message: "Settlement payouts cannot be deleted here",
       });
     }
 
@@ -756,12 +778,19 @@ export const deleteDealerManualGeneralPayment = async (
         where: { sourceDealerLedgerEntryId: ledgerEntryId },
       });
 
-      // Revert customer balance and totalPayments
+      const isReceived = entry.type === "PAYMENT_RECEIVED";
+
+      // Revert the customer account effect. Received payments reduce the
+      // balance; normal manual MADE payments increase it.
       await tx.customer.update({
         where: { id: customer.id },
         data: {
-          balance: { increment: new Prisma.Decimal(paymentAmount) },
-          totalPayments: { decrement: new Prisma.Decimal(paymentAmount) },
+          balance: isReceived
+            ? { increment: new Prisma.Decimal(paymentAmount) }
+            : { decrement: new Prisma.Decimal(paymentAmount) },
+          ...(isReceived
+            ? { totalPayments: { decrement: new Prisma.Decimal(paymentAmount) } }
+            : {}),
         },
       });
 
@@ -785,10 +814,14 @@ export const deleteDealerManualGeneralPayment = async (
           ],
         },
         data: {
-          balance: { increment: new Prisma.Decimal(paymentAmount) },
+          balance: {
+            increment: new Prisma.Decimal(
+              entry.type === "PAYMENT_RECEIVED" ? paymentAmount : -paymentAmount
+            ),
+          },
         },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return res.status(200).json({
       success: true,
@@ -811,6 +844,7 @@ function convertToCSV(entries: any[]): string {
     "Description",
     "Reference",
     "Amount",
+    "Direction",
     "Balance",
     "Party ID",
     "Party Type",
@@ -822,6 +856,7 @@ function convertToCSV(entries: any[]): string {
     entry.description || "",
     entry.reference || "",
     entry.amount,
+    entry.direction || "",
     entry.balance,
     entry.partyId || "",
     entry.partyType || "",

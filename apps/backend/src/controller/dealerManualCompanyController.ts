@@ -2,6 +2,28 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { parseDealerExpiryDate } from "../utils/dealerExpiryDate";
+
+type ManualCompanyPaymentDirection = "RECEIVED" | "MADE";
+
+const getManualCompanyPaymentDirection = (value: unknown): ManualCompanyPaymentDirection =>
+    value === "RECEIVED" ? "RECEIVED" : "MADE";
+
+const parsePositivePaymentAmount = (value: unknown): Prisma.Decimal | null => {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+
+    const raw = String(value).trim();
+    if (!raw) return null;
+
+    const numericValue = Number(raw);
+    if (!Number.isFinite(numericValue) || numericValue <= 0) return null;
+
+    try {
+        return new Prisma.Decimal(raw);
+    } catch {
+        return null;
+    }
+};
 
 // ==================== CREATE MANUAL COMPANY ====================
 export const createManualCompany = async (
@@ -438,7 +460,16 @@ export const recordManualPurchase = async (
             const purchaseItems: any[] = [];
 
             for (const item of items) {
-                const { productName, type, unit, quantity, costPrice, sellingPrice, minStock } = item;
+                const {
+                    productName,
+                    type,
+                    unit,
+                    quantity,
+                    costPrice,
+                    sellingPrice,
+                    minStock,
+                    expiryDate,
+                } = item;
 
                 if (!productName || !type || !unit || !quantity || costPrice === undefined || costPrice === null || sellingPrice === undefined || sellingPrice === null) {
                     throw new Error("Each item must have productName, type, unit, quantity, costPrice, and sellingPrice");
@@ -456,6 +487,8 @@ export const recordManualPurchase = async (
                     throw new Error("Minimum stock must be a valid non-negative number");
                 }
 
+                const parsedExpiry = parseDealerExpiryDate(expiryDate);
+
                 const itemTotal = qty * cost;
                 grossTotalAmount += itemTotal;
 
@@ -468,6 +501,7 @@ export const recordManualPurchase = async (
                         sellingPrice: new Prisma.Decimal(sell),
                         manualCompanyId: id,
                         supplierCompanyId: null,
+                        expiryDateKey: parsedExpiry.expiryDateKey,
                     },
                 });
 
@@ -483,6 +517,8 @@ export const recordManualPurchase = async (
                             ...(minStockValue !== undefined
                                 ? { minStock: new Prisma.Decimal(minStockValue) }
                                 : {}),
+                            expiryDate: parsedExpiry.expiryDate,
+                            expiryDateKey: parsedExpiry.expiryDateKey,
                         },
                     });
                 } else {
@@ -498,6 +534,8 @@ export const recordManualPurchase = async (
                             minStock: minStockValue !== undefined ? new Prisma.Decimal(minStockValue) : null,
                             dealerId: dealer.id,
                             manualCompanyId: id,
+                            expiryDate: parsedExpiry.expiryDate,
+                            expiryDateKey: parsedExpiry.expiryDateKey,
                         },
                     });
                 }
@@ -514,6 +552,7 @@ export const recordManualPurchase = async (
                         reference: reference || null,
                         productId: dealerProduct.id,
                         unit: unit || null,
+                        expiryDate: parsedExpiry.expiryDate,
                     },
                 });
 
@@ -525,6 +564,7 @@ export const recordManualPurchase = async (
                     costPrice: new Prisma.Decimal(cost),
                     sellingPrice: new Prisma.Decimal(sell),
                     totalAmount: new Prisma.Decimal(itemTotal),
+                    expiryDate: parsedExpiry.expiryDate,
                     dealerProductId: dealerProduct.id,
                 });
             }
@@ -592,7 +632,8 @@ export const recordManualPurchase = async (
         if (
             msg.startsWith("Trade discount") ||
             msg.includes("Trade discount") ||
-            msg === "Trade discount must be a valid non-negative number"
+            msg === "Trade discount must be a valid non-negative number" ||
+            msg === "Expiry date must be a valid date"
         ) {
             return res.status(400).json({ message: msg });
         }
@@ -612,8 +653,16 @@ export const recordManualCompanyPayment = async (
         const userId = req.userId;
         const { id } = req.params;
         const { amount, paymentMethod, paymentDate, notes, reference, receiptUrl } = req.body;
+        const rawDirection = req.body.direction;
 
-        if (!amount || Number(amount) <= 0) {
+        if (rawDirection !== undefined && rawDirection !== null && rawDirection !== "RECEIVED" && rawDirection !== "MADE") {
+            return res.status(400).json({ message: "Payment direction must be RECEIVED or MADE" });
+        }
+
+        const direction = getManualCompanyPaymentDirection(rawDirection);
+        const paymentAmount = parsePositivePaymentAmount(amount);
+
+        if (!paymentAmount) {
             return res.status(400).json({ message: "Valid amount is required" });
         }
 
@@ -635,34 +684,47 @@ export const recordManualCompanyPayment = async (
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            const paymentAmount = Number(amount);
-            const newBalance = Number(company.balance) - paymentAmount;
+            const currentCompany = await tx.dealerManualCompany.findUnique({
+                where: { id },
+                select: { balance: true },
+            });
+            if (!currentCompany) {
+                throw new Error("Manual company not found");
+            }
+
+            const isMade = direction === "MADE";
+            const newBalance = isMade
+                ? new Prisma.Decimal(currentCompany.balance).minus(paymentAmount)
+                : new Prisma.Decimal(currentCompany.balance).plus(paymentAmount);
 
             // Update company balance
             await tx.dealerManualCompany.update({
                 where: { id },
                 data: {
-                    balance: { decrement: new Prisma.Decimal(paymentAmount) },
-                    totalPayments: { increment: new Prisma.Decimal(paymentAmount) },
+                    balance: isMade
+                        ? { decrement: paymentAmount }
+                        : { increment: paymentAmount },
+                    ...(isMade ? { totalPayments: { increment: paymentAmount } } : {}),
                 },
             });
 
             // Create payment record
             const payment = await tx.dealerManualCompanyPayment.create({
                 data: {
-                    amount: new Prisma.Decimal(paymentAmount),
+                    amount: paymentAmount,
+                    direction,
                     paymentMethod: paymentMethod || "CASH",
                     paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
                     notes: notes || null,
                     reference: reference || null,
                     receiptUrl: receiptUrl || null,
-                    balanceAfter: new Prisma.Decimal(newBalance),
+                    balanceAfter: newBalance,
                     manualCompanyId: id,
                 },
             });
 
             return payment;
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         await writeBusinessAudit(req, {
             action: "dealer.supplier_payment.recorded",
@@ -671,7 +733,12 @@ export const recordManualCompanyPayment = async (
             description: "Recorded a supplier payment",
             businessType: "DEALER",
             businessId: dealer.id,
-            metadata: { amount: Number(result.amount), paymentMethod: result.paymentMethod, supplierId: id },
+            metadata: {
+                amount: Number(result.amount),
+                direction: result.direction || direction,
+                paymentMethod: result.paymentMethod,
+                supplierId: id,
+            },
         });
         return res.status(201).json({
             success: true,
@@ -754,6 +821,7 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
                         reference: `VOID_PURCHASE:${purchaseId}`,
                         productId: item.dealerProductId,
                         unit: item.unit || null,
+                        expiryDate: item.expiryDate,
                     },
                 });
             }
@@ -823,11 +891,26 @@ export const voidManualCompanyPayment = async (req: Request, res: Response): Pro
         }
 
         const result = await prisma.$transaction(async (tx) => {
+            const currentPayment = await tx.dealerManualCompanyPayment.findUnique({
+                where: { id: paymentId },
+            });
+            if (!currentPayment || currentPayment.manualCompanyId !== companyId) {
+                throw new Error("Payment not found");
+            }
+            if (currentPayment.voidedAt) {
+                throw new Error("Payment already voided");
+            }
+
+            const direction = getManualCompanyPaymentDirection(currentPayment.direction);
+            const isMade = direction === "MADE";
+
             await tx.dealerManualCompany.update({
                 where: { id: companyId },
                 data: {
-                    balance: { increment: payment.amount },
-                    totalPayments: { decrement: payment.amount },
+                    balance: isMade
+                        ? { increment: currentPayment.amount }
+                        : { decrement: currentPayment.amount },
+                    ...(isMade ? { totalPayments: { decrement: currentPayment.amount } } : {}),
                 },
             });
 
@@ -838,7 +921,7 @@ export const voidManualCompanyPayment = async (req: Request, res: Response): Pro
                     voidedReason: reason ? String(reason).trim() || null : null,
                 },
             });
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         return res.status(200).json({ success: true, data: result, message: "Payment voided successfully" });
     } catch (error: any) {
@@ -950,6 +1033,7 @@ export const getManualCompanyStatement = async (
                 id: p.id,
                 date: p.paymentDate,
                 amount: Number(p.amount),
+                direction: getManualCompanyPaymentDirection(p.direction),
                 notes: p.notes,
                 reference: p.reference,
                 paymentMethod: p.paymentMethod,
@@ -994,6 +1078,7 @@ export const getManualCompanyStatement = async (
                     id: p.id,
                     date: p.paymentDate,
                     amount: Number(p.amount),
+                    direction: getManualCompanyPaymentDirection(p.direction),
                     voidedAt: p.voidedAt,
                     voidedReason: p.voidedReason,
                 })),

@@ -242,11 +242,6 @@ function DealerAnalyticsContent() {
     [manualCompanies]
   );
 
-  const totalPaymentsMade = useMemo(
-    () => manualCompanies.reduce((sum, company) => sum + Number(company.totalPayments || 0), 0),
-    [manualCompanies]
-  );
-
   const productsByTypeChart = useMemo(
     () =>
       (inventorySummary?.productsByType || [])
@@ -286,6 +281,7 @@ function DealerAnalyticsContent() {
   const lifetimeSalesTotal = Number(lifetimeSalesStats?.totalRevenue || 0);
   const totalPurchases = Number(profitSummary?.totalPurchases || 0);
   const totalPaymentsReceived = Number(lifetimeLedgerSummary?.totalPaymentsReceived || 0);
+  const totalPaymentsMade = Number(lifetimeLedgerSummary?.totalPaymentsMade || 0);
   const netCustomerBalance = Number(lifetimeLedgerSummary?.netCustomerBalance || 0);
   const netCompanyBalance = Number(lifetimeLedgerSummary?.netCompanyBalance || 0);
   const profit = Number(profitSummary?.profit || 0);

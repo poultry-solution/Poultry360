@@ -100,6 +100,7 @@ export default function ManualCompanyAccountPage() {
         const columns = [
                 { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
                 { label: "Type", value: (row: any) => String(row.type || "").replaceAll("_", " ") },
+                { label: "Direction", value: (row: any) => row.direction || "" },
                 { label: "Reference", value: (row: any) => row.reference || "" },
                 { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
                 { label: "Note", value: (row: any) => row.notes || "" },
@@ -485,6 +486,9 @@ export default function ManualCompanyAccountPage() {
                                                                     </div>
                                                                     <div className="text-right text-xs">
                                                                         <span>{Number(item.quantity).toFixed(2)} {item.unit}</span>
+                                                                        {item.expiryDate && (
+                                                                            <span className="ml-2">Expiry: {String(item.expiryDate).slice(0, 10)}</span>
+                                                                        )}
                                                                         <span className="mx-1">×</span>
                                                                         <span>रू {Number(item.costPrice).toFixed(2)}</span>
                                                                         <span className="font-medium ml-2">= रू {Number(item.totalAmount).toFixed(2)}</span>
@@ -524,7 +528,9 @@ export default function ManualCompanyAccountPage() {
                                                             <Wallet className="h-4 w-4 text-green-600" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium">Payment</p>
+                                                            <p className="font-medium">
+                                                                {txn.direction === "RECEIVED" ? "Payment received" : "Payment made"}
+                                                            </p>
                                                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                                 <Calendar className="h-3 w-3" />
                                                                 <DateDisplay date={txn.date} format="long" />
@@ -533,8 +539,8 @@ export default function ManualCompanyAccountPage() {
                                                     </div>
                                                     <div className="text-right flex items-center gap-2">
                                                         <div>
-                                                            <p className="text-lg font-bold text-green-600">
-                                                                - {formatCurrency(txn.amount)}
+                                                            <p className={`text-lg font-bold ${txn.direction === "RECEIVED" ? "text-red-600" : "text-green-600"}`}>
+                                                                {txn.direction === "RECEIVED" ? "+" : "-"} {formatCurrency(txn.amount)}
                                                             </p>
                                                         {txn.paymentMethod && (
                                                             <Badge variant="secondary" className="text-xs mt-1">
@@ -694,6 +700,11 @@ export default function ManualCompanyAccountPage() {
                                                                     <p className="font-medium">
                                                                         {v.kind === "PURCHASE" ? "Purchase" : "Payment"}
                                                                     </p>
+                                                                    {v.kind === "PAYMENT" && (
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {v.direction === "RECEIVED" ? "Received" : "Made"}
+                                                                        </Badge>
+                                                                    )}
                                                                     <Badge variant="secondary" className="text-xs">
                                                                         Voided
                                                                     </Badge>

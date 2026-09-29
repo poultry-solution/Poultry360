@@ -14,6 +14,7 @@ export interface DealerBusiness {
   userId?: string | null;
   ownerId: string;
   companyId?: string | null;
+  paymentDirectionEnabled?: boolean;
 }
 
 export interface CompanyBusiness {

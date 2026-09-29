@@ -28,6 +28,9 @@ export interface DealerProduct {
   currentStock: number;
   hiddenAt?: string | null;
   minStock?: number;
+  expiryDate?: string | null;
+  expiryDateKey?: string;
+  isExpired?: boolean;
   sku?: string;
   dealerId: string;
   manualCompanyId?: string | null;
@@ -89,6 +92,7 @@ export const useGetDealerProducts = (params?: {
   type?: string;
   lowStock?: boolean;
   includeHidden?: boolean;
+  expiryStatus?: "EXPIRED";
 }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
@@ -246,4 +250,3 @@ export const useAdjustProductStock = () => {
     },
   });
 };
-

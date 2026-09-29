@@ -161,7 +161,11 @@
     "languageUpdated": "Language updated successfully",
     "languageUpdateFailed": "Failed to update language",
     "calendarUpdated": "Calendar preference updated successfully",
-    "calendarUpdateFailed": "Failed to update calendar preference"
+    "calendarUpdateFailed": "Failed to update calendar preference",
+    "paymentDirection": "Show reverse payment option",
+    "paymentDirectionDescription": "Show the option to receive from a company or pay a customer.",
+    "paymentDirectionUpdated": "Payment options updated",
+    "paymentDirectionUpdateFailed": "Failed to update payment options"
   },
   "auth": {
     "login": {
@@ -2599,11 +2603,17 @@
       "titleRecord": "Record Payment",
       "descriptionAdd": "Record payment for manual customers only. For connected farmers, please use Payment Requests.",
       "descriptionRecord": "Record a payment received from {name}",
+      "descriptionMade": "Record a payment made to {name}",
       "customer": "Customer *",
       "selectCustomer": "Select customer",
       "searchCustomer": "Search customer...",
       "noCustomerFound": "No customer found.",
       "balance": "Balance",
+      "direction": "Direction",
+      "directions": {
+        "received": "Customer pays Dealer",
+        "made": "Dealer gives customer an advance"
+      },
       "amount": "Amount *",
       "amountPlaceholder": "0.00",
       "method": "Method *",

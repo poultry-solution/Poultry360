@@ -17,6 +17,8 @@ export const dealerLedgerKeys = {
 export interface DealerLedgerEntry {
   id: string;
   type: string;
+  direction?: "RECEIVED" | "MADE" | null;
+  affectsCustomerBalance?: boolean | null;
   amount: number;
   balance: number;
   date: Date;
@@ -219,6 +221,7 @@ export const useAddDealerPayment = () => {
       saleId?: string;      // Optional now - for bill-wise payment
       customerId?: string;  // Optional - for general payment (auto-allocate)
       amount: number;
+      direction?: "RECEIVED" | "MADE";
       paymentMethod?: string;
       date?: string;
       notes?: string;
