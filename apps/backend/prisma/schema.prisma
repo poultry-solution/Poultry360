@@ -162,6 +162,11 @@ enum LedgerEntryType {
   CONSIGNMENT_SETTLED // When fully paid
 }
 
+enum PaymentDirection {
+  RECEIVED
+  MADE
+}
+
 enum PurchaseCategory {
   FEED
   MEDICINE
@@ -1045,6 +1050,10 @@ model Dealer {
   totalPurchases Decimal @default(0) @db.Decimal(10, 2)
   totalPayments  Decimal @default(0) @db.Decimal(10, 2)
 
+  // Keeps reverse payment controls hidden for Dealers that do not need them.
+  // The payment APIs still support both directions regardless of this UI flag.
+  paymentDirectionEnabled Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1854,6 +1863,9 @@ model DealerLedgerEntry {
   description String?
   reference   String?
   imageUrl    String? // Receipt/Proof image URL
+  // Payment rows only. Null keeps old rows compatible; old PAYMENT_MADE rows
+  // are treated as history-only unless explicitly marked as an account advance.
+  affectsCustomerBalance Boolean?
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
@@ -2346,6 +2358,9 @@ model DealerManualPurchaseItem {
 model DealerManualCompanyPayment {
   id            String   @id @default(cuid())
   amount        Decimal  @db.Decimal(10, 2)
+  // Direction is from the Dealer's view. Null is kept for the first
+  // migration so older rows remain readable; application code treats null as MADE.
+  direction     PaymentDirection?
   paymentMethod String   @default("CASH")
   paymentDate   DateTime @default(now())
   notes         String?

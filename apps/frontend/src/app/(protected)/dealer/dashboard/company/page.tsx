@@ -59,6 +59,7 @@ import {
     type ManualCompany,
     type PurchaseItem,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
+import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
 
 export default function DealerCompanyPage() {
     const { t } = useI18n();
@@ -92,6 +93,7 @@ export default function DealerCompanyPage() {
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
     const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
     const [paymentAmount, setPaymentAmount] = useState("");
+    const [paymentDirection, setPaymentDirection] = useState<"RECEIVED" | "MADE">("MADE");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentNotes, setPaymentNotes] = useState("");
     const [deleteManualConfirm, setDeleteManualConfirm] = useState<ManualCompany | null>(null);
@@ -106,6 +108,11 @@ export default function DealerCompanyPage() {
     const deleteManualMutation = useDeleteManualCompany();
     const recordPurchaseMutation = useRecordManualPurchase();
     const recordPaymentMutation = useRecordManualCompanyPayment();
+    const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
+    // Fail safe: keep the normal dealer-pays-company flow if settings cannot load.
+    const paymentDirectionEnabled =
+        dealerSettingsData?.data?.paymentDirectionEnabled === true;
+    const effectivePaymentDirection = paymentDirectionEnabled ? paymentDirection : "MADE";
     const archiveManualMutation = useArchiveManualCompany();
     const unarchiveManualMutation = useUnarchiveManualCompany();
     const manualCompanies = manualCompaniesData || [];
@@ -270,6 +277,7 @@ export default function DealerCompanyPage() {
             await recordPaymentMutation.mutateAsync({
                 companyId: paymentCompany.id,
                 amount: Number(paymentAmount),
+                direction: effectivePaymentDirection,
                 paymentMethod: paymentMethod,
                 notes: paymentNotes || undefined,
                 paymentDate: new Date(
@@ -280,6 +288,7 @@ export default function DealerCompanyPage() {
             setPaymentCompany(null);
             setPaymentDateAd(getTodayLocalDate());
             setPaymentAmount("");
+            setPaymentDirection("MADE");
             setPaymentMethod("CASH");
             setPaymentNotes("");
         } catch (error: any) {
@@ -485,6 +494,7 @@ export default function DealerCompanyPage() {
                                                             setPaymentCompany(company);
                                                             setPaymentDateAd(getTodayLocalDate());
                                                             setPaymentAmount("");
+                                                            setPaymentDirection("MADE");
                                                             setPaymentNotes("");
                                                         }}
                                                     >
@@ -870,13 +880,29 @@ export default function DealerCompanyPage() {
             <Dialog open={!!paymentCompany} onOpenChange={() => setPaymentCompany(null)}>
                 <DialogContent className="bg-white">
                     <DialogHeader>
-                        <DialogTitle>Record Payment to {paymentCompany?.name}</DialogTitle>
+                        <DialogTitle>
+                            {effectivePaymentDirection === "MADE" ? "Pay" : "Receive payment from"} {paymentCompany?.name}
+                        </DialogTitle>
                         <DialogDescription>
                             Current balance: {paymentCompany ? formatCurrency(Number(paymentCompany.balance)) : ""}
                             {paymentCompany && Number(paymentCompany.balance) > 0 ? " owed" : ""}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        {paymentDirectionEnabled && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Direction</label>
+                                <Select value={paymentDirection} onValueChange={(value) => setPaymentDirection(value as "RECEIVED" | "MADE")}>
+                                    <SelectTrigger className="bg-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white">
+                                        <SelectItem value="MADE">Dealer pays company</SelectItem>
+                                        <SelectItem value="RECEIVED">Company pays Dealer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className="text-xs text-muted-foreground">Date</label>
                             <NepaliDatePicker
@@ -938,7 +964,11 @@ export default function DealerCompanyPage() {
                             onClick={handleRecordPayment}
                             disabled={recordPaymentMutation.isPending}
                         >
-                            {recordPaymentMutation.isPending ? "Recording..." : "Record Payment"}
+                            {recordPaymentMutation.isPending
+                                ? "Recording..."
+                                : effectivePaymentDirection === "MADE"
+                                    ? "Record payment made"
+                                    : "Record payment received"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

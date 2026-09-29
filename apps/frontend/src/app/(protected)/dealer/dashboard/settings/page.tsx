@@ -21,6 +21,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  useGetDealerPaymentDirectionSetting,
+  useUpdateDealerPaymentDirectionSetting,
+} from "@/fetchers/dealer/dealerSettingsQueries";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -28,6 +32,11 @@ export default function SettingsPage() {
   const [calendarType, setCalendarType] = useState<"AD" | "BS">(
     user?.calendarType || "AD"
   );
+  const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
+  const updatePaymentDirection = useUpdateDealerPaymentDirectionSetting();
+  // Fail safe: an unavailable setting stays off.
+  const paymentDirectionEnabled =
+    dealerSettingsData?.data?.paymentDirectionEnabled === true;
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
@@ -51,6 +60,15 @@ export default function SettingsPage() {
       toast.success(t("settings.calendarUpdated"));
     } catch (error) {
       toast.error(t("settings.calendarUpdateFailed"));
+    }
+  };
+
+  const handlePaymentDirectionChange = async (enabled: boolean) => {
+    try {
+      await updatePaymentDirection.mutateAsync(enabled);
+      toast.success(t("settings.paymentDirectionUpdated"));
+    } catch (error) {
+      toast.error(t("settings.paymentDirectionUpdateFailed"));
     }
   };
 
@@ -188,6 +206,39 @@ export default function SettingsPage() {
                   <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {user?.dealer && !user.isStaff && (
+            <div className="flex items-center justify-between gap-4 border-t pt-4">
+              <div>
+                <Label htmlFor="payment-direction-toggle">
+                  {t("settings.paymentDirection")}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.paymentDirectionDescription")}
+                </p>
+              </div>
+              <button
+                id="payment-direction-toggle"
+                type="button"
+                role="switch"
+                aria-checked={paymentDirectionEnabled}
+                aria-label={t("settings.paymentDirection")}
+                disabled={updatePaymentDirection.isPending}
+                onClick={() => handlePaymentDirectionChange(!paymentDirectionEnabled)}
+                className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  paymentDirectionEnabled
+                    ? "border-primary bg-primary"
+                    : "border-slate-500 bg-slate-400"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    paymentDirectionEnabled ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
             </div>
           )}
         </CardContent>

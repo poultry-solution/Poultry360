@@ -701,14 +701,18 @@ export class DealerService {
     receiptUrl?: string;
     reference?: string;
     direction?: "RECEIVED" | "MADE";
+    affectsCustomerBalance?: boolean;
   }) {
-    return await prisma.$transaction((tx) => this.recordAccountPayment(tx, data));
+    return await prisma.$transaction(
+      (tx) => this.recordAccountPayment(tx, data),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
   }
 
   /**
    * Write a manual-customer payment inside an existing transaction.
-   * Outbound payments are historical payout records: they do not create an
-   * advance or alter the customer's feed/credit balance.
+   * Manual customer MADE payments can be account advances. Special payout
+   * flows, such as Broiler settlement, can opt out of the balance change.
    */
   static async recordAccountPayment(
     tx: Prisma.TransactionClient,
@@ -722,6 +726,7 @@ export class DealerService {
       receiptUrl?: string;
       reference?: string;
       direction?: "RECEIVED" | "MADE";
+      affectsCustomerBalance?: boolean;
     }
   ) {
     const {
@@ -734,10 +739,15 @@ export class DealerService {
       receiptUrl,
       reference,
       direction = "RECEIVED",
+      affectsCustomerBalance: requestedBalanceEffect,
     } = data;
 
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new Error("Payment amount must be greater than zero");
+    }
+
+    if (direction !== "RECEIVED" && direction !== "MADE") {
+      throw new Error("Payment direction must be RECEIVED or MADE");
     }
 
     const customer = await tx.customer.findUnique({
@@ -750,29 +760,40 @@ export class DealerService {
     }
 
     const isReceived = direction === "RECEIVED";
-    const newBalance = isReceived ? Number(customer.balance) - amount : Number(customer.balance);
-    if (isReceived) {
-      await tx.customer.update({
+    const changesCustomerBalance = isReceived || requestedBalanceEffect === true;
+    let newBalance = Number(customer.balance);
+
+    if (changesCustomerBalance) {
+      const updatedCustomer = await tx.customer.update({
         where: { id: customerId },
         data: {
-          balance: new Prisma.Decimal(newBalance),
-          totalPayments: { increment: new Prisma.Decimal(amount) },
+          balance: isReceived
+            ? { decrement: new Prisma.Decimal(amount) }
+            : { increment: new Prisma.Decimal(amount) },
+          ...(isReceived ? { totalPayments: { increment: new Prisma.Decimal(amount) } } : {}),
         },
+        select: { balance: true },
       });
+      newBalance = Number(updatedCustomer.balance);
     }
 
     const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
       where: { dealerId },
       orderBy: { createdAt: "desc" },
     });
-    const currentLedgerBalance = lastLedgerEntry ? Number(lastLedgerEntry.balance) : 0;
-    const newLedgerBalance = isReceived ? currentLedgerBalance - amount : currentLedgerBalance;
+    const currentLedgerBalance = lastLedgerEntry
+      ? new Prisma.Decimal(lastLedgerEntry.balance)
+      : new Prisma.Decimal(0);
+    const ledgerBalanceEffect = new Prisma.Decimal(
+      isReceived ? -amount : changesCustomerBalance ? amount : 0
+    );
+    const newLedgerBalance = currentLedgerBalance.plus(ledgerBalanceEffect);
 
     await tx.dealerLedgerEntry.create({
       data: {
         type: isReceived ? "PAYMENT_RECEIVED" : "PAYMENT_MADE",
         amount: new Prisma.Decimal(amount),
-        balance: new Prisma.Decimal(newLedgerBalance),
+        balance: newLedgerBalance,
         date,
         description: description || (isReceived ? `Payment from ${customer.name}` : `Payment to ${customer.name}`),
         reference: reference || undefined,
@@ -780,6 +801,7 @@ export class DealerService {
         partyId: customerId,
         partyType: "CUSTOMER",
         imageUrl: receiptUrl,
+        affectsCustomerBalance: changesCustomerBalance,
       },
     });
 
@@ -983,8 +1005,18 @@ export class DealerService {
       prisma.dealerLedgerEntry.count({ where }),
     ]);
 
+    const normalizedEntries = entries.map((entry) => ({
+      ...entry,
+      direction:
+        entry.type === "PAYMENT_RECEIVED"
+          ? "RECEIVED"
+          : entry.type === "PAYMENT_MADE"
+            ? "MADE"
+            : null,
+    }));
+
     return {
-      entries,
+      entries: normalizedEntries,
       total,
       page,
       limit,
