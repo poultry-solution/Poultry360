@@ -463,6 +463,12 @@ model Batch {
   status        BatchStatus @default(ACTIVE)
   batchType     BatchType   @default(BROILER)
   initialChicks Int
+  // Old batches keep this null and use the legacy 0.05 kg estimate.
+  initialChickWeightKg Decimal? @db.Decimal(6, 3)
+  // Weight snapshot for birds still present when this batch was closed.
+  closureBirdCount Int?
+  closureAverageWeightKg Decimal? @db.Decimal(6, 3)
+  closureWeightSampleCount Int?
   notes         String?
 
   // Removed currentChicks - will be computed from mortalities
@@ -491,12 +497,45 @@ model Batch {
   batchEggInventories BatchEggInventory[]
   reminders           Reminder[]
   batchNotes          BatchNote[]
+  fcrHistory          BatchFcrHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([farmId, batchNumber])
   @@index([farmId, startDate])
+}
+
+// Saved FCR points. One row per batch and Nepal business date.
+// These rows keep old FCR values available after the live value becomes stale.
+model BatchFcrHistory {
+  id                         String   @id @default(cuid())
+  calculationDate            DateTime
+  fcr                        Decimal  @db.Decimal(12, 6)
+  basis                      String
+  feedKg                     Decimal  @db.Decimal(14, 3)
+  initialBiomassKg           Decimal  @db.Decimal(14, 3)
+  initialChickWeightKg       Decimal  @db.Decimal(8, 3)
+  soldBirds                  Int
+  soldLiveWeightKg           Decimal  @db.Decimal(14, 3)
+  naturalDeaths              Int
+  closureDeaths              Int      @default(0)
+  remainingBirds             Int
+  remainingAverageWeightKg   Decimal? @db.Decimal(8, 3)
+  remainingWeightSampleCount Int?
+  remainingLiveWeightKg      Decimal  @db.Decimal(14, 3)
+  producedLiveWeightKg       Decimal  @db.Decimal(14, 3)
+  weightGainKg               Decimal  @db.Decimal(14, 3)
+  isFinal                    Boolean  @default(false)
+
+  batchId String
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([batchId, calculationDate])
+  @@index([batchId, calculationDate])
 }
 
 model BatchNote {
@@ -691,6 +730,7 @@ model Expense {
   categoryId      String
   category        Category         @relation(fields: [categoryId], references: [id])
   inventoryUsages InventoryUsage[]
+  feedConsumption FeedConsumption?
 
   // 🔗 NEW: Connect to supplier transactions
   entityTransactions EntityTransaction[]
@@ -790,6 +830,8 @@ model InventoryItem {
   currentStock Decimal  @default(0) @db.Decimal(10, 2)
   unit         String
   minStock     Decimal? @db.Decimal(10, 2)
+  // Feed weight for bags, sacks, and other non-kg stock units.
+  kgPerUnit    Decimal? @db.Decimal(10, 4)
 
   // 🔗 NEW: Item type based on supplier
   itemType InventoryItemType @default(OTHER)
@@ -1317,10 +1359,17 @@ model StandardVaccinationSchedule {
 }
 
 model FeedConsumption {
-  id       String   @id @default(cuid())
-  date     DateTime
-  quantity Decimal  @db.Decimal(10, 2)
-  feedType String
+  id         String   @id @default(cuid())
+  date       DateTime
+  quantity   Decimal  @db.Decimal(10, 2)
+  feedType   String
+  unit       String?
+  kgPerUnit  Decimal? @db.Decimal(10, 4)
+  quantityKg Decimal? @db.Decimal(12, 3)
+
+  // New feed rows are linked one-to-one so expense edits and deletes are exact.
+  expenseId String?  @unique
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   batchId String
   batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade)

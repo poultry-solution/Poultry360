@@ -9,6 +9,7 @@ import {
   updateBatchStatus,
   closeBatch,
   getBatchAnalytics,
+  getBatchFcrHistory,
   getBatchClosureSummary,
 } from "../controller/batchController";
 import {
@@ -49,6 +50,9 @@ batchRouter.get("/:id", getBatchById);
 
 // Get batch analytics
 batchRouter.get("/:id/analytics", getBatchAnalytics);
+
+// Get saved FCR points for table and future charts
+batchRouter.get("/:id/fcr-history", getBatchFcrHistory);
 
 // Get batch closure summary (for completed batches)
 batchRouter.get("/:id/closure-summary", getBatchClosureSummary);

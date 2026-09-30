@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
+import {
+  aggregateCurrentFcr,
+  calculateFarmerBatchFcr,
+} from "../services/farmerFcrService";
 
 // Helper: compute total outstanding to dealers (manual suppliers + account ledgers). Must match getDealerStatistics.
 export async function getMoneyToGiveForUser(userId: string): Promise<number> {
@@ -521,7 +525,7 @@ export const getDashboardPerformanceMetrics = async (
       });
     }
 
-    const [batchStats, mortalityStats, feedStats, farmPerformance] =
+    const [batchStats, farmPerformance] =
       await Promise.all([
         // Batch statistics
         prisma.batch.findMany({
@@ -534,26 +538,6 @@ export const getDashboardPerformanceMetrics = async (
               select: { name: true },
             },
           },
-        }),
-
-        // Mortality statistics
-        prisma.mortality.aggregate({
-          where: {
-            batch: {
-              farmId: { in: farmIds },
-            },
-          },
-          _sum: { count: true },
-        }),
-
-        // Feed consumption statistics
-        prisma.feedConsumption.aggregate({
-          where: {
-            batch: {
-              farmId: { in: farmIds },
-            },
-          },
-          _sum: { quantity: true },
         }),
 
         // Farm performance
@@ -578,24 +562,21 @@ export const getDashboardPerformanceMetrics = async (
     // Calculate batch performance metrics
     const batchPerformance = await Promise.all(
       batchStats.map(async (batch) => {
-        const expenses = await prisma.expense.aggregate({
-          where: { batchId: batch.id },
-          _sum: { amount: true },
-        });
-
-        const sales = await prisma.sale.aggregate({
-          where: { batchId: batch.id },
-          _sum: { amount: true },
-        });
-
-        const mortality = await prisma.mortality.aggregate({
-          where: { batchId: batch.id },
-          _sum: { count: true },
-        });
+        const [expenses, sales, fcrResult] = await Promise.all([
+          prisma.expense.aggregate({
+            where: { batchId: batch.id },
+            _sum: { amount: true },
+          }),
+          prisma.sale.aggregate({
+            where: { batchId: batch.id },
+            _sum: { amount: true },
+          }),
+          calculateFarmerBatchFcr(batch.id),
+        ]);
 
         const totalExpenses = Number(expenses._sum.amount || 0);
         const totalSales = Number(sales._sum.amount || 0);
-        const totalMortality = Number(mortality._sum.count || 0);
+        const totalMortality = fcrResult?.currentDeaths || 0;
         const profit = totalSales - totalExpenses;
         const duration = batch.endDate
           ? Math.ceil(
@@ -603,6 +584,10 @@ export const getDashboardPerformanceMetrics = async (
                 (1000 * 60 * 60 * 24)
             )
           : 0;
+
+        const includeInCurrentFcr =
+          fcrResult?.displayStatus === "FRESH" ||
+          fcrResult?.displayStatus === "FINAL";
 
         return {
           batchId: batch.id,
@@ -620,6 +605,11 @@ export const getDashboardPerformanceMetrics = async (
           duration,
           profitPerBird:
             batch.initialChicks > 0 ? profit / batch.initialChicks : 0,
+          fcr: includeInCurrentFcr ? fcrResult?.currentFcr ?? null : null,
+          fcrFeedKg: includeInCurrentFcr ? fcrResult?.feedKg || 0 : 0,
+          fcrWeightGainKg:
+            includeInCurrentFcr ? fcrResult?.weightGainKg || 0 : 0,
+          fcrDisplayStatus: fcrResult?.displayStatus || "NOT_CALCULABLE",
         };
       })
     );
@@ -629,9 +619,10 @@ export const getDashboardPerformanceMetrics = async (
       (sum, batch) => sum + batch.initialChicks,
       0
     );
-    const totalMortality = Number(mortalityStats._sum.count || 0);
-    const totalFeedConsumption = Number(feedStats._sum.quantity || 0);
-
+    const totalMortality = batchPerformance.reduce(
+      (sum, batch) => sum + batch.mortality,
+      0
+    );
     const averageBatchProfit =
       batchPerformance.length > 0
         ? batchPerformance.reduce((sum, batch) => sum + batch.profit, 0) /
@@ -683,7 +674,14 @@ export const getDashboardPerformanceMetrics = async (
         averageBatchProfit,
         averageBatchDuration,
         mortalityRate,
-        feedConversionRatio: 0, // TODO: Calculate FCR properly
+        feedConversionRatio:
+          aggregateCurrentFcr(
+            batchPerformance.map((batch) => ({
+              displayStatus: batch.fcrDisplayStatus,
+              feedKg: batch.fcrFeedKg,
+              weightGainKg: batch.fcrWeightGainKg,
+            })),
+          ) ?? 0,
         topPerformingFarms,
         batchPerformance: batchPerformance.slice(0, 10), // Top 10 batches
       },
@@ -1100,20 +1098,7 @@ export const getBatchPerformanceList = async (
     // Calculate metrics for each batch
     const batchesWithMetrics = await Promise.all(
       batches.map(async (batch) => {
-        const [
-          mortality,
-          expenses,
-          sales,
-          feedConsumption,
-          latestWeight,
-        ] = await Promise.all([
-          prisma.mortality.aggregate({
-            where: { 
-              batchId: batch.id,
-              reason: { not: 'SLAUGHTERED_FOR_SALE' } // Only natural deaths
-            },
-            _sum: { count: true },
-          }),
+        const [expenses, sales, fcrResult] = await Promise.all([
           prisma.expense.aggregate({
             where: { batchId: batch.id },
             _sum: { amount: true },
@@ -1122,15 +1107,7 @@ export const getBatchPerformanceList = async (
             where: { batchId: batch.id },
             _sum: { amount: true },
           }),
-          prisma.feedConsumption.aggregate({
-            where: { batchId: batch.id },
-            _sum: { quantity: true },
-          }),
-          prisma.birdWeight.findFirst({
-            where: { batchId: batch.id },
-            orderBy: { date: 'desc' },
-            select: { avgWeight: true },
-          }),
+          calculateFarmerBatchFcr(batch.id),
         ]);
 
         // Calculate days (age of batch)
@@ -1140,16 +1117,8 @@ export const getBatchPerformanceList = async (
         );
 
         // Calculate mortality count (only natural deaths)
-        const mortalityCount = Number(mortality._sum.count || 0);
+        const mortalityCount = fcrResult?.currentDeaths || 0;
         const mortalityRate = (mortalityCount / batch.initialChicks) * 100;
-
-        // Calculate FCR
-        const totalFeed = Number(feedConsumption._sum.quantity || 0);
-        const initialWeight = batch.initialChicks * 0.05; // 50g per day-old chick
-        const currentChicks = batch.initialChicks - mortalityCount;
-        const currentWeight = latestWeight ? Number(latestWeight.avgWeight) * currentChicks : 0;
-        const weightGain = Math.max(0, currentWeight - initialWeight);
-        const fcr = weightGain > 0 ? totalFeed / weightGain : null;
 
         // Calculate financials
         const totalExpenses = Number(expenses._sum.amount || 0);
@@ -1157,7 +1126,7 @@ export const getBatchPerformanceList = async (
         const profit = totalSales - totalExpenses;
 
         // Average weight
-        const avgWeight = latestWeight ? Number(latestWeight.avgWeight) : 0;
+        const avgWeight = fcrResult?.remainingAverageWeightKg || 0;
 
         return {
           id: batch.id,
@@ -1168,7 +1137,10 @@ export const getBatchPerformanceList = async (
           days,
           mortality: mortalityCount,
           mortalityRate: mortalityRate.toFixed(2),
-          fcr: fcr ? fcr.toFixed(2) : 'N/A',
+          fcr: fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A',
+          fcrStatus: fcrResult?.status || "NOT_AVAILABLE",
+          fcrFreshness: fcrResult?.freshnessStatus || "NOT_AVAILABLE",
+          fcrAsOfDate: fcrResult?.asOfDate || null,
           expenses: totalExpenses,
           salesAmount: totalSales,
           avgWeight: avgWeight.toFixed(2),

@@ -23,6 +23,7 @@ import {
 import {
   useGetBatchById,
   useGetBatchAnalytics,
+  useGetBatchFcrHistory,
   useDeleteBatch,
   useCloseBatch,
   useVerifyPasswordForBatchDelete,
@@ -173,9 +174,13 @@ export default function BatchDetailPage() {
     isLoading: analyticsLoading,
     error: analyticsError,
   } = useGetBatchAnalytics(safeBatchId, { enabled: !!batchId });
+  const { data: fcrHistoryResponse } = useGetBatchFcrHistory(safeBatchId, {
+    enabled: !!batchId,
+  });
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
+  const fcrHistory = fcrHistoryResponse?.data || [];
 
   const tabs: TabName[] = batch
     ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth", "Notes"]
@@ -195,6 +200,7 @@ export default function BatchDetailPage() {
   const [closeBatchForm, setCloseBatchForm] = useState({
     endDate: "",
     finalNotes: "",
+    confirmRemainingAsDead: false,
   });
   const [closeErrors, setCloseErrors] = useState<Record<string, string>>({});
 
@@ -401,8 +407,12 @@ export default function BatchDetailPage() {
     if (!weightForm.date) errs.date = "Date is required";
     if (!weightForm.avgWeight || Number(weightForm.avgWeight) <= 0)
       errs.avgWeight = "Avg weight (kg) is required";
-    if (!weightForm.sampleCount || Number(weightForm.sampleCount) <= 0)
-      errs.sampleCount = "Sample count is required";
+    const sampleCount = Number(weightForm.sampleCount);
+    if (!Number.isInteger(sampleCount) || sampleCount <= 0) {
+      errs.sampleCount = "A whole positive sample count is required";
+    } else if (sampleCount > Number(analytics?.currentChicks || 0)) {
+      errs.sampleCount = "Sample count cannot be greater than current birds";
+    }
     setWeightErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -440,6 +450,7 @@ export default function BatchDetailPage() {
     setCloseBatchForm({
       endDate: getTodayLocalDate(), // Today's date
       finalNotes: "",
+      confirmRemainingAsDead: false,
     });
     setCloseErrors({});
     setIsCloseModalOpen(true);
@@ -458,6 +469,12 @@ export default function BatchDetailPage() {
       }
     }
 
+    if (Number(analytics?.currentChicks || 0) > 0) {
+      if (!closeBatchForm.confirmRemainingAsDead) {
+        errors.confirmRemainingAsDead = "Confirm how the remaining birds should be handled";
+      }
+    }
+
     setCloseErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -473,8 +490,12 @@ export default function BatchDetailPage() {
       const result = await closeBatchMutation.mutateAsync({
         id: batchId,
         data: {
-          endDate: dateOnly ? `${dateOnly}T23:59:59.000Z` : undefined,
+          endDate: dateOnly ? `${dateOnly}T00:00:00.000Z` : undefined,
           finalNotes: closeBatchForm.finalNotes || undefined,
+          confirmRemainingAsDead:
+            Number(analytics?.currentChicks || 0) > 0
+              ? closeBatchForm.confirmRemainingAsDead
+              : false,
         },
       });
 
@@ -489,6 +510,7 @@ export default function BatchDetailPage() {
       setCloseBatchForm({
         endDate: "",
         finalNotes: "",
+        confirmRemainingAsDead: false,
       });
       setCloseErrors({});
     } catch (error: any) {
@@ -501,7 +523,10 @@ export default function BatchDetailPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     const { name, value } = e.target;
-    setCloseBatchForm((prev) => ({ ...prev, [name]: value }));
+    const nextValue = e.target instanceof HTMLInputElement && e.target.type === "checkbox"
+      ? e.target.checked
+      : value;
+    setCloseBatchForm((prev) => ({ ...prev, [name]: nextValue }));
   }
 
   // Inventory integration - using the new data structure
@@ -576,6 +601,7 @@ export default function BatchDetailPage() {
     feedBrand: "",
     feedQuantity: "",
     feedRate: "",
+    feedKgPerUnit: "",
     selectedFeedId: "",
     medicineName: "",
     medicineRate: "",
@@ -604,6 +630,8 @@ export default function BatchDetailPage() {
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
         feedRate: String(selectedFeed.rate ?? 0),
+        feedKgPerUnit:
+          selectedFeed.kgPerUnit == null ? "" : String(selectedFeed.kgPerUnit),
       }));
     }
   }
@@ -653,6 +681,7 @@ export default function BatchDetailPage() {
       feedBrand: "",
       feedQuantity: "",
       feedRate: "",
+      feedKgPerUnit: "",
       selectedFeedId: "",
       medicineName: "",
       medicineRate: "",
@@ -680,6 +709,7 @@ export default function BatchDetailPage() {
       feedBrand: "",
       feedQuantity: row.quantity?.toString() || "",
       feedRate: row.unitPrice?.toString() || "",
+      feedKgPerUnit: "",
       selectedFeedId: "",
       medicineName: "",
       medicineRate: row.unitPrice?.toString() || "",
@@ -749,6 +779,17 @@ export default function BatchDetailPage() {
         const available = selectedFeed?.quantity ?? selectedFeed?.currentStock ?? 0;
         if (selectedFeed && requestedQty > available) {
           errs.feedQuantity = `Only ${available} ${selectedFeed.unit} available`;
+        }
+        const usesKg = ["kg", "kgs", "kilogram", "kilograms"].includes(
+          String(selectedFeed?.unit || "").trim().toLowerCase()
+        );
+        if (
+          selectedFeed &&
+          !usesKg &&
+          selectedFeed.kgPerUnit == null &&
+          Number(expenseForm.feedKgPerUnit) <= 0
+        ) {
+          errs.feedKgPerUnit = `Enter kilograms in one ${selectedFeed.unit}`;
         }
       }
     } else if (expenseForm.category === "Medicine") {
@@ -822,6 +863,9 @@ export default function BatchDetailPage() {
           inventoryItems.push({
             itemId: expenseForm.selectedFeedId,
             quantity: q,
+            kgPerUnit: expenseForm.feedKgPerUnit
+              ? Number(expenseForm.feedKgPerUnit)
+              : undefined,
             notes: `Feed: ${expenseForm.feedBrand || "Feed"}`,
           });
         }
@@ -972,6 +1016,7 @@ export default function BatchDetailPage() {
   function openEditSale(row: SaleRow) {
     setEditingSaleId(row.id);
     const r = row as any;
+    const savedUnitPrice = r.unitPrice ?? r.rate;
     const eggLines = r.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
     const eggLineItems: EggLineRow[] =
       eggLines && eggLines.length > 0
@@ -981,23 +1026,27 @@ export default function BatchDetailPage() {
             unitPrice: String(l.unitPrice),
           }))
         : r.eggTypeId
-          ? [{ eggTypeId: r.eggTypeId, quantity: String(row.quantity), unitPrice: String(row.rate) }]
+          ? [{
+              eggTypeId: r.eggTypeId,
+              quantity: String(row.quantity),
+              unitPrice: savedUnitPrice == null ? "" : String(savedUnitPrice),
+            }]
           : [{ eggTypeId: "", quantity: "", unitPrice: "" }];
     setSaleForm({
       farmId: batch?.farmId ?? "",
       batchId: batchId ?? "",
-      rate: String(row.rate),
+      rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
       quantity: String(row.quantity),
       weight: String(r.weight || ""),
       itemType: r.itemType || "Chicken_Meat",
       eggTypeId: r.eggTypeId || "",
       eggLineItems,
-      remaining: row.remaining,
-      customerId: "",
+      remaining: Boolean(r.isCredit ?? r.remaining),
+      customerId: r.customerId || r.customer?.id || "",
       customerName: row.customer?.name || "",
       contact: row.customer?.phone || "",
       customerCategory: row.customer?.category || "Chicken",
-      balance: String(row.customer?.balance ?? ""),
+      balance: r.paidAmount == null ? "" : String(r.paidAmount),
       date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
     });
     setCustomerSearch("");
@@ -1024,11 +1073,17 @@ export default function BatchDetailPage() {
         errs.eggLineItems = "Add at least one egg line (type, quantity, rate)";
       }
     } else {
-      if (!saleForm.rate) errs.rate = "Rate required";
-      if (!saleForm.quantity) errs.quantity = "Quantity required";
+      if (!Number.isFinite(Number(saleForm.rate)) || Number(saleForm.rate) <= 0) {
+        errs.rate = "Enter a valid sale price";
+      }
+      if (!Number.isFinite(Number(saleForm.quantity)) || Number(saleForm.quantity) <= 0) {
+        errs.quantity = "Enter a valid quantity";
+      }
     }
     if (saleForm.itemType === "Chicken_Meat") {
-      if (!saleForm.weight) errs.weight = "Weight required for Chicken_Meat";
+      if (!Number.isFinite(Number(saleForm.weight)) || Number(saleForm.weight) <= 0) {
+        errs.weight = "Enter a valid total weight";
+      }
     }
     if (!saleForm.date) errs.date = "Date required";
 
@@ -1626,6 +1681,7 @@ export default function BatchDetailPage() {
         <OverviewTab
           batch={batch}
           analytics={analytics}
+          fcrHistory={fcrHistory}
           isBatchClosed={isBatchClosed}
           currentAge={currentAge}
           perBroilerExpenseData={perBroilerExpenseData}
@@ -1635,6 +1691,7 @@ export default function BatchDetailPage() {
           recentExpenses={(batch as any).expenses?.slice(0, 3) || []}
           recentSales={batchSales?.slice(0, 3) || []}
           recentMortalities={batchMortalities.slice(0, 3)}
+          onRecordWeight={() => setIsWeightModalOpen(true)}
         />
       )}
 
@@ -1743,6 +1800,7 @@ export default function BatchDetailPage() {
           setCloseBatchForm({
             endDate: "",
             finalNotes: "",
+            confirmRemainingAsDead: false,
           });
           setCloseErrors({});
         }}

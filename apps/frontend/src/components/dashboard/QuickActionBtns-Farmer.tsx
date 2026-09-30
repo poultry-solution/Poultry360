@@ -39,6 +39,7 @@ const initialExpenseForm = {
   feedBrand: "",
   feedQuantity: "",
   feedRate: "",
+  feedKgPerUnit: "",
   selectedFeedId: "",
   medicineName: "",
   medicineRate: "",
@@ -179,6 +180,8 @@ export function QuickActionBtnsFarmer() {
         selectedFeedId: feedId,
         feedBrand: selectedFeed.name,
         feedRate: String(selectedFeed.rate ?? 0),
+        feedKgPerUnit:
+          selectedFeed.kgPerUnit == null ? "" : String(selectedFeed.kgPerUnit),
       }));
     }
   }
@@ -242,6 +245,17 @@ export function QuickActionBtnsFarmer() {
         if (selectedFeed && requestedQty > available) {
           errs.feedQuantity = `Only ${available} ${selectedFeed.unit} available`;
         }
+        const usesKg = ["kg", "kgs", "kilogram", "kilograms"].includes(
+          String(selectedFeed?.unit || "").trim().toLowerCase()
+        );
+        if (
+          selectedFeed &&
+          !usesKg &&
+          selectedFeed.kgPerUnit == null &&
+          Number(expenseForm.feedKgPerUnit) <= 0
+        ) {
+          errs.feedKgPerUnit = `Enter kilograms in one ${selectedFeed.unit}`;
+        }
       }
     } else if (expenseForm.category === "Medicine") {
       if (!expenseForm.selectedMedicineId)
@@ -292,7 +306,12 @@ export function QuickActionBtnsFarmer() {
       let quantity = 0;
       let unitPrice = 0;
       let description = expenseForm.notes || "";
-      const inventoryItemsPayload: { itemId: string; quantity: number; notes: string }[] = [];
+      const inventoryItemsPayload: {
+        itemId: string;
+        quantity: number;
+        kgPerUnit?: number;
+        notes: string;
+      }[] = [];
       const ec = expenseForm.category;
 
       const category = expenseCategories.find((cat: { name: string }) =>
@@ -315,6 +334,9 @@ export function QuickActionBtnsFarmer() {
           inventoryItemsPayload.push({
             itemId: expenseForm.selectedFeedId,
             quantity: q,
+            kgPerUnit: expenseForm.feedKgPerUnit
+              ? Number(expenseForm.feedKgPerUnit)
+              : undefined,
             notes: `Feed: ${expenseForm.feedBrand || "Feed"}`,
           });
         }

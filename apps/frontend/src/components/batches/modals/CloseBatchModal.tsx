@@ -9,10 +9,12 @@ import { DateInput } from "@/common/components/ui/date-input";
 interface CloseBatchFormState {
   endDate: string;
   finalNotes: string;
+  confirmRemainingAsDead: boolean;
 }
 
 interface BatchAnalytics {
   currentChicks: number;
+  totalMortality: number;
   daysActive: number;
   totalSales: number;
   totalExpenses: number;
@@ -33,7 +35,9 @@ interface CloseBatchModalProps {
   
   // Handlers
   onSubmit: (e: React.FormEvent) => Promise<void>;
-  onFieldUpdate: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onFieldUpdate: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => void;
   
   // Loading
   isPending: boolean;
@@ -97,6 +101,30 @@ export function CloseBatchModal({
               />
             </div>
 
+            {Number(analytics?.currentChicks || 0) > 0 && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm text-amber-900">
+                  {analytics?.currentChicks?.toLocaleString()} birds remain. If you close this
+                  batch, they will be treated as dead and their weight will not be added to FCR.
+                </p>
+                <label className="mt-3 flex items-start gap-2 text-sm text-amber-950">
+                  <input
+                    name="confirmRemainingAsDead"
+                    type="checkbox"
+                    checked={closeBatchForm.confirmRemainingAsDead}
+                    onChange={onFieldUpdate}
+                    className="mt-0.5 h-4 w-4"
+                  />
+                  <span>I understand and want to continue.</span>
+                </label>
+                {closeErrors.confirmRemainingAsDead && (
+                  <p className="mt-2 text-xs text-red-600">
+                    {closeErrors.confirmRemainingAsDead}
+                  </p>
+                )}
+              </div>
+            )}
+
             {analytics && (
               <div className="p-3 bg-gray-50 rounded-lg">
                 <h4 className="font-medium text-sm mb-2">
@@ -109,11 +137,7 @@ export function CloseBatchModal({
                   <div>
                     Current Birds: {analytics.currentChicks?.toLocaleString()}
                   </div>
-                  <div>
-                    Total Mortality:{" "}
-                    {(batch?.initialChicks || 0) -
-                      (analytics.currentChicks || 0)}
-                  </div>
+                  <div>Total Mortality: {analytics.totalMortality || 0}</div>
                   <div>Days Active: {analytics.daysActive}</div>
                   <div>
                     Total Sales: ₹{analytics.totalSales?.toLocaleString()}
@@ -130,9 +154,8 @@ export function CloseBatchModal({
                 </div>
                 {analytics.currentChicks > 0 && (
                   <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                    <strong>Note:</strong> {analytics.currentChicks} remaining
-                    birds will be recorded as mortality (batch closure) when
-                    you close this batch.
+                    <strong>Note:</strong> The {analytics.currentChicks} remaining birds will be
+                    recorded as closure deaths after you confirm.
                   </div>
                 )}
               </div>

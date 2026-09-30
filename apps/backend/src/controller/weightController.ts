@@ -1,6 +1,46 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { UserRole, WeightSource } from "@prisma/client";
+import { BatchStatus, SalesItemType, UserRole, WeightSource } from "@prisma/client";
+import {
+  endOfNepalDay,
+  refreshFarmerFcrHistorySafely,
+  startOfNepalDay,
+} from "../services/farmerFcrService";
+
+async function getLiveBirdsAtDate(
+  batchId: string,
+  initialChicks: number,
+  batchStartDate: Date,
+  recordDate: Date
+): Promise<number> {
+  const rangeStart = startOfNepalDay(batchStartDate);
+  const rangeEnd = endOfNepalDay(recordDate);
+  const [sold, deaths] = await Promise.all([
+    prisma.sale.aggregate({
+      where: {
+        batchId,
+        itemType: SalesItemType.Chicken_Meat,
+        date: { gte: rangeStart, lte: rangeEnd },
+      },
+      _sum: { quantity: true },
+    }),
+    prisma.mortality.aggregate({
+      where: {
+        batchId,
+        date: { gte: rangeStart, lte: rangeEnd },
+        saleId: null,
+        reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] },
+      },
+      _sum: { count: true },
+    }),
+  ]);
+
+  return (
+    initialChicks -
+    Number(sold._sum.quantity || 0) -
+    Number(deaths._sum.count || 0)
+  );
+}
 
 // ==================== ADD BIRD WEIGHT ====================
 export const addBirdWeight = async (
@@ -20,7 +60,14 @@ export const addBirdWeight = async (
       });
     }
 
-    if (avgWeight <= 0 || sampleCount <= 0) {
+    const numericAverageWeight = Number(avgWeight);
+    const numericSampleCount = Number(sampleCount);
+    if (
+      !Number.isFinite(numericAverageWeight) ||
+      numericAverageWeight <= 0 ||
+      !Number.isInteger(numericSampleCount) ||
+      numericSampleCount <= 0
+    ) {
       return res.status(400).json({
         message: "avgWeight and sampleCount must be positive numbers",
       });
@@ -50,15 +97,46 @@ export const addBirdWeight = async (
       }
     }
 
+    if (batch.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({ message: "Cannot add weight to a closed batch" });
+    }
+
+    const weightDate = new Date(date);
+    if (
+      Number.isNaN(weightDate.getTime()) ||
+      startOfNepalDay(weightDate) < startOfNepalDay(batch.startDate) ||
+      startOfNepalDay(weightDate) > startOfNepalDay(new Date())
+    ) {
+      return res.status(400).json({
+        message: "Weight date must be inside the active batch period",
+      });
+    }
+    const liveBirds = await getLiveBirdsAtDate(
+      batchId,
+      batch.initialChicks,
+      batch.startDate,
+      weightDate
+    );
+    if (!Number.isInteger(liveBirds) || liveBirds < 0) {
+      return res.status(400).json({
+        message: "Fix the batch bird counts before recording a weight",
+      });
+    }
+    if (numericSampleCount > liveBirds) {
+      return res.status(400).json({
+        message: `Sample count cannot be greater than ${liveBirds} live birds`,
+      });
+    }
+
     // Create bird weight record and update batch's currentWeight
     const result = await prisma.$transaction(async (tx) => {
       // Create the weight record
       const birdWeight = await tx.birdWeight.create({
         data: {
           batchId,
-          date: new Date(date),
-          avgWeight: Number(avgWeight),
-          sampleCount: Number(sampleCount),
+          date: weightDate,
+          avgWeight: numericAverageWeight,
+          sampleCount: numericSampleCount,
           source: WeightSource.MANUAL,
           notes: notes || null,
         },
@@ -68,12 +146,14 @@ export const addBirdWeight = async (
       await tx.batch.update({
         where: { id: batchId },
         data: {
-          currentWeight: Number(avgWeight),
+          currentWeight: numericAverageWeight,
         },
       });
 
       return birdWeight;
     });
+
+    await refreshFarmerFcrHistorySafely(batchId);
 
     return res.status(201).json({
       success: true,
@@ -247,11 +327,56 @@ export const updateBirdWeight = async (
       }
     }
 
+    if (existingWeight.batch.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({ message: "Cannot edit weight in a closed batch" });
+    }
+
+    const nextDate = date ? new Date(date) : existingWeight.date;
+    const nextAverageWeight =
+      avgWeight === undefined ? Number(existingWeight.avgWeight) : Number(avgWeight);
+    const nextSampleCount =
+      sampleCount === undefined ? existingWeight.sampleCount : Number(sampleCount);
+    if (
+      Number.isNaN(nextDate.getTime()) ||
+      startOfNepalDay(nextDate) < startOfNepalDay(existingWeight.batch.startDate) ||
+      startOfNepalDay(nextDate) > startOfNepalDay(new Date())
+    ) {
+      return res.status(400).json({
+        message: "Weight date must be inside the active batch period",
+      });
+    }
+    if (
+      !Number.isFinite(nextAverageWeight) ||
+      nextAverageWeight <= 0 ||
+      !Number.isInteger(nextSampleCount) ||
+      nextSampleCount <= 0
+    ) {
+      return res.status(400).json({
+        message: "Average weight must be positive and sample count must be a whole positive number",
+      });
+    }
+    const liveBirds = await getLiveBirdsAtDate(
+      batchId,
+      existingWeight.batch.initialChicks,
+      existingWeight.batch.startDate,
+      nextDate
+    );
+    if (!Number.isInteger(liveBirds) || liveBirds < 0) {
+      return res.status(400).json({
+        message: "Fix the batch bird counts before editing this weight",
+      });
+    }
+    if (nextSampleCount > liveBirds) {
+      return res.status(400).json({
+        message: `Sample count cannot be greater than ${liveBirds} live birds`,
+      });
+    }
+
     // Update the weight record
     const updateData: any = {};
-    if (date) updateData.date = new Date(date);
-    if (avgWeight) updateData.avgWeight = Number(avgWeight);
-    if (sampleCount) updateData.sampleCount = Number(sampleCount);
+    if (date) updateData.date = nextDate;
+    if (avgWeight !== undefined) updateData.avgWeight = nextAverageWeight;
+    if (sampleCount !== undefined) updateData.sampleCount = nextSampleCount;
     if (notes !== undefined) updateData.notes = notes;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -278,6 +403,8 @@ export const updateBirdWeight = async (
 
       return updatedWeight;
     });
+
+    await refreshFarmerFcrHistorySafely(batchId);
 
     return res.json({
       success: true,
@@ -363,6 +490,8 @@ export const deleteBirdWeight = async (
       });
     });
 
+    await refreshFarmerFcrHistorySafely(batchId);
+
     return res.json({
       success: true,
       message: "Weight record deleted successfully",
@@ -440,4 +569,3 @@ export const getGrowthChartData = async (
     });
   }
 };
-
