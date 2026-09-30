@@ -6,7 +6,12 @@ import {
   UpdateSaleSchema,
   SaleSchema,
 } from "@myapp/shared-types";
-import { generateNextFarmerInvoiceNumber } from "../utils/invoiceNumber";
+import {
+  buildFarmerInvoiceKey,
+  generateNextFarmerInvoiceNumber,
+} from "../utils/invoiceNumber";
+import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
+import { syncFarmerSaleBatchRecords } from "../services/farmerSaleBatchSyncService";
 
 // ==================== GET ALL SALE PAYMENTS ====================
 export const getAllSalePayments = async (
@@ -953,7 +958,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     // Calculate due amount for credit sales
     const dueAmount = isCredit ? numericAmount - numericPaidAmount : 0;
 
-    return await prisma.$transaction(async (tx) => {
+    const completeSale = await prisma.$transaction(async (tx) => {
       // For multi-line egg sales, use first line's unitPrice for Sale.unitPrice (required field)
       const saleUnitPrice = useEggLines && eggLineItems!.length > 0
         ? eggLineItems![0].unitPrice
@@ -961,11 +966,13 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
       // Generate invoice number (custom or auto-sequential)
       const invoiceNumber = customInvoiceNumber?.trim() || await generateNextFarmerInvoiceNumber(currentUserId, tx);
+      const invoiceKey = buildFarmerInvoiceKey(currentUserId, invoiceNumber);
 
       // 1. Create the sale
       const sale = await tx.sale.create({
         data: {
           invoiceNumber,
+          invoiceKey,
           date: new Date(date),
           amount: numericAmount,
           quantity: numericQuantity,
@@ -1099,7 +1106,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       }
 
       // 5. Fetch the complete sale with relationships
-      const completeSale = await tx.sale.findUnique({
+      const createdSale = await tx.sale.findUnique({
         where: { id: sale.id },
         include: {
           customer: {
@@ -1143,14 +1150,23 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      return res.status(201).json({
-        success: true,
-        data: completeSale,
-        message: "Sale created successfully",
-      });
+      return createdSale;
+    });
+
+    if (batchId) await refreshFarmerFcrHistorySafely(batchId);
+
+    return res.status(201).json({
+      success: true,
+      data: completeSale,
+      message: "Sale created successfully",
     });
   } catch (error) {
     console.error("Create sale error:", error);
+    if ((error as { code?: string })?.code === "P2002") {
+      return res.status(409).json({
+        message: "This invoice number is already used in your account",
+      });
+    }
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -1213,6 +1229,58 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
+    const itemTypeWasProvided = Object.prototype.hasOwnProperty.call(
+      req.body || {},
+      "itemType",
+    );
+    const finalItemType = (
+      itemTypeWasProvided ? data.itemType : existingSale.itemType
+    ) as SalesItemType;
+    if (finalItemType !== existingSale.itemType) {
+      return res.status(400).json({
+        message: "Sale type cannot be changed. Delete this sale and record a new one.",
+      });
+    }
+
+    const finalDate = data.date !== undefined ? new Date(data.date) : existingSale.date;
+    const finalAmount = data.amount !== undefined
+      ? Number(data.amount)
+      : Number(existingSale.amount);
+    const finalQuantity = data.quantity !== undefined
+      ? Number(data.quantity)
+      : Number(existingSale.quantity);
+    const finalWeight = data.weight !== undefined
+      ? Number(data.weight)
+      : existingSale.weight == null ? null : Number(existingSale.weight);
+    const finalPaidAmount = data.paidAmount !== undefined
+      ? Number(data.paidAmount)
+      : Number(existingSale.paidAmount);
+    const finalIsCredit = data.isCredit !== undefined
+      ? data.isCredit
+      : existingSale.isCredit;
+    const finalCustomerId = data.customerId !== undefined
+      ? data.customerId
+      : existingSale.customerId;
+    const finalBatchId = data.batchId !== undefined
+      ? data.batchId
+      : existingSale.batchId;
+
+    if (finalPaidAmount > finalAmount) {
+      return res.status(400).json({ message: "Paid amount cannot exceed the sale amount" });
+    }
+    if (finalItemType === SalesItemType.Chicken_Meat) {
+      if (!Number.isInteger(finalQuantity) || finalQuantity <= 0) {
+        return res.status(400).json({
+          message: "Chicken quantity must be a positive whole number",
+        });
+      }
+      if (finalWeight == null || !Number.isFinite(finalWeight) || finalWeight <= 0) {
+        return res.status(400).json({
+          message: "Weight is required and must be greater than zero for chicken sales",
+        });
+      }
+    }
+
     // Validate category if being updated
     if (data.categoryId) {
       const category = await prisma.category.findFirst({
@@ -1229,7 +1297,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Validate customer if being updated
-    if (data.customerId) {
+    if (data.customerId !== undefined && data.customerId !== null) {
       const customer = await prisma.customer.findFirst({
         where: {
           id: data.customerId,
@@ -1242,68 +1310,156 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    return await prisma.$transaction(async (tx) => {
-      // Calculate new due amount if amount or paidAmount is being updated
-      let newDueAmount: number | null = Number(existingSale.dueAmount || 0);
-      if (data.amount !== undefined || data.paidAmount !== undefined) {
-        const newAmount =
-          data.amount !== undefined
-            ? Number(data.amount)
-            : Number(existingSale.amount);
-        const newPaidAmount =
-          data.paidAmount !== undefined
-            ? Number(data.paidAmount)
-            : Number(existingSale.paidAmount);
-        newDueAmount = newAmount - newPaidAmount;
+    if (data.farmId) {
+      const farm = await prisma.farm.findUnique({
+        where: { id: data.farmId },
+        include: { managers: true },
+      });
+      if (!farm) return res.status(404).json({ message: "Farm not found" });
+      if (
+        currentUserRole === UserRole.MANAGER &&
+        farm.ownerId !== currentUserId &&
+        !farm.managers.some((manager) => manager.id === currentUserId)
+      ) {
+        return res.status(403).json({ message: "Access denied to farm" });
+      }
+    }
+
+    if (finalBatchId) {
+      const targetBatch = await prisma.batch.findUnique({
+        where: { id: finalBatchId },
+        include: {
+          farm: { include: { managers: true } },
+          mortalities: true,
+          sales: {
+            select: { id: true, itemType: true, quantity: true },
+          },
+        },
+      });
+      if (!targetBatch) return res.status(404).json({ message: "Batch not found" });
+      if (
+        currentUserRole === UserRole.MANAGER &&
+        targetBatch.farm.ownerId !== currentUserId &&
+        !targetBatch.farm.managers.some((manager) => manager.id === currentUserId)
+      ) {
+        return res.status(403).json({ message: "Access denied to batch" });
       }
 
+      if (finalItemType === SalesItemType.Chicken_Meat) {
+        const otherSoldBirds = targetBatch.sales
+          .filter(
+            (sale) =>
+              sale.id !== id && sale.itemType === SalesItemType.Chicken_Meat,
+          )
+          .reduce((sum, sale) => sum + Number(sale.quantity), 0);
+        const confirmedDeaths = targetBatch.mortalities
+          .filter(
+            (mortality) =>
+              !mortality.saleId && mortality.reason !== "SLAUGHTERED_FOR_SALE",
+          )
+          .reduce((sum, mortality) => sum + mortality.count, 0);
+        const availableBirds = Math.max(
+          0,
+          targetBatch.initialChicks - otherSoldBirds - confirmedDeaths,
+        );
+        if (finalQuantity > availableBirds) {
+          return res.status(400).json({
+            message: `Cannot sell ${finalQuantity} birds. Only ${availableBirds} birds are available in this batch`,
+          });
+        }
+      }
+    }
+
+    const creditDetailsWereProvided =
+      data.amount !== undefined ||
+      data.paidAmount !== undefined ||
+      data.isCredit !== undefined ||
+      data.customerId !== undefined;
+    const newDueAmount = creditDetailsWereProvided
+      ? finalIsCredit ? Math.max(0, finalAmount - finalPaidAmount) : 0
+      : Number(existingSale.dueAmount || 0);
+
+    const result = await prisma.$transaction(async (tx) => {
       // Update the sale
-      const updatedSale = await tx.sale.update({
+      await tx.sale.update({
         where: { id },
         data: {
-          ...data,
-          date: data.date ? new Date(data.date) : undefined,
-          amount: data.amount ? Number(data.amount) : undefined,
-          quantity: data.quantity ? Number(data.quantity) : undefined,
-          weight: data.weight ? Number(data.weight) : undefined,
-          unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
-          paidAmount: data.paidAmount ? Number(data.paidAmount) : undefined,
-          dueAmount: newDueAmount > 0 ? newDueAmount : null,
+          date: data.date !== undefined ? finalDate : undefined,
+          amount: data.amount !== undefined ? finalAmount : undefined,
+          quantity: data.quantity !== undefined ? finalQuantity : undefined,
+          weight: data.weight !== undefined ? finalWeight : undefined,
+          unitPrice: data.unitPrice !== undefined ? Number(data.unitPrice) : undefined,
+          paidAmount: data.paidAmount !== undefined ? finalPaidAmount : undefined,
+          description: data.description,
+          isCredit: data.isCredit,
+          farmId: data.farmId,
+          batchId: data.batchId,
+          customerId: data.customerId,
+          itemType: itemTypeWasProvided ? finalItemType : undefined,
+          eggTypeId: data.eggTypeId,
+          categoryId: data.categoryId,
+          dueAmount: creditDetailsWereProvided
+            ? newDueAmount > 0 ? newDueAmount : null
+            : undefined,
         },
       });
 
-      // Update customer balance if it's a credit sale and amount changed
+      // Reverse the old credit effect and apply the new one. Combining the
+      // values by customer also handles changing the customer safely.
+      const customerBalanceChanges = new Map<string, number>();
+      const addCustomerBalanceChange = (customerId: string, amount: number) => {
+        customerBalanceChanges.set(
+          customerId,
+          (customerBalanceChanges.get(customerId) || 0) + amount,
+        );
+      };
       if (
+        creditDetailsWereProvided &&
         existingSale.isCredit &&
-        existingSale.customerId &&
-        (data.amount !== undefined || data.paidAmount !== undefined)
+        existingSale.customerId
       ) {
-        const oldDueAmount = Number(existingSale.dueAmount || 0);
-        const balanceChange = (newDueAmount || 0) - oldDueAmount;
+        addCustomerBalanceChange(
+          existingSale.customerId,
+          -Number(existingSale.dueAmount || 0),
+        );
+      }
+      if (
+        creditDetailsWereProvided &&
+        finalIsCredit &&
+        finalCustomerId &&
+        newDueAmount > 0
+      ) {
+        addCustomerBalanceChange(finalCustomerId, newDueAmount);
+      }
 
+      for (const [customerId, balanceChange] of customerBalanceChanges) {
         if (balanceChange !== 0) {
           await tx.customer.update({
-            where: { id: existingSale.customerId },
-            data: {
-              balance: {
-                increment: balanceChange,
-              },
-            },
+            where: { id: customerId },
+            data: { balance: { increment: balanceChange } },
           });
-
-          // Create customer transaction record for the balance change
           await tx.customerTransaction.create({
             data: {
               type: TransactionType.ADJUSTMENT,
               amount: Math.abs(balanceChange),
-              date: new Date(),
+              date: finalDate,
               description: `Sale update: ${balanceChange > 0 ? "Increased" : "Decreased"} due amount`,
               reference: id,
-              customerId: existingSale.customerId,
+              customerId,
             },
           });
         }
       }
+
+      const affectedBatchIds = await syncFarmerSaleBatchRecords(tx, {
+        saleId: id,
+        oldBatchId: existingSale.batchId,
+        newBatchId: finalBatchId,
+        itemType: finalItemType,
+        date: finalDate,
+        quantity: finalQuantity,
+        weight: finalWeight,
+      });
 
       // Fetch the complete updated sale
       const completeSale = await tx.sale.findUnique({
@@ -1350,11 +1506,18 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      return res.json({
-        success: true,
-        data: completeSale,
-        message: "Sale updated successfully",
-      });
+      return { completeSale, affectedBatchIds };
+    });
+
+    await Promise.all(
+      result.affectedBatchIds.map((batchId) => refreshFarmerFcrHistorySafely(batchId)),
+    );
+
+    return res.json({
+      success: true,
+      data: result.completeSale,
+      meta: { affectedBatchIds: result.affectedBatchIds },
+      message: "Sale updated successfully",
     });
   } catch (error) {
     console.error("Update sale error:", error);
@@ -1402,7 +1565,8 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    return await prisma.$transaction(async (tx) => {
+    const saleBatchId = existingSale.batchId;
+    await prisma.$transaction(async (tx) => {
       // If it's a credit sale, reverse the customer balance
       if (
         existingSale.isCredit &&
@@ -1432,7 +1596,6 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
       }
 
       // Restore egg inventory for EGGS sales (eggs are per batch only)
-      const saleBatchId = existingSale.batchId;
       if (existingSale.itemType === SalesItemType.EGGS && saleBatchId) {
         if (existingSale.eggLines && existingSale.eggLines.length > 0) {
           for (const line of existingSale.eggLines) {
@@ -1459,6 +1622,17 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
         }
       }
 
+      // SALE weights are generated by this sale and cannot outlive it.
+      if (existingSale.itemType === SalesItemType.Chicken_Meat && saleBatchId) {
+        await tx.birdWeight.deleteMany({
+          where: {
+            batchId: saleBatchId,
+            source: "SALE",
+            notes: `Auto-computed from sale #${existingSale.id}`,
+          },
+        });
+      }
+
       // Delete the sale (payments and eggLines will be deleted automatically due to cascade)
       await tx.sale.delete({
         where: { id },
@@ -1473,10 +1647,24 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
 
       console.log("mortality deleted");
 
-      return res.json({
-        success: true,
-        message: "Sale deleted successfully",
-      });
+      if (saleBatchId) {
+        const latestWeight = await tx.birdWeight.findFirst({
+          where: { batchId: saleBatchId },
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+        });
+        await tx.batch.update({
+          where: { id: saleBatchId },
+          data: { currentWeight: latestWeight?.avgWeight ?? null },
+        });
+      }
+    });
+
+    if (saleBatchId) await refreshFarmerFcrHistorySafely(saleBatchId);
+
+    return res.json({
+      success: true,
+      data: { batchId: saleBatchId },
+      message: "Sale deleted successfully",
     });
   } catch (error) {
     console.error("Delete sale error:", error);

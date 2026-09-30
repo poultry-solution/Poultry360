@@ -222,6 +222,9 @@ export const useCreateSale = () => {
         queryClient.invalidateQueries({
           queryKey: ["batches", "analytics", variables.batchId],
         });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", variables.batchId, "fcr-history"],
+        });
       }
 
       // If farmId is provided, invalidate farm-related queries
@@ -262,11 +265,27 @@ export const useUpdateSale = () => {
       // Invalidate statistics
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
-      // If batchId is provided, invalidate batch sales
-      if (variables.data.batchId) {
+      // Refresh both the old and new batch when a sale was moved. The API also
+      // returns batches cleaned up from older stale linked rows.
+      const affectedBatchIds = new Set<string>(
+        data?.meta?.affectedBatchIds || [],
+      );
+      if (variables.data.batchId) affectedBatchIds.add(variables.data.batchId);
+      if (data?.data?.batch?.id) affectedBatchIds.add(data.data.batch.id);
+      for (const batchId of affectedBatchIds) {
         queryClient.invalidateQueries({
-          queryKey: saleQueryKeys.batchSales(variables.data.batchId),
+          queryKey: saleQueryKeys.batchSales(batchId),
         });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", batchId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "analytics", batchId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", batchId, "fcr-history"],
+        });
+        queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
       }
 
       // If farmId is provided, invalidate farm-related queries
@@ -303,6 +322,12 @@ export const useDeleteSale = () => {
       queryClient.invalidateQueries({
         queryKey: [...saleQueryKeys.all, "batch"],
       });
+      const batchId = data?.data?.batchId;
+      if (batchId) {
+        queryClient.invalidateQueries({
+          queryKey: ["batches", "detail", batchId],
+        });
+      }
     },
   });
 };

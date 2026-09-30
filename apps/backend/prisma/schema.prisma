@@ -754,7 +754,11 @@ enum SalesItemType {
 
 model Sale {
   id            String   @id @default(cuid())
-  invoiceNumber String?  @unique
+  // Farmer-facing invoice number. This may repeat for different Farmer accounts.
+  invoiceNumber String?
+  // Internal per-Farmer unique key: "<farmer user id>:<invoice number>".
+  // It is not used for display, reports, print, or exports.
+  invoiceKey    String?  @unique
   date          DateTime
   amount        Decimal  @db.Decimal(10, 2)
   quantity      Decimal  @db.Decimal(10, 2)

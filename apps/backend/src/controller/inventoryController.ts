@@ -20,6 +20,10 @@ import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
 } from "../services/accountFeatureService";
+import {
+  isSupportedFarmerFeedUnit,
+  resolveFeedKgPerUnit,
+} from "../utils/farmerFeedUnits";
 
 // ==================== GET ALL INVENTORY ITEMS ====================
 export const getAllInventoryItems = async (
@@ -266,6 +270,12 @@ export const createInventoryItem = async (
 
     const itemType = data.itemType || InventoryItemType.OTHER;
     if (
+      itemType === InventoryItemType.FEED &&
+      !isSupportedFarmerFeedUnit(data.unit)
+    ) {
+      return res.status(400).json({ message: "Feed unit must be KG or Bag" });
+    }
+    if (
       itemType === InventoryItemType.RAW_MATERIAL &&
       !(await isAccountFeatureEnabled(
         currentUserId,
@@ -295,7 +305,10 @@ export const createInventoryItem = async (
           minStock: data.minStock,
           kgPerUnit:
             itemType === InventoryItemType.FEED
-              ? (data.unit.trim().toLowerCase() === "kg" ? 1 : data.kgPerUnit)
+              ? resolveFeedKgPerUnit({
+                  unit: data.unit,
+                  kgPerUnit: data.kgPerUnit,
+                })
               : null,
           itemType: itemType,
           origin: InventoryOrigin.MANUAL,
@@ -414,14 +427,35 @@ export const updateInventoryItem = async (
 
     const nextItemType = data.itemType || existingItem.itemType;
     const nextUnit = data.unit || existingItem.unit;
+    const isChangingToFeed =
+      nextItemType === InventoryItemType.FEED &&
+      existingItem.itemType !== InventoryItemType.FEED;
+    if (
+      nextItemType === InventoryItemType.FEED &&
+      (data.unit !== undefined || isChangingToFeed) &&
+      !isSupportedFarmerFeedUnit(nextUnit)
+    ) {
+      return res.status(400).json({ message: "Feed unit must be KG or Bag" });
+    }
+
+    const sameUnit =
+      nextUnit.trim().toLowerCase() === existingItem.unit.trim().toLowerCase();
+    const feedKgPerUnit =
+      nextItemType === InventoryItemType.FEED &&
+      isSupportedFarmerFeedUnit(nextUnit)
+        ? resolveFeedKgPerUnit({
+            unit: nextUnit,
+            kgPerUnit:
+              data.kgPerUnit ??
+              (sameUnit ? existingItem.kgPerUnit : undefined),
+          })
+        : data.kgPerUnit;
     const normalizedData = {
       ...data,
       kgPerUnit:
         nextItemType !== InventoryItemType.FEED
           ? null
-          : nextUnit.trim().toLowerCase() === "kg"
-            ? 1
-            : data.kgPerUnit,
+          : feedKgPerUnit,
     };
 
     // Update inventory item

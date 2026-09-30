@@ -30,20 +30,26 @@ export async function generateNextInvoiceNumber(
 
 /**
  * Generate the next sequential invoice number for a farmer sale.
- * Scoped per farmer (userId who owns the farms).
- * Queries the Sale table via farm ownership.
+ * Scoped per Farmer account.
+ *
+ * The advisory lock is also scoped to the Farmer account. It prevents two
+ * simultaneous sales for the same Farmer from receiving the same number,
+ * without blocking sales created by other Farmers.
  */
 export async function generateNextFarmerInvoiceNumber(
   userId: string,
-  tx?: TxClient
+  tx: TxClient
 ): Promise<string> {
-  const client = tx ?? prisma;
+  await (tx as any).$queryRawUnsafe(
+    `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+    `farmer-sale-invoice:${userId}`
+  );
 
-  const result: any[] = await (client as any).$queryRawUnsafe(
+  const result: any[] = await (tx as any).$queryRawUnsafe(
     `SELECT MAX(CAST(SUBSTRING(s."invoiceNumber" FROM 5) AS INTEGER))::text as max_num
      FROM "public"."Sale" s
-     JOIN "public"."Farm" f ON s."farmId" = f.id
-     WHERE f."ownerId" = $1 AND s."invoiceNumber" ~ '^INV-[0-9]+$'`,
+     JOIN "public"."Category" c ON s."categoryId" = c.id
+     WHERE c."userId" = $1 AND s."invoiceNumber" ~ '^INV-[0-9]+$'`,
     userId
   );
 
@@ -51,4 +57,15 @@ export async function generateNextFarmerInvoiceNumber(
   const nextNum = maxNum + 1;
   const padded = String(nextNum).padStart(3, "0");
   return `INV-${padded}`;
+}
+
+/**
+ * Build the database-only unique key while keeping the shown invoice number
+ * short and readable for the Farmer.
+ */
+export function buildFarmerInvoiceKey(
+  userId: string,
+  invoiceNumber: string
+): string {
+  return `${userId}:${invoiceNumber.trim()}`;
 }

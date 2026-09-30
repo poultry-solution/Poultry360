@@ -136,7 +136,7 @@ export default function SupplierLedgerPage() {
     item: "",
     rate: "",
     quantity: "",
-    unit: "",
+    unit: "KG",
     date: "",
     expiryDate: "",
     description: "",
@@ -581,7 +581,7 @@ export default function SupplierLedgerPage() {
         item: "",
         rate: "",
         quantity: "",
-        unit: "",
+        unit: "KG",
         date: "",
         expiryDate: "",
         description: "",
@@ -1149,7 +1149,7 @@ export default function SupplierLedgerPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     {(newEntry.category === "FEED"
-                      ? ["KG", "Sack", "Packet", "Bag", "Quintal"]
+                      ? ["KG", "Bag"]
                       : newEntry.category === "MEDICINE"
                         ? ["Bottle", "Strip", "Vial", "Tablet", "ML", "PCS"]
                         : newEntry.category === "CHICKS"

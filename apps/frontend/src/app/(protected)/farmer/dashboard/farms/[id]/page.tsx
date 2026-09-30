@@ -306,8 +306,14 @@ export default function FarmDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" className="h-9 w-9 p-0 md:h-auto md:w-auto md:px-4" title="Edit Farm" aria-label="Edit Farm">
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-full p-0 md:h-9 md:w-[112px] md:justify-center md:px-4"
+            title="Edit Farm"
+            aria-label="Edit Farm"
+          >
             <Edit className="h-4 w-4 md:mr-2" />
             <span className="hidden md:inline">Edit Farm</span>
           </Button>
@@ -315,7 +321,7 @@ export default function FarmDetailPage() {
             variant="outline"
             size="sm"
             onClick={() => setIsDeleteModalOpen(true)}
-            className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 md:h-auto md:w-auto md:px-4"
+            className="h-9 w-full p-0 text-red-600 hover:bg-red-50 hover:text-red-700 md:h-9 md:w-[112px] md:justify-center md:px-4"
             title="Delete"
             aria-label="Delete farm"
           >
@@ -575,21 +581,34 @@ export default function FarmDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                        <Button variant="outline" size="sm" className="h-9 flex-1 sm:flex-initial sm:flex-none" asChild>
+                      <div className="grid w-full grid-cols-3 items-center gap-2 sm:flex sm:w-auto sm:shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 w-full shrink-0 p-0 sm:w-9 sm:flex-none lg:w-[76px] lg:px-3"
+                          title="View batch"
+                          aria-label="View batch"
+                          asChild
+                        >
                           <Link href={`/farmer/dashboard/batches/${batch.id}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            <Eye className="h-4 w-4 lg:mr-2" />
+                            <span className="hidden lg:inline">View</span>
                           </Link>
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-9 w-9 p-0 md:h-auto md:w-auto md:px-3" title="Edit" aria-label="Edit batch">
-                          <Edit className="h-4 w-4 md:mr-2" />
-                          <span className="hidden md:inline">Edit</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 md:h-auto md:w-auto md:px-3"
+                          className="h-9 w-full shrink-0 p-0 sm:w-9 sm:flex-none lg:w-[70px] lg:px-3"
+                          title="Edit"
+                          aria-label="Edit batch"
+                        >
+                          <Edit className="h-4 w-4 lg:mr-2" />
+                          <span className="hidden lg:inline">Edit</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 w-full shrink-0 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-9 sm:flex-none lg:w-[86px] lg:px-3"
                           title="Delete"
                           aria-label="Delete batch"
                           onClick={() => {
@@ -597,8 +616,8 @@ export default function FarmDetailPage() {
                             setIsDeleteBatchModalOpen(true);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 md:mr-2" />
-                          <span className="hidden md:inline">Delete</span>
+                          <Trash2 className="h-4 w-4 lg:mr-2" />
+                          <span className="hidden lg:inline">Delete</span>
                         </Button>
                       </div>
                     </div>
