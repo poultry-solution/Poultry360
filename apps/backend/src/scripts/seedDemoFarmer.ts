@@ -145,6 +145,7 @@ async function seedDemoFarmer(): Promise<void> {
           status: BatchStatus.ACTIVE,
           batchType: BatchType.BROILER,
           initialChicks: 3000,
+          initialChickWeightKg: decimal(0.045),
           currentWeight: decimal(1.68),
           notes: "Ross 308 flock; target market age 42 days.",
           farmId: broilerFarm.id,
@@ -160,6 +161,10 @@ async function seedDemoFarmer(): Promise<void> {
           status: BatchStatus.COMPLETED,
           batchType: BatchType.BROILER,
           initialChicks: 2800,
+          initialChickWeightKg: decimal(0.045),
+          closureBirdCount: 2141,
+          closureAverageWeightKg: decimal(2.31),
+          closureWeightSampleCount: 150,
           currentWeight: decimal(2.31),
           notes: "Completed flock with strong FCR and 96.8% livability.",
           farmId: broilerFarm.id,
@@ -175,6 +180,7 @@ async function seedDemoFarmer(): Promise<void> {
           status: BatchStatus.ACTIVE,
           batchType: BatchType.LAYERS,
           initialChicks: 1800,
+          initialChickWeightKg: decimal(0.045),
           currentWeight: decimal(1.86),
           notes: "Hy-Line Brown flock currently at peak lay.",
           farmId: layerFarm.id,
@@ -434,6 +440,9 @@ async function seedDemoFarmer(): Promise<void> {
           date,
           quantity: decimal(quantity),
           feedType,
+          unit: "kg",
+          kgPerUnit: decimal(1),
+          quantityKg: decimal(quantity),
         });
       }
 
@@ -649,6 +658,8 @@ async function seedDemoFarmer(): Promise<void> {
           description,
           currentStock: decimal(currentStock),
           unit,
+          kgPerUnit:
+            itemType === InventoryItemType.FEED ? decimal(50) : null,
           minStock: decimal(minStock),
           itemType,
           unitPrice: decimal(unitPrice),
@@ -1364,7 +1375,7 @@ async function seedDemoFarmer(): Promise<void> {
         [
           "sale-broiler-last-month",
           "DEMO-F-1001",
-          daysAgo(45),
+          daysAgo(90),
           142200,
           250,
           562.5,

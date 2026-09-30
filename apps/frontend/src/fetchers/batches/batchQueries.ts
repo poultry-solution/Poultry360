@@ -3,7 +3,6 @@ import {
   Batch, 
   CreateBatch, 
   UpdateBatch,
-  CloseBatch,
   BatchSummary,
   BatchStatus,
   BatchType,
@@ -16,6 +15,7 @@ import {
 } from "@myapp/shared-types";
 import axiosInstance from "@/common/lib/axios";
 import { saleQueryKeys } from "@/fetchers/sale/saleQueries";
+import type { CloseBatchFcrInput, FcrHistoryResponse } from "@/types/fcr";
 
 // ==================== QUERY KEYS ====================
 export const batchKeys = {
@@ -26,6 +26,7 @@ export const batchKeys = {
   detail: (id: string) => [...batchKeys.details(), id] as const,
   farmBatches: (farmId: string) => [...batchKeys.all, "farm", farmId] as const,
   analytics: (id: string) => [...batchKeys.detail(id), "analytics"] as const,
+  fcrHistory: (id: string) => [...batchKeys.detail(id), "fcr-history"] as const,
   eggProduction: (batchId: string) => [...batchKeys.detail(batchId), "egg-production"] as const,
   notes: (batchId: string, params?: { page?: number; limit?: number }) =>
     [...batchKeys.detail(batchId), "notes", params || {}] as const,
@@ -107,6 +108,17 @@ export const useGetBatchAnalytics = (id: string, options?: { enabled?: boolean }
       return response.data;
     },
     enabled: (options?.enabled !== false) && !!id,
+  });
+};
+
+export const useGetBatchFcrHistory = (id: string, options?: { enabled?: boolean }) => {
+  return useQuery<FcrHistoryResponse>({
+    queryKey: batchKeys.fcrHistory(id),
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/batches/${id}/fcr-history`);
+      return response.data;
+    },
+    enabled: options?.enabled !== false && !!id,
   });
 };
 
@@ -298,7 +310,7 @@ export const useCloseBatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CloseBatch }) => {
+    mutationFn: async ({ id, data }: { id: string; data: CloseBatchFcrInput }) => {
       const response = await axiosInstance.post(`/batches/${id}/close`, data);
       return response.data as { 
         success: boolean; 
@@ -312,6 +324,7 @@ export const useCloseBatch = () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.analytics(variables.id) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.fcrHistory(variables.id) });
       
       // Invalidate farm batches
       if (data.data?.farmId) {

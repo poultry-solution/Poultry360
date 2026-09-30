@@ -318,7 +318,11 @@ export declare const BatchSchema: z.ZodObject<{
         LAYERS: "LAYERS";
     }>;
     initialChicks: z.ZodNumber;
-    initialChickWeight: z.ZodNumber;
+    initialChickWeight: z.ZodOptional<z.ZodNumber>;
+    initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     farmId: z.ZodString;
     notes: z.ZodNullable<z.ZodString>;
 }, z.core.$strip>;
@@ -360,7 +364,11 @@ export declare const BatchResponseSchema: z.ZodObject<{
         LAYERS: "LAYERS";
     }>;
     initialChicks: z.ZodNumber;
-    initialChickWeight: z.ZodNumber;
+    initialChickWeight: z.ZodOptional<z.ZodNumber>;
+    initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     farmId: z.ZodString;
     currentChicks: z.ZodNumber;
     farm: z.ZodObject<{
@@ -456,6 +464,8 @@ export type UpdateBatch = z.infer<typeof UpdateBatchSchema>;
 export declare const CloseBatchSchema: z.ZodObject<{
     endDate: z.ZodOptional<z.ZodString>;
     finalNotes: z.ZodOptional<z.ZodString>;
+    finalAverageWeightKg: z.ZodOptional<z.ZodNumber>;
+    finalWeightSampleCount: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CloseBatch = z.infer<typeof CloseBatchSchema>;
 export declare const EggTypeSchema: z.ZodObject<{
@@ -592,6 +602,7 @@ export declare const CreateExpenseSchema: z.ZodObject<{
     inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
         itemId: z.ZodString;
         quantity: z.ZodNumber;
+        kgPerUnit: z.ZodOptional<z.ZodNumber>;
         notes: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
 }, z.core.$strip>;
@@ -748,6 +759,7 @@ export declare const InventoryItemSchema: z.ZodObject<{
     currentStock: z.ZodNumber;
     unit: z.ZodString;
     minStock: z.ZodNullable<z.ZodNumber>;
+    kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     userId: z.ZodString;
     categoryId: z.ZodString;
     itemType: z.ZodOptional<z.ZodEnum<{
@@ -772,6 +784,7 @@ export declare const CreateInventoryItemSchema: z.ZodObject<{
     currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     unit: z.ZodString;
     minStock: z.ZodOptional<z.ZodNumber>;
+    kgPerUnit: z.ZodOptional<z.ZodNumber>;
     categoryId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
         FEED: "FEED";
@@ -790,6 +803,7 @@ export declare const UpdateInventoryItemSchema: z.ZodObject<{
     currentStock: z.ZodOptional<z.ZodNumber>;
     unit: z.ZodOptional<z.ZodString>;
     minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     categoryId: z.ZodOptional<z.ZodString>;
     itemType: z.ZodOptional<z.ZodEnum<{
         FEED: "FEED";
@@ -1351,6 +1365,10 @@ export declare const FeedConsumptionSchema: z.ZodObject<{
     date: z.ZodDate;
     quantity: z.ZodNumber;
     feedType: z.ZodString;
+    unit: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    quantityKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    expenseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     batchId: z.ZodString;
 }, z.core.$strip>;
 export type FeedConsumption = z.infer<typeof FeedConsumptionSchema>;
@@ -1634,12 +1652,17 @@ export declare const SignupSchema: z.ZodObject<{
 export type Signup = z.infer<typeof SignupSchema>;
 export declare const BatchAnalyticsSchema: z.ZodObject<{
     batchId: z.ZodString;
+    batchNumber: z.ZodOptional<z.ZodString>;
     currentChicks: z.ZodNumber;
+    initialChicks: z.ZodOptional<z.ZodNumber>;
     totalMortality: z.ZodNumber;
     totalExpenses: z.ZodNumber;
     totalSales: z.ZodNumber;
+    totalSalesQuantity: z.ZodOptional<z.ZodNumber>;
+    totalFeedConsumption: z.ZodOptional<z.ZodNumber>;
     fcr: z.ZodNullable<z.ZodNumber>;
-    avgWeight: z.ZodNullable<z.ZodNumber>;
+    avgWeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    currentAvgWeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     daysActive: z.ZodNumber;
     fcrData: z.ZodOptional<z.ZodObject<{
         totalFeedConsumed: z.ZodNumber;
@@ -1648,12 +1671,60 @@ export declare const BatchAnalyticsSchema: z.ZodObject<{
         totalWeightGained: z.ZodNumber;
         initialWeightPerChick: z.ZodNumber;
         status: z.ZodEnum<{
-            calculated: "calculated";
-            no_weight_data: "no_weight_data";
-            no_feed_data: "no_feed_data";
-            insufficient_data: "insufficient_data";
+            CALCULATED: "CALCULATED";
+            NOT_APPLICABLE: "NOT_APPLICABLE";
+            MISSING_END_DATE: "MISSING_END_DATE";
+            INVALID_INITIAL_WEIGHT: "INVALID_INITIAL_WEIGHT";
+            NO_FEED: "NO_FEED";
+            NO_MANUAL_WEIGHT: "NO_MANUAL_WEIGHT";
+            INVALID_WEIGHT_DATA: "INVALID_WEIGHT_DATA";
+            UNKNOWN_FEED_UNIT: "UNKNOWN_FEED_UNIT";
+            MISSING_SALE_WEIGHT: "MISSING_SALE_WEIGHT";
+            MISSING_FINAL_WEIGHT: "MISSING_FINAL_WEIGHT";
+            CLOSURE_COUNT_MISMATCH: "CLOSURE_COUNT_MISMATCH";
+            INVALID_BIRD_COUNTS: "INVALID_BIRD_COUNTS";
+            INVALID_FEED_DATA: "INVALID_FEED_DATA";
+            NON_POSITIVE_WEIGHT_GAIN: "NON_POSITIVE_WEIGHT_GAIN";
         }>;
         message: z.ZodString;
+        basis: z.ZodEnum<{
+            LIVE: "LIVE";
+            FINAL: "FINAL";
+            FINAL_PENDING_CLOSE: "FINAL_PENDING_CLOSE";
+        }>;
+        asOfDate: z.ZodNullable<z.ZodCoercedDate<unknown>>;
+        feedKg: z.ZodNumber;
+        soldBirds: z.ZodNumber;
+        soldLiveWeightKg: z.ZodNumber;
+        deaths: z.ZodNumber;
+        remainingBirds: z.ZodNumber;
+        remainingAverageWeightKg: z.ZodNullable<z.ZodNumber>;
+        remainingWeightSampleCount: z.ZodNullable<z.ZodNumber>;
+        remainingLiveWeightKg: z.ZodNumber;
+        producedLiveWeightKg: z.ZodNumber;
+        weightGainKg: z.ZodNumber;
+        initialWeightEstimated: z.ZodBoolean;
+        freshnessStatus: z.ZodEnum<{
+            FINAL: "FINAL";
+            FRESH: "FRESH";
+            STALE: "STALE";
+            NOT_AVAILABLE: "NOT_AVAILABLE";
+        }>;
+        weightAgeDays: z.ZodNullable<z.ZodNumber>;
+        feedAgeDays: z.ZodNullable<z.ZodNumber>;
+        staleReasons: z.ZodArray<z.ZodEnum<{
+            WEIGHT_TOO_OLD: "WEIGHT_TOO_OLD";
+            FEED_TOO_OLD: "FEED_TOO_OLD";
+            NEWER_FEED_NOT_INCLUDED: "NEWER_FEED_NOT_INCLUDED";
+            NEWER_SALE_NOT_INCLUDED: "NEWER_SALE_NOT_INCLUDED";
+            NEWER_MORTALITY_NOT_INCLUDED: "NEWER_MORTALITY_NOT_INCLUDED";
+        }>>;
+        newerFeedCount: z.ZodNumber;
+        newerSaleCount: z.ZodNumber;
+        newerMortalityCount: z.ZodNumber;
+        currentSoldBirds: z.ZodNumber;
+        currentDeaths: z.ZodNumber;
+        currentBirds: z.ZodNumber;
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type BatchAnalytics = z.infer<typeof BatchAnalyticsSchema>;
@@ -1856,7 +1927,11 @@ export declare const BatchListResponseSchema: z.ZodObject<{
             LAYERS: "LAYERS";
         }>;
         initialChicks: z.ZodNumber;
-        initialChickWeight: z.ZodNumber;
+        initialChickWeight: z.ZodOptional<z.ZodNumber>;
+        initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         farmId: z.ZodString;
         currentChicks: z.ZodNumber;
         farm: z.ZodObject<{
@@ -1943,7 +2018,11 @@ export declare const BatchDetailResponseSchema: z.ZodObject<{
             LAYERS: "LAYERS";
         }>;
         initialChicks: z.ZodNumber;
-        initialChickWeight: z.ZodNumber;
+        initialChickWeight: z.ZodOptional<z.ZodNumber>;
+        initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         farmId: z.ZodString;
         currentChicks: z.ZodNumber;
         farm: z.ZodObject<{
@@ -2392,7 +2471,11 @@ export declare const schemas: {
             LAYERS: "LAYERS";
         }>;
         initialChicks: z.ZodNumber;
-        initialChickWeight: z.ZodNumber;
+        initialChickWeight: z.ZodOptional<z.ZodNumber>;
+        initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         farmId: z.ZodString;
         notes: z.ZodNullable<z.ZodString>;
     }, z.core.$strip>;
@@ -2449,7 +2532,11 @@ export declare const schemas: {
             LAYERS: "LAYERS";
         }>;
         initialChicks: z.ZodNumber;
-        initialChickWeight: z.ZodNumber;
+        initialChickWeight: z.ZodOptional<z.ZodNumber>;
+        initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         farmId: z.ZodString;
         currentChicks: z.ZodNumber;
         farm: z.ZodObject<{
@@ -2539,7 +2626,11 @@ export declare const schemas: {
                 LAYERS: "LAYERS";
             }>;
             initialChicks: z.ZodNumber;
-            initialChickWeight: z.ZodNumber;
+            initialChickWeight: z.ZodOptional<z.ZodNumber>;
+            initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
             farmId: z.ZodString;
             currentChicks: z.ZodNumber;
             farm: z.ZodObject<{
@@ -2625,7 +2716,11 @@ export declare const schemas: {
                 LAYERS: "LAYERS";
             }>;
             initialChicks: z.ZodNumber;
-            initialChickWeight: z.ZodNumber;
+            initialChickWeight: z.ZodOptional<z.ZodNumber>;
+            initialChickWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureBirdCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureAverageWeightKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            closureWeightSampleCount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
             farmId: z.ZodString;
             currentChicks: z.ZodNumber;
             farm: z.ZodObject<{
@@ -2736,6 +2831,7 @@ export declare const schemas: {
         inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
             itemId: z.ZodString;
             quantity: z.ZodNumber;
+            kgPerUnit: z.ZodOptional<z.ZodNumber>;
             notes: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>>;
     }, z.core.$strip>;
@@ -2860,6 +2956,7 @@ export declare const schemas: {
         currentStock: z.ZodNumber;
         unit: z.ZodString;
         minStock: z.ZodNullable<z.ZodNumber>;
+        kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         userId: z.ZodString;
         categoryId: z.ZodString;
         itemType: z.ZodOptional<z.ZodEnum<{
@@ -2883,6 +2980,7 @@ export declare const schemas: {
         currentStock: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
         unit: z.ZodString;
         minStock: z.ZodOptional<z.ZodNumber>;
+        kgPerUnit: z.ZodOptional<z.ZodNumber>;
         categoryId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
             FEED: "FEED";
@@ -2900,6 +2998,7 @@ export declare const schemas: {
         currentStock: z.ZodOptional<z.ZodNumber>;
         unit: z.ZodOptional<z.ZodString>;
         minStock: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         categoryId: z.ZodOptional<z.ZodString>;
         itemType: z.ZodOptional<z.ZodEnum<{
             FEED: "FEED";
@@ -3426,6 +3525,10 @@ export declare const schemas: {
         date: z.ZodDate;
         quantity: z.ZodNumber;
         feedType: z.ZodString;
+        unit: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        kgPerUnit: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        quantityKg: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        expenseId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         batchId: z.ZodString;
     }, z.core.$strip>;
     readonly CreateFeedConsumption: z.ZodObject<{
@@ -3685,12 +3788,17 @@ export declare const schemas: {
     }, z.core.$strip>;
     readonly BatchAnalytics: z.ZodObject<{
         batchId: z.ZodString;
+        batchNumber: z.ZodOptional<z.ZodString>;
         currentChicks: z.ZodNumber;
+        initialChicks: z.ZodOptional<z.ZodNumber>;
         totalMortality: z.ZodNumber;
         totalExpenses: z.ZodNumber;
         totalSales: z.ZodNumber;
+        totalSalesQuantity: z.ZodOptional<z.ZodNumber>;
+        totalFeedConsumption: z.ZodOptional<z.ZodNumber>;
         fcr: z.ZodNullable<z.ZodNumber>;
-        avgWeight: z.ZodNullable<z.ZodNumber>;
+        avgWeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        currentAvgWeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         daysActive: z.ZodNumber;
         fcrData: z.ZodOptional<z.ZodObject<{
             totalFeedConsumed: z.ZodNumber;
@@ -3699,12 +3807,60 @@ export declare const schemas: {
             totalWeightGained: z.ZodNumber;
             initialWeightPerChick: z.ZodNumber;
             status: z.ZodEnum<{
-                calculated: "calculated";
-                no_weight_data: "no_weight_data";
-                no_feed_data: "no_feed_data";
-                insufficient_data: "insufficient_data";
+                CALCULATED: "CALCULATED";
+                NOT_APPLICABLE: "NOT_APPLICABLE";
+                MISSING_END_DATE: "MISSING_END_DATE";
+                INVALID_INITIAL_WEIGHT: "INVALID_INITIAL_WEIGHT";
+                NO_FEED: "NO_FEED";
+                NO_MANUAL_WEIGHT: "NO_MANUAL_WEIGHT";
+                INVALID_WEIGHT_DATA: "INVALID_WEIGHT_DATA";
+                UNKNOWN_FEED_UNIT: "UNKNOWN_FEED_UNIT";
+                MISSING_SALE_WEIGHT: "MISSING_SALE_WEIGHT";
+                MISSING_FINAL_WEIGHT: "MISSING_FINAL_WEIGHT";
+                CLOSURE_COUNT_MISMATCH: "CLOSURE_COUNT_MISMATCH";
+                INVALID_BIRD_COUNTS: "INVALID_BIRD_COUNTS";
+                INVALID_FEED_DATA: "INVALID_FEED_DATA";
+                NON_POSITIVE_WEIGHT_GAIN: "NON_POSITIVE_WEIGHT_GAIN";
             }>;
             message: z.ZodString;
+            basis: z.ZodEnum<{
+                LIVE: "LIVE";
+                FINAL: "FINAL";
+                FINAL_PENDING_CLOSE: "FINAL_PENDING_CLOSE";
+            }>;
+            asOfDate: z.ZodNullable<z.ZodCoercedDate<unknown>>;
+            feedKg: z.ZodNumber;
+            soldBirds: z.ZodNumber;
+            soldLiveWeightKg: z.ZodNumber;
+            deaths: z.ZodNumber;
+            remainingBirds: z.ZodNumber;
+            remainingAverageWeightKg: z.ZodNullable<z.ZodNumber>;
+            remainingWeightSampleCount: z.ZodNullable<z.ZodNumber>;
+            remainingLiveWeightKg: z.ZodNumber;
+            producedLiveWeightKg: z.ZodNumber;
+            weightGainKg: z.ZodNumber;
+            initialWeightEstimated: z.ZodBoolean;
+            freshnessStatus: z.ZodEnum<{
+                FINAL: "FINAL";
+                FRESH: "FRESH";
+                STALE: "STALE";
+                NOT_AVAILABLE: "NOT_AVAILABLE";
+            }>;
+            weightAgeDays: z.ZodNullable<z.ZodNumber>;
+            feedAgeDays: z.ZodNullable<z.ZodNumber>;
+            staleReasons: z.ZodArray<z.ZodEnum<{
+                WEIGHT_TOO_OLD: "WEIGHT_TOO_OLD";
+                FEED_TOO_OLD: "FEED_TOO_OLD";
+                NEWER_FEED_NOT_INCLUDED: "NEWER_FEED_NOT_INCLUDED";
+                NEWER_SALE_NOT_INCLUDED: "NEWER_SALE_NOT_INCLUDED";
+                NEWER_MORTALITY_NOT_INCLUDED: "NEWER_MORTALITY_NOT_INCLUDED";
+            }>>;
+            newerFeedCount: z.ZodNumber;
+            newerSaleCount: z.ZodNumber;
+            newerMortalityCount: z.ZodNumber;
+            currentSoldBirds: z.ZodNumber;
+            currentDeaths: z.ZodNumber;
+            currentBirds: z.ZodNumber;
         }, z.core.$strip>>;
     }, z.core.$strip>;
     readonly FarmAnalytics: z.ZodObject<{

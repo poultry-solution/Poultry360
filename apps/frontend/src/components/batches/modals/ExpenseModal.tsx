@@ -24,6 +24,7 @@ interface ExpenseFormState {
   feedBrand: string;
   feedQuantity: string;
   feedRate: string;
+  feedKgPerUnit: string;
   selectedFeedId: string;
   medicineName: string;
   medicineRate: string;
@@ -99,6 +100,12 @@ export function ExpenseModal({
   const { t } = useI18n();
   const showBatchSelector = !prefilledBatchId;
   const showFarmSelector = !prefilledFarmId;
+  const selectedFeed = feedInventory.find(
+    (feed: any) => feed.id === expenseForm.selectedFeedId
+  );
+  const selectedFeedUsesKg = ["kg", "kgs", "kilogram", "kilograms"].includes(
+    String(selectedFeed?.unit || "").trim().toLowerCase()
+  );
 
   return (
     <Modal
@@ -255,6 +262,27 @@ export function ExpenseModal({
                     <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedQuantity}</p>
                   )}
                 </div>
+                {selectedFeed && !selectedFeedUsesKg && selectedFeed.kgPerUnit == null && (
+                  <div className="space-y-2">
+                    <Label htmlFor="feedKgPerUnit" className="text-sm font-medium text-foreground">
+                      Kilograms in one {selectedFeed.unit}
+                    </Label>
+                    <Input
+                      id="feedKgPerUnit"
+                      name="feedKgPerUnit"
+                      type="number"
+                      min="0.001"
+                      step="0.001"
+                      value={expenseForm.feedKgPerUnit}
+                      onChange={onFieldUpdate}
+                      className="rounded-lg"
+                      placeholder="For example, 50"
+                    />
+                    {expenseErrors.feedKgPerUnit && (
+                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.feedKgPerUnit}</p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="feedRate" className="text-sm font-medium text-foreground">
                     {t("farmer.dashboard.modals.expense.ratePerUnit")}

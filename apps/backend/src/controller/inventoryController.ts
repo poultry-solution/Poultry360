@@ -293,6 +293,10 @@ export const createInventoryItem = async (
           currentStock: data.currentStock || 0,
           unit: data.unit,
           minStock: data.minStock,
+          kgPerUnit:
+            itemType === InventoryItemType.FEED
+              ? (data.unit.trim().toLowerCase() === "kg" ? 1 : data.kgPerUnit)
+              : null,
           itemType: itemType,
           origin: InventoryOrigin.MANUAL,
           userId: currentUserId as string,
@@ -408,10 +412,22 @@ export const updateInventoryItem = async (
       });
     }
 
+    const nextItemType = data.itemType || existingItem.itemType;
+    const nextUnit = data.unit || existingItem.unit;
+    const normalizedData = {
+      ...data,
+      kgPerUnit:
+        nextItemType !== InventoryItemType.FEED
+          ? null
+          : nextUnit.trim().toLowerCase() === "kg"
+            ? 1
+            : data.kgPerUnit,
+    };
+
     // Update inventory item
     const updatedItem = await prisma.inventoryItem.update({
       where: { id },
-      data,
+      data: normalizedData,
       include: {
         category: {
           select: {
@@ -792,6 +808,7 @@ export const getInventoryForExpense = async (
         name: true,
         currentStock: true,
         unit: true,
+        kgPerUnit: true,
         itemType: true,
         origin: true,
         manufacturedProductId: true,
@@ -809,6 +826,7 @@ export const getInventoryForExpense = async (
       quantity: Number(item.currentStock),
       currentStock: Number(item.currentStock),
       unit: item.unit,
+      kgPerUnit: item.kgPerUnit == null ? null : Number(item.kgPerUnit),
       itemType: item.itemType,
       origin: item.origin,
       manufacturedProductId: item.manufacturedProductId,

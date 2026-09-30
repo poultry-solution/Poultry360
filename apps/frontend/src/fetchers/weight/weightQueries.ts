@@ -108,6 +108,7 @@ export const useAddWeight = (batchId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
+      queryClient.invalidateQueries({ queryKey: ["batches", "detail", batchId] });
     },
   });
 };
@@ -127,6 +128,7 @@ export const useUpdateWeight = (batchId: string, weightId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
+      queryClient.invalidateQueries({ queryKey: ["batches", "detail", batchId] });
     },
   });
 };
@@ -146,6 +148,7 @@ export const useUpdateWeight = (batchId: string, weightId: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
+      queryClient.invalidateQueries({ queryKey: ["batches", "detail", batchId] });
     },
   });
 };

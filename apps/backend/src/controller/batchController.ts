@@ -11,9 +11,16 @@ import {
   CreateBatchSchema,
   UpdateBatchSchema,
   BatchSchema,
-  CloseBatchSchema,
 } from "@myapp/shared-types";
 import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
+import {
+  calculateFarmerBatchFcr,
+  endOfNepalDay,
+  getFarmerBatchFcrHistory,
+  refreshFarmerFcrHistorySafely,
+  startOfNepalDay,
+} from "../services/farmerFcrService";
+import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
 
 // ==================== GET ALL BATCHES ====================
 export const getAllBatches = async (
@@ -547,6 +554,7 @@ export const createBatch = async (
           status: data.status || BatchStatus.ACTIVE,
           batchType: (data as any).batchType || "BROILER",
           initialChicks: totalChicks,
+          initialChickWeightKg: Number(data.initialChickWeight || 0.045),
           currentWeight: null, // Will be set when first weight is recorded
           farmId: data.farmId,
         },
@@ -702,7 +710,12 @@ export const updateBatch = async (
     }
 
     // Update batch
-    const updateData: any = { ...data };
+    const { initialChickWeight, ...batchData } = data;
+    const updateData: any = { ...batchData };
+
+    if (initialChickWeight !== undefined) {
+      updateData.initialChickWeightKg = initialChickWeight;
+    }
 
     if (data.startDate) {
       updateData.startDate = new Date(data.startDate);
@@ -900,12 +913,12 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
     const currentUserRole = req.role;
 
     // Validate request body
-    const { success, data, error } = CloseBatchSchema.safeParse(req.body);
+    const { success, data, error } = CloseBatchFcrSchema.safeParse(req.body);
     if (!success) {
       return res.status(400).json({ message: error?.message });
     }
 
-    const { endDate, finalNotes } = data;
+    const { endDate, finalNotes, confirmRemainingAsDead } = data;
 
     // Check if batch exists and get current data
     const existingBatch = await prisma.batch.findUnique({
@@ -939,8 +952,13 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Validate end date
-    const batchEndDate = endDate ? new Date(endDate) : new Date();
-    if (batchEndDate < existingBatch.startDate) {
+    const endDatePart = endDate?.slice(0, 10);
+    const batchEndDate = endDatePart
+      ? new Date(`${endDatePart}T00:00:00.000Z`)
+      : new Date();
+    const rangeStart = startOfNepalDay(existingBatch.startDate);
+    const rangeEnd = endOfNepalDay(batchEndDate);
+    if (rangeEnd < rangeStart) {
       return res.status(400).json({
         message: "End date cannot be before start date",
       });
@@ -949,7 +967,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
     // Calculate current statistics for the batch
     const [
       totalNonSaleMortality,
-      totalSaleMortality,
+      totalChickenSales,
       totalSales,
       totalExpenses,
       totalSalesQuantity,
@@ -959,45 +977,59 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
       prisma.mortality.aggregate({
         where: {
           batchId: id,
-          reason: {
-            not: {
-              equals: "SLAUGHTERED_FOR_SALE",
-            },
-          },
+          date: { gte: rangeStart, lte: rangeEnd },
+          reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] },
+          saleId: null,
         },
         _sum: { count: true },
       }),
-      // Sale mortality (birds sold/slaughtered)
-      prisma.mortality.aggregate({
+      // Sales are the source of truth for birds sold.
+      prisma.sale.aggregate({
         where: {
           batchId: id,
-          reason: "SLAUGHTERED_FOR_SALE",
+          itemType: "Chicken_Meat",
+          date: { gte: rangeStart, lte: rangeEnd },
         },
-        _sum: { count: true },
+        _sum: { quantity: true },
       }),
       prisma.sale.aggregate({
-        where: { batchId: id },
+        where: { batchId: id, date: { gte: rangeStart, lte: rangeEnd } },
         _sum: { amount: true, quantity: true, weight: true },
       }),
       prisma.expense.aggregate({
-        where: { batchId: id },
+        where: { batchId: id, date: { gte: rangeStart, lte: rangeEnd } },
         _sum: { amount: true },
       }),
       prisma.sale.count({
-        where: { batchId: id },
+        where: { batchId: id, date: { gte: rangeStart, lte: rangeEnd } },
       }),
       prisma.sale.aggregate({
-        where: { batchId: id },
+        where: { batchId: id, date: { gte: rangeStart, lte: rangeEnd } },
         _sum: { weight: true },
       }),
     ]);
 
     const totalDeadChicks = Number(totalNonSaleMortality._sum.count || 0);
-    const totalSoldChicks = Number(totalSaleMortality._sum.count || 0);
-    const remainingChicks = Math.max(
-      0,
-      existingBatch.initialChicks - totalDeadChicks - totalSoldChicks
-    );
+    const totalSoldChicks = Number(totalChickenSales._sum.quantity || 0);
+    if (!Number.isInteger(totalSoldChicks) || totalSoldChicks < 0) {
+      return res.status(400).json({
+        message: "Chicken sale quantities must be whole bird counts",
+      });
+    }
+    const remainingChicks =
+      existingBatch.initialChicks - totalDeadChicks - totalSoldChicks;
+    if (remainingChicks < 0) {
+      return res.status(400).json({
+        message: "Sold birds and deaths are greater than the initial bird count",
+      });
+    }
+    if (remainingChicks > 0 && !confirmRemainingAsDead) {
+      return res.status(400).json({
+        message: `${remainingChicks} birds remain. Confirm that they should be treated as dead before closing the batch`,
+        code: "REMAINING_BIRDS_CONFIRMATION_REQUIRED",
+        remainingBirds: remainingChicks,
+      });
+    }
 
     // Perform batch closure in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -1019,6 +1051,9 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
         data: {
           status: BatchStatus.COMPLETED,
           endDate: batchEndDate,
+          closureBirdCount: remainingChicks,
+          closureAverageWeightKg: null,
+          closureWeightSampleCount: null,
           notes: finalNotes
             ? existingBatch.notes
               ? `${existingBatch.notes}\n\nClosure Notes: ${finalNotes}`
@@ -1038,9 +1073,6 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
-      // Calculate final summary after accounting for remaining chicks
-      const finalNaturalMortality = totalDeadChicks + remainingChicks;
-
       return {
         batch: closedBatch,
         summary: {
@@ -1049,7 +1081,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
           soldChicks: totalSoldChicks,
           naturalMortality: totalDeadChicks,
           remainingAtClosure: remainingChicks,
-          totalMortality: finalNaturalMortality,
+          totalMortality: totalDeadChicks + remainingChicks,
           totalSales: Number(totalSales._sum.amount || 0),
           totalExpenses: Number(totalExpenses._sum.amount || 0),
           profit:
@@ -1064,6 +1096,8 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
         },
       };
     });
+
+    await refreshFarmerFcrHistorySafely(id);
 
     return res.json({
       success: true,
@@ -1345,6 +1379,36 @@ export const getBatchClosureSummary = async (
   }
 };
 
+// ==================== GET FCR HISTORY ====================
+export const getBatchFcrHistory = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+    const batch = await prisma.batch.findUnique({
+      where: { id },
+      include: { farm: { include: { managers: true } } },
+    });
+    if (!batch) return res.status(404).json({ message: "Batch not found" });
+
+    if (currentUserRole === UserRole.MANAGER) {
+      const hasAccess =
+        batch.farm.ownerId === currentUserId ||
+        batch.farm.managers.some((manager) => manager.id === currentUserId);
+      if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+    }
+
+    const history = await getFarmerBatchFcrHistory(id);
+    return res.json({ success: true, data: history });
+  } catch (error) {
+    console.error("Get FCR history error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ==================== GET BATCH ANALYTICS ====================
 export const getBatchAnalytics = async (
   req: Request,
@@ -1379,81 +1443,29 @@ export const getBatchAnalytics = async (
       }
     }
 
-    const mortaility = await prisma.mortality.findMany({
-      where: {
-        batchId: id,
-      },
-    });
-
-    console.log(mortaility);
-
-    // Get analytics data
-    const [
-      saleMortality,
-      normalMortality,
-      totalExpenses,
-      totalSales,
-      totalFeedConsumption,
-      latestWeight,
-    ] = await Promise.all([
-      prisma.mortality.aggregate({
-        where: {
-          batchId: id,
-          reason: {
-            equals: "SLAUGHTERED_FOR_SALE",
-          },
-        },
-        _sum: { count: true },
-      }),
-      prisma.mortality.aggregate({
-        where: {
-          batchId: id,
-          reason: {
-            not: {
-              equals: "SLAUGHTERED_FOR_SALE",
-            },
-          },
-        },
-        _sum: { count: true },
-      }),
+    await refreshFarmerFcrHistorySafely(id);
+    const [totalExpenses, totalSales, fcrResult, fcrHistory] = await Promise.all([
       prisma.expense.aggregate({
         where: { batchId: id },
         _sum: { amount: true },
       }),
       prisma.sale.aggregate({
         where: { batchId: id },
-        _sum: { amount: true, quantity: true, weight: true },
+        _sum: { amount: true },
       }),
-      prisma.feedConsumption.aggregate({
-        where: { batchId: id },
-        _sum: { quantity: true },
-      }),
-      prisma.birdWeight.findFirst({
-        where: { batchId: id },
-        orderBy: { date: "desc" },
-        select: {
-          avgWeight: true,
-          sampleCount: true,
-          date: true,
-        },
-      }),
+      calculateFarmerBatchFcr(id),
+      getFarmerBatchFcrHistory(id, new Date(), false),
     ]);
 
-    console.log(saleMortality);
-    console.log(normalMortality);
-    console.log(totalExpenses);
-    console.log(totalSales);
-    console.log(totalFeedConsumption);
-    console.log(latestWeight);
-    const currentChicks =
-      batch.initialChicks -
-      (Number(saleMortality._sum.count || 0) +
-        Number(normalMortality._sum.count || 0));
+    if (!fcrResult) {
+      return res.status(404).json({ message: "Batch not found" });
+    }
 
-    // donot include sale mortality here
+    const currentChicks =
+      batch.status === BatchStatus.COMPLETED ? 0 : fcrResult.currentBirds;
     const mortalityRate =
       batch.initialChicks > 0
-        ? (Number(normalMortality._sum.count || 0) / batch.initialChicks) * 100
+        ? (fcrResult.currentDeaths / batch.initialChicks) * 100
         : 0;
 
     const totalExpensesAmount = Number(totalExpenses._sum.amount || 0);
@@ -1462,100 +1474,41 @@ export const getBatchAnalytics = async (
     const profitMargin =
       totalSalesAmount > 0 ? (profit / totalSalesAmount) * 100 : 0;
 
-    const totalFeedConsumptionAmount = Number(
-      totalFeedConsumption._sum.quantity || 0
-    );
-
-    // Initial total weight = Initial chicks * 0.05 kg per day-old chick (used for FCR and FCR after sales)
-    const initialWeightPerChick = 0.05; // 50g average weight of day-old chick
-    const initialTotalWeight = batch.initialChicks * initialWeightPerChick;
-
-    // FCR and FCR [After sales] only for Broiler batches, not Layer
-    const isBroiler = batch.batchType === BatchType.BROILER;
-
-    let fcr: number | null = null;
-    let fcrData: {
-      totalFeedConsumed: number;
-      initialTotalWeight: number;
-      currentTotalWeight: number;
-      totalWeightGained: number;
-      initialWeightPerChick: number;
-      status: string;
-      message: string;
+    const fcr = fcrResult.currentFcr;
+    const latestHistoricalFcr = fcrHistory.length > 0
+      ? fcrHistory[fcrHistory.length - 1]
+      : null;
+    const fcrData = {
+      totalFeedConsumed: fcrResult.feedKg,
+      initialTotalWeight: fcrResult.initialBiomassKg,
+      currentTotalWeight: fcrResult.remainingLiveWeightKg,
+      totalWeightGained: fcrResult.weightGainKg,
+      initialWeightPerChick: fcrResult.initialChickWeightKg,
+      ...fcrResult,
     };
 
-    if (isBroiler) {
-      // Calculate FCR (Feed Conversion Ratio) for Broiler only
-      // FCR = Total feed consumed / Total weight gained
-      // Weight gained = (Current total weight) - (Initial total weight)
-      const currentTotalWeight = latestWeight && currentChicks > 0
-        ? Number(latestWeight.avgWeight) * currentChicks
-        : 0;
-      const totalWeightGained = Math.max(0, currentTotalWeight - initialTotalWeight);
-      fcr = (totalWeightGained > 0 && totalFeedConsumptionAmount > 0)
-        ? totalFeedConsumptionAmount / totalWeightGained
-        : null;
-      fcrData = {
-        totalFeedConsumed: totalFeedConsumptionAmount,
-        initialTotalWeight,
-        currentTotalWeight,
-        totalWeightGained,
-        initialWeightPerChick,
-        status: fcr ? 'calculated' :
-          totalWeightGained <= 0 ? 'no_weight_data' :
-            totalFeedConsumptionAmount <= 0 ? 'no_feed_data' : 'insufficient_data',
-        message: fcr ? 'FCR calculated successfully' :
-          totalWeightGained <= 0 ? 'Weight data required - record bird weights to calculate FCR' :
-            totalFeedConsumptionAmount <= 0 ? 'Feed consumption data required - record feed usage to calculate FCR' :
-              'Insufficient data to calculate FCR',
-      };
-    } else {
-      fcrData = {
-        totalFeedConsumed: totalFeedConsumptionAmount,
-        initialTotalWeight,
-        currentTotalWeight: 0,
-        totalWeightGained: 0,
-        initialWeightPerChick,
-        status: 'not_applicable',
-        message: 'FCR is only for Broiler batches.',
-      };
-    }
-
-    // FCR [After sales]: only when batch is closed (COMPLETED) and Broiler
-    // Total weight gained = total sales weight - initial total weight
-    let fcrAfterSales: number | null = null;
-    let fcrAfterSalesData: { totalSalesWeight: number; totalWeightGained: number; message: string } | null = null;
-    if (isBroiler && batch.status === BatchStatus.COMPLETED) {
-      const totalSalesWeight = Number(totalSales._sum.weight || 0);
-      const totalWeightGainedAfterSales = Math.max(0, totalSalesWeight - initialTotalWeight);
-      if (totalWeightGainedAfterSales > 0 && totalFeedConsumptionAmount > 0) {
-        fcrAfterSales = totalFeedConsumptionAmount / totalWeightGainedAfterSales;
-        fcrAfterSalesData = {
-          totalSalesWeight,
-          totalWeightGained: totalWeightGainedAfterSales,
-          message: 'FCR [After sales] calculated from total feed and total sold weight.',
+    // Kept for old API users. The UI uses the single correct FCR value.
+    const fcrAfterSales =
+      fcrResult.freshnessStatus === "FINAL" ? fcrResult.fcr : null;
+    const fcrAfterSalesData = fcrAfterSales == null
+      ? null
+      : {
+          totalSalesWeight: fcrResult.soldLiveWeightKg,
+          totalWeightGained: fcrResult.weightGainKg,
+          message: "Use the final FCR value",
         };
-      } else {
-        fcrAfterSalesData = {
-          totalSalesWeight,
-          totalWeightGained: totalWeightGainedAfterSales,
-          message: totalWeightGainedAfterSales <= 0
-            ? 'Insufficient sales weight data to calculate FCR [After sales].'
-            : 'Feed consumption data required to calculate FCR [After sales].',
-        };
-      }
-    }
 
     // Calculate days active and batch age
     const daysActive = Math.ceil(
-      (new Date().getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
+      ((batch.endDate || new Date()).getTime() - batch.startDate.getTime()) /
+        (1000 * 60 * 60 * 24)
     );
 
     // Calculate batch age
     const batchAge = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24));
 
     // also include total sales quantity
-    const totalSalesQuantity = Number(totalSales._sum.quantity || 0);
+    const totalSalesQuantity = fcrResult.currentSoldBirds;
 
     return res.json({
       success: true,
@@ -1564,17 +1517,20 @@ export const getBatchAnalytics = async (
         batchNumber: batch.batchNumber,
         currentChicks: Math.max(0, currentChicks),
         initialChicks: batch.initialChicks,
-        totalMortality: Number(normalMortality._sum.count || 0),
+        totalMortality: fcrResult.currentDeaths,
         mortalityRate,
         totalExpenses: totalExpensesAmount,
         totalSales: totalSalesAmount,
         totalSalesQuantity,
         profit,
         profitMargin,
-        totalFeedConsumption: totalFeedConsumptionAmount,
-        currentAvgWeight: latestWeight ? Number(latestWeight.avgWeight) : null,
+        totalFeedConsumption: fcrResult.feedKg,
+        currentAvgWeight: fcrResult.remainingAverageWeightKg,
         // FCR (Feed Conversion Ratio) data — Broiler only
         fcr,
+        lastKnownFcr: latestHistoricalFcr?.fcr ?? null,
+        lastKnownFcrDate: latestHistoricalFcr?.calculationDate ?? null,
+        fcrDisplayStatus: fcrResult.displayStatus,
         fcrData,
         fcrAfterSales,
         fcrAfterSalesData,

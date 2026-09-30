@@ -490,6 +490,7 @@ export const useBatchSalesManagement = (
   const invalidateWeights = () => {
     if (batchId) {
       queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
+      queryClient.invalidateQueries({ queryKey: ["batches", "detail", batchId] });
     }
   };
 

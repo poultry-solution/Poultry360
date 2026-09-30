@@ -14,6 +14,21 @@ import {
 import { InventoryService } from "../services/inventoryService";
 import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
 
+function isKilogramUnit(unit: string | null | undefined): boolean {
+  return ["kg", "kgs", "kilogram", "kilograms"].includes(
+    (unit || "").trim().toLowerCase()
+  );
+}
+
+function resolveKgPerUnit(
+  item: { unit?: string | null; kgPerUnit?: unknown },
+  enteredKgPerUnit?: unknown
+): number | null {
+  if (isKilogramUnit(item.unit)) return 1;
+  const value = Number(item.kgPerUnit ?? enteredKgPerUnit);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
   req: Request,
@@ -492,9 +507,6 @@ export const createExpense = async (
     console.log("----------------------------");
     console.log(category);
 
-    // Track total feed quantity captured via inventory items to avoid double-creating feed consumption
-    let totalFeedQuantityFromInventory = 0;
-
     // Pre-fetch inventory items and their latest transactions to reduce queries in transaction
     let inventoryItemsData = [];
     if (inventoryItems && inventoryItems.length > 0) {
@@ -540,6 +552,22 @@ export const createExpense = async (
       });
     }
 
+    const feedItemsData = inventoryItemsData.filter(
+      (item: any) => item.inventoryItem.itemType === InventoryItemType.FEED
+    );
+    const feedItemWithoutConversion = feedItemsData.find(
+      (item: any) => resolveKgPerUnit(item.inventoryItem, item.kgPerUnit) === null
+    );
+    if (
+      batchId &&
+      (category.name.toLowerCase() === "feed" || feedItemsData.length > 0) &&
+      feedItemWithoutConversion
+    ) {
+      return res.status(400).json({
+        message: `Enter how many kilograms are in one ${feedItemWithoutConversion.inventoryItem.unit} of ${feedItemWithoutConversion.inventoryItem.name}`,
+      });
+    }
+
     // Execute the main transaction with increased timeout
     const result = await prisma.$transaction(
       async (tx) => {
@@ -580,23 +608,20 @@ export const createExpense = async (
                 },
               });
 
-              // If this expense is feed consumption and batch is provided, add a FeedConsumption record
               if (
                 inventoryItem.itemType === InventoryItemType.FEED &&
-                batchId
+                inventoryItem.kgPerUnit == null
               ) {
-                console.log("Adding feed consumption from inventory item");
-                await tx.feedConsumption.create({
-                  data: {
-                    date: new Date(date),
-                    quantity: itemData.quantity,
-                    feedType: inventoryItem.name,
-                    batchId: batchId,
-                  },
-                });
-                totalFeedQuantityFromInventory += Number(
-                  itemData.quantity || 0
+                const conversion = resolveKgPerUnit(
+                  inventoryItem,
+                  itemData.kgPerUnit
                 );
+                if (conversion !== null) {
+                  await tx.inventoryItem.update({
+                    where: { id: inventoryItem.id },
+                    data: { kgPerUnit: conversion },
+                  });
+                }
               }
 
               // Update stock
@@ -640,21 +665,46 @@ export const createExpense = async (
           inventoryUsages.push(...usages);
         }
 
-        // If category is Feed and we did not register any feed consumption via inventory items,
-        // but the expense itself has a quantity and batchId is present, create a single FeedConsumption.
-        if (
+        // One expense owns one feed row. This keeps same-day expenses separate.
+        const isFeedExpense =
           category.type === CategoryType.EXPENSE &&
-          category.name.toLowerCase() === "feed" &&
-          batchId &&
-          totalFeedQuantityFromInventory === 0 &&
-          (quantity || 0) > 0
-        ) {
-          console.log("Adding feed consumption from expense quantity");
+          (category.name.toLowerCase() === "feed" || feedItemsData.length > 0);
+        const quantityValue =
+          feedItemsData.length > 0
+            ? feedItemsData.reduce(
+                (sum: number, item: any) => sum + Number(item.quantity),
+                0
+              )
+            : Number(quantity || 0);
+        if (isFeedExpense && batchId && quantityValue > 0) {
+          const quantityKg = feedItemsData.length > 0
+            ? feedItemsData.reduce((sum: number, item: any) => {
+                const conversion = resolveKgPerUnit(
+                  item.inventoryItem,
+                  item.kgPerUnit
+                ) as number;
+                return sum + Number(item.quantity) * conversion;
+              }, 0)
+            : quantityValue;
+          const singleFeedItem = feedItemsData.length === 1
+            ? feedItemsData[0]
+            : null;
+          const unit = singleFeedItem?.inventoryItem.unit || "kg";
+          const conversion = singleFeedItem
+            ? resolveKgPerUnit(singleFeedItem.inventoryItem, singleFeedItem.kgPerUnit)
+            : 1;
+
           await tx.feedConsumption.create({
             data: {
               date: new Date(date),
-              quantity: Number(quantity),
-              feedType: "Feed",
+              quantity: quantityValue,
+              feedType:
+                feedItemsData.map((item: any) => item.inventoryItem.name).join(", ") ||
+                "Feed",
+              unit: feedItemsData.length > 1 ? "mixed" : unit,
+              kgPerUnit: feedItemsData.length > 1 ? null : conversion,
+              quantityKg,
+              expenseId: expense.id,
               batchId: batchId,
             },
           });
@@ -741,7 +791,11 @@ export const updateExpense = async (
             managers: true,
           },
         },
-        inventoryUsages: true,
+        category: true,
+        feedConsumption: true,
+        inventoryUsages: {
+          include: { item: true },
+        },
       },
     });
 
@@ -761,48 +815,111 @@ export const updateExpense = async (
       }
     }
 
-    // Update expense
-    const updatedExpense = await prisma.expense.update({
-      where: { id },
-      data: {
-        ...data,
-        date: data.date ? new Date(data.date) : undefined,
-        amount: data.amount ? Number(data.amount) : undefined,
-        quantity: data.quantity ? Number(data.quantity) : undefined,
-        unitPrice: data.unitPrice ? Number(data.unitPrice) : undefined,
-      },
-      include: {
-        farm: {
-          select: {
-            id: true,
-            name: true,
-          },
+    const nextCategory = data.categoryId
+      ? await prisma.category.findUnique({ where: { id: data.categoryId } })
+      : existingExpense.category;
+    if (!nextCategory) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    const nextQuantity = Number(data.quantity ?? existingExpense.quantity ?? 0);
+    const nextBatchId = data.batchId === undefined
+      ? existingExpense.batchId
+      : data.batchId;
+    const feedUsages = existingExpense.inventoryUsages.filter(
+      (usage) => usage.item.itemType === InventoryItemType.FEED
+    );
+    const isFeedExpense =
+      nextCategory.type === CategoryType.EXPENSE &&
+      (nextCategory.name.toLowerCase() === "feed" || feedUsages.length > 0);
+    const feedUsageWithoutConversion = feedUsages.find(
+      (usage) => resolveKgPerUnit(usage.item) === null
+    );
+
+    if (isFeedExpense && nextBatchId && feedUsageWithoutConversion) {
+      return res.status(400).json({
+        message: `Set the kilograms per ${feedUsageWithoutConversion.item.unit} for ${feedUsageWithoutConversion.item.name} before editing this feed expense`,
+      });
+    }
+
+    const updatedExpense = await prisma.$transaction(async (tx) => {
+      const updated = await tx.expense.update({
+        where: { id },
+        data: {
+          ...data,
+          date: data.date ? new Date(data.date) : undefined,
+          amount: data.amount !== undefined ? Number(data.amount) : undefined,
+          quantity: data.quantity !== undefined ? Number(data.quantity) : undefined,
+          unitPrice: data.unitPrice !== undefined ? Number(data.unitPrice) : undefined,
         },
-        batch: {
-          select: {
-            id: true,
-            batchNumber: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
-        inventoryUsages: {
-          include: {
-            item: {
-              select: {
-                id: true,
-                name: true,
-                unit: true,
-              },
+        include: {
+          farm: { select: { id: true, name: true } },
+          batch: { select: { id: true, batchNumber: true } },
+          category: { select: { id: true, name: true, type: true } },
+          inventoryUsages: {
+            include: {
+              item: { select: { id: true, name: true, unit: true } },
             },
           },
         },
-      },
+      });
+
+      if (
+        isFeedExpense &&
+        nextBatchId &&
+        (nextQuantity > 0 ||
+          feedUsages.some((usage) => Number(usage.quantity) > 0))
+      ) {
+        const quantityValue = feedUsages.length > 0
+          ? feedUsages.reduce((sum, usage) => sum + Number(usage.quantity), 0)
+          : nextQuantity;
+        const quantityKg = feedUsages.length > 0
+          ? feedUsages.reduce(
+              (sum, usage) =>
+                sum + Number(usage.quantity) * (resolveKgPerUnit(usage.item) as number),
+              0
+            )
+          : nextQuantity;
+        const singleFeedUsage = feedUsages.length === 1 ? feedUsages[0] : null;
+        const unit = singleFeedUsage?.item.unit ||
+          (feedUsages.length > 1 ? "mixed" : "kg");
+        const conversion = singleFeedUsage
+          ? resolveKgPerUnit(singleFeedUsage.item)
+          : feedUsages.length > 1
+            ? null
+            : 1;
+        const feedType =
+          feedUsages.map((usage) => usage.item.name).join(", ") || "Feed";
+
+        await tx.feedConsumption.upsert({
+          where: { expenseId: id },
+          create: {
+            date: data.date ? new Date(data.date) : existingExpense.date,
+            quantity: quantityValue,
+            feedType,
+            unit,
+            kgPerUnit: conversion,
+            quantityKg,
+            batchId: nextBatchId,
+            expenseId: id,
+          },
+          update: {
+            date: data.date ? new Date(data.date) : existingExpense.date,
+            quantity: quantityValue,
+            feedType,
+            unit,
+            kgPerUnit: conversion,
+            quantityKg,
+            batchId: nextBatchId,
+          },
+        });
+      } else if (existingExpense.feedConsumption) {
+        await tx.feedConsumption.delete({
+          where: { id: existingExpense.feedConsumption.id },
+        });
+      }
+
+      return updated;
     });
 
     return res.json({
@@ -907,19 +1024,8 @@ export const deleteExpense = async (
         });
       }
 
-      // 2. Delete associated feed consumption records if this is a feed expense
-      if (
-        existingExpense.category?.type === CategoryType.EXPENSE &&
-        existingExpense.category?.name.toLowerCase() === "feed" &&
-        existingExpense.batchId
-      ) {
-        await tx.feedConsumption.deleteMany({
-          where: {
-            batchId: existingExpense.batchId,
-            date: existingExpense.date,
-          },
-        });
-      }
+      // 2. Delete only the feed row owned by this expense.
+      await tx.feedConsumption.deleteMany({ where: { expenseId: id } });
 
       // 3. Delete the expense
       await tx.expense.delete({

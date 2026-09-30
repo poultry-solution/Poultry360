@@ -1165,7 +1165,21 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
     // Validate request body
     const { success, data, error } = UpdateSaleSchema.safeParse(req.body);
     if (!success) {
-      return res.status(400).json({ message: error?.message });
+      const invalidFields = new Set(
+        error.issues.map((issue) => String(issue.path[0] || ""))
+      );
+      const message = invalidFields.has("unitPrice")
+        ? "Enter a valid sale price"
+        : invalidFields.has("quantity")
+          ? "Enter a valid quantity"
+          : invalidFields.has("weight")
+            ? "Enter a valid total weight"
+            : invalidFields.has("paidAmount")
+              ? "Enter a valid paid amount"
+              : invalidFields.has("amount")
+                ? "Enter a valid sale amount"
+                : "Check the sale details and try again";
+      return res.status(400).json({ message });
     }
 
     // Check if sale exists and user has access
