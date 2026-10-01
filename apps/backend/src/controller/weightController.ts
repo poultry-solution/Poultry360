@@ -469,17 +469,21 @@ export const deleteBirdWeight = async (
       }
     }
 
-    // Delete the weight record and recalculate currentWeight
+    if (existingWeight.batch.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({ message: "Cannot delete weight from a closed batch" });
+    }
+
+    // Delete the source record, reset the cached weight, and remove derived
+    // FCR rows together. The history is rebuilt from the remaining source data
+    // after commit; if that rebuild fails, stale FCR values cannot remain.
     await prisma.$transaction(async (tx) => {
-      // Delete the weight
       await tx.birdWeight.delete({
         where: { id: weightId },
       });
 
-      // Recalculate batch's currentWeight from remaining weights
       const latestWeight = await tx.birdWeight.findFirst({
         where: { batchId },
-        orderBy: { date: "desc" },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       });
 
       await tx.batch.update({
@@ -487,6 +491,10 @@ export const deleteBirdWeight = async (
         data: {
           currentWeight: latestWeight ? latestWeight.avgWeight : null,
         },
+      });
+
+      await tx.batchFcrHistory.deleteMany({
+        where: { batchId },
       });
     });
 

@@ -11,11 +11,20 @@ import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useI18n } from "@/i18n/useI18n";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+  useUpdateCurrentAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { t, language: uiLanguage, setLanguage } = useI18n();
   const [calendarType, setCalendarType] = useState<'AD' | 'BS'>(user?.calendarType || 'AD');
+  const purchaseBillFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD
+  );
+  const updateAccountFeature = useUpdateCurrentAccountFeature();
 
   // Fetch owned and managed farms
   const { data: ownedFarmsResponse, isLoading: ownedFarmsLoading } = useGetUserFarms("owned");
@@ -48,6 +57,20 @@ export default function SettingsPage() {
       toast.success(t("settings.calendarUpdated"));
     } catch (error) {
       toast.error(t("settings.calendarUpdateFailed"));
+    }
+  };
+
+  const handlePurchaseBillToggle = async () => {
+    try {
+      await updateAccountFeature.mutateAsync({
+        featureKey: ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD,
+        enabled: !purchaseBillFeature.isEnabled,
+      });
+      toast.success(t("settings.purchaseBillUpdated"));
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || t("settings.purchaseBillUpdateFailed")
+      );
     }
   };
 
@@ -212,6 +235,53 @@ export default function SettingsPage() {
       )}
 
       {/* User Preferences */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.optionalFeatures")}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">{t("settings.purchaseBillUpload")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("settings.purchaseBillDescription")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <span className="text-xs font-medium text-muted-foreground">
+                {updateAccountFeature.isPending
+                  ? t("settings.updatingFeature")
+                  : purchaseBillFeature.isEnabled
+                    ? t("settings.featureOn")
+                    : t("settings.featureOff")}
+              </span>
+              <button
+              type="button"
+                role="switch"
+                aria-checked={purchaseBillFeature.isEnabled}
+                aria-label={t("settings.purchaseBillUpload")}
+                disabled={
+                  purchaseBillFeature.isLoading || updateAccountFeature.isPending
+                }
+                onClick={handlePurchaseBillToggle}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  purchaseBillFeature.isEnabled ? "bg-emerald-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    purchaseBillFeature.isEnabled
+                      ? "translate-x-5"
+                      : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{t("settings.preferences")}</CardTitle>

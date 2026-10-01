@@ -37,6 +37,7 @@ export interface CompanyPurchase {
   date: string;
   referenceNumber?: string | null;
   notes?: string | null;
+  billImageUrl?: string | null;
   totalAmount: string | number;
   companyId: string;
   supplierId: string;
@@ -51,6 +52,7 @@ export interface CreateCompanyPurchaseInput {
   date?: string;
   referenceNumber?: string;
   notes?: string;
+  billImageUrl?: string;
   items: Array<{
     rawMaterialId: string;
     quantity: number;

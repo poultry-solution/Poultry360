@@ -31,6 +31,7 @@ interface ExpenseFormState {
   medicineQuantity: string;
   selectedMedicineId: string;
   selectedOtherId: string;
+  selectedOtherCategoryId?: string;
   otherName: string;
   otherRate: string;
   otherQuantity: string;
@@ -70,6 +71,7 @@ interface ExpenseModalProps {
   onFeedSelection: (id: string) => void;
   onMedicineSelection: (id: string) => void;
   onOtherSelection?: (id: string) => void;
+  onOtherCategorySelection?: (id: string) => void;
   
   // Loading
   isPending: boolean;
@@ -95,6 +97,7 @@ export function ExpenseModal({
   onFeedSelection,
   onMedicineSelection,
   onOtherSelection,
+  onOtherCategorySelection,
   isPending,
 }: ExpenseModalProps) {
   const { t } = useI18n();
@@ -105,6 +108,11 @@ export function ExpenseModal({
   );
   const selectedFeedUsesKg = ["kg", "kgs", "kilogram", "kilograms"].includes(
     String(selectedFeed?.unit || "").trim().toLowerCase()
+  );
+  const savedOtherCategories = expenseCategories.filter(
+    (category: any) =>
+      category.type === "EXPENSE" &&
+      category.description === "Saved Other expense name"
   );
 
   return (
@@ -412,21 +420,53 @@ export function ExpenseModal({
                   </div>
                 )}
                 {!expenseForm.selectedOtherId && (
-                  <div className="space-y-2">
-                    <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
-                      {t("farmer.dashboard.modals.expense.expenseName")}
-                    </Label>
-                    <Input
-                      id="otherName"
-                      name="otherName"
-                      value={expenseForm.otherName}
-                      onChange={onFieldUpdate}
-                      className="rounded-lg"
-                    />
-                    {expenseErrors.otherName && (
-                      <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
+                  <>
+                    {savedOtherCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="selectedOtherCategoryId" className="text-sm font-medium text-foreground">
+                          {t("farmer.dashboard.modals.expense.expenseName")}
+                        </Label>
+                        <Select
+                          value={expenseForm.selectedOtherCategoryId || "__new__"}
+                          onValueChange={(value) =>
+                            onOtherCategorySelection?.(value === "__new__" ? "" : value)
+                          }
+                        >
+                          <SelectTrigger className="h-10 w-full rounded-lg !bg-white">
+                            <SelectValue placeholder="Choose a saved name or create new" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white">
+                            {savedOtherCategories.map((category: any) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="__new__">Create new name</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
-                  </div>
+                    {!expenseForm.selectedOtherCategoryId && (
+                      <div className="space-y-2">
+                        <Label htmlFor="otherName" className="text-sm font-medium text-foreground">
+                          {savedOtherCategories.length > 0
+                            ? "New expense name"
+                            : t("farmer.dashboard.modals.expense.expenseName")}
+                        </Label>
+                        <Input
+                          id="otherName"
+                          name="otherName"
+                          value={expenseForm.otherName}
+                          onChange={onFieldUpdate}
+                          className="rounded-lg"
+                          placeholder="Enter a name to save for future use"
+                        />
+                        {expenseErrors.otherName && (
+                          <p className="text-xs text-destructive mt-1.5">{expenseErrors.otherName}</p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="otherQuantity" className="text-sm font-medium text-foreground">

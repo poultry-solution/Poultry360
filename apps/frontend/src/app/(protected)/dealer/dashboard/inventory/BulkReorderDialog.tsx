@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import { Badge } from "@/common/components/ui/badge";
 import {
   Dialog,
@@ -33,6 +34,10 @@ import {
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 interface SelectedItem {
   product: DealerProduct;
@@ -53,6 +58,11 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
   const [dateAd, setDateAd] = useState(getTodayLocalDate());
   const [tradeDiscount, setTradeDiscount] = useState<string>("0");
   const [dialogSearch, setDialogSearch] = useState("");
+  const [billImageUrl, setBillImageUrl] = useState("");
+  const [isBillUploading, setIsBillUploading] = useState(false);
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
+  );
 
   const { data: companiesData } = useGetManualCompanies();
   const companies = companiesData || [];
@@ -99,9 +109,11 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
     setDateAd(getTodayLocalDate());
     setTradeDiscount("0");
     setDialogSearch("");
+    setBillImageUrl("");
   };
 
   const handleClose = () => {
+    if (isBillUploading) return;
     onOpenChange(false);
     resetState();
   };
@@ -150,6 +162,10 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
   };
 
   const handleSubmit = async () => {
+    if (isBillUploading) {
+      toast.error("Please wait for the bill image to finish uploading");
+      return;
+    }
     const invalidItems = selectedItems.filter((si) => {
       const qty = Number(si.quantity);
       return !qty || isNaN(qty) || qty <= 0;
@@ -168,6 +184,8 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
         companyId,
         date: new Date((dateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
         tradeDiscountAmount: discountNum || 0,
+        billImageUrl:
+          isPurchaseBillEnabled && billImageUrl ? billImageUrl : undefined,
           items: selectedItems.map((si) => ({
             productName: si.product.name,
             type: si.product.type,
@@ -417,14 +435,31 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
               </div>
             </div>
 
+            {isPurchaseBillEnabled && (
+              <div className="space-y-1.5">
+                <Label>Bill Image (optional)</Label>
+                <ImageUpload
+                  value={billImageUrl}
+                  folder="poultry360/purchase-bills"
+                  onChange={setBillImageUrl}
+                  onUploadingChange={setIsBillUploading}
+                  placeholder="Upload purchase bill"
+                />
+              </div>
+            )}
+
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setStep("select")}>Back</Button>
-              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button variant="outline" onClick={() => setStep("select")} disabled={isBillUploading}>Back</Button>
+              <Button variant="outline" onClick={handleClose} disabled={isBillUploading}>Cancel</Button>
               <Button
                 onClick={handleSubmit}
-                disabled={recordPurchaseMutation.isPending || selectedItems.length === 0}
+                disabled={recordPurchaseMutation.isPending || isBillUploading || selectedItems.length === 0}
               >
-                {recordPurchaseMutation.isPending ? "Saving..." : "Record Purchase"}
+                {isBillUploading
+                  ? "Uploading bill..."
+                  : recordPurchaseMutation.isPending
+                    ? "Saving..."
+                    : "Record Purchase"}
               </Button>
             </DialogFooter>
           </div>

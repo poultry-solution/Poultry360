@@ -378,6 +378,7 @@ export const addHatcherySupplierTransaction = async (
         })),
         date: new Date(date),
         note,
+        receiptImageUrl,
       });
 
       return res.status(201).json({ success: true, data: txn });

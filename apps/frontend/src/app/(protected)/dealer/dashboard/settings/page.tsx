@@ -25,6 +25,11 @@ import {
   useGetDealerPaymentDirectionSetting,
   useUpdateDealerPaymentDirectionSetting,
 } from "@/fetchers/dealer/dealerSettingsQueries";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+  useUpdateCurrentAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -34,6 +39,10 @@ export default function SettingsPage() {
   );
   const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
   const updatePaymentDirection = useUpdateDealerPaymentDirectionSetting();
+  const purchaseBillFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
+  );
+  const updateAccountFeature = useUpdateCurrentAccountFeature();
   // Fail safe: an unavailable setting stays off.
   const paymentDirectionEnabled =
     dealerSettingsData?.data?.paymentDirectionEnabled === true;
@@ -69,6 +78,20 @@ export default function SettingsPage() {
       toast.success(t("settings.paymentDirectionUpdated"));
     } catch (error) {
       toast.error(t("settings.paymentDirectionUpdateFailed"));
+    }
+  };
+
+  const handlePurchaseBillToggle = async () => {
+    try {
+      await updateAccountFeature.mutateAsync({
+        featureKey: ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD,
+        enabled: !purchaseBillFeature.isEnabled,
+      });
+      toast.success(t("settings.purchaseBillUpdated"));
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || t("settings.purchaseBillUpdateFailed")
+      );
     }
   };
 
@@ -206,6 +229,41 @@ export default function SettingsPage() {
                   <SelectItem value="BS">{t("settings.calendarBS")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {user?.dealer && !user.isStaff && (
+            <div className="flex items-center justify-between gap-4 border-t pt-4">
+              <div>
+                <Label htmlFor="purchase-bill-toggle">
+                  {t("settings.purchaseBillUpload")}
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {t("settings.purchaseBillDescription")}
+                </p>
+              </div>
+              <button
+                id="purchase-bill-toggle"
+                type="button"
+                role="switch"
+                aria-checked={purchaseBillFeature.isEnabled}
+                aria-label={t("settings.purchaseBillUpload")}
+                disabled={
+                  purchaseBillFeature.isLoading || updateAccountFeature.isPending
+                }
+                onClick={handlePurchaseBillToggle}
+                className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  purchaseBillFeature.isEnabled
+                    ? "border-primary bg-primary"
+                    : "border-slate-500 bg-slate-400"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    purchaseBillFeature.isEnabled ? "left-6" : "left-1"
+                  }`}
+                />
+              </button>
             </div>
           )}
 

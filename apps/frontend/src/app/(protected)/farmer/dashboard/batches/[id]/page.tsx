@@ -34,6 +34,7 @@ import {
   useUpdateExpense,
   useDeleteExpense,
   useGetExpenseCategories,
+  useCreateExpenseCategory,
 } from "@/fetchers/expenses/expenseQueries";
 import { useGetInventoryTableData, useGetInventoryForExpense } from "@/fetchers/inventory/inventoryQueries";
 import {
@@ -73,8 +74,8 @@ import { DateInput } from "@/common/components/ui/date-input";
 import {
   useGetWeights,
   useAddWeight,
-  useUpdateWeight,
   useDeleteWeight,
+  type WeightRecord,
 } from "@/fetchers/weight/weightQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ExpenseModal } from "@/components/batches/modals/ExpenseModal";
@@ -384,11 +385,13 @@ export default function BatchDetailPage() {
     error: weightsError,
   } = useGetWeights(safeBatchId, undefined, { enabled: !!batchId });
   const addWeightMutation = useAddWeight(safeBatchId);
+  const deleteWeightMutation = useDeleteWeight(safeBatchId);
   const currentWeight = weightsResponse?.data?.currentWeight ?? null;
   const weights = weightsResponse?.data?.weights || [];
 
   // Manual weight form state
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [weightToDelete, setWeightToDelete] = useState<WeightRecord | null>(null);
   const [weightForm, setWeightForm] = useState({
     date: getTodayLocalDate(),
     avgWeight: "",
@@ -441,6 +444,22 @@ export default function BatchDetailPage() {
     } catch (error) {
       console.error("Failed to save weight:", error);
       flash("error", "Failed to save weight. Please try again.");
+    }
+  }
+
+  async function confirmDeleteWeight() {
+    if (!weightToDelete) return;
+
+    try {
+      await deleteWeightMutation.mutateAsync(weightToDelete.id);
+      flash("success", "Weight deleted and FCR recalculated");
+      setWeightToDelete(null);
+    } catch (error: any) {
+      console.error("Failed to delete weight:", error);
+      flash(
+        "error",
+        error?.response?.data?.message || "Failed to delete weight. Please try again."
+      );
     }
   }
 
@@ -587,6 +606,7 @@ export default function BatchDetailPage() {
 
   // Expense mutations
   const createExpenseMutation = useCreateExpense();
+  const createExpenseCategoryMutation = useCreateExpenseCategory();
   const updateExpenseMutation = useUpdateExpense();
   const deleteExpenseMutation = useDeleteExpense();
   // --- Expense Modal ---
@@ -608,6 +628,7 @@ export default function BatchDetailPage() {
     medicineQuantity: "",
     selectedMedicineId: "",
     selectedOtherId: "",
+    selectedOtherCategoryId: "",
     otherName: "",
     otherRate: "",
     otherQuantity: "",
@@ -655,6 +676,7 @@ export default function BatchDetailPage() {
       setExpenseForm((prev) => ({
         ...prev,
         selectedOtherId: "",
+        selectedOtherCategoryId: "",
         otherName: prev.otherName,
         otherRate: "",
         otherQuantity: "",
@@ -666,8 +688,30 @@ export default function BatchDetailPage() {
       setExpenseForm((prev) => ({
         ...prev,
         selectedOtherId: otherId,
+        selectedOtherCategoryId: "",
         otherName: selectedOther.name,
         otherRate: String(selectedOther.rate ?? 0),
+      }));
+    }
+  }
+
+  function handleOtherCategorySelection(categoryId: string) {
+    if (!categoryId) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherCategoryId: "",
+        otherName: "",
+      }));
+      return;
+    }
+
+    const selectedCategory = expenseCategories.find((category: any) => category.id === categoryId);
+    if (selectedCategory) {
+      setExpenseForm((prev) => ({
+        ...prev,
+        selectedOtherId: "",
+        selectedOtherCategoryId: categoryId,
+        otherName: selectedCategory.name,
       }));
     }
   }
@@ -688,6 +732,7 @@ export default function BatchDetailPage() {
       medicineQuantity: "",
       selectedMedicineId: "",
       selectedOtherId: "",
+      selectedOtherCategoryId: "",
       otherName: "",
       otherRate: "",
       otherQuantity: "",
@@ -716,7 +761,14 @@ export default function BatchDetailPage() {
       medicineQuantity: row.quantity?.toString() || "",
       selectedMedicineId: "",
       selectedOtherId: "",
-      otherName: "",
+      selectedOtherCategoryId:
+        category === "Other" && categoryName !== "Other" ? row.category?.id || "" : "",
+      otherName:
+        category === "Other"
+          ? categoryName !== "Other"
+            ? categoryName
+            : row.description || ""
+          : "",
       otherRate: row.unitPrice?.toString() || "",
       otherQuantity: row.quantity?.toString() || "",
       extraName: "",
@@ -821,7 +873,16 @@ export default function BatchDetailPage() {
           errs.otherQuantity = `Only ${available} ${selectedOther.unit} available`;
         }
       } else {
-        if (!expenseForm.otherName) errs.otherName = "Expense name required";
+        const normalizedOtherName = expenseForm.otherName.trim();
+        if (!normalizedOtherName) errs.otherName = "Expense name required";
+        const reservedNames = ["feed", "medicine", "hatchery", "chicks", "equipment", "other"];
+        if (
+          normalizedOtherName &&
+          !expenseForm.selectedOtherCategoryId &&
+          reservedNames.includes(normalizedOtherName.toLowerCase())
+        ) {
+          errs.otherName = "Choose a different expense name";
+        }
         if (!expenseForm.otherQuantity) errs.otherQuantity = "Quantity required";
         if (!expenseForm.otherRate) errs.otherRate = "Rate required";
       }
@@ -844,14 +905,9 @@ export default function BatchDetailPage() {
 
       const ec = expenseForm.category;
 
-      const category = expenseCategories.find((cat: any) =>
-        cat.name.toLowerCase().includes(ec.toLowerCase())
+      let category = expenseCategories.find((cat: any) =>
+        String(cat.name).trim().toLowerCase() === ec.toLowerCase()
       );
-
-      if (!category) {
-        flash("error", "Category not found. Please create the category first.");
-        return;
-      }
 
       if (ec === "Feed") {
         const q = Number(expenseForm.feedQuantity || 0);
@@ -895,7 +951,33 @@ export default function BatchDetailPage() {
             quantity: q,
             notes: `Other: ${expenseForm.otherName || "Other"}`,
           });
+        } else {
+          const normalizedOtherName = expenseForm.otherName.trim();
+          const savedCategory = expenseForm.selectedOtherCategoryId
+            ? expenseCategories.find(
+                (candidate: any) => candidate.id === expenseForm.selectedOtherCategoryId
+              )
+            : expenseCategories.find(
+                (candidate: any) =>
+                  candidate.type === "EXPENSE" &&
+                  String(candidate.name).trim().toLowerCase() === normalizedOtherName.toLowerCase()
+              );
+
+          if (savedCategory) {
+            category = savedCategory;
+          } else {
+            const createdCategory = await createExpenseCategoryMutation.mutateAsync({
+              name: normalizedOtherName,
+              description: "Saved Other expense name",
+            });
+            category = createdCategory.data;
+          }
         }
+      }
+
+      if (!category) {
+        flash("error", "Expense category is not ready. Please reload and try again.");
+        return;
       }
 
       const expenseData = {
@@ -904,9 +986,7 @@ export default function BatchDetailPage() {
           : new Date().toISOString(),
         amount,
         description:
-          ec === "Other" && !expenseForm.selectedOtherId
-            ? expenseForm.otherName.trim()
-            : expenseForm.notes || undefined,
+          expenseForm.notes.trim() || undefined,
         quantity,
         unitPrice,
         farmId: batch?.farmId,
@@ -1782,6 +1862,8 @@ export default function BatchDetailPage() {
           weightsLoading={weightsLoading}
           weightsError={weightsError}
           setIsWeightModalOpen={setIsWeightModalOpen}
+          onDeleteWeight={setWeightToDelete}
+          isDeletingWeight={deleteWeightMutation.isPending}
         />
       )}
 
@@ -1870,7 +1952,12 @@ export default function BatchDetailPage() {
         onFeedSelection={handleFeedSelection}
         onMedicineSelection={handleMedicineSelection}
         onOtherSelection={handleOtherSelection}
-        isPending={createExpenseMutation.isPending || updateExpenseMutation.isPending}
+        onOtherCategorySelection={handleOtherCategorySelection}
+        isPending={
+          createExpenseMutation.isPending ||
+          updateExpenseMutation.isPending ||
+          createExpenseCategoryMutation.isPending
+        }
       />
 
       {/* Delete expense confirmation */}
@@ -1895,6 +1982,44 @@ export default function BatchDetailPage() {
               disabled={deleteExpenseMutation.isPending}
             >
               {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete manual weight confirmation */}
+      <AlertDialog
+        open={!!weightToDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleteWeightMutation.isPending) setWeightToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete growth record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete the manual weight of {Number(weightToDelete?.avgWeight || 0).toFixed(2)} kg
+              {weightToDelete?.date && (
+                <>
+                  {" "}recorded on <DateDisplay date={weightToDelete.date} format="short" />
+                </>
+              )}?
+              <span className="mt-2 block text-foreground/90">
+                Current FCR, FCR history, and the graph will be recalculated. This cannot be undone.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteWeightMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                confirmDeleteWeight();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteWeightMutation.isPending}
+            >
+              {deleteWeightMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

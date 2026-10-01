@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import { cn } from "@/common/lib/utils";
 import { useCloudinaryUpload } from "@/hooks/useCloudinaryUpload";
@@ -12,6 +12,7 @@ interface ImageUploadProps {
     className?: string;
     disabled?: boolean;
     placeholder?: string;
+    onUploadingChange?: (isUploading: boolean) => void;
 }
 
 /**
@@ -25,6 +26,7 @@ export function ImageUpload({
     className,
     disabled = false,
     placeholder = "Click or drag image to upload",
+    onUploadingChange,
 }: ImageUploadProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [previewError, setPreviewError] = useState(false);
@@ -37,6 +39,10 @@ export function ImageUpload({
             setPreviewError(false);
         },
     });
+
+    useEffect(() => {
+        onUploadingChange?.(isUploading);
+    }, [isUploading, onUploadingChange]);
 
     const handleFileSelect = useCallback(
         async (file: File) => {

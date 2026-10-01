@@ -44,6 +44,7 @@ export interface RecordPurchaseInput {
     reference?: string;
     date?: string;
     tradeDiscountAmount?: number;
+    billImageUrl?: string;
 }
 
 export interface RecordManualPaymentInput {

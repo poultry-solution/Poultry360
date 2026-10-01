@@ -134,10 +134,9 @@ export const useUpdateWeight = (batchId: string, weightId: string) => {
 };
 
 // Delete manual weight
-  export const useDeleteWeight = (batchId: string) => {
+export const useDeleteWeight = (batchId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
-    
     mutationFn: async (
       weightId: string
     ): Promise<{ success: boolean; message: string }> => {
@@ -149,6 +148,7 @@ export const useUpdateWeight = (batchId: string, weightId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
       queryClient.invalidateQueries({ queryKey: ["batches", "detail", batchId] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 };

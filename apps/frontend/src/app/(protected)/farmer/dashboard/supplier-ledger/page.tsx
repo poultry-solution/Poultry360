@@ -107,6 +107,9 @@ export default function SupplierLedgerPage() {
   const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
   );
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD
+  );
   const router = useRouter();
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
@@ -140,6 +143,7 @@ export default function SupplierLedgerPage() {
     date: "",
     expiryDate: "",
     description: "",
+    billImageUrl: "",
   });
   // Free chicks state (only relevant when category is CHICKS)
   const [freeMode, setFreeMode] = useState<"count" | "percent">("count");
@@ -150,6 +154,7 @@ export default function SupplierLedgerPage() {
     note: "",
     receiptImageUrl: "",
   });
+  const [isPurchaseBillUploading, setIsPurchaseBillUploading] = useState(false);
 
   useEffect(() => {
     if (!isSelfFeedEnabled && newEntry.category === "RAW_MATERIAL") {
@@ -378,6 +383,26 @@ export default function SupplierLedgerPage() {
         </span>
       ),
     }),
+    ...(isPurchaseBillEnabled
+      ? [
+          createColumn("imageUrl", t("farmer.supplierLedger.table.bill"), {
+            render: (_, row) =>
+              row.imageUrl ? (
+                <a
+                  href={row.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  {t("farmer.supplierLedger.table.view")}
+                </a>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              ),
+          }),
+        ]
+      : []),
   ];
 
   // Payments columns
@@ -545,6 +570,10 @@ export default function SupplierLedgerPage() {
 
   async function handleAddEntry(e: React.FormEvent) {
     e.preventDefault();
+    if (isPurchaseBillEnabled && isPurchaseBillUploading) {
+      toast.error(t("farmer.supplierLedger.addEntry.waitForBillUpload"));
+      return;
+    }
     const rate = Number(newEntry.rate);
     const quantity = Number(newEntry.quantity);
     const date = newEntry.date || new Date().toISOString();
@@ -571,6 +600,10 @@ export default function SupplierLedgerPage() {
             newEntry.description || `Purchase of ${newEntry.item}`,
           unitPrice: rate,
           unit: newEntry.unit || undefined,
+          imageUrl:
+            isPurchaseBillEnabled && newEntry.billImageUrl
+              ? newEntry.billImageUrl
+              : undefined,
         },
       });
 
@@ -585,12 +618,23 @@ export default function SupplierLedgerPage() {
         date: "",
         expiryDate: "",
         description: "",
+        billImageUrl: "",
       });
+      setIsPurchaseBillUploading(false);
       setFreeMode("count");
       setFreeValue("");
     } catch (error) {
       console.error("Failed to add entry:", error);
     }
+  }
+
+  function closePurchaseModal() {
+    if (isPurchaseBillEnabled && isPurchaseBillUploading) {
+      toast.error(t("farmer.supplierLedger.addEntry.waitForBillUpload"));
+      return;
+    }
+    setIsAddEntryOpen(false);
+    setNewEntry((current) => ({ ...current, billImageUrl: "" }));
   }
 
   async function handleAddPayment(e: React.FormEvent) {
@@ -1067,7 +1111,7 @@ export default function SupplierLedgerPage() {
       {/* Add Purchase Entry Modal */}
       <Modal
         isOpen={isAddEntryOpen}
-        onClose={() => setIsAddEntryOpen(false)}
+        onClose={closePurchaseModal}
         title={t("farmer.supplierLedger.addEntry.title", { name: activeSupplier?.name ?? t("farmer.supplierLedger.addEntry.supplier") })}
       >
         <form onSubmit={handleAddEntry}>
@@ -1311,25 +1355,47 @@ export default function SupplierLedgerPage() {
                   placeholder={t("farmer.supplierLedger.addEntry.notePlaceholder")}
                 />
               </div>
+
+              {isPurchaseBillEnabled && (
+                <div>
+                  <Label>{t("farmer.supplierLedger.addEntry.billLabel")}</Label>
+                  <ImageUpload
+                    value={newEntry.billImageUrl}
+                    onChange={(url) =>
+                      setNewEntry((current) => ({ ...current, billImageUrl: url }))
+                    }
+                    onUploadingChange={setIsPurchaseBillUploading}
+                    folder="purchase-bills"
+                    placeholder={t("farmer.supplierLedger.addEntry.billPlaceholder")}
+                  />
+                </div>
+              )}
             </div>
           </ModalContent>
           <ModalFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsAddEntryOpen(false)}
+              onClick={closePurchaseModal}
+              disabled={isPurchaseBillEnabled && isPurchaseBillUploading}
             >
               {t("farmer.supplierLedger.addEntry.cancel")}
             </Button>
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={addTransactionMutation.isPending}
+              disabled={
+                addTransactionMutation.isPending ||
+                (isPurchaseBillEnabled && isPurchaseBillUploading)
+              }
             >
-              {addTransactionMutation.isPending ? (
+              {addTransactionMutation.isPending ||
+              (isPurchaseBillEnabled && isPurchaseBillUploading) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("farmer.supplierLedger.addEntry.saving")}
+                  {isPurchaseBillEnabled && isPurchaseBillUploading
+                    ? t("farmer.supplierLedger.addEntry.uploadingBill")
+                    : t("farmer.supplierLedger.addEntry.saving")}
                 </>
               ) : (
                 t("farmer.supplierLedger.addEntry.save")

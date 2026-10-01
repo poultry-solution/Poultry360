@@ -89,8 +89,9 @@ export class HatcherySupplierService {
     }>;
     date: Date;
     note?: string;
+    receiptImageUrl?: string;
   }) {
-    const { supplierId, hatcheryOwnerId, category, items, date, note } = data;
+    const { supplierId, hatcheryOwnerId, category, items, date, note, receiptImageUrl } = data;
 
     const totalPurchaseAmount = items.reduce((s, i) => s + i.totalAmount, 0);
 
@@ -112,6 +113,10 @@ export class HatcherySupplierService {
             date,
             note,
             purchaseCategory: category,
+            receiptImageUrl:
+              typeof receiptImageUrl === "string" && receiptImageUrl.trim()
+                ? receiptImageUrl.trim()
+                : null,
             items: {
               create: items.map((item) => ({
                 itemName: item.itemName,

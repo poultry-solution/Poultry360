@@ -247,16 +247,18 @@ export const useAddHatcherySupplierPurchase = () => {
       items,
       date,
       note,
+      receiptImageUrl,
     }: {
       supplierId: string;
       category: HatcheryPurchaseCategory;
       items: AddPurchaseItem[];
       date: string;
       note?: string;
+      receiptImageUrl?: string;
     }) => {
       const res = await axiosInstance.post(
         `/hatchery/suppliers/${supplierId}/transactions`,
-        { type: "PURCHASE", category, items, date, note }
+        { type: "PURCHASE", category, items, date, note, receiptImageUrl }
       );
       return res.data;
     },

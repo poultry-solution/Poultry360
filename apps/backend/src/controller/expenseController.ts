@@ -336,6 +336,8 @@ export const getBatchExpenses = async (
       const categoryNameFilter =
         categoryFilter === "Chicks"
           ? { in: ["Hatchery", "Chicks"] }
+          : categoryFilter === "Other"
+            ? { notIn: ["Feed", "Medicine", "Hatchery", "Chicks"] }
           : categoryFilter;
 
       where.category = {
@@ -1193,8 +1195,11 @@ export const getExpenseCategories = async (
       orderBy: { name: "asc" },
     });
 
-    // If no categories exist, create default expense categories
-    if (categories.length === 0 && (!type || type === "EXPENSE")) {
+    // Keep the categories required by the expense form available for existing
+    // users too. Some older and seeded users already have custom categories,
+    // so checking only `categories.length === 0` can leave Feed, Medicine, or
+    // Other missing.
+    if (!type || type === "EXPENSE") {
       const defaultCategories = [
         {
           name: "Feed",
@@ -1228,24 +1233,33 @@ export const getExpenseCategories = async (
         },
       ];
 
-      // Create default categories
-      await prisma.category.createMany({
-        data: defaultCategories,
-        skipDuplicates: true,
-      });
+      const existingExpenseNames = new Set(
+        categories
+          .filter((category) => category.type === CategoryType.EXPENSE)
+          .map((category) => category.name.trim().toLowerCase()),
+      );
+      const missingDefaultCategories = defaultCategories.filter(
+        (category) => !existingExpenseNames.has(category.name.toLowerCase()),
+      );
 
-      // Fetch the created categories
-      categories = await prisma.category.findMany({
-        where,
-        include: {
-          _count: {
-            select: {
-              expenses: true,
+      if (missingDefaultCategories.length > 0) {
+        await prisma.category.createMany({
+          data: missingDefaultCategories,
+          skipDuplicates: true,
+        });
+
+        categories = await prisma.category.findMany({
+          where,
+          include: {
+            _count: {
+              select: {
+                expenses: true,
+              },
             },
           },
-        },
-        orderBy: { name: "asc" },
-      });
+          orderBy: { name: "asc" },
+        });
+      }
     }
 
     return res.json({
@@ -1266,8 +1280,9 @@ export const createExpenseCategory = async (
   try {
     const currentUserId = req.userId;
     const { name, description } = req.body;
+    const normalizedName = typeof name === "string" ? name.trim() : "";
 
-    if (!name) {
+    if (!normalizedName) {
       return res.status(400).json({ message: "Category name is required" });
     }
 
@@ -1275,7 +1290,7 @@ export const createExpenseCategory = async (
     const existingCategory = await prisma.category.findFirst({
       where: {
         userId: currentUserId,
-        name: name,
+        name: { equals: normalizedName, mode: "insensitive" },
         type: CategoryType.EXPENSE,
       },
     });
@@ -1289,7 +1304,7 @@ export const createExpenseCategory = async (
     // Create category
     const category = await prisma.category.create({
       data: {
-        name,
+        name: normalizedName,
         type: CategoryType.EXPENSE,
         description: description || null,
         userId: currentUserId as string,

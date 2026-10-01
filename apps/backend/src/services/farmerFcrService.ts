@@ -399,7 +399,26 @@ function calculatePoint(
 
   const feedKg = includedFeed.reduce((sum, row) => sum + Number(row.quantityKg), 0);
   const soldLiveWeightKg = includedSales.reduce((sum, row) => sum + Number(row.weight), 0);
-  const remainingLiveWeightKg = remainingBirds * (context.averageWeightKg || 0);
+  const averageWeightKg = context.averageWeightKg || 0;
+  const weightBiomassAtWeightDate = birdsAtWeightDate * averageWeightKg;
+  const soldWeightSinceWeightDate = includedSales
+    .filter((row) => row.date > weightDateEnd)
+    .reduce((sum, row) => sum + Number(row.weight), 0);
+  const deathsSinceWeightDate = includedDeaths
+    .filter((row) => row.date > weightDateEnd)
+    .reduce((sum, row) => sum + row.count, 0);
+  // Keep measured sale weight in the output. For sales after the weigh-in,
+  // remove that measured weight from the weigh-in biomass instead of applying
+  // the old average to all remaining birds. Natural deaths have no output
+  // weight, so remove their estimated share using the same recorded average.
+  const remainingLiveWeightKg = context.basis === "LIVE"
+    ? Math.max(
+      0,
+      weightBiomassAtWeightDate -
+        soldWeightSinceWeightDate -
+        deathsSinceWeightDate * averageWeightKg,
+    )
+    : 0;
   const producedLiveWeightKg = soldLiveWeightKg + remainingLiveWeightKg;
   const initialBiomassKg = batch.initialChicks * inputs.initialChickWeightKg;
   const weightGainKg = producedLiveWeightKg - initialBiomassKg;

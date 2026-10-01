@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 
@@ -7,6 +7,10 @@ export const ACCOUNT_FEATURE_KEYS = {
   DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
   HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
+  FARMER_PURCHASE_BILL_UPLOAD: "FARMER_PURCHASE_BILL_UPLOAD",
+  HATCHERY_PURCHASE_BILL_UPLOAD: "HATCHERY_PURCHASE_BILL_UPLOAD",
+  DEALER_PURCHASE_BILL_UPLOAD: "DEALER_PURCHASE_BILL_UPLOAD",
+  COMPANY_PURCHASE_BILL_UPLOAD: "COMPANY_PURCHASE_BILL_UPLOAD",
   COMPANY_STAFF_OPERATIONS: "COMPANY_STAFF_OPERATIONS",
   DEALER_SUPPLIER_SETTLEMENT_SALES: "DEALER_SUPPLIER_SETTLEMENT_SALES",
   DEALER_BROILER_SALES_AND_SETTLEMENTS: "DEALER_BROILER_SALES_AND_SETTLEMENTS",
@@ -49,7 +53,7 @@ export function useGetAccountFeatures(options?: { enabled?: boolean }) {
 
 export function useAccountFeature(
   featureKey: AccountFeatureKey,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   const query = useGetAccountFeatures(options);
   const feature = query.data?.data.find((item) => item.key === featureKey);
@@ -58,4 +62,30 @@ export function useAccountFeature(
     feature,
     isEnabled: feature?.enabled === true,
   };
+}
+
+export function useUpdateCurrentAccountFeature() {
+  const queryClient = useQueryClient();
+  const accountId = useAuthStore((state) => state.user?.id ?? "");
+
+  return useMutation({
+    mutationFn: async ({
+      featureKey,
+      enabled,
+    }: {
+      featureKey: AccountFeatureKey;
+      enabled: boolean;
+    }) => {
+      const { data } = await axiosInstance.put(
+        `/account-features/${featureKey}`,
+        { enabled },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: accountFeatureQueryKeys.account(accountId),
+      });
+    },
+  });
 }
