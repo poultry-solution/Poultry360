@@ -6,7 +6,7 @@ jest.mock("../../src/utils/prisma", () => ({
     mortality: { findMany: jest.fn() },
     feedConsumption: { findMany: jest.fn() },
     birdWeight: { findMany: jest.fn() },
-    batchFcrHistory: { upsert: jest.fn(), findMany: jest.fn() },
+    batchFcrHistory: { upsert: jest.fn(), findMany: jest.fn(), deleteMany: jest.fn() },
   },
 }));
 
@@ -26,7 +26,7 @@ const mocked = prisma as unknown as {
   mortality: { findMany: jest.Mock };
   feedConsumption: { findMany: jest.Mock };
   birdWeight: { findMany: jest.Mock };
-  batchFcrHistory: { upsert: jest.Mock; findMany: jest.Mock };
+  batchFcrHistory: { upsert: jest.Mock; findMany: jest.Mock; deleteMany: jest.Mock };
 };
 
 const now = new Date("2026-01-10T06:00:00.000Z");
@@ -69,6 +69,7 @@ describe("Farmer Phase 1 FCR", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mocked.batchFcrHistory.upsert.mockResolvedValue({});
+    mocked.batchFcrHistory.deleteMany.mockResolvedValue({ count: 0 });
   });
 
   it("calculates a fresh active-batch FCR", async () => {
@@ -219,6 +220,59 @@ describe("Farmer Phase 1 FCR", () => {
         create: expect.objectContaining({ soldBirds: 20, soldLiveWeightKg: 40 }),
       }),
     );
+  });
+
+  it("keeps a valid sale-date point even when a later sale is outside the weight window", async () => {
+    const weightDate = new Date("2026-01-02T06:00:00.000Z");
+    const validSaleDate = new Date("2026-01-03T06:00:00.000Z");
+    const lateSaleDate = new Date("2026-01-08T06:00:00.000Z");
+    setRows({
+      sales: [
+        { id: "sale-1", date: validSaleDate, quantity: 20, weight: 40 },
+        { id: "sale-2", date: lateSaleDate, quantity: 10, weight: 20 },
+      ],
+      feed: [{ id: "feed-1", date: weightDate, quantityKg: 100 }],
+      weights: [{
+        id: "weight-1",
+        date: weightDate,
+        avgWeight: 1.5,
+        sampleCount: 10,
+        createdAt: weightDate,
+      }],
+    });
+
+    await syncFarmerBatchFcrHistory("batch-1", now);
+
+    const savedDates = mocked.batchFcrHistory.upsert.mock.calls.map(
+      ([input]) => input.where.batchId_calculationDate.calculationDate.toISOString(),
+    );
+    expect(savedDates).toContain(startOfNepalDay(weightDate).toISOString());
+    expect(savedDates).toContain(startOfNepalDay(validSaleDate).toISOString());
+    expect(savedDates).not.toContain(startOfNepalDay(lateSaleDate).toISOString());
+  });
+
+  it("removes history dates that are no longer supported after a weight edit", async () => {
+    const oldDate = new Date("2026-01-06T06:00:00.000Z");
+    const newDate = new Date("2026-01-08T06:00:00.000Z");
+    setRows({
+      feed: [{ id: "feed-1", date: oldDate, quantityKg: 100 }],
+      weights: [{
+        id: "weight-1",
+        date: newDate,
+        avgWeight: 1.5,
+        sampleCount: 10,
+        createdAt: newDate,
+      }],
+    });
+
+    await syncFarmerBatchFcrHistory("batch-1", now);
+
+    expect(mocked.batchFcrHistory.deleteMany).toHaveBeenCalledWith({
+      where: {
+        batchId: "batch-1",
+        calculationDate: { notIn: [startOfNepalDay(newDate)] },
+      },
+    });
   });
 
   it("accepts a weight at the exact three-day freshness boundary", async () => {

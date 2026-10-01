@@ -5,8 +5,13 @@ declare global {
 }
 
 // Enhanced Prisma client configuration for Neon and connection resilience
-const prisma = global.prisma || new PrismaClient({
+const prisma: PrismaClient = global.prisma || new PrismaClient({
   log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+  omit: {
+    sale: {
+      invoiceKey: true,
+    },
+  },
   transactionOptions: {
     timeout: 10000, // 10 seconds instead of default 5 seconds
   },
@@ -15,7 +20,7 @@ const prisma = global.prisma || new PrismaClient({
       url: process.env.DATABASE_URL,
     },
   },
-});
+}) as PrismaClient;
 
 // Handle connection errors gracefully
 prisma.$on("error" as never, (e: any) => {

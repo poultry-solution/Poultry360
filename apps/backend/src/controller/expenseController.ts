@@ -13,21 +13,7 @@ import {
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
 import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
-
-function isKilogramUnit(unit: string | null | undefined): boolean {
-  return ["kg", "kgs", "kilogram", "kilograms"].includes(
-    (unit || "").trim().toLowerCase()
-  );
-}
-
-function resolveKgPerUnit(
-  item: { unit?: string | null; kgPerUnit?: unknown },
-  enteredKgPerUnit?: unknown
-): number | null {
-  if (isKilogramUnit(item.unit)) return 1;
-  const value = Number(item.kgPerUnit ?? enteredKgPerUnit);
-  return Number.isFinite(value) && value > 0 ? value : null;
-}
+import { resolveFeedKgPerUnit } from "../utils/farmerFeedUnits";
 
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
@@ -556,7 +542,7 @@ export const createExpense = async (
       (item: any) => item.inventoryItem.itemType === InventoryItemType.FEED
     );
     const feedItemWithoutConversion = feedItemsData.find(
-      (item: any) => resolveKgPerUnit(item.inventoryItem, item.kgPerUnit) === null
+      (item: any) => resolveFeedKgPerUnit(item.inventoryItem, item.kgPerUnit) === null
     );
     if (
       batchId &&
@@ -612,7 +598,7 @@ export const createExpense = async (
                 inventoryItem.itemType === InventoryItemType.FEED &&
                 inventoryItem.kgPerUnit == null
               ) {
-                const conversion = resolveKgPerUnit(
+                const conversion = resolveFeedKgPerUnit(
                   inventoryItem,
                   itemData.kgPerUnit
                 );
@@ -679,7 +665,7 @@ export const createExpense = async (
         if (isFeedExpense && batchId && quantityValue > 0) {
           const quantityKg = feedItemsData.length > 0
             ? feedItemsData.reduce((sum: number, item: any) => {
-                const conversion = resolveKgPerUnit(
+                const conversion = resolveFeedKgPerUnit(
                   item.inventoryItem,
                   item.kgPerUnit
                 ) as number;
@@ -691,7 +677,7 @@ export const createExpense = async (
             : null;
           const unit = singleFeedItem?.inventoryItem.unit || "kg";
           const conversion = singleFeedItem
-            ? resolveKgPerUnit(singleFeedItem.inventoryItem, singleFeedItem.kgPerUnit)
+            ? resolveFeedKgPerUnit(singleFeedItem.inventoryItem, singleFeedItem.kgPerUnit)
             : 1;
 
           await tx.feedConsumption.create({
@@ -833,7 +819,7 @@ export const updateExpense = async (
       nextCategory.type === CategoryType.EXPENSE &&
       (nextCategory.name.toLowerCase() === "feed" || feedUsages.length > 0);
     const feedUsageWithoutConversion = feedUsages.find(
-      (usage) => resolveKgPerUnit(usage.item) === null
+      (usage) => resolveFeedKgPerUnit(usage.item) === null
     );
 
     if (isFeedExpense && nextBatchId && feedUsageWithoutConversion) {
@@ -876,7 +862,7 @@ export const updateExpense = async (
         const quantityKg = feedUsages.length > 0
           ? feedUsages.reduce(
               (sum, usage) =>
-                sum + Number(usage.quantity) * (resolveKgPerUnit(usage.item) as number),
+                sum + Number(usage.quantity) * (resolveFeedKgPerUnit(usage.item) as number),
               0
             )
           : nextQuantity;
@@ -884,7 +870,7 @@ export const updateExpense = async (
         const unit = singleFeedUsage?.item.unit ||
           (feedUsages.length > 1 ? "mixed" : "kg");
         const conversion = singleFeedUsage
-          ? resolveKgPerUnit(singleFeedUsage.item)
+          ? resolveFeedKgPerUnit(singleFeedUsage.item)
           : feedUsages.length > 1
             ? null
             : 1;

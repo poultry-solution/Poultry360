@@ -79,7 +79,7 @@ export interface FarmerFcrResult {
 
 export interface FarmerFcrHistoryRow {
   id: string;
-  calculationDate: Date;
+  calculationDate: string;
   fcr: number;
   basis: FcrBasis;
   displayStatus: "FRESH" | "STALE" | "FINAL";
@@ -141,6 +141,11 @@ function nepalDateParts(date: Date): { year: number; month: number; day: number 
     month: shifted.getUTCMonth() + 1,
     day: shifted.getUTCDate(),
   };
+}
+
+function nepalDateString(date: Date): string {
+  const { year, month, day } = nepalDateParts(date);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function startOfNepalDay(date: Date): Date {
@@ -580,27 +585,85 @@ export async function syncFarmerBatchFcrHistory(
 ): Promise<void> {
   const inputs = await loadFcrInputs(batchId, now);
   if (!inputs || inputs.batch.batchType !== BatchType.BROILER) return;
-  const weightsByDay = new Map<number, ManualWeightRow>();
-  for (const weight of inputs.manualWeights) {
-    const day = nepalDayNumber(weight.date);
-    if (!weightsByDay.has(day)) weightsByDay.set(day, weight);
+
+  // Rebuild one point for every dated batch event. This keeps history correct
+  // after a sale, feed, death, or manual-weight edit instead of only appending
+  // rows and leaving old calculations behind.
+  const eventDatesByDay = new Map<number, Date>();
+  const addEventDate = (date: Date) => {
+    const day = nepalDayNumber(date);
+    const saved = eventDatesByDay.get(day);
+    if (!saved || date > saved) eventDatesByDay.set(day, date);
+  };
+  inputs.manualWeights.forEach((row) => addEventDate(row.date));
+  inputs.sales.forEach((row) => addEventDate(row.date));
+  inputs.deathRows.forEach((row) => addEventDate(row.date));
+  inputs.feedRows.forEach((row) => addEventDate(row.date));
+
+  const pointsByDay = new Map<number, FarmerFcrResult>();
+  const eventDates = [...eventDatesByDay.values()].sort(
+    (left, right) => left.getTime() - right.getTime(),
+  );
+  for (const eventDate of eventDates) {
+    const eventEnd = endOfNepalDay(eventDate);
+    const soldBirds = inputs.sales
+      .filter((row) => row.date <= eventEnd)
+      .reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+    const deaths = inputs.deathRows
+      .filter((row) => row.date <= eventEnd)
+      .reduce((sum, row) => sum + row.count, 0);
+    const remainingBirds = inputs.batch.initialChicks - soldBirds - deaths;
+
+    let point: FarmerFcrResult | null = null;
+    if (remainingBirds === 0) {
+      point = calculatePoint(inputs, {
+        basis: "FINAL_PENDING_CLOSE",
+        asOfDate: eventDate,
+        averageWeightKg: null,
+        sampleCount: null,
+      }, now);
+    } else if (remainingBirds > 0) {
+      const weight = inputs.manualWeights.find(
+        (row) =>
+          row.date <= eventEnd &&
+          ageInNepalDays(row.date, eventDate) <= fcrFreshDays,
+      );
+      if (weight) {
+        point = calculatePoint(inputs, {
+          basis: "LIVE",
+          asOfDate: eventDate,
+          weightDate: weight.date,
+          averageWeightKg: Number(weight.avgWeight),
+          sampleCount: weight.sampleCount,
+        }, now);
+      }
+    }
+
+    if (point?.status === "CALCULATED" && point.fcr != null && point.asOfDate) {
+      pointsByDay.set(nepalDayNumber(point.asOfDate), point);
+    }
   }
-  for (const weight of weightsByDay.values()) {
-    await saveHistoryPoint(batchId, calculatePoint(inputs, {
-      basis: "LIVE",
-      asOfDate: weight.date,
-      weightDate: weight.date,
-      averageWeightKg: Number(weight.avgWeight),
-      sampleCount: weight.sampleCount,
-    }, now));
-  }
+
   const current = calculateCurrentFromInputs(inputs, now);
-  if (
-    current.basis !== "LIVE" ||
-    (current.asOfDate != null && !weightsByDay.has(nepalDayNumber(current.asOfDate)))
-  ) {
-    await saveHistoryPoint(batchId, current);
+  if (current.status === "CALCULATED" && current.fcr != null && current.asOfDate) {
+    pointsByDay.set(nepalDayNumber(current.asOfDate), current);
   }
+
+  const points = [...pointsByDay.values()].sort(
+    (left, right) =>
+      (left.asOfDate?.getTime() || 0) - (right.asOfDate?.getTime() || 0),
+  );
+  for (const point of points) await saveHistoryPoint(batchId, point);
+
+  const validDates = points.map((point) => startOfNepalDay(point.asOfDate as Date));
+  await prisma.batchFcrHistory.deleteMany({
+    where: {
+      batchId,
+      ...(validDates.length > 0
+        ? { calculationDate: { notIn: validDates } }
+        : {}),
+    },
+  });
 }
 
 export async function refreshFarmerFcrHistorySafely(batchId: string): Promise<void> {
@@ -626,7 +689,9 @@ export async function getFarmerBatchFcrHistory(
   ]);
   return rows.map((row) => ({
     id: row.id,
-    calculationDate: row.calculationDate,
+    // History is grouped by Nepal business day. Return a date-only value so
+    // clients do not display the prior UTC day (Nepal midnight is 18:15 UTC).
+    calculationDate: nepalDateString(row.calculationDate),
     fcr: Number(row.fcr),
     basis: row.basis as FcrBasis,
     displayStatus: row.isFinal

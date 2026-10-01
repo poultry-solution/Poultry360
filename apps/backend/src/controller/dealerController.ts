@@ -11,6 +11,10 @@ import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
 } from "../services/accountFeatureService";
+import {
+  isSupportedFarmerFeedUnit,
+  resolveNewFarmerFeedUnit,
+} from "../utils/farmerFeedUnits";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -691,6 +695,7 @@ export const addDealerTransaction = async (
       unitPrice,
       imageUrl,
       unit,
+      kgPerUnit,
       // single-request optional initial payment
       paymentAmount,
       paymentDescription,
@@ -754,6 +759,33 @@ export const addDealerTransaction = async (
       ) {
         return res.status(400).json({ message: "Invalid purchase category" });
       }
+      const resolvedPurchaseCategory =
+        purchaseCategory || PurchaseCategory.FEED;
+      const useFarmerFeedUnits =
+        req.role === UserRole.OWNER &&
+        resolvedPurchaseCategory === PurchaseCategory.FEED;
+      const resolvedFeedUnit = resolveNewFarmerFeedUnit(
+        unit == null ? undefined : String(unit)
+      );
+      const numericKgPerUnit =
+        kgPerUnit === undefined || kgPerUnit === null
+          ? undefined
+          : Number(kgPerUnit);
+      if (
+        useFarmerFeedUnits &&
+        !isSupportedFarmerFeedUnit(resolvedFeedUnit)
+      ) {
+        return res.status(400).json({ message: "Feed unit must be KG or Bag" });
+      }
+      if (
+        useFarmerFeedUnits &&
+        numericKgPerUnit !== undefined &&
+        (!Number.isFinite(numericKgPerUnit) || numericKgPerUnit <= 0)
+      ) {
+        return res.status(400).json({
+          message: "Kilograms per Bag must be greater than zero",
+        });
+      }
       if (
         req.role === UserRole.OWNER &&
         purchaseCategory === PurchaseCategory.RAW_MATERIAL &&
@@ -803,7 +835,12 @@ export const addDealerTransaction = async (
         reference,
         purchaseCategory: purchaseCategory || undefined,
         userId: currentUserId,
-        unit: unit || undefined,
+        unit:
+          useFarmerFeedUnits
+            ? resolvedFeedUnit
+            : unit || undefined,
+        kgPerUnit: useFarmerFeedUnits ? numericKgPerUnit : undefined,
+        enforceFarmerFeedUnits: req.role === UserRole.OWNER,
       });
 
       const purchaseTransaction = result.entityTransaction;

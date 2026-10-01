@@ -3,7 +3,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/common/components/ui/button";
 import { Activity, AlertTriangle, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/common/components/ui/chart";
+import { useCalendar } from "@/common/hooks/useCalendar";
 import type { FcrHistoryRow } from "@/types/fcr";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+
+const fcrChartConfig = {
+  fcr: {
+    label: "FCR",
+    color: "#15803d",
+  },
+} satisfies ChartConfig;
 
 interface OverviewTabProps {
   batch: any;
@@ -44,11 +59,16 @@ export function OverviewTab({
   recentMortalities,
   onRecordWeight,
 }: OverviewTabProps) {
+  const { toDisplayDate } = useCalendar();
   const fcrData = analytics?.fcrData;
   const fcrIsFinal =
     fcrData?.basis === "FINAL" || fcrData?.basis === "FINAL_PENDING_CLOSE";
   const fcrIsStale = fcrData?.freshnessStatus === "STALE";
   const displayedFcr = fcrData?.fcr ?? analytics?.lastKnownFcr ?? null;
+  const fcrChartData = fcrHistory.map((row) => ({
+    ...row,
+    dateLabel: toDisplayDate(row.calculationDate, "short"),
+  }));
   const weightCanRefreshFcr =
     fcrData?.basis === "LIVE" &&
     (fcrData?.status === "NO_MANUAL_WEIGHT" ||
@@ -345,48 +365,101 @@ export function OverviewTab({
                 No FCR history yet. Record feed and a live weight to create the first value.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="px-2 py-2 font-medium">Date</th>
-                      <th className="px-2 py-2 font-medium">FCR</th>
-                      <th className="px-2 py-2 font-medium">Average kg</th>
-                      <th className="px-2 py-2 font-medium">Feed kg</th>
-                      <th className="px-2 py-2 font-medium">Produced kg</th>
-                      <th className="px-2 py-2 font-medium">Gain kg</th>
-                      <th className="px-2 py-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...fcrHistory].reverse().map((row) => (
-                      <tr key={row.id} className="border-b last:border-0">
-                        <td className="px-2 py-2">
-                          <DateDisplay date={row.calculationDate} format="short" />
-                        </td>
-                        <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
-                        <td className="px-2 py-2">
-                          {row.remainingAverageWeightKg == null
-                            ? "—"
-                            : row.remainingAverageWeightKg.toFixed(2)}
-                        </td>
-                        <td className="px-2 py-2">{row.feedKg.toFixed(2)}</td>
-                        <td className="px-2 py-2">{row.producedLiveWeightKg.toFixed(2)}</td>
-                        <td className="px-2 py-2">{row.weightGainKg.toFixed(2)}</td>
-                        <td className="px-2 py-2">
-                          <span className={row.displayStatus === "FRESH"
-                            ? "text-green-700"
-                            : row.displayStatus === "FINAL"
-                              ? "text-blue-700"
-                              : "text-amber-700"}
-                          >
-                            {row.displayStatus}
-                          </span>
-                        </td>
+              <div className="space-y-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="px-2 py-2 font-medium">Date</th>
+                        <th className="px-2 py-2 font-medium">FCR</th>
+                        <th className="px-2 py-2 font-medium">Average kg</th>
+                        <th className="px-2 py-2 font-medium">Feed kg</th>
+                        <th className="px-2 py-2 font-medium">Produced kg</th>
+                        <th className="px-2 py-2 font-medium">Gain kg</th>
+                        <th className="px-2 py-2 font-medium">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {[...fcrHistory].reverse().map((row) => (
+                        <tr key={row.id} className="border-b last:border-0">
+                          <td className="px-2 py-2">
+                            <DateDisplay date={row.calculationDate} format="short" />
+                          </td>
+                          <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
+                          <td className="px-2 py-2">
+                            {row.remainingAverageWeightKg == null
+                              ? "—"
+                              : row.remainingAverageWeightKg.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2">{row.feedKg.toFixed(2)}</td>
+                          <td className="px-2 py-2">{row.producedLiveWeightKg.toFixed(2)}</td>
+                          <td className="px-2 py-2">{row.weightGainKg.toFixed(2)}</td>
+                          <td className="px-2 py-2">
+                            <span className={row.displayStatus === "FRESH"
+                              ? "text-green-700"
+                              : row.displayStatus === "FINAL"
+                                ? "text-blue-700"
+                                : "text-amber-700"}
+                            >
+                              {row.displayStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="border-t pt-5">
+                  <div className="mb-4">
+                    <p className="text-sm font-medium">FCR trend</p>
+                    <p className="text-xs text-muted-foreground">
+                      Daily FCR based on the saved values above
+                    </p>
+                  </div>
+                  <ChartContainer config={fcrChartConfig} className="h-[260px] w-full">
+                    <LineChart data={fcrChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="dateLabel"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={10}
+                        minTickGap={24}
+                      />
+                      <YAxis
+                        dataKey="fcr"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        width={36}
+                        domain={["auto", "auto"]}
+                        tickFormatter={(value) => Number(value).toFixed(1)}
+                      />
+                      <ChartTooltip
+                        cursor={{ stroke: "#d1d5db", strokeDasharray: "3 3" }}
+                        content={
+                          <ChartTooltipContent
+                            formatter={(value) => (
+                              <div className="flex min-w-[110px] items-center justify-between gap-4">
+                                <span className="text-muted-foreground">FCR</span>
+                                <span className="font-medium">{Number(value).toFixed(2)}</span>
+                              </div>
+                            )}
+                          />
+                        }
+                      />
+                      <Line
+                        dataKey="fcr"
+                        type="monotone"
+                        stroke="var(--color-fcr)"
+                        strokeWidth={2.5}
+                        dot={{ r: 3.5, fill: "var(--color-fcr)", strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: "var(--color-fcr)", stroke: "white", strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
               </div>
             )}
           </CardContent>

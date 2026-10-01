@@ -12,6 +12,11 @@ import {
   getFarmerInventoryUnitCosts,
   PURCHASE_CATEGORY_TO_ITEM_TYPE,
 } from "./farmerInventoryDomain";
+import {
+  isSupportedFarmerFeedUnit,
+  resolveFeedKgPerUnit,
+  resolveNewFarmerFeedUnit,
+} from "../utils/farmerFeedUnits";
 
 // ==================== INVENTORY SERVICE ====================
 // Handles the connection between suppliers, inventory, and expenses
@@ -49,6 +54,10 @@ export class InventoryService {
 
     // Optional: Unit for the transaction
     unit?: string;
+    // Stored per feed item. The current UI leaves this hidden.
+    kgPerUnit?: number;
+    // Keep Company and other callers on their old unit behavior.
+    enforceFarmerFeedUnits?: boolean;
   }) {
     const {
       dealerId,
@@ -68,6 +77,8 @@ export class InventoryService {
       paymentAmount,
       paymentDescription,
       unit,
+      kgPerUnit,
+      enforceFarmerFeedUnits = false,
     } = data;
 
     // Determine item type based on supplier or explicit purchaseCategory
@@ -94,6 +105,14 @@ export class InventoryService {
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         throw new Error("Unit price must be a non-negative number");
       }
+      if (
+        enforceFarmerFeedUnits &&
+        itemType === InventoryItemType.FEED &&
+        kgPerUnit !== undefined &&
+        (!Number.isFinite(kgPerUnit) || kgPerUnit <= 0)
+      ) {
+        throw new Error("Kilograms per unit must be greater than zero");
+      }
 
       // 1. Use the same canonical category mapping for purchases, manual stock,
       // and production output.
@@ -101,8 +120,22 @@ export class InventoryService {
 
       // 3. Find or create inventory item by name + rate + supplier (different rate or supplier = separate line)
       const rateKey = new Prisma.Decimal(Math.round(unitPrice * 100) / 100);
-      const resolvedUnit = unit?.trim() ||
-        (itemType === InventoryItemType.CHICKS ? "birds" : "kg");
+      const resolvedUnit =
+        enforceFarmerFeedUnits && itemType === InventoryItemType.FEED
+          ? resolveNewFarmerFeedUnit(unit)
+          : unit?.trim() ||
+            (itemType === InventoryItemType.CHICKS ? "birds" : "kg");
+      if (
+        enforceFarmerFeedUnits &&
+        itemType === InventoryItemType.FEED &&
+        !isSupportedFarmerFeedUnit(resolvedUnit)
+      ) {
+        throw new Error("Feed unit must be KG or Bag");
+      }
+      const resolvedKgPerUnit =
+        enforceFarmerFeedUnits && itemType === InventoryItemType.FEED
+          ? resolveFeedKgPerUnit({ unit: resolvedUnit, kgPerUnit })
+          : null;
       const supplierKey =
         dealerId != null
           ? `DEALER:${dealerId}`
@@ -119,7 +152,7 @@ export class InventoryService {
         ? normalizedExpiryDate.toISOString().split("T")[0]
         : "NO_EXPIRY";
 
-      const inventoryItem = await tx.inventoryItem.upsert({
+      let inventoryItem = await tx.inventoryItem.upsert({
         where: {
           userId_categoryId_name_unit_unitPrice_supplierKey_expiryDateKey: {
             userId,
@@ -141,6 +174,7 @@ export class InventoryService {
           description: description,
           currentStock: 0,
           unit: resolvedUnit,
+          kgPerUnit: resolvedKgPerUnit,
           itemType,
           origin: InventoryOrigin.PURCHASED,
           userId,
@@ -151,6 +185,19 @@ export class InventoryService {
           expiryDateKey,
         },
       });
+
+      // Keep an existing custom Bag size. Only fill a missing conversion.
+      if (
+        enforceFarmerFeedUnits &&
+        itemType === InventoryItemType.FEED &&
+        inventoryItem.kgPerUnit == null &&
+        resolvedKgPerUnit !== null
+      ) {
+        inventoryItem = await tx.inventoryItem.update({
+          where: { id: inventoryItem.id },
+          data: { kgPerUnit: resolvedKgPerUnit },
+        });
+      }
 
       // 4. Create expense record for PAID quantity (free quantity is zero-cost)
       const expense = await tx.expense.create({
