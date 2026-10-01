@@ -54,6 +54,10 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
+import {
+    ACCOUNT_FEATURE_KEYS,
+    useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 export default function ManualCompanyAccountPage() {
     const params = useParams();
@@ -83,6 +87,9 @@ export default function ManualCompanyAccountPage() {
     const updateCompanyMutation = useUpdateManualCompany();
     const voidPurchaseMutation = useVoidManualPurchase();
     const voidPaymentMutation = useVoidManualPayment();
+    const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+        ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
+    );
 
     const company = data?.company;
     const transactions = data?.transactions || [];
@@ -504,6 +511,16 @@ export default function ManualCompanyAccountPage() {
                                                 )}
                                                 {txn.reference && (
                                                     <div className="mt-1 text-xs text-muted-foreground">Ref: {txn.reference}</div>
+                                                )}
+                                                {isPurchaseBillEnabled && txn.billImageUrl && (
+                                                    <a
+                                                        href={txn.billImageUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-1 inline-block text-xs text-blue-600 underline"
+                                                    >
+                                                        View bill
+                                                    </a>
                                                 )}
                                             </div>
                                         ))}

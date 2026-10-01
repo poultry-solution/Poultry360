@@ -120,6 +120,9 @@ export default function HatcherySupplierLedgerPage() {
   const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
   );
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.HATCHERY_PURCHASE_BILL_UPLOAD
+  );
 
   const [activeSupplierId, setActiveSupplierId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"purchases" | "payments">(
@@ -136,6 +139,7 @@ export default function HatcherySupplierLedgerPage() {
   const [isOpeningBalanceOpen, setIsOpeningBalanceOpen] = useState(false);
   const [isDeleteSupplierOpen, setIsDeleteSupplierOpen] = useState(false);
   const [isDeleteTxnOpen, setIsDeleteTxnOpen] = useState(false);
+  const [isPurchaseBillUploading, setIsPurchaseBillUploading] = useState(false);
   const [txnToDelete, setTxnToDelete] = useState<string | null>(null);
 
   // Forms
@@ -152,6 +156,7 @@ export default function HatcherySupplierLedgerPage() {
     category: HatcheryPurchaseCategory;
     date: string;
     note: string;
+    receiptImageUrl: string;
     lineItems: Array<
       AddPurchaseItem & {
         freeMode: "count" | "percent";
@@ -162,6 +167,7 @@ export default function HatcherySupplierLedgerPage() {
     category: "FEED",
     date: "",
     note: "",
+    receiptImageUrl: "",
     lineItems: [emptyLineItem("FEED")],
   });
   const [paymentForm, setPaymentForm] = useState({
@@ -183,6 +189,12 @@ export default function HatcherySupplierLedgerPage() {
       }));
     }
   }, [isSelfFeedEnabled, purchaseForm.category]);
+
+  useEffect(() => {
+    if (!isPurchaseBillEnabled && purchaseForm.receiptImageUrl) {
+      setPurchaseForm((current) => ({ ...current, receiptImageUrl: "" }));
+    }
+  }, [isPurchaseBillEnabled, purchaseForm.receiptImageUrl]);
   // Queries
   const { data: suppliersRes, isLoading: suppliersLoading } =
     useGetHatcherySuppliers({ page: supplierPage, limit: SUPPLIER_PAGE_LIMIT });
@@ -457,6 +469,10 @@ export default function HatcherySupplierLedgerPage() {
   };
 
   const handleAddPurchase = async () => {
+    if (isPurchaseBillUploading) {
+      toast.error("Please wait for the bill image to finish uploading");
+      return;
+    }
     if (!purchaseForm.date) { toast.error("Date is required"); return; }
     for (const li of purchaseForm.lineItems) {
       const qty = Number(li.quantity);
@@ -487,13 +503,29 @@ export default function HatcherySupplierLedgerPage() {
         })),
         date: purchaseForm.date,
         note: purchaseForm.note || undefined,
+        receiptImageUrl:
+          isPurchaseBillEnabled && purchaseForm.receiptImageUrl
+            ? purchaseForm.receiptImageUrl
+            : undefined,
       });
       toast.success("Purchase recorded and inventory updated");
       setIsAddPurchaseOpen(false);
-      setPurchaseForm({ category: "FEED", date: "", note: "", lineItems: [emptyLineItem("FEED")] });
+      setPurchaseForm({
+        category: "FEED",
+        date: "",
+        note: "",
+        receiptImageUrl: "",
+        lineItems: [emptyLineItem("FEED")],
+      });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to record purchase");
     }
+  };
+
+  const closePurchaseModal = () => {
+    if (isPurchaseBillUploading) return;
+    setIsAddPurchaseOpen(false);
+    setPurchaseForm((current) => ({ ...current, receiptImageUrl: "" }));
   };
 
   const handleAddPayment = async () => {
@@ -798,6 +830,7 @@ export default function HatcherySupplierLedgerPage() {
                             setTxnToDelete(id);
                             setIsDeleteTxnOpen(true);
                           }}
+                          showBill={isPurchaseBillEnabled}
                           />
                       ))
                     )}
@@ -965,7 +998,7 @@ export default function HatcherySupplierLedgerPage() {
       {/* Add Purchase */}
       <Modal
         isOpen={isAddPurchaseOpen}
-        onClose={() => setIsAddPurchaseOpen(false)}
+        onClose={closePurchaseModal}
         title="Add Purchase Entry"
       >
         <ModalContent>
@@ -1179,21 +1212,44 @@ export default function HatcherySupplierLedgerPage() {
                 }
               />
             </div>
+
+            {isPurchaseBillEnabled && (
+              <div>
+                <Label>Bill Image (optional)</Label>
+                <ImageUpload
+                  value={purchaseForm.receiptImageUrl}
+                  folder="poultry360/purchase-bills"
+                  onChange={(url) =>
+                    setPurchaseForm((current) => ({
+                      ...current,
+                      receiptImageUrl: url ?? "",
+                    }))
+                  }
+                  onUploadingChange={setIsPurchaseBillUploading}
+                  placeholder="Upload purchase bill"
+                />
+              </div>
+            )}
           </div>
         </ModalContent>
         <ModalFooter>
           <Button
             variant="outline"
-            onClick={() => setIsAddPurchaseOpen(false)}
+            onClick={closePurchaseModal}
+            disabled={isPurchaseBillUploading}
           >
             Cancel
           </Button>
           <Button
             className="bg-orange-500 hover:bg-orange-600"
             onClick={handleAddPurchase}
-            disabled={addPurchase.isPending}
+            disabled={addPurchase.isPending || isPurchaseBillUploading}
           >
-            {addPurchase.isPending ? "Saving..." : "Record Purchase"}
+            {isPurchaseBillUploading
+              ? "Uploading bill..."
+              : addPurchase.isPending
+                ? "Saving..."
+                : "Record Purchase"}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1359,9 +1415,11 @@ export default function HatcherySupplierLedgerPage() {
 function PurchaseRow({
   txn,
   onDelete,
+  showBill,
 }: {
   txn: any;
   onDelete: (id: string) => void;
+  showBill: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isOpeningBalance = txn.type === "OPENING_BALANCE";
@@ -1399,6 +1457,16 @@ function PurchaseRow({
               <DateDisplay date={txn.date} />
               {txn.note && ` · ${txn.note}`}
             </p>
+            {showBill && txn.type === "PURCHASE" && txn.receiptImageUrl && (
+              <a
+                href={txn.receiptImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-500 underline"
+              >
+                View bill
+              </a>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">

@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { AccountPaymentType, BatchStatus, Prisma, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcrypt";
-import { getResolvedAccountFeatures } from "../services/accountFeatureService";
+import { getAdminResolvedAccountFeatures } from "../services/accountFeatureService";
 import { getAdminAccountUsageSummary } from "../services/adminAccountUsageService";
 import { writeBusinessAudit } from "../services/businessAuditService";
 
@@ -327,7 +327,7 @@ export const getUserById = async (
       });
 
     const [accountFeatures, ownedFarms, managedFarms] = await Promise.all([
-      getResolvedAccountFeatures(user.id, user.role),
+      getAdminResolvedAccountFeatures(user.id, user.role),
       Promise.resolve(addBirdTotals(user.ownedFarms)),
       Promise.resolve(addBirdTotals(user.managedFarms)),
     ]);

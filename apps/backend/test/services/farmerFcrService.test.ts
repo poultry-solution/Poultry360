@@ -164,8 +164,9 @@ describe("Farmer Phase 1 FCR", () => {
     expect(result?.weightSourceDate).toEqual(weightDate);
     expect(result?.weightAgeDays).toBe(2);
     expect(result?.soldLiveWeightKg).toBe(40);
-    expect(result?.remainingLiveWeightKg).toBe(120);
-    expect(result?.currentFcr).toBeCloseTo(100 / 155, 8);
+    expect(result?.remainingLiveWeightKg).toBe(110);
+    expect(result?.producedLiveWeightKg).toBe(150);
+    expect(result?.currentFcr).toBeCloseTo(100 / 145, 8);
     expect(result?.staleReasons).not.toContain("NEWER_SALE_NOT_INCLUDED");
   });
 
@@ -275,6 +276,20 @@ describe("Farmer Phase 1 FCR", () => {
     });
   });
 
+  it("removes all live FCR history when no manual weight remains", async () => {
+    setRows({
+      feed: [{ id: "feed-1", date: now, quantityKg: 100 }],
+      weights: [],
+    });
+
+    await syncFarmerBatchFcrHistory("batch-1", now);
+
+    expect(mocked.batchFcrHistory.upsert).not.toHaveBeenCalled();
+    expect(mocked.batchFcrHistory.deleteMany).toHaveBeenCalledWith({
+      where: { batchId: "batch-1" },
+    });
+  });
+
   it("accepts a weight at the exact three-day freshness boundary", async () => {
     const weightDate = new Date("2026-01-07T06:00:00.000Z");
     setRows({
@@ -293,7 +308,9 @@ describe("Farmer Phase 1 FCR", () => {
     expect(result?.weightAgeDays).toBe(3);
     expect(result?.displayStatus).toBe("FRESH");
     expect(result?.asOfDate).toEqual(now);
-    expect(result?.currentFcr).toBeCloseTo(100 / 155, 8);
+    expect(result?.remainingLiveWeightKg).toBe(110);
+    expect(result?.producedLiveWeightKg).toBe(150);
+    expect(result?.currentFcr).toBeCloseTo(100 / 145, 8);
   });
 
   it("expires a weight when the newer event is four days later", async () => {

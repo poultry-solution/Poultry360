@@ -37,6 +37,11 @@ import {
 } from "@/fetchers/company/companyRawMaterialQueries";
 import { useCreateCompanyPurchase } from "@/fetchers/company/companyPurchaseQueries";
 import { toast } from "sonner";
+import { ImageUpload } from "@/common/components/ui/image-upload";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 interface PurchaseLine {
   rawMaterialId: string;
@@ -58,6 +63,8 @@ export default function NewPurchasePage() {
   const [lines, setLines] = useState<PurchaseLine[]>([]);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [billImageUrl, setBillImageUrl] = useState("");
+  const [isBillUploading, setIsBillUploading] = useState(false);
   const [addRawMaterialOpen, setAddRawMaterialOpen] = useState(false);
   const [newRawMaterialName, setNewRawMaterialName] = useState("");
   const [newRawMaterialUnit, setNewRawMaterialUnit] = useState("kg");
@@ -66,6 +73,9 @@ export default function NewPurchasePage() {
   const { data: rawMaterialsData, refetch: refetchRawMaterials } = useGetCompanyRawMaterials();
   const createRawMaterialMutation = useCreateRawMaterial();
   const createMutation = useCreateCompanyPurchase();
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.COMPANY_PURCHASE_BILL_UPLOAD
+  );
 
   const suppliers: Supplier[] = suppliersData?.data ?? [];
   const rawMaterials: RawMaterial[] = rawMaterialsData?.data ?? [];
@@ -155,6 +165,10 @@ export default function NewPurchasePage() {
   };
 
   const handleSubmit = async () => {
+    if (isBillUploading) {
+      toast.error("Please wait for the bill image to finish uploading");
+      return;
+    }
     if (!supplierId) {
       toast.error("Select a supplier");
       return;
@@ -168,6 +182,8 @@ export default function NewPurchasePage() {
         supplierId,
         referenceNumber: referenceNumber.trim() || undefined,
         notes: notes.trim() || undefined,
+        billImageUrl:
+          isPurchaseBillEnabled && billImageUrl ? billImageUrl : undefined,
         items: validLines.map((row) => ({
           rawMaterialId: row.rawMaterialId,
           quantity: row.quantity,
@@ -235,6 +251,20 @@ export default function NewPurchasePage() {
               className="mt-1"
             />
           </div>
+
+          {isPurchaseBillEnabled && (
+            <div>
+              <Label>Bill Image (optional)</Label>
+              <ImageUpload
+                value={billImageUrl}
+                folder="poultry360/purchase-bills"
+                onChange={setBillImageUrl}
+                onUploadingChange={setIsBillUploading}
+                placeholder="Upload purchase bill"
+                className="mt-1"
+              />
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <Label>Raw materials</Label>
@@ -356,10 +386,15 @@ export default function NewPurchasePage() {
               disabled={
                 !supplierId ||
                 validLines.length === 0 ||
-                createMutation.isPending
+                createMutation.isPending ||
+                isBillUploading
               }
             >
-              {createMutation.isPending ? "Saving..." : "Save purchase"}
+              {isBillUploading
+                ? "Uploading bill..."
+                : createMutation.isPending
+                  ? "Saving..."
+                  : "Save purchase"}
             </Button>
           </div>
         </CardContent>

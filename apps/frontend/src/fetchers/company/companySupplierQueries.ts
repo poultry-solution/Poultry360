@@ -34,6 +34,7 @@ export interface CompanyPurchaseWithItems {
   date: string;
   referenceNumber?: string | null;
   notes?: string | null;
+  billImageUrl?: string | null;
   totalAmount: string | number;
   supplier: { id: string; name: string };
   items: Array<{

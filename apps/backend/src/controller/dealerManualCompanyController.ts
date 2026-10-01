@@ -430,7 +430,7 @@ export const recordManualPurchase = async (
     try {
         const userId = req.userId;
         const { id } = req.params;
-        const { items, notes, reference, date, tradeDiscountAmount } = req.body;
+        const { items, notes, reference, date, tradeDiscountAmount, billImageUrl } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({
@@ -590,6 +590,10 @@ export const recordManualPurchase = async (
                     tradeDiscountAmount: discountNum > 0 ? new Prisma.Decimal(discountNum) : null,
                     notes: notes || null,
                     reference: reference || null,
+                    billImageUrl:
+                        typeof billImageUrl === "string" && billImageUrl.trim()
+                            ? billImageUrl.trim()
+                            : null,
                     manualCompanyId: id,
                     items: {
                         create: purchaseItems,
@@ -1026,6 +1030,7 @@ export const getManualCompanyStatement = async (
                 tradeDiscountAmount: Number((p as any).tradeDiscountAmount ?? 0),
                 notes: p.notes,
                 reference: p.reference,
+                billImageUrl: p.billImageUrl,
                 items: p.items,
             })),
             ...payments.map((p) => ({
@@ -1071,6 +1076,7 @@ export const getManualCompanyStatement = async (
                     tradeDiscountAmount: Number(p.tradeDiscountAmount ?? 0),
                     voidedAt: p.voidedAt,
                     voidedReason: p.voidedReason,
+                    billImageUrl: p.billImageUrl,
                     itemsCount: Array.isArray(p.items) ? p.items.length : 0,
                 })),
                 ...voidedPayments.map((p: any) => ({

@@ -48,6 +48,7 @@ import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import {
     useGetManualCompanies,
     useCreateManualCompany,
@@ -60,6 +61,10 @@ import {
     type PurchaseItem,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
+import {
+    ACCOUNT_FEATURE_KEYS,
+    useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 export default function DealerCompanyPage() {
     const { t } = useI18n();
@@ -90,6 +95,8 @@ export default function DealerCompanyPage() {
     });
     const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([createEmptyPurchaseItem()]);
     const [purchaseNotes, setPurchaseNotes] = useState("");
+    const [purchaseBillImageUrl, setPurchaseBillImageUrl] = useState("");
+    const [isPurchaseBillUploading, setIsPurchaseBillUploading] = useState(false);
     const [paymentCompany, setPaymentCompany] = useState<ManualCompany | null>(null);
     const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
     const [paymentAmount, setPaymentAmount] = useState("");
@@ -109,6 +116,9 @@ export default function DealerCompanyPage() {
     const recordPurchaseMutation = useRecordManualPurchase();
     const recordPaymentMutation = useRecordManualCompanyPayment();
     const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
+    const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+        ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
+    );
     // Fail safe: keep the normal dealer-pays-company flow if settings cannot load.
     const paymentDirectionEnabled =
         dealerSettingsData?.data?.paymentDirectionEnabled === true;
@@ -224,6 +234,10 @@ export default function DealerCompanyPage() {
 
     const handleRecordPurchase = async () => {
         if (!purchaseCompany) return;
+        if (isPurchaseBillUploading) {
+            toast.error("Please wait for the bill image to finish uploading");
+            return;
+        }
         const validItems = purchaseItems.filter(i => i.productName && i.quantity > 0 && i.costPrice >= 0 && i.sellingPrice >= 0);
         if (validItems.length === 0) {
             toast.error("Add at least one valid item");
@@ -250,15 +264,26 @@ export default function DealerCompanyPage() {
                 notes: purchaseNotes || undefined,
                 date: new Date((purchaseDateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
                 tradeDiscountAmount: purchaseTradeDiscount || 0,
+                billImageUrl:
+                    isPurchaseBillEnabled && purchaseBillImageUrl
+                        ? purchaseBillImageUrl
+                        : undefined,
             });
             toast.success("Purchase recorded! Items added to inventory.");
             setPurchaseCompany(null);
             setPurchaseItems([createEmptyPurchaseItem()]);
             setPurchaseNotes("");
             setPurchaseTradeDiscount(0);
+            setPurchaseBillImageUrl("");
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to record purchase");
         }
+    };
+
+    const closePurchaseDialog = () => {
+        if (isPurchaseBillUploading) return;
+        setPurchaseCompany(null);
+        setPurchaseBillImageUrl("");
     };
 
     /**
@@ -481,6 +506,7 @@ export default function DealerCompanyPage() {
                                             setPurchaseCompany(company);
                                                             setPurchaseItems([createEmptyPurchaseItem()]);
                                             setPurchaseNotes("");
+                                            setPurchaseBillImageUrl("");
                                         }}
                                     >
                                                         <ShoppingCart className="mr-2 h-4 w-4" />
@@ -646,7 +672,12 @@ export default function DealerCompanyPage() {
             </Dialog>
 
             {/* Record Purchase Dialog */}
-            <Dialog open={!!purchaseCompany} onOpenChange={() => setPurchaseCompany(null)}>
+            <Dialog
+                open={!!purchaseCompany}
+                onOpenChange={(open) => {
+                    if (!open) closePurchaseDialog();
+                }}
+            >
                 <DialogContent className="max-w-3xl bg-white max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Record Purchase from {purchaseCompany?.name}</DialogTitle>
@@ -828,6 +859,18 @@ export default function DealerCompanyPage() {
                                 placeholder="Any notes about this purchase"
                             />
                         </div>
+                        {isPurchaseBillEnabled && (
+                            <div className="space-y-2">
+                                <label className="text-xs text-muted-foreground">Bill Image (optional)</label>
+                                <ImageUpload
+                                    value={purchaseBillImageUrl}
+                                    folder="poultry360/purchase-bills"
+                                    onChange={setPurchaseBillImageUrl}
+                                    onUploadingChange={setIsPurchaseBillUploading}
+                                    placeholder="Upload purchase bill"
+                                />
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className="text-xs text-muted-foreground">Trade discount (NPR)</label>
                             <Input
@@ -863,14 +906,22 @@ export default function DealerCompanyPage() {
                         })()}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setPurchaseCompany(null)}>
+                        <Button
+                            variant="outline"
+                            onClick={closePurchaseDialog}
+                            disabled={isPurchaseBillUploading}
+                        >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleRecordPurchase}
-                            disabled={recordPurchaseMutation.isPending}
+                            disabled={recordPurchaseMutation.isPending || isPurchaseBillUploading}
                         >
-                            {recordPurchaseMutation.isPending ? "Recording..." : "Record Purchase"}
+                            {isPurchaseBillUploading
+                                ? "Uploading bill..."
+                                : recordPurchaseMutation.isPending
+                                    ? "Recording..."
+                                    : "Record Purchase"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

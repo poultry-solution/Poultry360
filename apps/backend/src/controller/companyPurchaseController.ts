@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 export const createCompanyPurchase = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.userId;
-    const { supplierId, date, referenceNumber, notes, items } = req.body;
+    const { supplierId, date, referenceNumber, notes, billImageUrl, items } = req.body;
 
     if (!supplierId || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -71,6 +71,10 @@ export const createCompanyPurchase = async (req: Request, res: Response): Promis
           date: purchaseDate,
           referenceNumber: referenceNumber?.trim() || null,
           notes: notes?.trim() || null,
+          billImageUrl:
+            typeof billImageUrl === "string" && billImageUrl.trim()
+              ? billImageUrl.trim()
+              : null,
           totalAmount: new Prisma.Decimal(totalAmount),
           createdById: userId,
         },

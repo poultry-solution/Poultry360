@@ -2188,6 +2188,7 @@ model CompanyPurchase {
   date            DateTime @default(now())
   referenceNumber String?
   notes           String?
+  billImageUrl    String?
   totalAmount     Decimal  @db.Decimal(12, 2)
 
   companyId   String
@@ -2368,6 +2369,7 @@ model DealerManualPurchase {
   tradeDiscountAmount Decimal? @db.Decimal(10, 2)
   notes               String?
   reference           String?
+  billImageUrl        String?
 
   // Void instead of hard delete (audit-safe)
   voidedAt     DateTime?

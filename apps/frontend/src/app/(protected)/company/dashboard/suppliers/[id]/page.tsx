@@ -22,6 +22,10 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import { BusinessDownloadDialog, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 const formatCurrency = (n: number | string) =>
   `रू ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
@@ -34,6 +38,7 @@ type PurchaseRow = {
   rawMaterial?: { name?: string; unit?: string };
   _purchaseDate: string;
   _purchaseNotes?: string | null;
+  _billImageUrl?: string | null;
 };
 
 const purchaseColumns: Column<PurchaseRow>[] = [
@@ -67,6 +72,24 @@ const purchaseColumns: Column<PurchaseRow>[] = [
     render: (_, row) => row._purchaseNotes ?? "—",
   },
 ];
+
+const purchaseBillColumn: Column<PurchaseRow> = {
+  key: "bill",
+  label: "Bill",
+  render: (_, row) =>
+    row._billImageUrl ? (
+      <a
+        href={row._billImageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline"
+      >
+        View
+      </a>
+    ) : (
+      "—"
+    ),
+};
 
 type PaymentRow = {
   id: string;
@@ -102,6 +125,9 @@ export default function SupplierLedgerPage() {
 
   const { data: ledgerData, isLoading } = useGetSupplierLedger(id);
   const recordPaymentMutation = useRecordSupplierPayment(id);
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.COMPANY_PURCHASE_BILL_UPLOAD
+  );
 
   const ledger = ledgerData?.data;
   const supplier = ledger?.supplier;
@@ -111,13 +137,17 @@ export default function SupplierLedgerPage() {
   const purchases = ledger?.purchases ?? [];
   const payments = ledger?.payments ?? [];
 
-  const purchaseRows: PurchaseRow[] = purchases.flatMap((p: { date: string; notes?: string | null; items?: any[] }) =>
-    (p.items || []).map((item: any) => ({
+  const purchaseRows: PurchaseRow[] = purchases.flatMap((p: { date: string; notes?: string | null; billImageUrl?: string | null; items?: any[] }) =>
+    (p.items || []).map((item: any, index: number) => ({
       ...item,
       _purchaseDate: p.date,
       _purchaseNotes: p.notes,
+      _billImageUrl: index === 0 ? p.billImageUrl : null,
     }))
   );
+  const visiblePurchaseColumns = isPurchaseBillEnabled
+    ? [...purchaseColumns, purchaseBillColumn]
+    : purchaseColumns;
 
   const paymentRows: PaymentRow[] = payments.map((pmt: any) => ({
     id: pmt.id,
@@ -225,7 +255,7 @@ export default function SupplierLedgerPage() {
             <CardContent className="p-0">
               <DataTable<PurchaseRow>
                 data={purchaseRows}
-                columns={purchaseColumns}
+                columns={visiblePurchaseColumns}
                 emptyMessage='No purchases yet. Use "Add Entry" to record a purchase.'
                 getRowKey={(row) => row.id}
               />

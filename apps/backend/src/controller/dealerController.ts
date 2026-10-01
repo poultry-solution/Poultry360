@@ -833,6 +833,7 @@ export const addDealerTransaction = async (
         expiryDate: purchaseCategory === "MEDICINE" ? parsedExpiryDate : null,
         description,
         reference,
+        imageUrl,
         purchaseCategory: purchaseCategory || undefined,
         userId: currentUserId,
         unit:

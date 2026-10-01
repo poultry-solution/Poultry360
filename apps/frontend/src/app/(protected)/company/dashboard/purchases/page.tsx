@@ -16,12 +16,17 @@ import {
 } from "@/common/components/ui/dialog";
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
+import { ImageUpload } from "@/common/components/ui/image-upload";
 import {
   useGetCompanyPurchasesAggregated,
   useCreateCompanyPurchase,
   type AggregatedPurchaseRow,
 } from "@/fetchers/company/companyPurchaseQueries";
 import { toast } from "sonner";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 const formatCurrency = (n: number | string) =>
   `रू ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
@@ -34,21 +39,33 @@ export default function CompanyPurchasesPage() {
   const [reorderOpen, setReorderOpen] = useState(false);
   const [reorderRow, setReorderRow] = useState<AggregatedPurchaseRow | null>(null);
   const [reorderQty, setReorderQty] = useState("");
+  const [reorderBillImageUrl, setReorderBillImageUrl] = useState("");
+  const [isReorderBillUploading, setIsReorderBillUploading] = useState(false);
+  const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.COMPANY_PURCHASE_BILL_UPLOAD
+  );
 
   const openReorder = (row: AggregatedPurchaseRow) => {
     setReorderRow(row);
     setReorderQty("");
+    setReorderBillImageUrl("");
     setReorderOpen(true);
   };
 
   const closeReorder = () => {
+    if (isReorderBillUploading) return;
     setReorderOpen(false);
     setReorderRow(null);
     setReorderQty("");
+    setReorderBillImageUrl("");
   };
 
   const handleReorder = async () => {
     if (!reorderRow) return;
+    if (isReorderBillUploading) {
+      toast.error("Please wait for the bill image to finish uploading");
+      return;
+    }
     const qty = Number(reorderQty);
     if (!(qty > 0)) {
       toast.error("Enter a valid quantity");
@@ -57,6 +74,10 @@ export default function CompanyPurchasesPage() {
     try {
       await createMutation.mutateAsync({
         supplierId: reorderRow.supplierId,
+        billImageUrl:
+          isPurchaseBillEnabled && reorderBillImageUrl
+            ? reorderBillImageUrl
+            : undefined,
         items: [
           {
             rawMaterialId: reorderRow.rawMaterialId,
@@ -173,14 +194,38 @@ export default function CompanyPurchasesPage() {
                   {reorderRow.rawMaterial.unit}
                 </span>
               </div>
+              {isPurchaseBillEnabled && (
+                <div>
+                  <Label>Bill Image (optional)</Label>
+                  <ImageUpload
+                    value={reorderBillImageUrl}
+                    folder="poultry360/purchase-bills"
+                    onChange={setReorderBillImageUrl}
+                    onUploadingChange={setIsReorderBillUploading}
+                    placeholder="Upload purchase bill"
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={closeReorder}>
+            <Button
+              variant="outline"
+              onClick={closeReorder}
+              disabled={isReorderBillUploading}
+            >
               Cancel
             </Button>
-            <Button onClick={handleReorder} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Saving..." : "Reorder"}
+            <Button
+              onClick={handleReorder}
+              disabled={createMutation.isPending || isReorderBillUploading}
+            >
+              {isReorderBillUploading
+                ? "Uploading bill..."
+                : createMutation.isPending
+                  ? "Saving..."
+                  : "Reorder"}
             </Button>
           </DialogFooter>
         </DialogContent>

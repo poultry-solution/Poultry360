@@ -41,6 +41,7 @@ export class InventoryService {
     expiryDate?: Date | null;
     description?: string;
     reference?: string;
+    imageUrl?: string;
 
     // Optional: Purchase category override (for unified supplier system)
     purchaseCategory?: PurchaseCategory;
@@ -72,6 +73,7 @@ export class InventoryService {
       expiryDate,
       description,
       reference,
+      imageUrl,
       purchaseCategory,
       userId,
       paymentAmount,
@@ -271,6 +273,10 @@ export class InventoryService {
           date,
           description,
           reference,
+          imageUrl:
+            typeof imageUrl === "string" && imageUrl.trim()
+              ? imageUrl.trim()
+              : null,
           dealerId,
           hatcheryId,
           medicineSupplierId,

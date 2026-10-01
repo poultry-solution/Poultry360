@@ -6,6 +6,10 @@ export const ACCOUNT_FEATURE_KEYS = {
   DEALER_STAFF_OPERATIONS: "DEALER_STAFF_OPERATIONS",
   HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
+  FARMER_PURCHASE_BILL_UPLOAD: "FARMER_PURCHASE_BILL_UPLOAD",
+  HATCHERY_PURCHASE_BILL_UPLOAD: "HATCHERY_PURCHASE_BILL_UPLOAD",
+  DEALER_PURCHASE_BILL_UPLOAD: "DEALER_PURCHASE_BILL_UPLOAD",
+  COMPANY_PURCHASE_BILL_UPLOAD: "COMPANY_PURCHASE_BILL_UPLOAD",
   COMPANY_STAFF_OPERATIONS: "COMPANY_STAFF_OPERATIONS",
   DEALER_SUPPLIER_SETTLEMENT_SALES: "DEALER_SUPPLIER_SETTLEMENT_SALES",
   DEALER_BROILER_SALES_AND_SETTLEMENTS: "DEALER_BROILER_SALES_AND_SETTLEMENTS",
@@ -20,6 +24,8 @@ export interface AccountFeatureDefinition {
   description: string;
   applicableRoles: UserRole[];
   defaultEnabled: boolean;
+  selfConfigurable?: boolean;
+  adminConfigurable?: boolean;
 }
 
 export const ACCOUNT_FEATURE_DEFINITIONS: Record<
@@ -58,6 +64,46 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     applicableRoles: [UserRole.OWNER],
     defaultEnabled: true,
   },
+  FARMER_PURCHASE_BILL_UPLOAD: {
+    key: ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD,
+    name: "Farmer Purchase Bill Upload",
+    description:
+      "Show bill image upload and bill links for Farmer supplier purchases.",
+    applicableRoles: [UserRole.OWNER],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
+  HATCHERY_PURCHASE_BILL_UPLOAD: {
+    key: ACCOUNT_FEATURE_KEYS.HATCHERY_PURCHASE_BILL_UPLOAD,
+    name: "Hatchery Purchase Bill Upload",
+    description:
+      "Show bill image upload and bill links for Hatchery supplier purchases.",
+    applicableRoles: [UserRole.HATCHERY],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
+  DEALER_PURCHASE_BILL_UPLOAD: {
+    key: ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD,
+    name: "Dealer Purchase Bill Upload",
+    description:
+      "Show bill image upload and bill links for Dealer supplier purchases.",
+    applicableRoles: [UserRole.DEALER],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
+  COMPANY_PURCHASE_BILL_UPLOAD: {
+    key: ACCOUNT_FEATURE_KEYS.COMPANY_PURCHASE_BILL_UPLOAD,
+    name: "Company Purchase Bill Upload",
+    description:
+      "Show bill image upload and bill links for Company supplier purchases.",
+    applicableRoles: [UserRole.COMPANY],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
   COMPANY_STAFF_OPERATIONS: {
     key: ACCOUNT_FEATURE_KEYS.COMPANY_STAFF_OPERATIONS,
     name: "Company Staff Operations",
@@ -89,10 +135,10 @@ export const getAccountFeatureDefinition = (featureKey: string) =>
 
 export const getResolvedAccountFeatures = async (
   accountId: string,
-  role: UserRole
+  role: UserRole,
 ) => {
   const definitions = Object.values(ACCOUNT_FEATURE_DEFINITIONS).filter(
-    (definition) => definition.applicableRoles.includes(role)
+    (definition) => definition.applicableRoles.includes(role),
   );
   if (definitions.length === 0) return [];
 
@@ -104,7 +150,7 @@ export const getResolvedAccountFeatures = async (
     select: { featureKey: true, enabled: true, updatedAt: true },
   });
   const recordsByKey = new Map(
-    records.map((record) => [record.featureKey, record])
+    records.map((record) => [record.featureKey, record]),
   );
 
   return definitions.map((definition) => {
@@ -119,15 +165,28 @@ export const getResolvedAccountFeatures = async (
   });
 };
 
+export const getAdminResolvedAccountFeatures = async (
+  accountId: string,
+  role: UserRole,
+) => {
+  const features = await getResolvedAccountFeatures(accountId, role);
+  return features.filter(
+    (feature) =>
+      ACCOUNT_FEATURE_DEFINITIONS[feature.key].adminConfigurable !== false,
+  );
+};
+
 export const isAccountFeatureEnabled = async (
   accountId: string,
-  featureKey: AccountFeatureKey
+  featureKey: AccountFeatureKey,
 ) => {
   const record = await prisma.accountFeature.findUnique({
     where: { accountId_featureKey: { accountId, featureKey } },
     select: { enabled: true },
   });
-  return record?.enabled ?? ACCOUNT_FEATURE_DEFINITIONS[featureKey].defaultEnabled;
+  return (
+    record?.enabled ?? ACCOUNT_FEATURE_DEFINITIONS[featureKey].defaultEnabled
+  );
 };
 
 export const setAccountFeature = async (input: {

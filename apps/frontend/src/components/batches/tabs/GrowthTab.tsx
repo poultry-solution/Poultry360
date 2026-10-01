@@ -2,15 +2,18 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import type { WeightRecord } from "@/fetchers/weight/weightQueries";
 
 interface GrowthTabProps {
   isBatchClosed: boolean;
   weightsLoading: boolean;
   weightsError: any;
-  weights: any[];
+  weights: WeightRecord[];
   setIsWeightModalOpen: (open: boolean) => void;
+  onDeleteWeight: (weight: WeightRecord) => void;
+  isDeletingWeight: boolean;
 }
 
 export function GrowthTab({
@@ -19,6 +22,8 @@ export function GrowthTab({
   weightsError,
   weights,
   setIsWeightModalOpen,
+  onDeleteWeight,
+  isDeletingWeight,
 }: GrowthTabProps) {
   return (
     <Card>
@@ -78,6 +83,7 @@ export function GrowthTab({
                       <th className="text-right px-4 py-2">Sample Size</th>
                       <th className="text-left px-4 py-2">Source</th>
                       <th className="text-left px-4 py-2">Notes</th>
+                      <th className="text-right px-4 py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -107,6 +113,28 @@ export function GrowthTab({
                           </Badge>
                         </td>
                         <td className="px-4 py-2">{w.notes || "—"}</td>
+                        <td className="px-4 py-2 text-right">
+                          {!isBatchClosed && w.source === "MANUAL" ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => onDeleteWeight(w)}
+                              disabled={isDeletingWeight}
+                              aria-label={`Delete weight from ${w.date}`}
+                              title="Delete weight"
+                            >
+                              {isDeletingWeight ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
