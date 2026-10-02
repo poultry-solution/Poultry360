@@ -1,6 +1,8 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
+import { Input } from "@/common/components/ui/input";
+import { Label } from "@/common/components/ui/label";
 import { Activity, AlertTriangle, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -17,6 +19,10 @@ const fcrChartConfig = {
   fcr: {
     label: "FCR",
     color: "#15803d",
+  },
+  cfcr: {
+    label: "cFCR",
+    color: "#2563eb",
   },
 } satisfies ChartConfig;
 
@@ -42,6 +48,12 @@ interface OverviewTabProps {
   recentSales: any[];
   recentMortalities: any[];
   onRecordWeight: () => void;
+  cfcrEnabled: boolean;
+  onSaveCfcrSettings: (
+    targetWeightKg: number,
+    correctionFactorPerKg: number,
+  ) => Promise<void>;
+  cfcrSettingsSaving: boolean;
 }
 
 export function OverviewTab({
@@ -58,6 +70,9 @@ export function OverviewTab({
   recentSales,
   recentMortalities,
   onRecordWeight,
+  cfcrEnabled,
+  onSaveCfcrSettings,
+  cfcrSettingsSaving,
 }: OverviewTabProps) {
   const { toDisplayDate } = useCalendar();
   const fcrData = analytics?.fcrData;
@@ -65,6 +80,37 @@ export function OverviewTab({
     fcrData?.basis === "FINAL" || fcrData?.basis === "FINAL_PENDING_CLOSE";
   const fcrIsStale = fcrData?.freshnessStatus === "STALE";
   const displayedFcr = fcrData?.fcr ?? analytics?.lastKnownFcr ?? null;
+  const displayedCfcr = fcrData?.cfcr ?? analytics?.lastKnownCfcr ?? null;
+  const [cfcrTarget, setCfcrTarget] = React.useState("2.00");
+  const [cfcrFactor, setCfcrFactor] = React.useState("0.40");
+  React.useEffect(() => {
+    setCfcrTarget(
+      batch?.cfcrTargetWeightKg == null
+        ? isBatchClosed ? "" : "2.00"
+        : String(batch.cfcrTargetWeightKg),
+    );
+    setCfcrFactor(
+      batch?.cfcrCorrectionFactorPerKg == null
+        ? isBatchClosed ? "" : "0.40"
+        : String(batch.cfcrCorrectionFactorPerKg),
+    );
+  }, [
+    batch?.cfcrTargetWeightKg,
+    batch?.cfcrCorrectionFactorPerKg,
+    isBatchClosed,
+  ]);
+
+  const saveCfcrSettings = async () => {
+    const target = Number(cfcrTarget);
+    const factor = Number(cfcrFactor);
+    if (!Number.isFinite(target) || target <= 0) return;
+    if (!Number.isFinite(factor) || factor < 0) return;
+    try {
+      await onSaveCfcrSettings(target, factor);
+    } catch {
+      // The shared request handler shows the server error.
+    }
+  };
   const fcrChartData = fcrHistory.map((row) => ({
     ...row,
     dateLabel: toDisplayDate(row.calculationDate, "short"),
@@ -256,6 +302,43 @@ export function OverviewTab({
                       Record current weight
                     </Button>
                   )}
+
+                  {cfcrEnabled && (
+                    <div className="mt-3 border-t pt-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            {fcrIsFinal ? "Final corrected FCR" : "Corrected FCR"}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg
+                          </p>
+                        </div>
+                        <span className="text-lg font-semibold text-blue-700">
+                          {displayedCfcr != null
+                            ? Number(displayedCfcr).toFixed(2)
+                            : "—"}
+                        </span>
+                      </div>
+                      {fcrData?.cfcrStatus === "NO_SETTINGS" && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {isBatchClosed
+                            ? "This old closed batch has no corrected FCR settings."
+                            : "Set a target weight to calculate corrected FCR."}
+                        </p>
+                      )}
+                      {fcrData?.cfcrStatus === "INVALID_INPUT" && (
+                        <p className="mt-2 text-xs text-red-700">
+                          Corrected FCR cannot be calculated from these values.
+                        </p>
+                      )}
+                      {fcrData?.averageOutputWeightKg != null && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Average output weight: {Number(fcrData.averageOutputWeightKg).toFixed(2)} kg
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               {analytics?.currentAvgWeight != null && (
@@ -353,6 +436,65 @@ export function OverviewTab({
         </Card>
       </div>
 
+      {cfcrEnabled &&
+        (batch as { batchType?: string })?.batchType === "BROILER" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Corrected FCR settings</CardTitle>
+              <CardDescription>
+                cFCR uses a target bird weight to make batch results easier to compare.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
+                  <Input
+                    id="batch-cfcr-target"
+                    type="number"
+                    min="0.001"
+                    step="0.01"
+                    value={cfcrTarget}
+                    onChange={(event) => setCfcrTarget(event.target.value)}
+                    disabled={isBatchClosed || cfcrSettingsSaving}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
+                  <Input
+                    id="batch-cfcr-factor"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cfcrFactor}
+                    onChange={(event) => setCfcrFactor(event.target.value)}
+                    disabled={isBatchClosed || cfcrSettingsSaving}
+                  />
+                </div>
+              </div>
+              {!isBatchClosed ? (
+                <div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={saveCfcrSettings}
+                    disabled={cfcrSettingsSaving}
+                  >
+                    {cfcrSettingsSaving ? "Saving..." : "Save corrected FCR settings"}
+                  </Button>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Changing these values recalculates saved cFCR values. Raw FCR does not change.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  These settings are locked because the batch is closed.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
       {(batch as { batchType?: string })?.batchType === "BROILER" && (
         <Card>
           <CardHeader>
@@ -372,6 +514,13 @@ export function OverviewTab({
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="px-2 py-2 font-medium">Date</th>
                         <th className="px-2 py-2 font-medium">FCR</th>
+                        {cfcrEnabled && (
+                          <>
+                            <th className="px-2 py-2 font-medium">cFCR</th>
+                            <th className="px-2 py-2 font-medium">Output birds</th>
+                            <th className="px-2 py-2 font-medium">Output avg kg</th>
+                          </>
+                        )}
                         <th className="px-2 py-2 font-medium">Average kg</th>
                         <th className="px-2 py-2 font-medium">Feed kg</th>
                         <th className="px-2 py-2 font-medium">Produced kg</th>
@@ -386,6 +535,21 @@ export function OverviewTab({
                             <DateDisplay date={row.calculationDate} format="short" />
                           </td>
                           <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
+                          {cfcrEnabled && (
+                            <>
+                              <td className="px-2 py-2 font-medium text-blue-700">
+                                {row.cfcr == null ? "—" : row.cfcr.toFixed(2)}
+                              </td>
+                              <td className="px-2 py-2">
+                                {row.outputBirdCount ?? "—"}
+                              </td>
+                              <td className="px-2 py-2">
+                                {row.averageOutputWeightKg == null
+                                  ? "—"
+                                  : row.averageOutputWeightKg.toFixed(2)}
+                              </td>
+                            </>
+                          )}
                           <td className="px-2 py-2">
                             {row.remainingAverageWeightKg == null
                               ? "—"
@@ -428,7 +592,6 @@ export function OverviewTab({
                         minTickGap={24}
                       />
                       <YAxis
-                        dataKey="fcr"
                         tickLine={false}
                         axisLine={false}
                         tickMargin={8}
@@ -440,9 +603,11 @@ export function OverviewTab({
                         cursor={{ stroke: "#d1d5db", strokeDasharray: "3 3" }}
                         content={
                           <ChartTooltipContent
-                            formatter={(value) => (
+                            formatter={(value, name) => (
                               <div className="flex min-w-[110px] items-center justify-between gap-4">
-                                <span className="text-muted-foreground">FCR</span>
+                                <span className="text-muted-foreground">
+                                  {name === "cfcr" ? "cFCR" : "FCR"}
+                                </span>
                                 <span className="font-medium">{Number(value).toFixed(2)}</span>
                               </div>
                             )}
@@ -457,6 +622,17 @@ export function OverviewTab({
                         dot={{ r: 3.5, fill: "var(--color-fcr)", strokeWidth: 0 }}
                         activeDot={{ r: 5, fill: "var(--color-fcr)", stroke: "white", strokeWidth: 2 }}
                       />
+                      {cfcrEnabled && (
+                        <Line
+                          dataKey="cfcr"
+                          type="monotone"
+                          stroke="var(--color-cfcr)"
+                          strokeWidth={2.5}
+                          connectNulls={false}
+                          dot={{ r: 3.5, fill: "var(--color-cfcr)", strokeWidth: 0 }}
+                          activeDot={{ r: 5, fill: "var(--color-cfcr)", stroke: "white", strokeWidth: 2 }}
+                        />
+                      )}
                     </LineChart>
                   </ChartContainer>
                 </div>

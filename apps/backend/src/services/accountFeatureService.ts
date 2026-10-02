@@ -7,6 +7,7 @@ export const ACCOUNT_FEATURE_KEYS = {
   HATCHERY_STAFF_OPERATIONS: "HATCHERY_STAFF_OPERATIONS",
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
   FARMER_PURCHASE_BILL_UPLOAD: "FARMER_PURCHASE_BILL_UPLOAD",
+  FARMER_CFCR: "FARMER_CFCR",
   HATCHERY_PURCHASE_BILL_UPLOAD: "HATCHERY_PURCHASE_BILL_UPLOAD",
   DEALER_PURCHASE_BILL_UPLOAD: "DEALER_PURCHASE_BILL_UPLOAD",
   COMPANY_PURCHASE_BILL_UPLOAD: "COMPANY_PURCHASE_BILL_UPLOAD",
@@ -69,6 +70,16 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     name: "Farmer Purchase Bill Upload",
     description:
       "Show bill image upload and bill links for Farmer supplier purchases.",
+    applicableRoles: [UserRole.OWNER],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
+  FARMER_CFCR: {
+    key: ACCOUNT_FEATURE_KEYS.FARMER_CFCR,
+    name: "Farmer Corrected FCR",
+    description:
+      "Show corrected FCR settings and results for Farmer Broiler batches.",
     applicableRoles: [UserRole.OWNER],
     defaultEnabled: false,
     selfConfigurable: true,

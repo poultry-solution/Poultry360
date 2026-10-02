@@ -51,11 +51,16 @@ import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/bat
 import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
 import { toast } from "sonner";
 import { FarmResponse, BatchResponse, BatchStatus } from "@myapp/shared-types";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 export default function FarmDetailPage() {
   const params = useParams();
   const router = useRouter();
   const farmId = params.id as string;
+  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
 
 
 
@@ -147,6 +152,8 @@ export default function FarmDetailPage() {
     batchType: "BROILER" as "BROILER" | "LAYERS",
     startDate: getTodayLocalDate(),
     initialChickWeight: "0.045",
+    cfcrTargetWeightKg: "2.00",
+    cfcrCorrectionFactorPerKg: "0.40",
     notes: "",
   });
 
@@ -234,6 +241,14 @@ export default function FarmDetailPage() {
         farmId,
         startDate: startDateIso,
         initialChickWeight: parseFloat(batchForm.initialChickWeight),
+        ...(cfcrFeature.isEnabled && batchForm.batchType === "BROILER"
+          ? {
+              cfcrTargetWeightKg: Number(batchForm.cfcrTargetWeightKg),
+              cfcrCorrectionFactorPerKg: Number(
+                batchForm.cfcrCorrectionFactorPerKg
+              ),
+            }
+          : {}),
         status: "ACTIVE" as BatchStatus,
         chicksInventory: builtAllocations,
       });
@@ -245,6 +260,8 @@ export default function FarmDetailPage() {
         batchType: "BROILER",
         startDate: getTodayLocalDate(),
         initialChickWeight: "0.045",
+        cfcrTargetWeightKg: "2.00",
+        cfcrCorrectionFactorPerKg: "0.40",
         notes: "",
       });
       setSingleAlloc({ itemId: "", quantity: "" });
@@ -941,6 +958,36 @@ export default function FarmDetailPage() {
                   required
                 />
               </div>
+              {cfcrFeature.isEnabled && batchForm.batchType === "BROILER" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="cfcrTargetWeightKg">cFCR target weight (kg)</Label>
+                    <Input
+                      id="cfcrTargetWeightKg"
+                      name="cfcrTargetWeightKg"
+                      type="number"
+                      min="0.001"
+                      step="0.01"
+                      value={batchForm.cfcrTargetWeightKg}
+                      onChange={handleBatchChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cfcrCorrectionFactorPerKg">Correction per kg</Label>
+                    <Input
+                      id="cfcrCorrectionFactorPerKg"
+                      name="cfcrCorrectionFactorPerKg"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={batchForm.cfcrCorrectionFactorPerKg}
+                      onChange={handleBatchChange}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="notes">Notes (optional)</Label>
                 <textarea

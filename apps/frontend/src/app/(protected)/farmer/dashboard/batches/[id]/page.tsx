@@ -26,6 +26,7 @@ import {
   useGetBatchFcrHistory,
   useDeleteBatch,
   useCloseBatch,
+  useUpdateBatch,
   useVerifyPasswordForBatchDelete,
 } from "@/fetchers/batches/batchQueries";
 import {
@@ -101,6 +102,11 @@ import { createMortalityColumns } from "@/components/batches/configs/mortalityCo
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { toast } from "sonner";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
@@ -178,6 +184,7 @@ export default function BatchDetailPage() {
   const { data: fcrHistoryResponse } = useGetBatchFcrHistory(safeBatchId, {
     enabled: !!batchId,
   });
+  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -207,7 +214,22 @@ export default function BatchDetailPage() {
 
   const deleteBatchMutation = useDeleteBatch();
   const closeBatchMutation = useCloseBatch();
+  const updateBatchMutation = useUpdateBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
+
+  const saveCfcrSettings = async (
+    targetWeightKg: number,
+    correctionFactorPerKg: number,
+  ) => {
+    await updateBatchMutation.mutateAsync({
+      id: safeBatchId,
+      data: {
+        cfcrTargetWeightKg: targetWeightKg,
+        cfcrCorrectionFactorPerKg: correctionFactorPerKg,
+      },
+    });
+    toast.success("Corrected FCR settings saved");
+  };
 
   // Fetch real expense data
   const {
@@ -1426,7 +1448,7 @@ export default function BatchDetailPage() {
         date: mortalityForm.date ? new Date(mortalityForm.date) : new Date(),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
-        batchId: batch?.id!,
+        batchId: safeBatchId,
       };
 
       if (editingMortalityId) {
@@ -1772,6 +1794,9 @@ export default function BatchDetailPage() {
           recentSales={batchSales?.slice(0, 3) || []}
           recentMortalities={batchMortalities.slice(0, 3)}
           onRecordWeight={() => setIsWeightModalOpen(true)}
+          cfcrEnabled={cfcrFeature.isEnabled}
+          onSaveCfcrSettings={saveCfcrSettings}
+          cfcrSettingsSaving={updateBatchMutation.isPending}
         />
       )}
 

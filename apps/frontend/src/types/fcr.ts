@@ -5,10 +5,24 @@ export type FcrDisplayStatus =
   | "FINAL"
   | "NOT_CALCULABLE";
 
+export type CfcrStatus =
+  | "CALCULATED"
+  | "NO_SETTINGS"
+  | "SOURCE_FCR_UNAVAILABLE"
+  | "INVALID_INPUT"
+  | "NOT_APPLICABLE";
+
 export interface FcrHistoryRow {
   id: string;
   calculationDate: string;
   fcr: number;
+  rawFcr: number;
+  cfcr: number | null;
+  cfcrStatus: CfcrStatus;
+  outputBirdCount: number | null;
+  averageOutputWeightKg: number | null;
+  cfcrTargetWeightKg: number | null;
+  cfcrCorrectionFactorPerKg: number | null;
   basis: "LIVE" | "FINAL" | "FINAL_PENDING_CLOSE";
   displayStatus: "FRESH" | "STALE" | "FINAL";
   feedKg: number;

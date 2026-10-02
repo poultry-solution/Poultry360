@@ -43,11 +43,16 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import {
+  ACCOUNT_FEATURE_KEYS,
+  useAccountFeature,
+} from "@/fetchers/accountFeatureQueries";
 
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { t } = useI18n();
+  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
 
   // Fetch farms for the form
   const { data: farmsResponse, isLoading: farmsLoading } = useGetFarms("all");
@@ -62,6 +67,8 @@ export default function BatchesPage() {
     farmId: "",
     startDate: getTodayLocalDate(),
     initialChickWeight: "0.045",
+    cfcrTargetWeightKg: "2.00",
+    cfcrCorrectionFactorPerKg: "0.40",
     notes: "",
   });
 
@@ -177,6 +184,14 @@ export default function BatchesPage() {
         farmId: formData.farmId,
         startDate: startDate,
         initialChickWeight: parseFloat(formData.initialChickWeight),
+        ...(cfcrFeature.isEnabled && formData.batchType === "BROILER"
+          ? {
+              cfcrTargetWeightKg: Number(formData.cfcrTargetWeightKg),
+              cfcrCorrectionFactorPerKg: Number(
+                formData.cfcrCorrectionFactorPerKg
+              ),
+            }
+          : {}),
         status: "ACTIVE" as BatchStatus,
         chicksInventory: builtAllocations,
       });
@@ -189,6 +204,8 @@ export default function BatchesPage() {
         farmId: "",
         startDate: "",
         initialChickWeight: "0.045",
+        cfcrTargetWeightKg: "2.00",
+        cfcrCorrectionFactorPerKg: "0.40",
         notes: "",
       });
       setSingleAlloc({ itemId: "", quantity: "" });
@@ -208,6 +225,8 @@ export default function BatchesPage() {
       farmId: "",
       startDate: getTodayLocalDate(),
       initialChickWeight: "0.045",
+      cfcrTargetWeightKg: "2.00",
+      cfcrCorrectionFactorPerKg: "0.40",
       notes: "",
     });
   };
@@ -887,6 +906,36 @@ export default function BatchesPage() {
                   required
                 />
               </div>
+              {cfcrFeature.isEnabled && formData.batchType === "BROILER" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="cfcrTargetWeightKg">cFCR target weight (kg)</Label>
+                    <Input
+                      id="cfcrTargetWeightKg"
+                      name="cfcrTargetWeightKg"
+                      type="number"
+                      min="0.001"
+                      step="0.01"
+                      value={formData.cfcrTargetWeightKg}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cfcrCorrectionFactorPerKg">Correction per kg</Label>
+                    <Input
+                      id="cfcrCorrectionFactorPerKg"
+                      name="cfcrCorrectionFactorPerKg"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.cfcrCorrectionFactorPerKg}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="notes">{t("farmer.batches.modal.notesOptional")}</Label>
                 <textarea

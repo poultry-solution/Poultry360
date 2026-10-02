@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const purchaseBillFeature = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD
   );
+  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
   const updateAccountFeature = useUpdateCurrentAccountFeature();
 
   // Fetch owned and managed farms
@@ -70,6 +71,20 @@ export default function SettingsPage() {
     } catch (error: any) {
       toast.error(
         error?.response?.data?.message || t("settings.purchaseBillUpdateFailed")
+      );
+    }
+  };
+
+  const handleCfcrToggle = async () => {
+    try {
+      await updateAccountFeature.mutateAsync({
+        featureKey: ACCOUNT_FEATURE_KEYS.FARMER_CFCR,
+        enabled: !cfcrFeature.isEnabled,
+      });
+      toast.success(t("settings.cfcrUpdated"));
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || t("settings.cfcrUpdateFailed")
       );
     }
   };
@@ -239,7 +254,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>{t("settings.optionalFeatures")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">{t("settings.purchaseBillUpload")}</p>
@@ -274,6 +289,41 @@ export default function SettingsPage() {
                     purchaseBillFeature.isEnabled
                       ? "translate-x-5"
                       : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">{t("settings.cfcr")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("settings.cfcrDescription")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <span className="text-xs font-medium text-muted-foreground">
+                {updateAccountFeature.isPending
+                  ? t("settings.updatingFeature")
+                  : cfcrFeature.isEnabled
+                    ? t("settings.featureOn")
+                    : t("settings.featureOff")}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={cfcrFeature.isEnabled}
+                aria-label={t("settings.cfcr")}
+                disabled={cfcrFeature.isLoading || updateAccountFeature.isPending}
+                onClick={handleCfcrToggle}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  cfcrFeature.isEnabled ? "bg-emerald-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    cfcrFeature.isEnabled ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
