@@ -22,6 +22,46 @@ import {
 } from "../services/farmerFcrService";
 import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
 
+const DEFAULT_CFCR_TARGET_WEIGHT_KG = 2;
+const DEFAULT_CFCR_CORRECTION_FACTOR_PER_KG = 0.4;
+
+function parseCfcrSettings(body: unknown, useDefaults: boolean) {
+  const input = (body || {}) as Record<string, unknown>;
+  const hasTarget = Object.prototype.hasOwnProperty.call(
+    input,
+    "cfcrTargetWeightKg",
+  );
+  const hasFactor = Object.prototype.hasOwnProperty.call(
+    input,
+    "cfcrCorrectionFactorPerKg",
+  );
+  const targetWeightKg = hasTarget
+    ? Number(input.cfcrTargetWeightKg)
+    : useDefaults ? DEFAULT_CFCR_TARGET_WEIGHT_KG : undefined;
+  const correctionFactorPerKg = hasFactor
+    ? Number(input.cfcrCorrectionFactorPerKg)
+    : useDefaults ? DEFAULT_CFCR_CORRECTION_FACTOR_PER_KG : undefined;
+
+  if (
+    targetWeightKg !== undefined &&
+    (!Number.isFinite(targetWeightKg) || targetWeightKg <= 0)
+  ) {
+    return { error: "cFCR target weight must be greater than zero" } as const;
+  }
+  if (
+    correctionFactorPerKg !== undefined &&
+    (!Number.isFinite(correctionFactorPerKg) || correctionFactorPerKg < 0)
+  ) {
+    return { error: "cFCR correction factor cannot be negative" } as const;
+  }
+
+  return {
+    hasSettings: hasTarget || hasFactor || useDefaults,
+    targetWeightKg,
+    correctionFactorPerKg,
+  } as const;
+}
+
 // ==================== GET ALL BATCHES ====================
 export const getAllBatches = async (
   req: Request,
@@ -459,6 +499,11 @@ export const createBatch = async (
     if (!success) {
       return res.status(400).json({ message: error?.message });
     }
+    const isBroiler = data.batchType === BatchType.BROILER;
+    const cfcrSettings = parseCfcrSettings(req.body, isBroiler);
+    if ("error" in cfcrSettings) {
+      return res.status(400).json({ message: cfcrSettings.error });
+    }
 
     // Check if farm exists and user has access
     const farm = await prisma.farm.findUnique({
@@ -555,6 +600,12 @@ export const createBatch = async (
           batchType: (data as any).batchType || "BROILER",
           initialChicks: totalChicks,
           initialChickWeightKg: Number(data.initialChickWeight || 0.045),
+          cfcrTargetWeightKg: isBroiler
+            ? cfcrSettings.targetWeightKg
+            : null,
+          cfcrCorrectionFactorPerKg: isBroiler
+            ? cfcrSettings.correctionFactorPerKg
+            : null,
           currentWeight: null, // Will be set when first weight is recorded
           farmId: data.farmId,
         },
@@ -691,6 +742,26 @@ export const updateBatch = async (
       }
     }
 
+    const cfcrSettings = parseCfcrSettings(req.body, false);
+    if ("error" in cfcrSettings) {
+      return res.status(400).json({ message: cfcrSettings.error });
+    }
+    const finalBatchType = data.batchType || existingBatch.batchType;
+    if (cfcrSettings.hasSettings && finalBatchType !== BatchType.BROILER) {
+      return res.status(400).json({
+        message: "cFCR settings are only available for Broiler batches",
+      });
+    }
+    if (
+      (existingBatch.status === BatchStatus.COMPLETED ||
+        existingBatch.closureBirdCount != null) &&
+      cfcrSettings.hasSettings
+    ) {
+      return res.status(400).json({
+        message: "cFCR settings cannot be changed after the batch is closed",
+      });
+    }
+
     // Check if batch number already exists for this farm (if being updated)
     if (data.batchNumber && data.batchNumber !== existingBatch.batchNumber) {
       const existingBatchNumber = await prisma.batch.findUnique({
@@ -715,6 +786,13 @@ export const updateBatch = async (
 
     if (initialChickWeight !== undefined) {
       updateData.initialChickWeightKg = initialChickWeight;
+    }
+    if (cfcrSettings.targetWeightKg !== undefined) {
+      updateData.cfcrTargetWeightKg = cfcrSettings.targetWeightKg;
+    }
+    if (cfcrSettings.correctionFactorPerKg !== undefined) {
+      updateData.cfcrCorrectionFactorPerKg =
+        cfcrSettings.correctionFactorPerKg;
     }
 
     if (data.startDate) {
@@ -743,6 +821,10 @@ export const updateBatch = async (
         },
       },
     });
+
+    if (existingBatch.batchType === BatchType.BROILER) {
+      await refreshFarmerFcrHistorySafely(id);
+    }
 
     return res.json({
       success: true,
@@ -1528,6 +1610,10 @@ export const getBatchAnalytics = async (
         currentAvgWeight: fcrResult.remainingAverageWeightKg,
         // FCR (Feed Conversion Ratio) data — Broiler only
         fcr,
+        rawFcr: fcrResult.fcr,
+        cfcr: fcrResult.currentCfcr,
+        lastKnownCfcr: latestHistoricalFcr?.cfcr ?? null,
+        cfcrStatus: fcrResult.cfcrStatus,
         lastKnownFcr: latestHistoricalFcr?.fcr ?? null,
         lastKnownFcrDate: latestHistoricalFcr?.calculationDate ?? null,
         fcrDisplayStatus: fcrResult.displayStatus,

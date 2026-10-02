@@ -1,6 +1,7 @@
 import {
   BatchStatus,
   BatchType,
+  Prisma,
   SalesItemType,
   WeightSource,
 } from "@prisma/client";
@@ -41,9 +42,38 @@ export type FcrStaleReason =
   | "NEWER_SALE_NOT_INCLUDED"
   | "NEWER_MORTALITY_NOT_INCLUDED";
 
+export type CfcrStatus =
+  | "CALCULATED"
+  | "NO_SETTINGS"
+  | "SOURCE_FCR_UNAVAILABLE"
+  | "INVALID_INPUT"
+  | "NOT_APPLICABLE";
+
+export interface CfcrInput {
+  rawFcr: number;
+  producedLiveWeightKg: number;
+  outputBirdCount: number;
+  targetWeightKg: number | null;
+  correctionFactorPerKg: number | null;
+}
+
+export interface CfcrCalculation {
+  cfcr: number | null;
+  averageOutputWeightKg: number | null;
+  status: CfcrStatus;
+}
+
 export interface FarmerFcrResult {
   fcr: number | null;
+  rawFcr: number | null;
   currentFcr: number | null;
+  cfcr: number | null;
+  currentCfcr: number | null;
+  cfcrStatus: CfcrStatus;
+  outputBirdCount: number;
+  averageOutputWeightKg: number | null;
+  cfcrTargetWeightKg: number | null;
+  cfcrCorrectionFactorPerKg: number | null;
   status: FcrStatus;
   displayStatus: FcrDisplayStatus;
   message: string;
@@ -81,6 +111,13 @@ export interface FarmerFcrHistoryRow {
   id: string;
   calculationDate: string;
   fcr: number;
+  rawFcr: number;
+  cfcr: number | null;
+  cfcrStatus: CfcrStatus;
+  outputBirdCount: number | null;
+  averageOutputWeightKg: number | null;
+  cfcrTargetWeightKg: number | null;
+  cfcrCorrectionFactorPerKg: number | null;
   basis: FcrBasis;
   displayStatus: "FRESH" | "STALE" | "FINAL";
   feedKg: number;
@@ -124,6 +161,8 @@ type FcrInputs = {
     endDate: Date | null;
     initialChicks: number;
     initialChickWeightKg: unknown;
+    cfcrTargetWeightKg: unknown;
+    cfcrCorrectionFactorPerKg: unknown;
     closureBirdCount: number | null;
   };
   initialChickWeightKg: number;
@@ -177,6 +216,39 @@ function maxDate(dates: Date[]): Date | null {
   );
 }
 
+export function calculateCfcr(input: CfcrInput): CfcrCalculation {
+  if (
+    !Number.isFinite(input.rawFcr) || input.rawFcr <= 0 ||
+    !Number.isFinite(input.producedLiveWeightKg) || input.producedLiveWeightKg <= 0 ||
+    !Number.isInteger(input.outputBirdCount) || input.outputBirdCount <= 0
+  ) {
+    return { cfcr: null, averageOutputWeightKg: null, status: "INVALID_INPUT" };
+  }
+
+  const averageOutputWeightKg =
+    input.producedLiveWeightKg / input.outputBirdCount;
+  if (!Number.isFinite(averageOutputWeightKg) || averageOutputWeightKg <= 0) {
+    return { cfcr: null, averageOutputWeightKg: null, status: "INVALID_INPUT" };
+  }
+  if (input.targetWeightKg == null || input.correctionFactorPerKg == null) {
+    return { cfcr: null, averageOutputWeightKg, status: "NO_SETTINGS" };
+  }
+  if (
+    !Number.isFinite(input.targetWeightKg) || input.targetWeightKg <= 0 ||
+    !Number.isFinite(input.correctionFactorPerKg) || input.correctionFactorPerKg < 0
+  ) {
+    return { cfcr: null, averageOutputWeightKg, status: "INVALID_INPUT" };
+  }
+
+  const cfcr = input.rawFcr +
+    (input.targetWeightKg - averageOutputWeightKg) * input.correctionFactorPerKg;
+  if (!Number.isFinite(cfcr) || cfcr < 0) {
+    return { cfcr: null, averageOutputWeightKg, status: "INVALID_INPUT" };
+  }
+
+  return { cfcr, averageOutputWeightKg, status: "CALCULATED" };
+}
+
 function statusMessage(status: FcrStatus): string {
   switch (status) {
     case "CALCULATED": return "FCR calculated successfully";
@@ -212,7 +284,15 @@ function emptyResult(
 ): FarmerFcrResult {
   return {
     fcr: null,
+    rawFcr: null,
     currentFcr: null,
+    cfcr: null,
+    currentCfcr: null,
+    cfcrStatus: "SOURCE_FCR_UNAVAILABLE",
+    outputBirdCount: 0,
+    averageOutputWeightKg: null,
+    cfcrTargetWeightKg: null,
+    cfcrCorrectionFactorPerKg: null,
     status,
     displayStatus: displayStatusFor(status, "NOT_AVAILABLE"),
     message: statusMessage(status),
@@ -273,6 +353,8 @@ async function loadFcrInputs(batchId: string, now: Date): Promise<FcrInputs | nu
       endDate: true,
       initialChicks: true,
       initialChickWeightKg: true,
+      cfcrTargetWeightKg: true,
+      cfcrCorrectionFactorPerKg: true,
       closureBirdCount: true,
     },
   });
@@ -322,6 +404,47 @@ async function loadFcrInputs(batchId: string, now: Date): Promise<FcrInputs | nu
   };
 }
 
+function numberOrNull(value: unknown): number | null {
+  return value == null ? null : Number(value);
+}
+
+function applyCfcr(
+  result: FarmerFcrResult,
+  inputs: FcrInputs,
+): FarmerFcrResult {
+  const targetWeightKg = numberOrNull(inputs.batch.cfcrTargetWeightKg);
+  const correctionFactorPerKg = numberOrNull(
+    inputs.batch.cfcrCorrectionFactorPerKg,
+  );
+  result.rawFcr = result.fcr;
+  result.cfcrTargetWeightKg = targetWeightKg;
+  result.cfcrCorrectionFactorPerKg = correctionFactorPerKg;
+
+  if (inputs.batch.batchType !== BatchType.BROILER) {
+    result.cfcrStatus = "NOT_APPLICABLE";
+    return result;
+  }
+  if (result.status !== "CALCULATED" || result.fcr == null) {
+    result.cfcrStatus = "SOURCE_FCR_UNAVAILABLE";
+    return result;
+  }
+
+  const outputBirdCount = result.soldBirds + result.remainingBirds;
+  const calculation = calculateCfcr({
+    rawFcr: result.fcr,
+    producedLiveWeightKg: result.producedLiveWeightKg,
+    outputBirdCount,
+    targetWeightKg,
+    correctionFactorPerKg,
+  });
+  result.outputBirdCount = outputBirdCount;
+  result.averageOutputWeightKg = calculation.averageOutputWeightKg;
+  result.cfcr = calculation.cfcr;
+  result.currentCfcr = result.currentFcr == null ? null : calculation.cfcr;
+  result.cfcrStatus = calculation.status;
+  return result;
+}
+
 function calculatePoint(
   inputs: FcrInputs,
   context: {
@@ -366,7 +489,7 @@ function calculatePoint(
     result.remainingBirds = Math.max(0, remainingBirds);
     result.remainingAverageWeightKg = context.averageWeightKg;
     result.remainingWeightSampleCount = context.sampleCount;
-    return setCurrentPopulation(result, inputs);
+    return applyCfcr(setCurrentPopulation(result, inputs), inputs);
   };
 
   if (!Number.isFinite(inputs.initialChickWeightKg) || inputs.initialChickWeightKg <= 0) {
@@ -452,9 +575,17 @@ function calculatePoint(
       : "FINAL";
   const fcr = feedKg / weightGainKg;
 
-  return setCurrentPopulation({
+  return applyCfcr(setCurrentPopulation({
     fcr,
+    rawFcr: fcr,
     currentFcr: freshnessStatus === "STALE" ? null : fcr,
+    cfcr: null,
+    currentCfcr: null,
+    cfcrStatus: "SOURCE_FCR_UNAVAILABLE",
+    outputBirdCount: 0,
+    averageOutputWeightKg: null,
+    cfcrTargetWeightKg: null,
+    cfcrCorrectionFactorPerKg: null,
     status: "CALCULATED",
     displayStatus: displayStatusFor("CALCULATED", freshnessStatus),
     message: statusMessage("CALCULATED"),
@@ -488,11 +619,17 @@ function calculatePoint(
     currentSoldBirds: 0,
     currentDeaths: 0,
     currentBirds: 0,
-  }, inputs);
+  }, inputs), inputs);
 }
 
 function invalidBatchResult(inputs: FcrInputs, status: FcrStatus, basis: FcrBasis = "LIVE") {
-  return setCurrentPopulation(emptyResult(status, inputs, inputs.batch.initialChicks, basis), inputs);
+  return applyCfcr(
+    setCurrentPopulation(
+      emptyResult(status, inputs, inputs.batch.initialChicks, basis),
+      inputs,
+    ),
+    inputs,
+  );
 }
 
 function calculateCurrentFromInputs(inputs: FcrInputs, now: Date): FarmerFcrResult {
@@ -570,11 +707,20 @@ export async function calculateFarmerBatchFcr(
   return inputs ? calculateCurrentFromInputs(inputs, now) : null;
 }
 
-async function saveHistoryPoint(batchId: string, result: FarmerFcrResult): Promise<void> {
+async function saveHistoryPoint(
+  tx: Prisma.TransactionClient,
+  batchId: string,
+  result: FarmerFcrResult,
+): Promise<void> {
   if (result.status !== "CALCULATED" || result.fcr == null || !result.asOfDate) return;
   const calculationDate = startOfNepalDay(result.asOfDate);
   const data = {
     fcr: result.fcr,
+    cfcr: result.cfcr,
+    outputBirdCount: result.outputBirdCount,
+    averageOutputWeightKg: result.averageOutputWeightKg,
+    cfcrTargetWeightKg: result.cfcrTargetWeightKg,
+    cfcrCorrectionFactorPerKg: result.cfcrCorrectionFactorPerKg,
     basis: result.basis,
     feedKg: result.feedKg,
     initialBiomassKg: result.initialBiomassKg,
@@ -591,7 +737,7 @@ async function saveHistoryPoint(batchId: string, result: FarmerFcrResult): Promi
     weightGainKg: result.weightGainKg,
     isFinal: result.freshnessStatus === "FINAL",
   };
-  await prisma.batchFcrHistory.upsert({
+  await tx.batchFcrHistory.upsert({
     where: { batchId_calculationDate: { batchId, calculationDate } },
     create: { batchId, calculationDate, ...data },
     update: data,
@@ -672,16 +818,17 @@ export async function syncFarmerBatchFcrHistory(
     (left, right) =>
       (left.asOfDate?.getTime() || 0) - (right.asOfDate?.getTime() || 0),
   );
-  for (const point of points) await saveHistoryPoint(batchId, point);
-
   const validDates = points.map((point) => startOfNepalDay(point.asOfDate as Date));
-  await prisma.batchFcrHistory.deleteMany({
-    where: {
-      batchId,
-      ...(validDates.length > 0
-        ? { calculationDate: { notIn: validDates } }
-        : {}),
-    },
+  await prisma.$transaction(async (tx) => {
+    for (const point of points) await saveHistoryPoint(tx, batchId, point);
+    await tx.batchFcrHistory.deleteMany({
+      where: {
+        batchId,
+        ...(validDates.length > 0
+          ? { calculationDate: { notIn: validDates } }
+          : {}),
+      },
+    });
   });
 }
 
@@ -712,6 +859,26 @@ export async function getFarmerBatchFcrHistory(
     // clients do not display the prior UTC day (Nepal midnight is 18:15 UTC).
     calculationDate: nepalDateString(row.calculationDate),
     fcr: Number(row.fcr),
+    rawFcr: Number(row.fcr),
+    cfcr: row.cfcr == null ? null : Number(row.cfcr),
+    cfcrStatus:
+      row.cfcr != null
+        ? "CALCULATED"
+        : row.cfcrTargetWeightKg == null ||
+            row.cfcrCorrectionFactorPerKg == null
+          ? "NO_SETTINGS"
+          : "INVALID_INPUT",
+    outputBirdCount: row.outputBirdCount,
+    averageOutputWeightKg:
+      row.averageOutputWeightKg == null
+        ? null
+        : Number(row.averageOutputWeightKg),
+    cfcrTargetWeightKg:
+      row.cfcrTargetWeightKg == null ? null : Number(row.cfcrTargetWeightKg),
+    cfcrCorrectionFactorPerKg:
+      row.cfcrCorrectionFactorPerKg == null
+        ? null
+        : Number(row.cfcrCorrectionFactorPerKg),
     basis: row.basis as FcrBasis,
     displayStatus: row.isFinal
       ? "FINAL"
@@ -749,4 +916,68 @@ export function aggregateCurrentFcr(
   const totalFeedKg = included.reduce((sum, row) => sum + row.feedKg, 0);
   const totalWeightGainKg = included.reduce((sum, row) => sum + row.weightGainKg, 0);
   return totalWeightGainKg > 0 ? totalFeedKg / totalWeightGainKg : null;
+}
+
+export interface CfcrDashboardAggregate {
+  cfcr: number | null;
+  targetWeightKg: number | null;
+  correctionFactorPerKg: number | null;
+  mixedSettings: boolean;
+}
+
+export function aggregateCurrentCfcr(
+  rows: Array<{
+    displayStatus: FcrDisplayStatus;
+    cfcr: number | null;
+    weightGainKg: number;
+    targetWeightKg: number | null;
+    correctionFactorPerKg: number | null;
+  }>,
+): CfcrDashboardAggregate {
+  const included = rows.filter(
+    (row) =>
+      (row.displayStatus === "FRESH" || row.displayStatus === "FINAL") &&
+      row.cfcr != null && Number.isFinite(row.cfcr) && row.cfcr >= 0 &&
+      Number.isFinite(row.weightGainKg) && row.weightGainKg > 0 &&
+      row.targetWeightKg != null && row.targetWeightKg > 0 &&
+      row.correctionFactorPerKg != null && row.correctionFactorPerKg >= 0,
+  );
+  if (included.length === 0) {
+    return {
+      cfcr: null,
+      targetWeightKg: null,
+      correctionFactorPerKg: null,
+      mixedSettings: false,
+    };
+  }
+
+  const settings = new Set(
+    included.map(
+      (row) =>
+        `${row.targetWeightKg!.toFixed(6)}:${row.correctionFactorPerKg!.toFixed(6)}`,
+    ),
+  );
+  if (settings.size > 1) {
+    return {
+      cfcr: null,
+      targetWeightKg: null,
+      correctionFactorPerKg: null,
+      mixedSettings: true,
+    };
+  }
+
+  const totalWeightGainKg = included.reduce(
+    (sum, row) => sum + row.weightGainKg,
+    0,
+  );
+  const weightedCfcr = included.reduce(
+    (sum, row) => sum + row.cfcr! * row.weightGainKg,
+    0,
+  );
+  return {
+    cfcr: totalWeightGainKg > 0 ? weightedCfcr / totalWeightGainKg : null,
+    targetWeightKg: included[0].targetWeightKg,
+    correctionFactorPerKg: included[0].correctionFactorPerKg,
+    mixedSettings: false,
+  };
 }

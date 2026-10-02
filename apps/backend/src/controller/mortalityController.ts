@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { CreateMortalitySchema } from "@myapp/shared-types";
+import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
 
 // ==================== GET ALL MORTALITIES ====================
 export const getAllMortalities = async (
@@ -397,6 +398,8 @@ export const createMortality = async (
       },
     });
 
+    await refreshFarmerFcrHistorySafely(batchId);
+
     return res.status(201).json({
       success: true,
       data: mortality,
@@ -510,6 +513,8 @@ export const updateMortality = async (
       },
     });
 
+    await refreshFarmerFcrHistorySafely(existingMortality.batchId);
+
     return res.json({
       success: true,
       data: updatedMortality,
@@ -578,6 +583,8 @@ export const deleteMortality = async (
     await prisma.mortality.delete({
       where: { id },
     });
+
+    await refreshFarmerFcrHistorySafely(existingMortality.batchId);
 
     return res.json({
       success: true,
@@ -685,4 +692,3 @@ export const getMortalityStatistics = async (
     return res.status(500).json({ message });
   }
 };
-

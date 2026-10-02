@@ -74,6 +74,35 @@ describe("Farmer-owned purchase bill setting", () => {
     );
   });
 
+  it("lets the Farmer show or hide corrected FCR", async () => {
+    mockedSetAccountFeature.mockResolvedValue({
+      key: "FARMER_CFCR",
+      name: "Farmer Corrected FCR",
+      enabled: true,
+      updatedAt: new Date("2026-10-01T00:00:00.000Z"),
+    });
+    const response = makeResponse();
+
+    await updateCurrentAccountFeature(
+      {
+        userId: "farmer-1",
+        params: { featureKey: "FARMER_CFCR" },
+        body: { enabled: true },
+      } as any,
+      response,
+    );
+
+    expect(mockedSetAccountFeature).toHaveBeenCalledWith({
+      accountId: "farmer-1",
+      featureKey: "FARMER_CFCR",
+      enabled: true,
+      updatedById: "farmer-1",
+    });
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({ success: true }),
+    );
+  });
+
   it("does not let users change other protected account features", async () => {
     const response = makeResponse();
 

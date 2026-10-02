@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import {
+  aggregateCurrentCfcr,
   aggregateCurrentFcr,
   calculateFarmerBatchFcr,
 } from "../services/farmerFcrService";
@@ -610,6 +611,11 @@ export const getDashboardPerformanceMetrics = async (
           fcrWeightGainKg:
             includeInCurrentFcr ? fcrResult?.weightGainKg || 0 : 0,
           fcrDisplayStatus: fcrResult?.displayStatus || "NOT_CALCULABLE",
+          cfcr: includeInCurrentFcr ? fcrResult?.currentCfcr ?? null : null,
+          cfcrTargetWeightKg: fcrResult?.cfcrTargetWeightKg ?? null,
+          cfcrCorrectionFactorPerKg:
+            fcrResult?.cfcrCorrectionFactorPerKg ?? null,
+          cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
         };
       })
     );
@@ -668,6 +674,16 @@ export const getDashboardPerformanceMetrics = async (
       .sort((a, b) => b.totalProfit - a.totalProfit)
       .slice(0, 5);
 
+    const cfcrAggregate = aggregateCurrentCfcr(
+      batchPerformance.map((batch) => ({
+        displayStatus: batch.fcrDisplayStatus,
+        cfcr: batch.cfcr,
+        weightGainKg: batch.fcrWeightGainKg,
+        targetWeightKg: batch.cfcrTargetWeightKg,
+        correctionFactorPerKg: batch.cfcrCorrectionFactorPerKg,
+      })),
+    );
+
     return res.json({
       success: true,
       data: {
@@ -682,6 +698,10 @@ export const getDashboardPerformanceMetrics = async (
               weightGainKg: batch.fcrWeightGainKg,
             })),
           ) ?? 0,
+        correctedFeedConversionRatio: cfcrAggregate.cfcr,
+        cfcrTargetWeightKg: cfcrAggregate.targetWeightKg,
+        cfcrCorrectionFactorPerKg: cfcrAggregate.correctionFactorPerKg,
+        cfcrMixedSettings: cfcrAggregate.mixedSettings,
         topPerformingFarms,
         batchPerformance: batchPerformance.slice(0, 10), // Top 10 batches
       },
@@ -1138,6 +1158,11 @@ export const getBatchPerformanceList = async (
           mortality: mortalityCount,
           mortalityRate: mortalityRate.toFixed(2),
           fcr: fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A',
+          cfcr:
+            fcrResult?.currentCfcr != null
+              ? fcrResult.currentCfcr.toFixed(2)
+              : "N/A",
+          cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
           fcrStatus: fcrResult?.status || "NOT_AVAILABLE",
           fcrFreshness: fcrResult?.freshnessStatus || "NOT_AVAILABLE",
           fcrAsOfDate: fcrResult?.asOfDate || null,

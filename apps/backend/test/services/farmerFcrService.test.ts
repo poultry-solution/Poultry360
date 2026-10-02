@@ -7,12 +7,15 @@ jest.mock("../../src/utils/prisma", () => ({
     feedConsumption: { findMany: jest.fn() },
     birdWeight: { findMany: jest.fn() },
     batchFcrHistory: { upsert: jest.fn(), findMany: jest.fn(), deleteMany: jest.fn() },
+    $transaction: jest.fn(),
   },
 }));
 
 import prisma from "../../src/utils/prisma";
 import {
+  aggregateCurrentCfcr,
   aggregateCurrentFcr,
+  calculateCfcr,
   calculateFarmerBatchFcr,
   startOfNepalDay,
   syncFarmerBatchFcrHistory,
@@ -27,6 +30,7 @@ const mocked = prisma as unknown as {
   feedConsumption: { findMany: jest.Mock };
   birdWeight: { findMany: jest.Mock };
   batchFcrHistory: { upsert: jest.Mock; findMany: jest.Mock; deleteMany: jest.Mock };
+  $transaction: jest.Mock;
 };
 
 const now = new Date("2026-01-10T06:00:00.000Z");
@@ -36,6 +40,8 @@ function setRows(options?: {
   status?: "ACTIVE" | "COMPLETED";
   endDate?: Date | null;
   closureBirdCount?: number | null;
+  cfcrTargetWeightKg?: number | null;
+  cfcrCorrectionFactorPerKg?: number | null;
   sales?: Array<{ id: string; date: Date; quantity: number; weight: number | null }>;
   deaths?: Array<{ id: string; date: Date; count: number; reason: string; saleId: null }>;
   feed?: Array<{ id: string; date: Date; quantityKg: number | null }>;
@@ -55,6 +61,9 @@ function setRows(options?: {
     endDate: options?.endDate ?? null,
     initialChicks: 100,
     initialChickWeightKg: 0.05,
+    cfcrTargetWeightKg: options?.cfcrTargetWeightKg ?? null,
+    cfcrCorrectionFactorPerKg:
+      options?.cfcrCorrectionFactorPerKg ?? null,
     closureBirdCount: options?.closureBirdCount ?? null,
   });
   mocked.sale.findMany.mockResolvedValue(options?.sales ?? []);
@@ -70,6 +79,7 @@ describe("Farmer Phase 1 FCR", () => {
     jest.clearAllMocks();
     mocked.batchFcrHistory.upsert.mockResolvedValue({});
     mocked.batchFcrHistory.deleteMany.mockResolvedValue({ count: 0 });
+    mocked.$transaction.mockImplementation(async (callback) => callback(mocked));
   });
 
   it("calculates a fresh active-batch FCR", async () => {
@@ -430,6 +440,8 @@ describe("Farmer Phase 1 FCR", () => {
       status: "COMPLETED",
       endDate: now,
       closureBirdCount: 15,
+      cfcrTargetWeightKg: 2,
+      cfcrCorrectionFactorPerKg: 0.4,
       sales: [{ id: "sale-1", date: now, quantity: 80, weight: 160 }],
       deaths: [{ id: "death-1", date: now, count: 5, reason: "DISEASE", saleId: null }],
       feed: [{ id: "feed-1", date: now, quantityKg: 240 }],
@@ -442,6 +454,26 @@ describe("Farmer Phase 1 FCR", () => {
     expect(result?.remainingLiveWeightKg).toBe(0);
     expect(result?.producedLiveWeightKg).toBe(160);
     expect(result?.fcr).toBeCloseTo(240 / 155, 8);
+    expect(result?.outputBirdCount).toBe(80);
+    expect(result?.averageOutputWeightKg).toBe(2);
+    expect(result?.cfcr).toBeCloseTo(240 / 155, 8);
+  });
+
+  it("does not calculate cFCR when all birds died and none were sold", async () => {
+    setRows({
+      status: "COMPLETED",
+      endDate: now,
+      closureBirdCount: 100,
+      cfcrTargetWeightKg: 2,
+      cfcrCorrectionFactorPerKg: 0.4,
+      feed: [{ id: "feed-1", date: now, quantityKg: 100 }],
+    });
+
+    const result = await calculateFarmerBatchFcr("batch-1", now);
+    expect(result?.status).toBe("NON_POSITIVE_WEIGHT_GAIN");
+    expect(result?.outputBirdCount).toBe(0);
+    expect(result?.cfcr).toBeNull();
+    expect(result?.currentCfcr).toBeNull();
   });
 
   it("requires close confirmation only when the UI sends it", () => {
@@ -580,5 +612,173 @@ describe("Farmer Phase 1 FCR", () => {
       { displayStatus: "NOT_CALCULABLE", feedKg: 999, weightGainKg: 1 },
     ]);
     expect(aggregate).toBeCloseTo(280 / 150, 8);
+  });
+
+  it("calculates cFCR only from the supplied raw result", () => {
+    const result = calculateCfcr({
+      rawFcr: 1.7,
+      producedLiveWeightKg: 237.5,
+      outputBirdCount: 95,
+      targetWeightKg: 2,
+      correctionFactorPerKg: 0.4,
+    });
+
+    expect(result.status).toBe("CALCULATED");
+    expect(result.averageOutputWeightKg).toBe(2.5);
+    expect(result.cfcr).toBeCloseTo(1.5, 8);
+  });
+
+  it("does not calculate cFCR with no output birds or a negative result", () => {
+    expect(calculateCfcr({
+      rawFcr: 1.5,
+      producedLiveWeightKg: 0,
+      outputBirdCount: 0,
+      targetWeightKg: 2,
+      correctionFactorPerKg: 0.4,
+    }).status).toBe("INVALID_INPUT");
+
+    const negative = calculateCfcr({
+      rawFcr: 0.1,
+      producedLiveWeightKg: 1000,
+      outputBirdCount: 100,
+      targetWeightKg: 2,
+      correctionFactorPerKg: 1,
+    });
+    expect(negative.status).toBe("INVALID_INPUT");
+    expect(negative.cfcr).toBeNull();
+  });
+
+  it("uses sold and remaining live birds for active-batch cFCR", async () => {
+    setRows({
+      cfcrTargetWeightKg: 2,
+      cfcrCorrectionFactorPerKg: 0.4,
+      sales: [{ id: "sale-1", date: now, quantity: 20, weight: 40 }],
+      weights: [{
+        id: "weight-1",
+        date: now,
+        avgWeight: 1.5,
+        sampleCount: 10,
+        createdAt: now,
+      }],
+    });
+
+    const result = await calculateFarmerBatchFcr("batch-1", now);
+    expect(result?.outputBirdCount).toBe(100);
+    expect(result?.averageOutputWeightKg).toBe(1.6);
+    expect(result?.cfcrStatus).toBe("CALCULATED");
+    expect(result?.cfcr).toBeCloseTo(100 / 155 + 0.16, 8);
+    expect(result?.currentCfcr).toBeCloseTo(100 / 155 + 0.16, 8);
+
+    await syncFarmerBatchFcrHistory("batch-1", now);
+    expect(mocked.batchFcrHistory.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          fcr: expect.closeTo(100 / 155, 8),
+          cfcr: expect.closeTo(100 / 155 + 0.16, 8),
+          producedLiveWeightKg: 160,
+          outputBirdCount: 100,
+          averageOutputWeightKg: 1.6,
+          cfcrTargetWeightKg: 2,
+          cfcrCorrectionFactorPerKg: 0.4,
+        }),
+      }),
+    );
+  });
+
+  it("keeps stale cFCR as history but not as current", async () => {
+    const oldDate = new Date("2026-01-05T06:00:00.000Z");
+    setRows({
+      cfcrTargetWeightKg: 2,
+      cfcrCorrectionFactorPerKg: 0.4,
+      feed: [{ id: "feed-1", date: oldDate, quantityKg: 100 }],
+      weights: [{
+        id: "weight-1",
+        date: oldDate,
+        avgWeight: 1.5,
+        sampleCount: 10,
+        createdAt: oldDate,
+      }],
+    });
+
+    const result = await calculateFarmerBatchFcr("batch-1", now);
+    expect(result?.displayStatus).toBe("STALE");
+    expect(result?.cfcr).not.toBeNull();
+    expect(result?.currentCfcr).toBeNull();
+  });
+
+  it("recalculates cFCR but keeps raw FCR when the active target changes", async () => {
+    const weights = [{
+      id: "weight-1",
+      date: now,
+      avgWeight: 1.5,
+      sampleCount: 10,
+      createdAt: now,
+    }];
+    setRows({
+      cfcrTargetWeightKg: 2,
+      cfcrCorrectionFactorPerKg: 0.4,
+      weights,
+    });
+    await syncFarmerBatchFcrHistory("batch-1", now);
+
+    setRows({
+      cfcrTargetWeightKg: 2.2,
+      cfcrCorrectionFactorPerKg: 0.4,
+      weights,
+    });
+    await syncFarmerBatchFcrHistory("batch-1", now);
+
+    const first = mocked.batchFcrHistory.upsert.mock.calls[0][0].create;
+    const second = mocked.batchFcrHistory.upsert.mock.calls[1][0].create;
+    expect(second.fcr).toBeCloseTo(first.fcr, 8);
+    expect(second.cfcr).not.toBeCloseTo(first.cfcr, 8);
+    expect(second.cfcrTargetWeightKg).toBe(2.2);
+  });
+
+  it("weights dashboard cFCR by gain and rejects mixed settings", () => {
+    const sameSettings = aggregateCurrentCfcr([
+      {
+        displayStatus: "FRESH",
+        cfcr: 1.5,
+        weightGainKg: 50,
+        targetWeightKg: 2,
+        correctionFactorPerKg: 0.4,
+      },
+      {
+        displayStatus: "FINAL",
+        cfcr: 1.8,
+        weightGainKg: 100,
+        targetWeightKg: 2,
+        correctionFactorPerKg: 0.4,
+      },
+      {
+        displayStatus: "STALE",
+        cfcr: 99,
+        weightGainKg: 100,
+        targetWeightKg: 2,
+        correctionFactorPerKg: 0.4,
+      },
+    ]);
+    expect(sameSettings.cfcr).toBeCloseTo((1.5 * 50 + 1.8 * 100) / 150, 8);
+    expect(sameSettings.mixedSettings).toBe(false);
+
+    const mixed = aggregateCurrentCfcr([
+      {
+        displayStatus: "FRESH",
+        cfcr: 1.5,
+        weightGainKg: 50,
+        targetWeightKg: 2,
+        correctionFactorPerKg: 0.4,
+      },
+      {
+        displayStatus: "FINAL",
+        cfcr: 1.6,
+        weightGainKg: 50,
+        targetWeightKg: 2.2,
+        correctionFactorPerKg: 0.4,
+      },
+    ]);
+    expect(mixed.cfcr).toBeNull();
+    expect(mixed.mixedSettings).toBe(true);
   });
 });

@@ -17,6 +17,11 @@ import axiosInstance from "@/common/lib/axios";
 import { saleQueryKeys } from "@/fetchers/sale/saleQueries";
 import type { CloseBatchFcrInput, FcrHistoryResponse } from "@/types/fcr";
 
+export interface CfcrBatchSettingsInput {
+  cfcrTargetWeightKg?: number;
+  cfcrCorrectionFactorPerKg?: number;
+}
+
 // ==================== QUERY KEYS ====================
 export const batchKeys = {
   all: ["batches"] as const,
@@ -250,7 +255,9 @@ export const useCreateBatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateBatch): Promise<BatchDetailResponse> => {
+    mutationFn: async (
+      data: CreateBatch & CfcrBatchSettingsInput
+    ): Promise<BatchDetailResponse> => {
       const response = await axiosInstance.post("/batches", data);
       return response.data as BatchDetailResponse;
     },
@@ -269,7 +276,13 @@ export const useUpdateBatch = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateBatch }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateBatch & CfcrBatchSettingsInput;
+    }) => {
       const response = await axiosInstance.put(`/batches/${id}`, data);
       return response.data;
     },
@@ -278,6 +291,7 @@ export const useUpdateBatch = () => {
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       queryClient.invalidateQueries({ queryKey: batchKeys.analytics(variables.id) });
+      queryClient.invalidateQueries({ queryKey: batchKeys.fcrHistory(variables.id) });
       
       // Invalidate farm batches if farmId changed
       if (data.data?.farmId) {

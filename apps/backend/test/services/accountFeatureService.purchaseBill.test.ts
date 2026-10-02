@@ -80,6 +80,34 @@ describe("Farmer purchase bill account feature", () => {
   });
 });
 
+describe("Farmer cFCR account feature", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedPrisma.accountFeature.findMany.mockResolvedValue([]);
+  });
+
+  it("is owned by the Farmer, defaults off, and is hidden from Admin", async () => {
+    const features = await getResolvedAccountFeatures("farmer-1", UserRole.OWNER);
+    expect(features).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "FARMER_CFCR", enabled: false }),
+      ]),
+    );
+    expect(getAccountFeatureDefinition(ACCOUNT_FEATURE_KEYS.FARMER_CFCR)).toEqual(
+      expect.objectContaining({
+        selfConfigurable: true,
+        adminConfigurable: false,
+      }),
+    );
+
+    const adminFeatures = await getAdminResolvedAccountFeatures(
+      "farmer-1",
+      UserRole.OWNER,
+    );
+    expect(adminFeatures.some((feature) => feature.key === "FARMER_CFCR")).toBe(false);
+  });
+});
+
 describe("Hatchery purchase bill account feature", () => {
   beforeEach(() => {
     jest.clearAllMocks();

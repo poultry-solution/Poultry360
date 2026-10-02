@@ -14,6 +14,7 @@ import {
 import { InventoryService } from "../services/inventoryService";
 import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
 import { resolveFeedKgPerUnit } from "../utils/farmerFeedUnits";
+import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
 
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
@@ -742,6 +743,8 @@ export const createExpense = async (
       },
     });
 
+    if (batchId) await refreshFarmerFcrHistorySafely(batchId);
+
     return res.status(201).json({
       success: true,
       data: completeExpense,
@@ -910,6 +913,14 @@ export const updateExpense = async (
       return updated;
     });
 
+    const affectedBatchIds = [existingExpense.batchId, updatedExpense.batchId]
+      .filter((batchId): batchId is string => Boolean(batchId));
+    await Promise.all(
+      [...new Set(affectedBatchIds)].map((batchId) =>
+        refreshFarmerFcrHistorySafely(batchId),
+      ),
+    );
+
     return res.json({
       success: true,
       data: updatedExpense,
@@ -994,7 +1005,7 @@ export const deleteExpense = async (
       });
     }
 
-    return await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
       // 1. Restore inventory stock from usage records
       for (const usage of existingExpense.inventoryUsages) {
         await tx.inventoryItem.update({
@@ -1020,10 +1031,15 @@ export const deleteExpense = async (
         where: { id },
       });
 
-      return res.json({
-        success: true,
-        message: "Expense deleted successfully",
-      });
+    });
+
+    if (existingExpense.batchId) {
+      await refreshFarmerFcrHistorySafely(existingExpense.batchId);
+    }
+
+    return res.json({
+      success: true,
+      message: "Expense deleted successfully",
     });
   } catch (error) {
     console.error("Delete expense error:", error);
