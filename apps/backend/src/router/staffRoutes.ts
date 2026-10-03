@@ -7,6 +7,7 @@ import {
   updateStaff,
   stopStaff,
   addPayment,
+  deletePayment,
   archiveStaff,
   getTransactions,
 } from "../controller/staffController";
@@ -54,6 +55,7 @@ router.put("/:id", updateStaff);
 router.patch("/:id/stop", stopStaff);
 router.patch("/:id/archive", archiveStaff);
 router.post("/:id/payments", addPayment);
+router.delete("/:id/payments/:paymentId", deletePayment);
 router.get("/:id/transactions", getTransactions);
 
 export default router;

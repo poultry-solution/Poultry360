@@ -25,6 +25,7 @@ import {
   useStopStaff,
   useUpdateStaff,
   useAddStaffPayment,
+  useDeleteStaffPayment,
   type StaffItem,
   type StaffStatusFilter,
 } from "@/fetchers/staff/staffQueries";
@@ -68,6 +69,11 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const [stopStaffId, setStopStaffId] = useState<string | null>(null);
   const [archiveStaffId, setArchiveStaffId] = useState<string | null>(null);
   const [detailsStaffId, setDetailsStaffId] = useState<string | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<{
+    staffId: string;
+    paymentId: string;
+    amount: number;
+  } | null>(null);
 
   const [addForm, setAddForm] = useState({ name: "", startDate: getTodayLocalDate(), monthlySalary: "" });
   const [payForm, setPayForm] = useState({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
@@ -88,6 +94,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const stopMutation = useStopStaff(owner);
   const archiveMutation = useArchiveStaff(owner);
   const addPaymentMutation = useAddStaffPayment(owner);
+  const deletePaymentMutation = useDeleteStaffPayment(owner);
   const { data: transactionsData } = useStaffTransactions(owner, detailsStaffId);
 
   const summary = summaryData?.data ?? {
@@ -102,6 +109,9 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const staffList: StaffItem[] = data?.data ?? [];
   const transactions = transactionsData?.data?.transactions ?? [];
   const detailsBalance = transactionsData?.data?.balance ?? 0;
+  const detailsStaff = staffList.find((staff) => staff.id === detailsStaffId);
+  const canDeleteDetailsPayments =
+    detailsStaff?.status === "ACTIVE" || detailsStaff?.status === "STOPPED";
 
   const handleCreate = async () => {
     const name = addForm.name.trim();
@@ -162,6 +172,15 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const handleArchive = async (id: string) => {
     await archiveMutation.mutateAsync(id);
     setArchiveStaffId(null);
+  };
+
+  const handleDeletePayment = async () => {
+    if (!paymentToDelete) return;
+    await deletePaymentMutation.mutateAsync({
+      staffId: paymentToDelete.staffId,
+      paymentId: paymentToDelete.paymentId,
+    });
+    setPaymentToDelete(null);
   };
 
   const summaryCards: SummaryCard[] = [
@@ -567,13 +586,60 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                         </a>
                       )}
                     </span>
-                    <span className="text-green-600">−{formatCurrency(tx.amount)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600">−{formatCurrency(tx.amount)}</span>
+                      {canDeleteDetailsPayments && detailsStaffId && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-destructive"
+                          onClick={() =>
+                            setPaymentToDelete({
+                              staffId: detailsStaffId,
+                              paymentId: tx.id,
+                              amount: tx.amount,
+                            })
+                          }
+                          title="Delete payment"
+                          aria-label="Delete payment"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
             ))}
           </div>
         </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={!!paymentToDelete}
+        onClose={() => setPaymentToDelete(null)}
+        title="Delete payment?"
+      >
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            Delete the payment of {formatCurrency(paymentToDelete?.amount ?? 0)}? The staff balance and payment total will be updated.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setPaymentToDelete(null)}>
+            {text("cancel", "Cancel")}
+          </Button>
+          <Button
+            variant="destructive"
+            className="bg-destructive text-white"
+            disabled={deletePaymentMutation.isPending}
+            onClick={handleDeletePayment}
+          >
+            {deletePaymentMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete payment
+          </Button>
+        </ModalFooter>
       </Modal>
     </div>
   );
