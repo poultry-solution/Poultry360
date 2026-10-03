@@ -248,6 +248,31 @@ export function useAddStaffPayment(owner: StaffOwner) {
   });
 }
 
+export function useDeleteStaffPayment(owner: StaffOwner) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ staffId, paymentId }: { staffId: string; paymentId: string }) => {
+      const { data } = await axiosInstance.delete<{
+        success: boolean;
+        data: { paymentId: string; staffId: string };
+      }>(
+        `${staffPath(owner)}/${staffId}/payments/${paymentId}`
+      );
+      return data;
+    },
+    onSuccess: (_, { staffId }) => {
+      qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
+      qc.invalidateQueries({ queryKey: staffKeys.detail(owner, staffId) });
+      qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, staffId) });
+      toast.success("Payment deleted");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? "Failed to delete payment");
+    },
+  });
+}
+
 export function useArchiveStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({

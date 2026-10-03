@@ -42,6 +42,7 @@ const companyActivityCopy: Record<string, CompanyActivityCopy> = {
   "PATCH staff/record/stop": { description: "Stopped a payroll staff member", targetType: "Company payroll staff" },
   "PATCH staff/record/archive": { description: "Archived a payroll staff member", targetType: "Company payroll staff" },
   "POST staff/record/payments": { description: "Recorded a salary payment", targetType: "Company payroll payment" },
+  "DELETE staff/record/payments/record": { description: "Deleted a salary payment", targetType: "Company payroll payment" },
 };
 
 function activityCopy(method: string, route: string): CompanyActivityCopy {

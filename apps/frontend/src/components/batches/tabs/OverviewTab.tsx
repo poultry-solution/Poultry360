@@ -127,20 +127,40 @@ export function OverviewTab({
           "NEWER_MORTALITY_NOT_INCLUDED",
         ].includes(reason)
       ));
-  const staleMessages = (fcrData?.staleReasons || []).map((reason: string) => {
-    switch (reason) {
-      case "WEIGHT_TOO_OLD":
-        return `Weight is ${fcrData?.weightAgeDays ?? 0} days old`;
-      case "NEWER_FEED_NOT_INCLUDED":
-        return `${fcrData?.newerFeedCount ?? 0} newer feed record(s) not included`;
-      case "NEWER_SALE_NOT_INCLUDED":
-        return `${fcrData?.newerSaleCount ?? 0} newer sale(s) not included`;
-      case "NEWER_MORTALITY_NOT_INCLUDED":
-        return `${fcrData?.newerMortalityCount ?? 0} newer death record(s) not included`;
-      default:
-        return reason;
-    }
-  });
+  const staleReasons: string[] = fcrData?.staleReasons || [];
+  const hasOldWeight = staleReasons.includes("WEIGHT_TOO_OLD");
+  const hasNewerRecords = staleReasons.some((reason) =>
+    [
+      "NEWER_FEED_NOT_INCLUDED",
+      "NEWER_SALE_NOT_INCLUDED",
+      "NEWER_MORTALITY_NOT_INCLUDED",
+    ].includes(reason)
+  );
+  const fcrStatusLabel = fcrIsFinal
+    ? "Final"
+    : fcrIsStale
+      ? "Needs update"
+      : displayedFcr != null
+        ? "Up to date"
+        : "Not available";
+  const fcrStatusClass = fcrIsFinal
+    ? "bg-blue-100 text-blue-700"
+    : fcrIsStale
+      ? "bg-amber-100 text-amber-800"
+      : displayedFcr != null
+        ? "bg-green-100 text-green-700"
+        : "bg-gray-100 text-gray-600";
+  const fcrSummaryMessage = fcrIsStale
+    ? hasOldWeight && hasNewerRecords
+      ? "This FCR uses an old weight and does not include the latest batch records."
+      : hasOldWeight
+        ? "This FCR uses an old weight."
+        : hasNewerRecords
+          ? "This FCR does not include the latest batch records."
+          : "Add a current weight to update this FCR."
+    : displayedFcr == null
+      ? fcrData?.message || "Record feed and a live weight to calculate FCR."
+      : null;
 
   return (
     <div className="space-y-6">
@@ -239,108 +259,6 @@ export function OverviewTab({
                   </span>
                 </div>
               )}
-              {(batch as { batchType?: string })?.batchType === "BROILER" && (
-                <div className={`rounded-lg border p-3 ${fcrIsStale ? "border-amber-200 bg-amber-50" : "bg-muted/30"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {fcrIsFinal ? "Final FCR" : fcrData?.asOfDate ? "FCR as of" : "Current FCR"}
-                      </p>
-                      {fcrData?.asOfDate && !fcrIsFinal && (
-                        <DateDisplay date={fcrData.asOfDate} format="short" />
-                      )}
-                      {fcrData?.weightSourceDate && !fcrIsFinal && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Weight recorded: {" "}
-                          <DateDisplay date={fcrData.weightSourceDate} format="short" />
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-lg font-semibold">
-                      {displayedFcr != null ? Number(displayedFcr).toFixed(2) : "—"}
-                    </span>
-                  </div>
-
-                  {displayedFcr == null && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {fcrData?.message || "FCR is not available"}
-                    </p>
-                  )}
-
-                  {fcrIsFinal && fcrData?.remainingBirds === 0 && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      All birds are accounted for. Sale weights are used, so no current weight is needed.
-                    </p>
-                  )}
-
-                  {fcrIsStale && (
-                    <div className="mt-2 space-y-1 text-xs text-amber-800">
-                      <p className="flex items-center gap-1 font-medium">
-                        <AlertTriangle className="h-3.5 w-3.5" />
-                        This FCR is stale
-                      </p>
-                      {staleMessages.map((message: string) => (
-                        <p key={message}>{message}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  {fcrData?.initialWeightEstimated && (
-                    <p className="mt-2 text-xs text-amber-700">
-                      Initial chick weight uses the old 0.05 kg estimate.
-                    </p>
-                  )}
-
-                  {!isBatchClosed && weightCanRefreshFcr && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 h-8"
-                      onClick={onRecordWeight}
-                    >
-                      Record current weight
-                    </Button>
-                  )}
-
-                  {cfcrEnabled && (
-                    <div className="mt-3 border-t pt-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            {fcrIsFinal ? "Final corrected FCR" : "Corrected FCR"}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg
-                          </p>
-                        </div>
-                        <span className="text-lg font-semibold text-blue-700">
-                          {displayedCfcr != null
-                            ? Number(displayedCfcr).toFixed(2)
-                            : "—"}
-                        </span>
-                      </div>
-                      {fcrData?.cfcrStatus === "NO_SETTINGS" && (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {isBatchClosed
-                            ? "This old closed batch has no corrected FCR settings."
-                            : "Set a target weight to calculate corrected FCR."}
-                        </p>
-                      )}
-                      {fcrData?.cfcrStatus === "INVALID_INPUT" && (
-                        <p className="mt-2 text-xs text-red-700">
-                          Corrected FCR cannot be calculated from these values.
-                        </p>
-                      )}
-                      {fcrData?.averageOutputWeightKg != null && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Average output weight: {Number(fcrData.averageOutputWeightKg).toFixed(2)} kg
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
               {analytics?.currentAvgWeight != null && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -436,75 +354,75 @@ export function OverviewTab({
         </Card>
       </div>
 
-      {cfcrEnabled &&
-        (batch as { batchType?: string })?.batchType === "BROILER" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Corrected FCR settings</CardTitle>
-              <CardDescription>
-                cFCR uses a target bird weight to make batch results easier to compare.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
-                  <Input
-                    id="batch-cfcr-target"
-                    type="number"
-                    min="0.001"
-                    step="0.01"
-                    value={cfcrTarget}
-                    onChange={(event) => setCfcrTarget(event.target.value)}
-                    disabled={isBatchClosed || cfcrSettingsSaving}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
-                  <Input
-                    id="batch-cfcr-factor"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={cfcrFactor}
-                    onChange={(event) => setCfcrFactor(event.target.value)}
-                    disabled={isBatchClosed || cfcrSettingsSaving}
-                  />
-                </div>
-              </div>
-              {!isBatchClosed ? (
-                <div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={saveCfcrSettings}
-                    disabled={cfcrSettingsSaving}
-                  >
-                    {cfcrSettingsSaving ? "Saving..." : "Save corrected FCR settings"}
-                  </Button>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Changing these values recalculates saved cFCR values. Raw FCR does not change.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  These settings are locked because the batch is closed.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
       {(batch as { batchType?: string })?.batchType === "BROILER" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">FCR History</CardTitle>
-            <CardDescription>Saved FCR values by date</CardDescription>
+            <CardTitle className="text-base">FCR Performance</CardTitle>
+            <CardDescription>Latest result, history, and trend</CardDescription>
           </CardHeader>
           <CardContent>
+            <div
+              className={`mb-6 rounded-lg border p-4 ${
+                fcrIsStale ? "border-amber-200 bg-amber-50/50" : "bg-muted/20"
+              }`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex gap-8">
+                  <div>
+                    <p className="text-xs text-muted-foreground">FCR</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {displayedFcr == null ? "—" : Number(displayedFcr).toFixed(2)}
+                    </p>
+                  </div>
+                  {cfcrEnabled && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">cFCR</p>
+                      <p className="mt-1 text-2xl font-semibold text-blue-700">
+                        {displayedCfcr == null ? "—" : Number(displayedCfcr).toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${fcrStatusClass}`}>
+                    {fcrStatusLabel}
+                  </span>
+                  {fcrData?.asOfDate && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      As of <DateDisplay date={fcrData.asOfDate} format="short" />
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {fcrSummaryMessage && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                  <p className={`flex items-center gap-2 text-xs ${fcrIsStale ? "text-amber-800" : "text-muted-foreground"}`}>
+                    {fcrIsStale && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
+                    {fcrSummaryMessage}
+                  </p>
+                  {!isBatchClosed && weightCanRefreshFcr && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={onRecordWeight}
+                    >
+                      Record current weight
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
             {fcrHistory.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No FCR history yet. Record feed and a live weight to create the first value.
+                No saved FCR history yet.
               </p>
             ) : (
               <div className="space-y-6">
@@ -641,6 +559,65 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
+
+      {cfcrEnabled &&
+        (batch as { batchType?: string })?.batchType === "BROILER" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Corrected FCR settings</CardTitle>
+              <CardDescription>
+                cFCR uses a target bird weight to make batch results easier to compare.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
+                  <Input
+                    id="batch-cfcr-target"
+                    type="number"
+                    min="0.001"
+                    step="0.01"
+                    value={cfcrTarget}
+                    onChange={(event) => setCfcrTarget(event.target.value)}
+                    disabled={isBatchClosed || cfcrSettingsSaving}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
+                  <Input
+                    id="batch-cfcr-factor"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cfcrFactor}
+                    onChange={(event) => setCfcrFactor(event.target.value)}
+                    disabled={isBatchClosed || cfcrSettingsSaving}
+                  />
+                </div>
+              </div>
+              {!isBatchClosed ? (
+                <div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={saveCfcrSettings}
+                    disabled={cfcrSettingsSaving}
+                  >
+                    {cfcrSettingsSaving ? "Saving..." : "Save corrected FCR settings"}
+                  </Button>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Changing these values recalculates saved cFCR values. Raw FCR does not change.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  These settings are locked because the batch is closed.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

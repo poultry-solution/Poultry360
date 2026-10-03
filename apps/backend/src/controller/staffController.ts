@@ -282,6 +282,49 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// ==================== DELETE PAYMENT ====================
+export const deletePayment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ownerId = req.userId;
+    const { id, paymentId } = req.params;
+    if (!ownerId) {
+      res.status(401).json({ success: false, message: "Unauthorized" });
+      return;
+    }
+
+    const staff = await prisma.staff.findFirst({
+      where: { id, ownerId },
+      select: { id: true, status: true },
+    });
+    if (!staff) {
+      res.status(404).json({ success: false, message: "Staff not found" });
+      return;
+    }
+    if (staff.status === StaffStatus.ARCHIVED) {
+      res.status(400).json({ success: false, message: "Archived staff payments cannot be deleted" });
+      return;
+    }
+
+    const payment = await prisma.staffPayment.findFirst({
+      where: { id: paymentId, staffId: staff.id },
+    });
+    if (!payment) {
+      res.status(404).json({ success: false, message: "Payment not found" });
+      return;
+    }
+
+    await prisma.staffPayment.delete({ where: { id: payment.id } });
+    res.json({
+      success: true,
+      data: { paymentId: payment.id, staffId: staff.id },
+      message: "Payment deleted",
+    });
+  } catch (error) {
+    console.error("Delete staff payment error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // ==================== ARCHIVE ====================
 export const archiveStaff = async (req: Request, res: Response): Promise<void> => {
   try {
