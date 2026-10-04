@@ -1,7 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Archive, DollarSign, Eye, Loader2, Plus, Pencil, Trash2, Users } from "lucide-react";
+import {
+  Archive,
+  ArrowUpDown,
+  DollarSign,
+  Eye,
+  Loader2,
+  Plus,
+  Pencil,
+  Search,
+  Trash2,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { formatBSLong } from "@/common/lib/nepali-date";
@@ -47,7 +59,14 @@ interface SummaryCard {
 }
 
 function formatCurrency(amount: number): string {
-  return `रू ${Math.abs(amount).toFixed(0)}`;
+  return `रू ${Math.round(Math.abs(amount)).toLocaleString("en-IN")}`;
+}
+
+/** One place decides what a balance means, so colour and wording never disagree. */
+function balanceTone(balance: number): { label: string; className: string } {
+  if (isZeroBalance(balance)) return { label: "Settled", className: "text-muted-foreground" };
+  if (balance > 0) return { label: "Due", className: "text-red-600" };
+  return { label: "Advance", className: "text-emerald-600" };
 }
 
 function isZeroBalance(balance: number): boolean {
@@ -63,6 +82,8 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   };
 
   const [activeTab, setActiveTab] = useState<StaffTab>("all");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "balance" | "joined">("name");
   const [addOpen, setAddOpen] = useState(false);
   const [payStaffId, setPayStaffId] = useState<string | null>(null);
   const [editSalaryStaffId, setEditSalaryStaffId] = useState<string | null>(null);
@@ -106,7 +127,20 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     totalSalaryPayments: 0,
     remainingBalance: 0,
   };
-  const staffList: StaffItem[] = data?.data ?? [];
+  const allStaff: StaffItem[] = data?.data ?? [];
+  const staffList: StaffItem[] = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const filtered = term
+      ? allStaff.filter((item) => item.name.toLowerCase().includes(term))
+      : allStaff;
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "balance") return Math.abs(b.balance) - Math.abs(a.balance);
+      if (sortBy === "joined") {
+        return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [allStaff, search, sortBy]);
   const transactions = transactionsData?.data?.transactions ?? [];
   const detailsBalance = transactionsData?.data?.balance ?? 0;
   const detailsStaff = staffList.find((staff) => staff.id === detailsStaffId);
@@ -183,17 +217,31 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     setPaymentToDelete(null);
   };
 
-  const summaryCards: SummaryCard[] = [
-    { label: "Total salary expense", value: summaryLoading ? "..." : formatCurrency(summary.totalSalaryExpense), hint: `${summary.totalStaff} staff` },
-    { label: "Total salary payments", value: summaryLoading ? "..." : formatCurrency(summary.totalSalaryPayments), hint: `${summary.archivedStaff} archived` },
+  const summaryTone = balanceTone(summary.remainingBalance);
+  const summaryCards: Array<SummaryCard & { accent?: boolean }> = [
     {
-      label: "Remaining balance",
-      value: summaryLoading ? "..." : formatCurrency(summary.remainingBalance),
-      hint: summary.remainingBalance > 0 ? "Due" : summary.remainingBalance < 0 ? "Advance" : "Settled",
-      tone: summary.remainingBalance > 0 ? "text-red-600" : summary.remainingBalance < 0 ? "text-green-600" : "text-foreground",
+      label: text("balance", "Remaining balance"),
+      value: summaryLoading ? "—" : formatCurrency(summary.remainingBalance),
+      hint: summaryLoading ? "" : summaryTone.label,
+      tone: summaryTone.className,
+      accent: true,
     },
-    { label: "Total staff", value: summaryLoading ? "..." : String(summary.totalStaff), hint: `${summary.activeStaff} active` },
-  ] as const;
+    {
+      label: "Salary expense",
+      value: summaryLoading ? "—" : formatCurrency(summary.totalSalaryExpense),
+      hint: "Accrued to date",
+    },
+    {
+      label: "Paid out",
+      value: summaryLoading ? "—" : formatCurrency(summary.totalSalaryPayments),
+      hint: "All payments",
+    },
+    {
+      label: "Staff",
+      value: summaryLoading ? "—" : String(summary.totalStaff),
+      hint: summaryLoading ? "" : `${summary.activeStaff} active · ${summary.archivedStaff} archived`,
+    },
+  ];
 
   const tabs: Array<{ value: StaffTab; label: string; count: number }> = [
     { value: "all", label: "All", count: summary.totalStaff },
@@ -208,7 +256,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold">
             <Users className="h-6 w-6" />
-            {text("title", "Staff management")}
+            {text("title", "Staff Payroll")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{text("subtitle", "Track staff salary and payments.")}</p>
         </div>
@@ -218,14 +266,27 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
-          <Card key={card.label} className="rounded-xl">
-            <CardHeader className="pb-3">
-              <CardDescription>{card.label}</CardDescription>
-              <CardTitle className={`text-2xl ${card.tone ?? ""}`}>{card.value}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0 text-sm text-muted-foreground">{card.hint}</CardContent>
+          <Card
+            key={card.label}
+            className={
+              card.accent
+                ? "rounded-xl border-primary/30 bg-primary/5"
+                : "rounded-xl"
+            }
+          >
+            <CardContent className="p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {card.label}
+              </p>
+              <p className={`mt-1.5 text-2xl font-bold tabular-nums ${card.tone ?? "text-foreground"}`}>
+                {card.value}
+              </p>
+              {card.hint ? (
+                <p className="mt-0.5 text-xs text-muted-foreground">{card.hint}</p>
+              ) : null}
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -244,12 +305,33 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
 
         <TabsContent value={activeTab} className="mt-0">
           <Card className="rounded-2xl">
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
-                <CardTitle>{text("title", "Staff management")}</CardTitle>
-                <CardDescription>{text("subtitle", "Track staff salary and payments.")}</CardDescription>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative w-full sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={text("searchPlaceholder", "Search staff by name")}
+                  className="pl-9"
+                />
               </div>
-              <Badge variant="outline">{staffList.length} shown</Badge>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <select
+                  value={sortBy}
+                  onChange={(event) =>
+                    setSortBy(event.target.value as "name" | "balance" | "joined")
+                  }
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="name">Name (A–Z)</option>
+                  <option value="balance">Largest balance</option>
+                  <option value="joined">Newest joined</option>
+                </select>
+                <Badge variant="outline" className="shrink-0">
+                  {staffList.length}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -257,56 +339,106 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : staffList.length === 0 ? (
-                <p className="py-12 text-center text-muted-foreground">
-                  {activeTab === "archived"
-                    ? "No archived staff yet"
-                    : activeTab === "stopped"
-                      ? "No stopped staff"
-                      : activeTab === "active"
-                        ? "No active staff"
-                        : text("empty", "No staff yet")}
-                </p>
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  <div className="rounded-full bg-muted p-3">
+                    {search.trim() ? (
+                      <Search className="h-6 w-6 text-muted-foreground" />
+                    ) : (
+                      <Users className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {search.trim()
+                      ? `No staff matching "${search.trim()}"`
+                      : activeTab === "archived"
+                        ? "No archived staff yet"
+                        : activeTab === "stopped"
+                          ? "No stopped staff"
+                          : activeTab === "active"
+                            ? "No active staff"
+                            : text("empty", "No staff yet")}
+                  </p>
+                  {/* Only offer the action that actually resolves this empty state */}
+                  {search.trim() ? (
+                    <Button variant="outline" size="sm" onClick={() => setSearch("")}>
+                      Clear search
+                    </Button>
+                  ) : activeTab === "all" || activeTab === "active" ? (
+                    <Button size="sm" onClick={() => setAddOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      {text("addStaff", "Add staff")}
+                    </Button>
+                  ) : null}
+                </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid gap-3 lg:grid-cols-2">
                   {staffList.map((s) => {
-                    const canArchive = s.status === "STOPPED" && isZeroBalance(s.balance);
+                    const settled = isZeroBalance(s.balance);
+                    const canArchive = s.status === "STOPPED" && settled;
+                    const tone = balanceTone(s.balance);
                     const statusLabel =
-                      s.status === "ACTIVE" ? text("statusActive", "Active") : s.status === "STOPPED" ? text("statusStopped", "Stopped") : "Archived";
+                      s.status === "ACTIVE"
+                        ? text("statusActive", "Active")
+                        : s.status === "STOPPED"
+                          ? text("statusStopped", "Stopped")
+                          : "Archived";
 
                     return (
                       <div
                         key={s.id}
-                        className="grid gap-4 rounded-xl border bg-background p-4 lg:grid-cols-[minmax(0,1fr)_auto]"
+                        className="flex flex-col rounded-xl border bg-background transition-colors hover:border-primary/40"
                       >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={s.status === "ACTIVE" ? "default" : s.status === "STOPPED" ? "secondary" : "outline"}>
-                            {statusLabel}
-                          </Badge>
-                          <span className="font-medium">{s.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {formatBSLong(s.startDate)} · {text("currentSalary", "Current salary")} रू {s.currentMonthlySalary.toFixed(0)}
-                          </span>
-                          <span
-                            className={
-                              s.balance > 0 ? "font-medium text-red-600" : s.balance < 0 ? "font-medium text-green-600" : "text-muted-foreground"
-                            }
-                          >
-                            {text("balance", "Balance")}:{" "}
-                            {s.balance > 0 ? text("due", "Due") : s.balance < 0 ? text("advance", "Advance") : "0"}{" "}
-                            {s.balance !== 0 ? formatCurrency(s.balance) : ""}
-                          </span>
+                        {/* Identity + balance: the two things scanned first */}
+                        <div className="flex items-start justify-between gap-3 p-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-semibold">{s.name}</span>
+                              <Badge
+                                variant={
+                                  s.status === "ACTIVE"
+                                    ? "default"
+                                    : s.status === "STOPPED"
+                                      ? "secondary"
+                                      : "outline"
+                                }
+                                className="shrink-0 text-[10px] uppercase tracking-wide"
+                              >
+                                {statusLabel}
+                              </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {text("joiningDate", "Joined")} {formatBSLong(s.startDate)}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {text("currentSalary", "Current salary")}{" "}
+                              <span className="font-medium text-foreground tabular-nums">
+                                {formatCurrency(s.currentMonthlySalary)}
+                              </span>
+                              /mo
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            <p className={`text-lg font-bold tabular-nums ${tone.className}`}>
+                              {settled ? formatCurrency(0) : formatCurrency(s.balance)}
+                            </p>
+                            <p className={`text-[11px] font-medium ${tone.className}`}>
+                              {tone.label}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        {/* Actions sit on their own row so they never wrap into the text */}
+                        <div className="mt-auto flex items-center gap-1 border-t px-3 py-2">
                           {(s.status === "ACTIVE" || s.status === "STOPPED") && (
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8 text-primary"
                               onClick={() => {
                                 setPayStaffId(s.id);
                                 setPayForm({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
                               }}
-                              title={text("pay", "Pay")}
                             >
                               <DollarSign className="mr-1 h-4 w-4" />
                               {text("pay", "Pay")}
@@ -316,45 +448,63 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8 w-8 p-0"
                               onClick={() => {
                                 setEditSalaryStaffId(s.id);
                                 setEditSalaryForm({ monthlySalary: String(s.currentMonthlySalary), effectiveFrom: getTodayLocalDate() });
                               }}
                               title={text("editSalary", "Edit salary")}
+                              aria-label={text("editSalary", "Edit salary")}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
                           {s.status === "ACTIVE" && (
+                            /* Stop halts salary accrual - it deletes nothing, so no trash icon */
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-destructive"
+                              className="h-8 w-8 p-0 text-destructive"
                               onClick={() => {
                                 setStopStaffId(s.id);
                                 setStopForm({ endDate: getTodayLocalDate() });
                               }}
                               title={text("stop", "Stop")}
+                              aria-label={text("stop", "Stop")}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <UserMinus className="h-4 w-4" />
                             </Button>
                           )}
                           {s.status === "STOPPED" && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-amber-700"
+                              className="h-8 w-8 p-0 text-amber-700"
                               disabled={!canArchive}
                               onClick={() => canArchive && setArchiveStaffId(s.id)}
-                              title={canArchive ? "Archive" : "Settle balance before archiving"}
+                              title="Archive"
+                              aria-label="Archive"
                             >
-                              <Archive className="mr-1 h-4 w-4" />
-                              Archive
+                              <Archive className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm" onClick={() => setDetailsStaffId(s.id)} title={text("details", "Details")}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setDetailsStaffId(s.id)}
+                            title={text("details", "Details")}
+                            aria-label={text("details", "Details")}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
+
+                          {/* Tooltips do not open on touch, so the blocker is written out */}
+                          {s.status === "STOPPED" && !canArchive && (
+                            <span className="ml-auto pr-1 text-[11px] text-muted-foreground">
+                              Settle balance to archive
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

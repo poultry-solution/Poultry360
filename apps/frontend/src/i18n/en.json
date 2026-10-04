@@ -51,27 +51,22 @@
     "collapse": "Collapse sidebar",
     "roles": {
       "doctor": {
-        
         "subtitle": "Veterinary Services",
         "userTitle": "Doctor"
       },
       "admin": {
-       
         "subtitle": "System Management",
         "userTitle": "Administrator"
       },
       "dealer": {
-
         "subtitle": "Feed & Supply Management",
         "userTitle": "Dealer"
       },
       "company": {
-       
         "subtitle": "Product & Distribution Management",
         "userTitle": "Company"
       },
       "farmer": {
-     
         "subtitle": "Farm Management",
         "userTitle": "Owner"
       },
@@ -92,7 +87,7 @@
       "salesLedger": "Sales Ledger",
       "inventory": "Inventory",
       "listForSale": "List for sale",
-      "staffManagement": "Staff management",
+      "staffManagement": "Staff Payroll",
       "staffAccess": "Staff access",
       "activity": "Activity",
       "chatWithDoctor": "Chat with Doctor",
@@ -360,8 +355,8 @@
   },
   "farmer": {
     "staff": {
-      "title": "Staff management",
-      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "title": "Staff Payroll",
+      "subtitle": "Track staff salary, payments and balances.",
       "addStaff": "Add staff",
       "name": "Name",
       "startDate": "Start date",
@@ -1853,8 +1848,8 @@
   },
   "dealer": {
     "staff": {
-      "title": "Staff management",
-      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "title": "Staff Payroll",
+      "subtitle": "Track staff salary, payments and balances.",
       "addStaff": "Add staff",
       "name": "Name",
       "startDate": "Start date",
