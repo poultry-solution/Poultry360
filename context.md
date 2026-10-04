@@ -1,5 +1,8 @@
 # Poultry360 — Project Context
 
+> Last checked: 2026-10-04. This is the main long-term work note. When a feature plan is done or
+> replaced, move its useful result and any open work here, then remove the old plan file.
+
 ## Overview
 
 **Poultry360** is a three-tier management system for the poultry supply chain:
@@ -41,12 +44,11 @@ Poultry360/
 
 | Document | Purpose |
 |----------|---------|
-| [DATABASE_ARCHITECTURE.md](./DATABASE_ARCHITECTURE.md) | Schema, entities, relationships, enums |
+| [README.md](./README.md) | Project setup and main commands |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Subdomain config, env vars, build process |
-| [UNIFIED_APP_REFACTOR_PLAN.md](./UNIFIED_APP_REFACTOR_PLAN.md) | Migration to unified frontend |
-| `apps/frontend/src/app/ROUTE_STRUCTURE.md` | Route hierarchy |
 | `apps/frontend/src/fetchers/README.md` | TanStack Query patterns |
 | `apps/frontend/src/common/README.md` | Shared frontend code |
+| `apps/backend/TESTING_SETUP.md` | Backend test setup |
 
 ---
 
@@ -62,6 +64,10 @@ account.
   cross-account balance synchronization.
 - Older connection-related models, routes, and service code remain only for historical data and
   backwards compatibility. Do not extend them for new work.
+- One active exception must be handled with care: Company-owned dealer sales and payments still
+  use `CompanyDealerAccount`, `CompanyDealerPayment`, and `CompanyDealerAccountService`. This is
+  the Company's own ledger flow. Do not remove it just because its model name joins Company and
+  Dealer. It must not create a new request, approval, or two-way sync flow.
 
 ---
 
@@ -139,38 +145,9 @@ AuthProvider → QueryProvider → InventoryProvider → ChatProvider → ToastP
 
 ### TanStack Query (Server State)
 
-All API data fetching uses TanStack Query via hooks in `apps/frontend/src/fetchers/`.
-
-**Pattern per domain:**
-```typescript
-// Query keys (e.g., batchKeys)
-export const batchKeys = {
-  all: ['batches'] as const,
-  lists: () => [...batchKeys.all, 'list'] as const,
-  detail: (id: string) => [...batchKeys.all, 'detail', id] as const,
-  farmBatches: (farmId: string) => [...batchKeys.all, 'farm', farmId] as const,
-};
-
-// Query hook
-export const useGetBatch = (id: string) => useQuery({
-  queryKey: batchKeys.detail(id),
-  queryFn: () => axiosInstance.get(`/batches/${id}`).then(res => res.data),
-});
-
-// Mutation with cache invalidation
-export const useCreateBatch = () => useMutation({
-  mutationFn: (data) => axiosInstance.post('/batches', data),
-  onSuccess: (_, variables) => {
-    queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
-    queryClient.invalidateQueries({ queryKey: batchKeys.farmBatches(variables.farmId) });
-  },
-});
-```
-
-**Cache invalidation rules:**
-- Create → invalidate lists + scoped lists (e.g., `farmBatches`)
-- Update → invalidate detail + lists + related keys
-- Delete → `removeQueries` for detail, `invalidateQueries` for lists
+API data uses TanStack Query hooks in `apps/frontend/src/fetchers/`. Keep one typed key family per
+domain. Create invalidates list and scoped-list keys; update invalidates detail and related lists;
+delete removes the detail key and invalidates lists. See the fetcher README for examples.
 
 ### Zustand (Auth State)
 
@@ -211,8 +188,9 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 
 | Service | Purpose |
 |---------|---------|
-| `CompanyDealerAccountService` | Legacy linked-account support; do not use for new independent workflows |
+| `CompanyDealerAccountService` | Active Company-owned dealer sale/payment ledger; keep it one-sided and do not turn it into account sync |
 | `DealerService` | Dealer operations, farmer/customer balance-based ledger |
+| `farmerFcrService` | Raw FCR, cFCR, freshness, history rebuilds, and dashboard totals for Farmer Broiler batches |
 | `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
 | `ReminderCronService` | Cron job for vaccination/reminder notifications |
@@ -221,39 +199,11 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 
 ## Real-time (Socket.IO)
 
-### Architecture
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Socket as Socket Service
-    participant DB
-
-    Client->>Socket: Connect (JWT in handshake)
-    Socket->>Socket: Verify token
-    Socket-->>Client: authenticated
-    Client->>Socket: join_conversation
-    Client->>Socket: send_message
-    Socket->>DB: Save message
-    Socket-->>Client: new_message (broadcast to room)
-```
-
-### Events
-
-| Client → Server | Server → Client |
-|-----------------|-----------------|
-| `join_conversation`, `leave_conversation` | `joined_conversation`, `conversation_history` |
-| `send_message` | `message_sent`, `new_message` |
-| `typing_start`, `typing_stop` | `user_typing` |
-| `mark_messages_read` | `messages_read` |
-
-### Chat Features
-
-- **Message types:** TEXT, IMAGE, VIDEO, AUDIO, PDF, DOC, BATCH_SHARE, FARM_SHARE
-- **Voice messages:** AUDIO type with `durationMs`
-- **Batch sharing:** BATCH_SHARE type with `batchShareId`
-- **Presence:** `markUserOnline`/`markUserOffline` in roomService
-- **Push notifications:** Sent to offline users via webpushService
+- Socket connections use JWT auth. Conversation rooms handle messages, typing, read state, and
+  presence; offline users can receive Web Push.
+- Message types are TEXT, IMAGE, VIDEO, AUDIO, PDF, DOC, BATCH_SHARE, and FARM_SHARE.
+- Main events are `join_conversation`, `send_message`, `typing_start`/`typing_stop`, and
+  `mark_messages_read`.
 
 ---
 
@@ -304,197 +254,62 @@ NODE_ENV             # development/production/test
 
 ---
 
-## Visual Architecture
+## Dealer Accounting Notes
 
-### System Overview
-
-```mermaid
-graph TD
-    subgraph Company["Company Tier"]
-        C[Company] --> C1[Product catalog]
-        C --> C2[Dealer management]
-    end
-    subgraph Dealer["Dealer Tier"]
-        D[Dealer] --> D1[Inventory]
-        D --> D2[Customer management]
-    end
-    subgraph Farmer["Farmer Tier"]
-        F[Farmer] --> F1[Farm operations]
-        F --> F2[Batch tracking]
-    end
-    C -. independent data .- D
-    D -. independent data .- F
-    Doc[Doctor] -->|consults| F
-    Admin[Admin] -->|manages| C & D & F
-```
-
-### API Request Flow
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Axios
-    participant API
-    participant Auth
-    participant Service
-    participant DB
-
-    Client->>Axios: Request
-    Axios->>Axios: Add JWT
-    Axios->>API: /api/v1/*
-    API->>Auth: Verify token + role
-    Auth->>Service: Business logic
-    Service->>DB: Query
-    DB-->>Service: Result
-    Service-->>API: Data
-    API-->>Axios: Response
-    alt 401
-        Axios->>API: Refresh token
-        Axios->>API: Retry
-    end
-```
-
-### Auth Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-
-    User->>Frontend: Login
-    Frontend->>Backend: POST /auth/login
-    Backend-->>Frontend: accessToken + httpOnly cookie
-    Frontend->>Frontend: Store in Zustand + localStorage
-    
-    Note over Frontend,Backend: Subsequent requests
-    Frontend->>Backend: Request + Bearer token
-    alt 401
-        Frontend->>Backend: POST /auth/refresh-token
-        Backend-->>Frontend: New accessToken
-        Frontend->>Backend: Retry
-    end
-```
-
----
-
-## Dealer Accounting and Broiler Settlement (Critical)
-
-### Normal Product Sales
-
-Dealer-side customers are manual `Customer` records owned by the dealer. `Customer.balance` is
-the current source of truth:
-
-- Positive balance: the customer owes the dealer.
-- Negative balance: the dealer owes the customer (advance).
-- A credit product sale increases the customer balance.
-- A received account payment reduces the customer balance and creates a `PAYMENT_RECEIVED`
-  ledger entry.
-
-New supplier exposure is held in `DealerManualCompany.balance`. A positive balance means the
-dealer owes that supplier. Older `CompanyDealerAccount` data can still be read for historical
-visibility, but new Dealer work must not create or synchronize it.
-
-The dashboard combines these balances, but keeps customer and supplier amounts separate.
-
-### Broiler Sales
-
-Use **Broiler** in all user-facing copy. Some database fields and the legacy report route retain
-older names for compatibility:
-
-- `DealerSale.isChickenSale` marks a Broiler sale.
-- `DealerSale.sourceFarmerId` identifies the farmer who supplied the birds.
-- `DealerSale.settlementId` prevents a sale from being settled twice.
-- `DealerSaleItem.broilerCount` stores the optional number of Broilers on a sale line.
-- `BroilerSaleSettlement` is the permanent audit record for a completed settlement.
-
-The buyer and source farmer must be different manual customers. The buyer-side sale record can
-still hold payment details, but the proceeds are money the dealer manages for the farmer—not
-normal dealer revenue.
-
-### Settlement Rules
-
-Settlement is per source farmer and includes every currently unsettled Broiler sale for that
-farmer. The operation runs in one serializable transaction.
-
-```text
-availableProceeds = totalProceeds - margin
-creditRecovered  = min(max(currentFarmerDue, 0), availableProceeds)
-farmerPayout     = availableProceeds - creditRecovered
-```
-
-- `margin` must be zero or positive and cannot exceed total proceeds.
-- Credit recovery uses the existing customer payment path with direction `RECEIVED`; it reduces
-  the farmer’s `Customer.balance`.
-- Farmer payout uses the same path with direction `MADE`; it is recorded in the farmer’s payment
-  history but does not create a new customer advance or alter their feed/credit balance.
-- The margin creates a `BROILER_SALE_MARGIN` ledger entry.
-- Linked sales receive `settlementId`; settled sales cannot be settled or deleted again.
-
-Ledger types have distinct meanings:
-
-| Ledger type | Meaning | Counts as dealer income? |
-|-------------|---------|--------------------------|
-| `BROILER_SALE_PROCEEDS` | Broiler money held for farmer settlement | No |
-| `PAYMENT_RECEIVED` | Customer payment or settlement credit recovery | No additional income |
-| `PAYMENT_MADE` | Money paid to a customer, including farmer payout | No |
-| `BROILER_SALE_MARGIN` | Dealer’s settlement margin | Yes |
-
-### Profit and Dashboard Meaning
-
-- Profit is currently **estimated profit**: normal product sales + settled Broiler margin −
-  recorded product purchases.
-- Do not add total Broiler proceeds to sales or profit. They are held for settlement.
-- The current purchase-cost calculation is appropriate for a full sell-through check. Proper
-  cost-of-goods-sold allocation for partially remaining inventory is a future accounting
-  improvement.
-- “Sold on credit” on the analytics page is historical: it is the amount sold on credit in the
-  selected dates, not necessarily the amount still owed now.
-- “Products” counts product types/SKUs, not the number of physical units currently in stock.
-- “Things to check” can include low stock, out-of-stock products, and overdue customer balances.
-
-### Broiler Settlement UI and API
-
-- Settlement page: `/dealer/dashboard/sales/chicken-by-farmer` (legacy path name only).
-- It shows **Waiting for settlement** first, then **Settled payments** history on the same page.
-- `GET /dealer/sales/chicken-by-farmer` returns unsettled sales grouped by source farmer.
-- `GET /dealer/sales/broiler-settlements` returns recent completed settlements, optionally filtered
-  by source farmer.
-- `POST /dealer/sales/broiler-settlements` creates a settlement.
-
-Keep wording short and plain: “Farmer owes you”, “Broiler money received”, “Used to clear farmer
-due”, “Pay farmer”, and “Your margin”. Avoid accounting jargon in the interface.
+- Dealer customers and suppliers are manual, dealer-owned records. Positive `Customer.balance`
+  means the customer owes the Dealer; positive `DealerManualCompany.balance` means the Dealer owes
+  the supplier. New Dealer work must not write to `CompanyDealerAccount`.
+- Estimated profit is normal product sales plus settled Broiler margin minus recorded purchases.
+  Broiler proceeds held for a farmer are not Dealer sales or profit.
+- Broiler settlement is a small optional add-on. It groups unsettled Broiler sales by source
+  farmer, uses the proceeds to clear that farmer's due balance, pays the rest to the farmer, and
+  records only the Dealer margin as income.
+- `DealerSale.settlementId` stops a second settlement. `BroilerSaleSettlement` keeps the final
+  record. The buyer and source farmer must be different manual customers.
+- Use **Broiler** in the UI. Some old fields and the route
+  `/dealer/dashboard/sales/chicken-by-farmer` still use “chicken” for compatibility.
 
 ---
 
 ## Dealer Staff Accounts
 
-Dealer staff logins are separate from normal `User` accounts and from payroll staff records.
-
-- `StaffUser` is a login account tied to one Dealer and its owner. It uses `/staff-auth/login` and
-  receives a staff JWT (`actorType: STAFF`), not a normal user session.
-- The owner creates, updates, disables, and resets staff logins at
-  `/dealer/dashboard/staff-access`. A phone number cannot be shared with a normal user or another
-  staff login.
-- Staff work inside their owner’s Dealer scope. Middleware supplies the owner context to existing
-  Dealer operations, so staff cannot access another dealer’s data.
-- A new staff login can perform normal daily operations. Sensitive information requires explicit
-  permissions:
-
-| Permission | Allows |
-|------------|--------|
-| `DEALER_VIEW_FINANCIAL_SUMMARIES` | Financial summaries, profit, and ledger totals |
-| `DEALER_VIEW_CASH_HISTORY` | The entire Cash in hand feature: today's cash, cash changes, closing a day, and history. It is off for new staff logins by default and the Dealer owner can turn it on. |
-| `DEALER_VIEW_STAFF_MANAGEMENT` | Payroll staff records and management |
-
-- Deactivating a staff login invalidates its session. Staff accounts do not have the normal
-  account-onboarding flow or password-reset route.
-- `Staff` (without `User`) is the separate payroll record used for salary, payments, and accrued
-  balance. Do not use it as an authentication account.
+- `StaffUser` is a login tied to one owner account and uses `/staff-auth/login` with
+  `actorType: STAFF`. `Staff` is a separate payroll record; never use it for login.
+- Dealer staff work only in their owner's scope. Extra permissions control financial summaries,
+  Cash in Hand, and payroll staff work. Staff cannot open Business Activity or Staff Access.
+- Disabling a staff login ends its access. Staff do not use normal onboarding or password reset.
 
 ---
 
-## Business Activity Audit (Phase 1)
+## Shared Staff Operations and Account Features
+
+Staff Operations is complete for Dealer, Hatchery, Farmer, and Company. All four modules reuse
+the same staff login, account feature, permission, lockout, navigation, and audit design.
+
+- `DEALER_STAFF_OPERATIONS`, `HATCHERY_STAFF_OPERATIONS`, `FARMER_STAFF_OPERATIONS`, and
+  `COMPANY_STAFF_OPERATIONS` are on by default and can be changed by Super Admin for each account.
+- Turning one off blocks new staff login, token refresh/check, and active staff API requests at
+  once. It hides staff access, payroll staff work, and owner activity UI without deleting data.
+- Staff Access and Business Activity are owner-only in every module. A direct link must not let a
+  staff user open them. Staff also cannot read or change the owner's notifications.
+- Each module has a basic work permission plus separate permissions for private totals, analytics,
+  cash where used, and payroll staff work. Company daily supplier, purchase, production, product,
+  dealer, sale, and payment work belongs to Company Operations; private totals and Analytics are
+  separate permissions.
+- Farmer Broiler and Layer use one `OWNER` account, one Farmer dashboard, and one staff setup. Do
+  not create separate Broiler and Layer staff systems.
+- Admin Account Usage is count-only and role-aware. It shows lifetime and last-30-day totals, not
+  customer or supplier rows. It does not add billing or plan limits.
+- The Admin home uses live account, farm, batch, bird, queue, registration, and activity totals. Do
+  not add made-up revenue, rankings, or system-health scores.
+
+The shared feature list is in `apps/backend/src/services/accountFeatureService.ts` and mirrored in
+`apps/frontend/src/fetchers/accountFeatureQueries.ts`. Check a feature before its page, query,
+poller, provider, or socket work starts, and reuse the same TanStack Query cache key.
+
+---
+
+## Business Activity Audit
 
 - `BusinessAuditLog` is the immutable, account-scoped business trail. It is separate from the
   legacy `AuditLog` model and stores only safe actor, target, action, amount/quantity-style
@@ -522,6 +337,94 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 
 ---
 
+## Farmer Raw FCR and cFCR
+
+The old FCR review and the later cFCR plan are complete and replaced by
+`apps/backend/src/services/farmerFcrService.ts`.
+
+- FCR and cFCR apply only to Broiler batches. Layer batches return not applicable.
+- Raw FCR uses feed in kilograms divided by produced live-weight gain. It includes valid sold-bird
+  weight plus the valid weight of birds still alive. Natural deaths and batch-closure deaths are
+  not output birds.
+- The service keeps current, stale, and final states. Missing or bad feed, weight, sale weight,
+  bird counts, or close data returns a clear unavailable state instead of a false zero.
+- FCR history is rebuilt from source data and is not an audit log. Rebuilds are safe to repeat and
+  can change old points after a feed, weight, sale, mortality, close, or setting edit.
+- `FARMER_CFCR` is a Farmer-owned setting, off by default and not controlled by Admin. Turning it
+  off hides cFCR fields and charts but does not delete data or change raw FCR.
+- New Broiler batches use a 2.00 kg target and a 0.40 correction per kg. Active batch settings can
+  be changed; closed batch settings are locked. Old closed batches with no settings stay without
+  cFCR.
+
+```text
+outputBirdCount = soldBirds + remainingBirds
+averageOutputWeightKg = producedLiveWeightKg / outputBirdCount
+cFCR = rawFCR + ((targetWeightKg - averageOutputWeightKg) * correctionFactorPerKg)
+```
+
+The dashboard uses weighted results, not a simple average:
+
+```text
+raw FCR = sum(feedKg) / sum(weightGainKg)
+```
+
+Only fresh/final batches are used. cFCR is weighted by weight gain. If eligible batches use
+different targets or factors, no single cFCR is shown.
+
+Main migrations:
+
+- `20260930014850_update_fcr_calculation`
+- `20260930034410_update_fcr_calculation_2`
+- `20260930163426_backfill_farmer_feed_kg`
+- `20261001235403_added_cfcr_part`
+
+---
+
+## Purchase Bill Upload
+
+Optional supplier purchase bill images are built for Farmer, Hatchery, Dealer, and Company.
+
+- Each module has its own self-controlled setting, off by default. Admin does not control it.
+- Use the shared `ImageUpload` flow, image files only, at most 10 MB, in
+  `poultry360/purchase-bills`.
+- A bill is optional. Block save and close while upload is running, show a preview before save,
+  and show a View link in purchase history only while the feature is on.
+- A bill must never change stock, balance, expense, feed, FCR, discount, or payment values.
+- Farmer stores the URL in `EntityTransaction.imageUrl`; Hatchery uses
+  `HatcherySupplierTxn.receiptImageUrl`; Dealer uses `DealerManualPurchase.billImageUrl`; Company
+  uses `CompanyPurchase.billImageUrl`.
+- Migration `20261001115141_add_purchase_bill_fields` adds the nullable Dealer and Company fields.
+  Apply it in each target database before testing those flows.
+
+Farmer, Hatchery, and Dealer were manually approved during the phased work. Company code and
+tests are done, but its migration and manual flow still need to be checked in each target setup.
+The final cleanup is also open: safely remove unused Cloudinary files after a cancelled upload or
+a deleted/voided purchase, check every purchase entry point, and decide whether exports need URLs.
+
+---
+
+## Connection Workflow Removal Status
+
+The product uses simple manual, account-owned work. Do not bring back connection approval,
+payment-request, shared-cart, consignment, or automatic cross-account balance flows.
+
+- Farmer to Dealer cleanup: done.
+- Dealer to Farmer cleanup: done.
+- Dealer to Company cleanup: main manual flow is in place, but old names and unused code still need
+  a careful pass.
+- Company to Dealer cleanup: still needs a final UI, backend, test, and data-model review.
+
+Keep old history readable where needed. Remove an old model only after all reads, reports, tests,
+and migration needs are known. `companyLedgerController` now returns zero for removed payment
+requests, but it still exposes an `activeConsignments` field that needs review. There are also two
+Company payment entry paths (`companyDealerAccountController.recordDealerPayment` and
+`companyLedgerController.addCompanyPayment`); join them before deleting either one.
+
+Regression checks for this cleanup must cover manual sales, direct payments, ledgers, inventory,
+dashboard totals, route links, labels, and old history.
+
+---
+
 ## Quick Reference
 
 - **Run dev:** `pnpm dev` from repo root
@@ -529,6 +432,8 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 - **Routes:** `apps/backend/src/router/index.ts`
 - **Frontend queries:** `apps/frontend/src/fetchers/`
 - **Auth store:** `apps/frontend/src/common/store/store.ts`
+- **Account features:** `apps/backend/src/services/accountFeatureService.ts`
+- **Farmer FCR/cFCR:** `apps/backend/src/services/farmerFcrService.ts`
 - **Dealer staff access:** `apps/frontend/src/app/(protected)/dealer/dashboard/staff-access/page.tsx`
 - **Staff authentication:** `apps/backend/src/router/staffAuthRoutes.ts`
 - **Socket service:** `apps/backend/src/services/socketService.ts`
@@ -540,10 +445,3 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
   an existing account. Override the phone/password with `P360_CLEAN_DEALER_PHONE` and
   `P360_CLEAN_DEALER_PASSWORD` if needed.
 - Current clean local account: `+9779800360099` with the configured clean-seed password.
-
-### Recent Dealer Migrations
-
-- `20260920110000_add_dealer_chicken_sales`
-- `20260920120000_allow_productless_chicken_sale_items`
-- `20260922100000_add_dealer_sale_item_broiler_count`
-- `20260922110000_add_broiler_sale_settlements`
