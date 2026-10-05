@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  Archive,
   ArrowUpDown,
   DollarSign,
   Eye,
@@ -29,7 +28,7 @@ import { BSMonthPicker } from "@/common/components/ui/bs-month-picker";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
-  useArchiveStaff,
+  useDeleteStaff,
   useCreateStaff,
   useStaffList,
   useStaffSummary,
@@ -49,7 +48,7 @@ interface StaffManagementPageProps {
   titlePrefix: "dealer" | "farmer" | "hatchery" | "company";
 }
 
-type StaffTab = "all" | "active" | "stopped" | "archived";
+type StaffTab = "all" | "active" | "stopped";
 
 interface SummaryCard {
   label: string;
@@ -88,7 +87,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const [payStaffId, setPayStaffId] = useState<string | null>(null);
   const [editSalaryStaffId, setEditSalaryStaffId] = useState<string | null>(null);
   const [stopStaffId, setStopStaffId] = useState<string | null>(null);
-  const [archiveStaffId, setArchiveStaffId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: "", startDate: "" });
   const [detailsStaffId, setDetailsStaffId] = useState<string | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<{
     staffId: string;
@@ -104,8 +106,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const statusFilter = useMemo((): StaffStatusFilter => {
     if (activeTab === "all") return "ALL";
     if (activeTab === "active") return "ACTIVE";
-    if (activeTab === "stopped") return "STOPPED";
-    return "ARCHIVED";
+    return "STOPPED";
   }, [activeTab]);
 
   const { data: summaryData, isLoading: summaryLoading } = useStaffSummary(owner);
@@ -113,16 +114,16 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const createMutation = useCreateStaff(owner);
   const updateMutation = useUpdateStaff(owner);
   const stopMutation = useStopStaff(owner);
-  const archiveMutation = useArchiveStaff(owner);
+  const deleteStaffMutation = useDeleteStaff(owner);
   const addPaymentMutation = useAddStaffPayment(owner);
   const deletePaymentMutation = useDeleteStaffPayment(owner);
   const { data: transactionsData } = useStaffTransactions(owner, detailsStaffId);
+  const { data: deleteTargetData } = useStaffTransactions(owner, deleteTarget?.id ?? null);
 
   const summary = summaryData?.data ?? {
     totalStaff: 0,
     activeStaff: 0,
     stoppedStaff: 0,
-    archivedStaff: 0,
     totalSalaryExpense: 0,
     totalSalaryPayments: 0,
     remainingBalance: 0,
@@ -144,6 +145,16 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const transactions = transactionsData?.data?.transactions ?? [];
   const detailsBalance = transactionsData?.data?.balance ?? 0;
   const detailsStaff = staffList.find((staff) => staff.id === detailsStaffId);
+  const deletePayments = (deleteTargetData?.data?.transactions ?? []).filter(
+    (tx) => tx.type === "payment"
+  );
+  const deletePaymentTotal = deletePayments.reduce((sum, tx) => sum + tx.amount, 0);
+  const detailsEarned = transactions
+    .filter((tx) => tx.type === "accrual")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const detailsPaid = transactions
+    .filter((tx) => tx.type === "payment")
+    .reduce((sum, tx) => sum + tx.amount, 0);
   const canDeleteDetailsPayments =
     detailsStaff?.status === "ACTIVE" || detailsStaff?.status === "STOPPED";
 
@@ -196,6 +207,16 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     setEditSalaryForm({ monthlySalary: "", effectiveFrom: getTodayLocalDate() });
   };
 
+  const handleSaveProfile = async () => {
+    if (!detailsStaffId || !profileForm.name.trim() || !profileForm.startDate) return;
+    const day = profileForm.startDate.split("T")[0];
+    await updateMutation.mutateAsync({
+      id: detailsStaffId,
+      body: { name: profileForm.name.trim(), startDate: `${day}T00:00:00.000Z` },
+    });
+    setEditingProfile(false);
+  };
+
   const handleStop = async (id: string) => {
     const endDate = stopForm.endDate.includes("T") ? stopForm.endDate : `${stopForm.endDate}T00:00:00.000Z`;
     await stopMutation.mutateAsync({ id, endDate });
@@ -203,9 +224,16 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     setStopForm({ endDate: getTodayLocalDate() });
   };
 
-  const handleArchive = async (id: string) => {
-    await archiveMutation.mutateAsync(id);
-    setArchiveStaffId(null);
+  const handleDeleteStaff = async () => {
+    if (!deleteTarget || !deletePassword) return;
+    try {
+      await deleteStaffMutation.mutateAsync({ id: deleteTarget.id, password: deletePassword });
+      setDeleteTarget(null);
+      setDeletePassword("");
+    } catch {
+      // The mutation's onError already surfaces the message; keep the modal
+      // open so a wrong password can simply be retyped.
+    }
   };
 
   const handleDeletePayment = async () => {
@@ -239,7 +267,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     {
       label: "Staff",
       value: summaryLoading ? "—" : String(summary.totalStaff),
-      hint: summaryLoading ? "" : `${summary.activeStaff} active · ${summary.archivedStaff} archived`,
+      hint: summaryLoading ? "" : `${summary.activeStaff} active · ${summary.stoppedStaff} stopped`,
     },
   ];
 
@@ -247,7 +275,6 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     { value: "all", label: "All", count: summary.totalStaff },
     { value: "active", label: "Active", count: summary.activeStaff },
     { value: "stopped", label: "Stopped", count: summary.stoppedStaff },
-    { value: "archived", label: "Archived", count: summary.archivedStaff },
   ];
 
   return (
@@ -350,13 +377,11 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                   <p className="text-sm text-muted-foreground">
                     {search.trim()
                       ? `No staff matching "${search.trim()}"`
-                      : activeTab === "archived"
-                        ? "No archived staff yet"
-                        : activeTab === "stopped"
-                          ? "No stopped staff"
-                          : activeTab === "active"
-                            ? "No active staff"
-                            : text("empty", "No staff yet")}
+                      : activeTab === "stopped"
+                        ? "No stopped staff"
+                        : activeTab === "active"
+                          ? "No active staff"
+                          : text("empty", "No staff yet")}
                   </p>
                   {/* Only offer the action that actually resolves this empty state */}
                   {search.trim() ? (
@@ -374,14 +399,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 <div className="grid gap-3 lg:grid-cols-2">
                   {staffList.map((s) => {
                     const settled = isZeroBalance(s.balance);
-                    const canArchive = s.status === "STOPPED" && settled;
+                    // Deleting requires Stopped only. The old archive gate also
+                    // demanded a zero balance, which accrual could never reach.
+                    const canDelete = s.status === "STOPPED";
                     const tone = balanceTone(s.balance);
                     const statusLabel =
                       s.status === "ACTIVE"
                         ? text("statusActive", "Active")
-                        : s.status === "STOPPED"
-                          ? text("statusStopped", "Stopped")
-                          : "Archived";
+                        : text("statusStopped", "Stopped");
 
                     return (
                       <div
@@ -395,11 +420,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               <span className="truncate font-semibold">{s.name}</span>
                               <Badge
                                 variant={
-                                  s.status === "ACTIVE"
-                                    ? "default"
-                                    : s.status === "STOPPED"
-                                      ? "secondary"
-                                      : "outline"
+                                  s.status === "ACTIVE" ? "default" : "secondary"
                                 }
                                 className="shrink-0 text-[10px] uppercase tracking-wide"
                               >
@@ -475,17 +496,19 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               <UserMinus className="h-4 w-4" />
                             </Button>
                           )}
-                          {s.status === "STOPPED" && (
+                          {canDelete && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 text-amber-700"
-                              disabled={!canArchive}
-                              onClick={() => canArchive && setArchiveStaffId(s.id)}
-                              title="Archive"
-                              aria-label="Archive"
+                              className="h-8 w-8 p-0 text-destructive"
+                              onClick={() => {
+                                setDeleteTarget({ id: s.id, name: s.name });
+                                setDeletePassword("");
+                              }}
+                              title="Delete"
+                              aria-label="Delete"
                             >
-                              <Archive className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                           <Button
@@ -499,12 +522,6 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                             <Eye className="h-4 w-4" />
                           </Button>
 
-                          {/* Tooltips do not open on touch, so the blocker is written out */}
-                          {s.status === "STOPPED" && !canArchive && (
-                            <span className="ml-auto pr-1 text-[11px] text-muted-foreground">
-                              Settle balance to archive
-                            </span>
-                          )}
                         </div>
                       </div>
                     );
@@ -679,90 +696,233 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
       </Modal>
 
       <Modal
-        isOpen={!!archiveStaffId}
-        onClose={() => setArchiveStaffId(null)}
-        title="Archive staff?"
+        isOpen={!!deleteTarget}
+        onClose={() => {
+          setDeleteTarget(null);
+          setDeletePassword("");
+        }}
+        title={`Delete ${deleteTarget?.name ?? "staff"}?`}
       >
         <ModalContent>
-          <p className="text-muted-foreground">Archive only works after the staff is stopped and the balance is zero.</p>
+          <div className="space-y-3">
+            {/* Say what is actually being destroyed, so the password is an
+                informed decision rather than friction. */}
+            <p className="text-sm">
+              {deletePayments.length > 0 ? (
+                <>
+                  This permanently removes{" "}
+                  <span className="font-semibold text-destructive">
+                    {deletePayments.length} payment{deletePayments.length === 1 ? "" : "s"} totalling{" "}
+                    {formatCurrency(deletePaymentTotal)}
+                  </span>{" "}
+                  and all salary history.
+                </>
+              ) : (
+                "No payments were recorded for this staff member. This removes the record and its salary history."
+              )}
+            </p>
+            <p className="text-sm font-medium text-destructive">This cannot be undone.</p>
+            <div>
+              <Label htmlFor="deleteStaffPassword">Enter your password to confirm</Label>
+              <Input
+                id="deleteStaffPassword"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+                placeholder="Password"
+                className="mt-1"
+              />
+            </div>
+          </div>
         </ModalContent>
         <ModalFooter>
-          <Button variant="outline" onClick={() => setArchiveStaffId(null)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setDeleteTarget(null);
+              setDeletePassword("");
+            }}
+          >
             {text("cancel", "Cancel")}
           </Button>
           <Button
-            variant="secondary"
-            disabled={archiveMutation.isPending}
-            onClick={() => archiveStaffId && handleArchive(archiveStaffId)}
+            variant="destructive"
+            disabled={deleteStaffMutation.isPending || !deletePassword}
+            onClick={handleDeleteStaff}
           >
-            {archiveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Archive
+            {deleteStaffMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete permanently
           </Button>
         </ModalFooter>
       </Modal>
-
-      <Modal isOpen={!!detailsStaffId} onClose={() => setDetailsStaffId(null)} title={text("details", "Details")} className="max-w-lg">
+      <Modal
+        isOpen={!!detailsStaffId}
+        onClose={() => {
+          setDetailsStaffId(null);
+          setEditingProfile(false);
+        }}
+        title={detailsStaff?.name ?? text("details", "Details")}
+        className="max-w-2xl"
+      >
         <ModalContent>
-          <p className="mb-2 text-sm font-medium">
-            {text("balance", "Balance")}:{" "}
-            <span className={detailsBalance > 0 ? "text-red-600" : detailsBalance < 0 ? "text-green-600" : ""}>
-              {detailsBalance > 0 ? text("due", "Due") : detailsBalance < 0 ? text("advance", "Advance") : "0"}{" "}
-              {formatCurrency(detailsBalance)}
-            </span>
-          </p>
-          <div className="max-h-[50vh] space-y-2 overflow-y-auto">
-            {transactions.map((tx, i) => (
-              <div key={tx.type === "payment" ? tx.id : `accrual-${i}`} className="flex justify-between border-b pb-1 text-sm">
-                {tx.type === "accrual" ? (
-                  <>
-                    <span>
-                      {text("accrual", "Accrual")} – {tx.bsYear}/{tx.bsMonth} · {tx.workedDays}/{tx.daysInMonth} days
-                    </span>
-                    <span className="font-medium">+{formatCurrency(tx.amount)}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      {text("payment", "Payment")} <DateDisplay date={tx.paidAt} />
-                      {tx.note ? ` · ${tx.note}` : ""}
-                      {tx.receiptImageUrl && (
-                        <a
-                          href={tx.receiptImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-1 text-primary underline"
-                        >
-                          Receipt
-                        </a>
-                      )}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-green-600">−{formatCurrency(tx.amount)}</span>
-                      {canDeleteDetailsPayments && detailsStaffId && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-destructive"
-                          onClick={() =>
-                            setPaymentToDelete({
-                              staffId: detailsStaffId,
-                              paymentId: tx.id,
-                              amount: tx.amount,
-                            })
-                          }
-                          title="Delete payment"
-                          aria-label="Delete payment"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
+          {/* Profile: read-only by default, editable on demand. A wrong joining
+              date would otherwise accrue salary from the wrong day forever. */}
+          {detailsStaff && (
+            <div className="mb-4 rounded-lg border bg-muted/30 p-3">
+              {editingProfile ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="profileName">{text("name", "Name")}</Label>
+                    <Input
+                      id="profileName"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <DateInput
+                    label={text("joiningDate", "Joining date")}
+                    value={profileForm.startDate}
+                    onChange={(value) => setProfileForm((f) => ({ ...f, startDate: value }))}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={updateMutation.isPending || !profileForm.name.trim() || !profileForm.startDate}
+                      onClick={handleSaveProfile}
+                    >
+                      {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {text("save", "Save")}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingProfile(false)}>
+                      {text("cancel", "Cancel")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 text-sm">
+                    <p className="font-medium">{detailsStaff.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {text("joiningDate", "Joined")} {formatBSLong(detailsStaff.startDate)} ·{" "}
+                      {formatCurrency(detailsStaff.currentMonthlySalary)}/mo
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setProfileForm({
+                        name: detailsStaff.name,
+                        startDate: detailsStaff.startDate.split("T")[0],
+                      });
+                      setEditingProfile(true);
+                    }}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    {text("edit", "Edit")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Earned / Paid / Balance, using the same tone helper as the cards so
+              this can never contradict the list behind the modal. */}
+          <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: text("earned", "Earned"), value: formatCurrency(detailsEarned), tone: "text-foreground" },
+              { label: text("paid", "Paid"), value: formatCurrency(detailsPaid), tone: "text-foreground" },
+              {
+                label: text("balance", "Balance"),
+                value: formatCurrency(detailsBalance),
+                tone: balanceTone(detailsBalance).className,
+                hint: balanceTone(detailsBalance).label,
+              },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border p-2">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</p>
+                <p className={`text-base font-bold tabular-nums ${item.tone}`}>{item.value}</p>
+                {item.hint ? <p className={`text-[10px] ${item.tone}`}>{item.hint}</p> : null}
               </div>
             ))}
           </div>
+
+          {transactions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {text("noTransactions", "No salary or payment records yet")}
+            </p>
+          ) : (
+            <div className="max-h-[45vh] space-y-1.5 overflow-y-auto pr-1">
+              {transactions.map((tx, i) => (
+                <div
+                  key={tx.type === "payment" ? tx.id : `accrual-${i}`}
+                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+                >
+                  {tx.type === "accrual" ? (
+                    <>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                          {text("accrual", "Salary")}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {tx.bsYear}/{tx.bsMonth} · {tx.workedDays}/{tx.daysInMonth} days
+                        </span>
+                      </div>
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        + {formatCurrency(tx.amount)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium uppercase text-emerald-700">
+                          {text("payment", "Paid")}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          <DateDisplay date={tx.paidAt} />
+                          {tx.note ? ` · ${tx.note}` : ""}
+                        </span>
+                        {tx.receiptImageUrl && (
+                          <a
+                            href={tx.receiptImageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] text-primary hover:bg-muted"
+                          >
+                            {text("receipt", "Receipt")}
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-semibold tabular-nums">− {formatCurrency(tx.amount)}</span>
+                        {canDeleteDetailsPayments && detailsStaffId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive"
+                            onClick={() =>
+                              setPaymentToDelete({
+                                staffId: detailsStaffId,
+                                paymentId: tx.id,
+                                amount: tx.amount,
+                              })
+                            }
+                            title={text("deletePayment", "Delete payment")}
+                            aria-label={text("deletePayment", "Delete payment")}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </ModalContent>
       </Modal>
 

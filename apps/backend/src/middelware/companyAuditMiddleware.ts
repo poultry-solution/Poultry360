@@ -40,7 +40,7 @@ const companyActivityCopy: Record<string, CompanyActivityCopy> = {
   "POST staff": { description: "Added a payroll staff member", targetType: "Company payroll staff" },
   "PUT staff/record": { description: "Updated payroll staff details", targetType: "Company payroll staff" },
   "PATCH staff/record/stop": { description: "Stopped a payroll staff member", targetType: "Company payroll staff" },
-  "PATCH staff/record/archive": { description: "Archived a payroll staff member", targetType: "Company payroll staff" },
+  "DELETE staff/record": { description: "Deleted a payroll staff member", targetType: "Company payroll staff" },
   "POST staff/record/payments": { description: "Recorded a salary payment", targetType: "Company payroll payment" },
   "DELETE staff/record/payments/record": { description: "Deleted a salary payment", targetType: "Company payroll payment" },
 };

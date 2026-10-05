@@ -1,11 +1,12 @@
 jest.mock("../../src/utils/prisma", () => ({
   __esModule: true,
   default: {
-    staff: { findFirst: jest.fn() },
+    staff: { findFirst: jest.fn(), delete: jest.fn() },
     staffPayment: {
       findFirst: jest.fn(),
       delete: jest.fn(),
     },
+    user: { findUnique: jest.fn() },
   },
 }));
 
@@ -16,15 +17,21 @@ jest.mock("../../src/services/staffService", () => ({
   getStaffTransactions: jest.fn(),
   computeBalance: jest.fn(),
   getFirstDayOfStartBSMonth: jest.fn(),
-  archiveStaffForOwner: jest.fn(),
 }));
 
 import prisma from "../../src/utils/prisma";
-import { deletePayment } from "../../src/controller/staffController";
+jest.mock("bcrypt", () => ({
+  __esModule: true,
+  default: { compare: jest.fn() },
+}));
+
+import bcrypt from "bcrypt";
+import { deletePayment, deleteStaff } from "../../src/controller/staffController";
 
 const mockedPrisma = prisma as unknown as {
-  staff: { findFirst: jest.Mock };
+  staff: { findFirst: jest.Mock; delete: jest.Mock };
   staffPayment: { findFirst: jest.Mock; delete: jest.Mock };
+  user: { findUnique: jest.Mock };
 };
 function makeResponse() {
   const response: any = { status: jest.fn(), json: jest.fn() };
@@ -93,24 +100,74 @@ describe("Delete staff payment", () => {
     expect(mockedPrisma.staffPayment.delete).not.toHaveBeenCalled();
   });
 
-  it("keeps archived staff payment history read-only", async () => {
-    mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "ARCHIVED" });
-    const response = makeResponse();
+  describe("deleteStaff", () => {
+    const req = (body: any = { password: "secret" }) =>
+      ({ userId: "owner-1", params: { id: "staff-1" }, body }) as any;
 
-    await deletePayment(
-      {
-        userId: "owner-1",
-        params: { id: "staff-1", paymentId: "payment-1" },
-      } as any,
-      response,
-    );
+    it("deletes a stopped staff member after the password checks out", async () => {
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      const response = makeResponse();
 
-    expect(response.status).toHaveBeenCalledWith(400);
-    expect(response.json).toHaveBeenCalledWith({
-      success: false,
-      message: "Archived staff payments cannot be deleted",
+      await deleteStaff(req(), response);
+
+      expect(mockedPrisma.staff.delete).toHaveBeenCalledWith({ where: { id: "staff-1" } });
+      expect(response.json).toHaveBeenCalledWith({
+        success: true,
+        data: { staffId: "staff-1" },
+        message: "Staff deleted",
+      });
     });
-    expect(mockedPrisma.staffPayment.findFirst).not.toHaveBeenCalled();
-    expect(mockedPrisma.staffPayment.delete).not.toHaveBeenCalled();
+
+    it("deletes even when the balance is not settled", async () => {
+      // The old archive flow blocked on |balance| <= 0.0001, which accrual
+      // could never reach. Delete must not reintroduce that gate.
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      const response = makeResponse();
+
+      await deleteStaff(req(), response);
+
+      expect(mockedPrisma.staff.delete).toHaveBeenCalled();
+    });
+
+    it("refuses to delete an active staff member", async () => {
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "ACTIVE" });
+      const response = makeResponse();
+
+      await deleteStaff(req(), response);
+
+      expect(response.status).toHaveBeenCalledWith(400);
+      expect(response.json).toHaveBeenCalledWith({
+        success: false,
+        message: "Stop the staff member before deleting",
+      });
+      expect(mockedPrisma.staff.delete).not.toHaveBeenCalled();
+    });
+
+    it("refuses a wrong password", async () => {
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      const response = makeResponse();
+
+      await deleteStaff(req(), response);
+
+      expect(response.status).toHaveBeenCalledWith(401);
+      expect(mockedPrisma.staff.delete).not.toHaveBeenCalled();
+    });
+
+    it("does not leak another owner's staff", async () => {
+      mockedPrisma.staff.findFirst.mockResolvedValue(null);
+      const response = makeResponse();
+
+      await deleteStaff(req(), response);
+
+      expect(response.status).toHaveBeenCalledWith(404);
+      expect(mockedPrisma.staff.delete).not.toHaveBeenCalled();
+    });
   });
+
 });

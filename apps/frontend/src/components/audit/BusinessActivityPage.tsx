@@ -53,7 +53,7 @@ const companyActivityPresentation: Record<string, { description: string; related
   "company.staff.created": { description: "Added a payroll staff member", relatedTo: "Payroll staff" },
   "company.staff.record.updated": { description: "Updated payroll staff details", relatedTo: "Payroll staff" },
   "company.staff.record.stop.updated": { description: "Stopped a payroll staff member", relatedTo: "Payroll staff" },
-  "company.staff.record.archive.updated": { description: "Archived a payroll staff member", relatedTo: "Payroll staff" },
+  "company.staff.record.deleted": { description: "Deleted a payroll staff member", relatedTo: "Payroll staff" },
   "company.staff.record.payments.created": { description: "Recorded a salary payment", relatedTo: "Salary payment" },
 };
 

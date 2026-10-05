@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 // ==================== TYPES ====================
 
-export type StaffStatus = "ACTIVE" | "STOPPED" | "ARCHIVED";
+export type StaffStatus = "ACTIVE" | "STOPPED";
 export type StaffStatusFilter = StaffStatus | "ALL";
 export type StaffOwner = "farmer" | "dealer" | "hatchery" | "company";
 
@@ -43,7 +43,6 @@ export interface StaffSummary {
   totalStaff: number;
   activeStaff: number;
   stoppedStaff: number;
-  archivedStaff: number;
   totalSalaryExpense: number;
   totalSalaryPayments: number;
   remainingBalance: number;
@@ -147,6 +146,8 @@ export interface CreateStaffBody {
 
 export interface UpdateStaffBody {
   name?: string;
+  /** Correcting a wrong joining date; accrual recomputes from it. */
+  startDate?: string;
   monthlySalary?: number;
   effectiveFrom?: string;
 }
@@ -273,24 +274,30 @@ export function useDeleteStaffPayment(owner: StaffOwner) {
   });
 }
 
-export function useArchiveStaff(owner: StaffOwner) {
+/**
+ * Permanently delete a staff member and, via cascade, their salary history and
+ * payments. Password goes in the request body, which axios puts under `data`
+ * for DELETE.
+ */
+export function useDeleteStaff(owner: StaffOwner) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { data } = await axiosInstance.patch<{ success: boolean; data: StaffDetail; message?: string }>(
-        `${staffPath(owner)}/${id}/archive`
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
+      const { data } = await axiosInstance.delete<{ success: boolean; message?: string }>(
+        `${staffPath(owner)}/${id}`,
+        { data: { password } }
       );
       return data;
     },
-    onSuccess: (_, id) => {
+    onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: staffKeys.all(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
-      qc.invalidateQueries({ queryKey: staffKeys.detail(owner, id) });
-      qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, id) });
-      toast.success("Staff archived");
+      qc.removeQueries({ queryKey: staffKeys.detail(owner, id) });
+      qc.removeQueries({ queryKey: staffKeys.transactions(owner, id) });
+      toast.success("Staff deleted");
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? "Failed to archive staff");
+      toast.error(err?.response?.data?.message ?? "Failed to delete staff");
     },
   });
 }

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { StaffStatus } from "@prisma/client";
 import {
@@ -8,7 +9,6 @@ import {
   getStaffTransactions,
   computeBalance,
   getFirstDayOfStartBSMonth,
-  archiveStaffForOwner,
   type StaffStatusFilter,
 } from "../services/staffService";
 
@@ -41,7 +41,7 @@ export const listStaff = async (req: Request, res: Response): Promise<void> => {
     }
     const statusParam = typeof req.query.status === "string" ? req.query.status.toUpperCase() : "ALL";
     const allowedStatus: StaffStatusFilter =
-      statusParam === "ACTIVE" || statusParam === "STOPPED" || statusParam === "ARCHIVED" ? statusParam : "ALL";
+      statusParam === "ACTIVE" || statusParam === "STOPPED" ? statusParam : "ALL";
     const list = await listStaffForOwner(ownerId, allowedStatus);
     res.json({ success: true, data: list });
   } catch (error) {
@@ -153,14 +153,20 @@ export const updateStaff = async (req: Request, res: Response): Promise<void> =>
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
-    if (existing.status === StaffStatus.ARCHIVED) {
-      res.status(400).json({ success: false, message: "Archived staff cannot be updated" });
-      return;
-    }
-    const { name, monthlySalary, effectiveFrom } = req.body;
-    const updates: { name?: string } = {};
+    const { name, startDate, monthlySalary, effectiveFrom } = req.body;
+    const updates: { name?: string; startDate?: Date } = {};
     if (name !== undefined && typeof name === "string" && name.trim().length > 0) {
       updates.name = name.trim();
+    }
+    // A wrong joining date otherwise accrues salary from the wrong day forever.
+    // Nothing is stored: computeAccruedSalary re-reads startDate on every call.
+    if (startDate !== undefined) {
+      const parsedStart = parseDate(startDate);
+      if (!parsedStart) {
+        res.status(400).json({ success: false, message: "Valid start date is required" });
+        return;
+      }
+      updates.startDate = parsedStart;
     }
     if (Object.keys(updates).length > 0) {
       await prisma.staff.update({
@@ -206,10 +212,6 @@ export const stopStaff = async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
-    if (staff.status === StaffStatus.ARCHIVED) {
-      res.status(400).json({ success: false, message: "Archived staff cannot be stopped" });
-      return;
-    }
     if (staff.status === StaffStatus.STOPPED) {
       res.status(400).json({ success: false, message: "Staff is already stopped" });
       return;
@@ -248,10 +250,6 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
     });
     if (!staff) {
       res.status(404).json({ success: false, message: "Staff not found" });
-      return;
-    }
-    if (staff.status === StaffStatus.ARCHIVED) {
-      res.status(400).json({ success: false, message: "Archived staff cannot receive payments" });
       return;
     }
     const { amount, paidAt, note, receiptImageUrl } = req.body;
@@ -300,10 +298,6 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
-    if (staff.status === StaffStatus.ARCHIVED) {
-      res.status(400).json({ success: false, message: "Archived staff payments cannot be deleted" });
-      return;
-    }
 
     const payment = await prisma.staffPayment.findFirst({
       where: { id: paymentId, staffId: staff.id },
@@ -325,8 +319,19 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// ==================== ARCHIVE ====================
-export const archiveStaff = async (req: Request, res: Response): Promise<void> => {
+// ==================== DELETE ====================
+/**
+ * Permanently delete a payroll staff member.
+ *
+ * Deliberately has NO balance check. The old archive flow required
+ * |balance| <= 0.0001, which was unreachable: accrual is
+ * salary / days-in-BS-month * days-worked, so it lands on repeating decimals
+ * and no whole-rupee payment can ever settle it exactly.
+ *
+ * StaffSalary and StaffPayment are both onDelete: Cascade, so one delete
+ * removes the salary history and payments with it.
+ */
+export const deleteStaff = async (req: Request, res: Response): Promise<void> => {
   try {
     const ownerId = req.userId;
     const { id } = req.params;
@@ -335,23 +340,45 @@ export const archiveStaff = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const archived = await archiveStaffForOwner(id, ownerId);
-    if (!archived) {
+    const staff = await prisma.staff.findFirst({
+      where: { id, ownerId },
+      select: { id: true, status: true },
+    });
+    if (!staff) {
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
+    // Stopping first makes the deletion deliberate: an actively employed
+    // person can never be removed in a single step.
+    if (staff.status !== StaffStatus.STOPPED) {
+      res.status(400).json({
+        success: false,
+        message: "Stop the staff member before deleting",
+      });
+      return;
+    }
 
-    res.json({ success: true, data: archived, message: "Staff archived" });
+    const { password } = req.body ?? {};
+    if (!password) {
+      res.status(400).json({ success: false, message: "Password confirmation is required" });
+      return;
+    }
+    const owner = await prisma.user.findUnique({ where: { id: ownerId } });
+    if (!owner) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+    const validPassword = await bcrypt.compare(password, owner.password);
+    if (!validPassword) {
+      res.status(401).json({ success: false, message: "Invalid password. Deletion cancelled." });
+      return;
+    }
+
+    await prisma.staff.delete({ where: { id: staff.id } });
+    res.json({ success: true, data: { staffId: staff.id }, message: "Staff deleted" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Internal server error";
-    const status =
-      message === "Only stopped staff can be archived" ||
-      message === "Staff can only be archived when balance is zero" ||
-      message === "Staff is already archived"
-        ? 400
-        : 500;
-    console.error("Archive staff error:", error);
-    res.status(status).json({ success: false, message });
+    console.error("Delete staff error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

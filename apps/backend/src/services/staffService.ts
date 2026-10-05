@@ -154,7 +154,6 @@ export interface StaffSummary {
   totalStaff: number;
   activeStaff: number;
   stoppedStaff: number;
-  archivedStaff: number;
   totalSalaryExpense: number;
   totalSalaryPayments: number;
   remainingBalance: number;
@@ -212,8 +211,7 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
       summary.remainingBalance += balance;
 
       if (staff.status === StaffStatus.ACTIVE) summary.activeStaff += 1;
-      else if (staff.status === StaffStatus.STOPPED) summary.stoppedStaff += 1;
-      else summary.archivedStaff += 1;
+      else summary.stoppedStaff += 1;
 
       return summary;
     },
@@ -221,7 +219,6 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
       totalStaff: 0,
       activeStaff: 0,
       stoppedStaff: 0,
-      archivedStaff: 0,
       totalSalaryExpense: 0,
       totalSalaryPayments: 0,
       remainingBalance: 0,
@@ -229,55 +226,6 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
   );
 }
 
-export async function archiveStaffForOwner(staffId: string, ownerId: string): Promise<StaffWithBalance | null> {
-  const staff = await prisma.staff.findFirst({
-    where: { id: staffId, ownerId },
-    include: {
-      salaries: { orderBy: { effectiveFrom: "desc" } },
-      payments: true,
-    },
-  });
-
-  if (!staff) {
-    return null;
-  }
-
-  if (staff.status === StaffStatus.ACTIVE) {
-    throw new Error("Only stopped staff can be archived");
-  }
-
-  if (staff.status === StaffStatus.ARCHIVED) {
-    throw new Error("Staff is already archived");
-  }
-
-  const balance = computeBalance(staff, staff.salaries, staff.payments);
-  if (Math.abs(balance) > 0.0001) {
-    throw new Error("Staff can only be archived when balance is zero");
-  }
-
-  const updated = await prisma.staff.update({
-    where: { id: staff.id },
-    data: { status: StaffStatus.ARCHIVED },
-    include: {
-      salaries: { orderBy: { effectiveFrom: "desc" } },
-      payments: true,
-    },
-  });
-
-  const updatedBalance = computeBalance(updated, updated.salaries, updated.payments);
-  const currentSalary = updated.salaries.length > 0 ? Number(updated.salaries[0].monthlyAmount) : 0;
-  const { salaries, payments, ...rest } = updated;
-
-  return {
-    ...rest,
-    balance: updatedBalance,
-    currentMonthlySalary: currentSalary,
-  };
-}
-
-/**
- * Get one staff by id (must belong to owner) with balance and full salary/payment lists.
- */
 export async function getStaffById(staffId: string, ownerId: string) {
   const staff = await prisma.staff.findFirst({
     where: { id: staffId, ownerId },
