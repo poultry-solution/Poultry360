@@ -18,6 +18,10 @@ const payrollActivityCopy: Record<string, { description: string; targetType: str
   "DELETE staff/record": { description: "Deleted a payroll staff member", targetType: "Dealer payroll staff" },
   "POST staff/record/payments": { description: "Recorded a salary payment", targetType: "Dealer payroll payment" },
   "DELETE staff/record/payments/record": { description: "Deleted a salary payment", targetType: "Dealer payroll payment" },
+  "PATCH staff/record/resume": { description: "Restarted a payroll staff member", targetType: "Dealer payroll staff" },
+  "PUT staff/record/salaries/record": { description: "Changed a staff salary", targetType: "Dealer payroll salary" },
+  "DELETE staff/record/salaries/record": { description: "Removed a staff salary", targetType: "Dealer payroll salary" },
+  "PUT staff/record/attendance": { description: "Marked staff attendance", targetType: "Dealer payroll attendance" },
 };
 
 /** Records successful Dealer payroll changes, which are not covered by the existing sales and ledger audit writers. */

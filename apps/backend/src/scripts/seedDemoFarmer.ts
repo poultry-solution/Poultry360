@@ -2211,7 +2211,7 @@ async function seedDemoFarmer(): Promise<void> {
         });
         await upsertById(tx.staffSalary, id(`${key}-salary`), {
           staffId,
-          monthlyAmount: decimal(monthlyAmount),
+          rate: decimal(monthlyAmount),
           effectiveFrom: startDate,
         });
         await upsertById(tx.staffPayment, id(`${key}-payment`), {

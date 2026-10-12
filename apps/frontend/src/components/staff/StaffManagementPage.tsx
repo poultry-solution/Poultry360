@@ -8,6 +8,7 @@ import {
   Loader2,
   Plus,
   Pencil,
+  RotateCcw,
   Search,
   Trash2,
   UserMinus,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
-import { formatBSLong } from "@/common/lib/nepali-date";
+import { BS_MONTH_NAMES, formatBSLong, formatBSMonthYear } from "@/common/lib/nepali-date";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
@@ -27,10 +28,15 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { BSMonthPicker } from "@/common/components/ui/bs-month-picker";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { StaffAttendanceCalendar } from "@/components/staff/StaffAttendanceCalendar";
 import {
   useDeleteStaff,
   useCreateStaff,
+  useStaffById,
   useStaffList,
+  useResumeStaff,
+  useUpdateSalaryRate,
+  useDeleteSalaryRate,
   useStaffSummary,
   useStaffTransactions,
   useStopStaff,
@@ -38,6 +44,9 @@ import {
   useAddStaffPayment,
   useDeleteStaffPayment,
   type StaffItem,
+  type StaffPayType,
+  type StaffPayTypeFilter,
+  type StaffSalary,
   type StaffStatusFilter,
 } from "@/fetchers/staff/staffQueries";
 
@@ -58,7 +67,21 @@ interface SummaryCard {
 }
 
 function formatCurrency(amount: number): string {
-  return `रू ${Math.round(Math.abs(amount)).toLocaleString("en-IN")}`;
+  // Paisa only appears from half days, so whole rupees stay clean.
+  return `Rs ${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function rateUnit(payType: StaffPayType): string {
+  return payType === "DAILY" ? "/day" : "/mo";
+}
+
+function payTypeLabel(payType: StaffPayType): string {
+  return payType === "DAILY" ? "Daily wage" : "Monthly";
+}
+
+/** Rates and pay type are added in one place so add-staff and edit-salary agree. */
+function rateLabel(payType: StaffPayType): string {
+  return payType === "DAILY" ? "Daily wage" : "Monthly salary";
 }
 
 /** One place decides what a balance means, so colour and wording never disagree. */
@@ -83,6 +106,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const [activeTab, setActiveTab] = useState<StaffTab>("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "balance" | "joined">("name");
+  const [payTypeFilter, setPayTypeFilter] = useState<StaffPayTypeFilter>("ALL");
   const [addOpen, setAddOpen] = useState(false);
   const [payStaffId, setPayStaffId] = useState<string | null>(null);
   const [editSalaryStaffId, setEditSalaryStaffId] = useState<string | null>(null);
@@ -92,15 +116,18 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: "", startDate: "" });
   const [detailsStaffId, setDetailsStaffId] = useState<string | null>(null);
+  const [editingRate, setEditingRate] = useState<{ id: string; rate: string; effectiveFrom: string } | null>(null);
+  const [rateToDelete, setRateToDelete] = useState<StaffSalary | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<{
     staffId: string;
     paymentId: string;
     amount: number;
   } | null>(null);
 
-  const [addForm, setAddForm] = useState({ name: "", startDate: getTodayLocalDate(), monthlySalary: "" });
+  const emptyAddForm = { name: "", payType: "MONTHLY" as StaffPayType, startDate: getTodayLocalDate(), rate: "" };
+  const [addForm, setAddForm] = useState(emptyAddForm);
   const [payForm, setPayForm] = useState({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
-  const [editSalaryForm, setEditSalaryForm] = useState({ monthlySalary: "", effectiveFrom: getTodayLocalDate() });
+  const [editSalaryForm, setEditSalaryForm] = useState({ rate: "", effectiveFrom: getTodayLocalDate() });
   const [stopForm, setStopForm] = useState({ endDate: getTodayLocalDate() });
 
   const statusFilter = useMemo((): StaffStatusFilter => {
@@ -110,13 +137,17 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   }, [activeTab]);
 
   const { data: summaryData, isLoading: summaryLoading } = useStaffSummary(owner);
-  const { data, isLoading } = useStaffList(owner, statusFilter);
+  const { data, isLoading } = useStaffList(owner, statusFilter, payTypeFilter);
   const createMutation = useCreateStaff(owner);
   const updateMutation = useUpdateStaff(owner);
   const stopMutation = useStopStaff(owner);
   const deleteStaffMutation = useDeleteStaff(owner);
   const addPaymentMutation = useAddStaffPayment(owner);
   const deletePaymentMutation = useDeleteStaffPayment(owner);
+  const resumeMutation = useResumeStaff(owner);
+  const updateRateMutation = useUpdateSalaryRate(owner);
+  const deleteRateMutation = useDeleteSalaryRate(owner);
+  const { data: detailsData } = useStaffById(owner, detailsStaffId);
   const { data: transactionsData } = useStaffTransactions(owner, detailsStaffId);
   const { data: deleteTargetData } = useStaffTransactions(owner, deleteTarget?.id ?? null);
 
@@ -124,6 +155,8 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     totalStaff: 0,
     activeStaff: 0,
     stoppedStaff: 0,
+    monthlyStaff: 0,
+    dailyStaff: 0,
     totalSalaryExpense: 0,
     totalSalaryPayments: 0,
     remainingBalance: 0,
@@ -144,7 +177,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
   }, [allStaff, search, sortBy]);
   const transactions = transactionsData?.data?.transactions ?? [];
   const detailsBalance = transactionsData?.data?.balance ?? 0;
-  const detailsStaff = staffList.find((staff) => staff.id === detailsStaffId);
+  const detailsStaff = allStaff.find((staff) => staff.id === detailsStaffId);
+  const detailsFull = detailsData?.data;
+  const payStaff = allStaff.find((staff) => staff.id === payStaffId);
+  const editSalaryStaff = allStaff.find((staff) => staff.id === editSalaryStaffId);
   const deletePayments = (deleteTargetData?.data?.transactions ?? []).filter(
     (tx) => tx.type === "payment"
   );
@@ -160,17 +196,18 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
 
   const handleCreate = async () => {
     const name = addForm.name.trim();
-    const salary = parseFloat(addForm.monthlySalary);
-    if (!name || isNaN(salary) || salary < 0 || !addForm.startDate) return;
+    const rate = parseFloat(addForm.rate);
+    if (!name || isNaN(rate) || rate < 0 || !addForm.startDate) return;
     await createMutation.mutateAsync({
       name,
+      payType: addForm.payType,
       startDate: addForm.startDate.includes("T")
         ? `${addForm.startDate.split("T")[0]}T00:00:00.000Z`
         : `${addForm.startDate}T00:00:00.000Z`,
-      monthlySalary: salary,
+      rate,
     });
     setAddOpen(false);
-    setAddForm({ name: "", startDate: getTodayLocalDate(), monthlySalary: "" });
+    setAddForm(emptyAddForm);
   };
 
   const handlePay = async () => {
@@ -193,7 +230,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
 
   const handleEditSalary = async () => {
     if (!editSalaryStaffId) return;
-    const salary = parseFloat(editSalaryForm.monthlySalary);
+    const salary = parseFloat(editSalaryForm.rate);
     if (isNaN(salary) || salary < 0 || !editSalaryForm.effectiveFrom) return;
     const d = editSalaryForm.effectiveFrom.includes("T")
       ? editSalaryForm.effectiveFrom.split("T")[0]
@@ -201,10 +238,10 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     const effectiveFrom = d.includes("-") ? `${d}T00:00:00.000Z` : `${getTodayLocalDate()}T00:00:00.000Z`;
     await updateMutation.mutateAsync({
       id: editSalaryStaffId,
-      body: { monthlySalary: salary, effectiveFrom },
+      body: { rate: salary, effectiveFrom },
     });
     setEditSalaryStaffId(null);
-    setEditSalaryForm({ monthlySalary: "", effectiveFrom: getTodayLocalDate() });
+    setEditSalaryForm({ rate: "", effectiveFrom: getTodayLocalDate() });
   };
 
   const handleSaveProfile = async () => {
@@ -234,6 +271,24 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
       // The mutation's onError already surfaces the message; keep the modal
       // open so a wrong password can simply be retyped.
     }
+  };
+
+  const handleSaveRate = async () => {
+    if (!editingRate || !detailsStaffId) return;
+    const rate = parseFloat(editingRate.rate);
+    if (isNaN(rate) || rate < 0 || !editingRate.effectiveFrom) return;
+    await updateRateMutation.mutateAsync({
+      staffId: detailsStaffId,
+      salaryId: editingRate.id,
+      body: { rate, effectiveFrom: `${editingRate.effectiveFrom.split("T")[0]}T00:00:00.000Z` },
+    });
+    setEditingRate(null);
+  };
+
+  const handleDeleteRate = async () => {
+    if (!rateToDelete || !detailsStaffId) return;
+    await deleteRateMutation.mutateAsync({ staffId: detailsStaffId, salaryId: rateToDelete.id });
+    setRateToDelete(null);
   };
 
   const handleDeletePayment = async () => {
@@ -267,7 +322,9 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
     {
       label: "Staff",
       value: summaryLoading ? "—" : String(summary.totalStaff),
-      hint: summaryLoading ? "" : `${summary.activeStaff} active · ${summary.stoppedStaff} stopped`,
+      hint: summaryLoading
+        ? ""
+        : `${summary.activeStaff} active · ${summary.monthlyStaff} monthly · ${summary.dailyStaff} daily`,
     },
   ];
 
@@ -343,6 +400,16 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 />
               </div>
               <div className="flex items-center gap-2">
+                <select
+                  value={payTypeFilter}
+                  onChange={(event) => setPayTypeFilter(event.target.value as StaffPayTypeFilter)}
+                  className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  aria-label="Pay type"
+                >
+                  <option value="ALL">All pay types</option>
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="DAILY">Daily wage</option>
+                </select>
                 <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <select
                   value={sortBy}
@@ -426,16 +493,19 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               >
                                 {statusLabel}
                               </Badge>
+                              <Badge variant="outline" className="shrink-0 text-[10px] uppercase tracking-wide">
+                                {payTypeLabel(s.payType)}
+                              </Badge>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground">
                               {text("joiningDate", "Joined")} {formatBSLong(s.startDate)}
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              {text("currentSalary", "Current salary")}{" "}
+                              {s.payType === "DAILY" ? "Daily wage" : text("currentSalary", "Current salary")}{" "}
                               <span className="font-medium text-foreground tabular-nums">
-                                {formatCurrency(s.currentMonthlySalary)}
+                                {formatCurrency(s.currentRate)}
                               </span>
-                              /mo
+                              {rateUnit(s.payType)}
                             </p>
                           </div>
 
@@ -472,7 +542,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               className="h-8 w-8 p-0"
                               onClick={() => {
                                 setEditSalaryStaffId(s.id);
-                                setEditSalaryForm({ monthlySalary: String(s.currentMonthlySalary), effectiveFrom: getTodayLocalDate() });
+                                setEditSalaryForm({ rate: String(s.currentRate), effectiveFrom: getTodayLocalDate() });
                               }}
                               title={text("editSalary", "Edit salary")}
                               aria-label={text("editSalary", "Edit salary")}
@@ -494,6 +564,19 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               aria-label={text("stop", "Stop")}
                             >
                               <UserMinus className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {s.status === "STOPPED" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              disabled={resumeMutation.isPending}
+                              onClick={() => resumeMutation.mutate(s.id)}
+                              title="Restart (stopped by mistake)"
+                              aria-label="Restart"
+                            >
+                              <RotateCcw className="h-4 w-4" />
                             </Button>
                           )}
                           {canDelete && (
@@ -544,18 +627,39 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 placeholder={text("name", "Name")}
               />
             </div>
+            <div>
+              <Label>Pay type</Label>
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                {(["MONTHLY", "DAILY"] as StaffPayType[]).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setAddForm((f) => ({ ...f, payType: type }))}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                      addForm.payType === type ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted"
+                    }`}
+                  >
+                    {payTypeLabel(type)}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {type === "DAILY" ? "Paid per day worked" : "Fixed salary each month"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Pay type cannot be changed later.</p>
+            </div>
             <DateInput
               label={text("joiningDate", "Joining date")}
               value={addForm.startDate?.split("T")[0] ?? getTodayLocalDate()}
               onChange={(v) => setAddForm((f) => ({ ...f, startDate: v }))}
             />
             <div>
-              <Label>{text("monthlySalary", "Monthly salary")}</Label>
+              <Label>{addForm.payType === "DAILY" ? "Daily wage" : text("monthlySalary", "Monthly salary")}</Label>
               <Input
                 type="number"
                 min={0}
-                value={addForm.monthlySalary}
-                onChange={(e) => setAddForm((f) => ({ ...f, monthlySalary: e.target.value }))}
+                value={addForm.rate}
+                onChange={(e) => setAddForm((f) => ({ ...f, rate: e.target.value }))}
                 placeholder="0"
               />
             </div>
@@ -566,7 +670,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
             {text("cancel", "Cancel")}
           </Button>
           <Button
-            disabled={!addForm.name.trim() || !addForm.startDate || parseFloat(addForm.monthlySalary) < 0 || createMutation.isPending}
+            disabled={!addForm.name.trim() || !addForm.startDate || !addForm.rate || parseFloat(addForm.rate) < 0 || createMutation.isPending}
             onClick={handleCreate}
           >
             {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -579,7 +683,18 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         <ModalContent>
           <div className="space-y-4">
             <div>
-              <Label>{text("amount", "Amount")}</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>{text("amount", "Amount")}</Label>
+                {payStaff && payStaff.balance > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() => setPayForm((f) => ({ ...f, amount: String(payStaff.balance) }))}
+                  >
+                    Pay full due {formatCurrency(payStaff.balance)}
+                  </button>
+                )}
+              </div>
               <Input
                 type="number"
                 min={0}
@@ -633,20 +748,33 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         <ModalContent>
           <div className="space-y-4">
             <div>
-              <Label>{text("monthlySalary", "Monthly salary")}</Label>
+              <Label>
+                {editSalaryStaff?.payType === "DAILY" ? "Daily wage" : text("monthlySalary", "Monthly salary")}
+              </Label>
               <Input
                 type="number"
                 min={0}
-                value={editSalaryForm.monthlySalary}
-                onChange={(e) => setEditSalaryForm((f) => ({ ...f, monthlySalary: e.target.value }))}
+                value={editSalaryForm.rate}
+                onChange={(e) => setEditSalaryForm((f) => ({ ...f, rate: e.target.value }))}
                 placeholder="0"
               />
             </div>
-            <BSMonthPicker
-              label={text("effectiveFrom", "Effective from")}
-              value={editSalaryForm.effectiveFrom?.split("T")[0] ?? getTodayLocalDate()}
-              onChange={(v) => setEditSalaryForm((f) => ({ ...f, effectiveFrom: v }))}
-            />
+            {editSalaryStaff?.payType === "DAILY" ? (
+              <DateInput
+                label={text("effectiveFrom", "Effective from")}
+                value={editSalaryForm.effectiveFrom?.split("T")[0] ?? getTodayLocalDate()}
+                onChange={(v) => setEditSalaryForm((f) => ({ ...f, effectiveFrom: v?.split("T")[0] ?? getTodayLocalDate() }))}
+              />
+            ) : (
+              <BSMonthPicker
+                label={text("effectiveFrom", "Effective from")}
+                value={editSalaryForm.effectiveFrom?.split("T")[0] ?? getTodayLocalDate()}
+                onChange={(v) => setEditSalaryForm((f) => ({ ...f, effectiveFrom: v }))}
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              If a salary already starts on this date, it is replaced.
+            </p>
           </div>
         </ModalContent>
         <ModalFooter>
@@ -655,8 +783,8 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
           </Button>
           <Button
             disabled={
-              !editSalaryForm.monthlySalary ||
-              parseFloat(editSalaryForm.monthlySalary) < 0 ||
+              !editSalaryForm.rate ||
+              parseFloat(editSalaryForm.rate) < 0 ||
               !editSalaryForm.effectiveFrom ||
               updateMutation.isPending
             }
@@ -674,6 +802,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
             <p className="text-muted-foreground">{text("stopConfirmMessage", "Salary will accrue until the selected last working date. Remaining balance will stay.")}</p>
             <DateInput
               label={text("lastWorkingDate", "Last working date")}
+              max={getTodayLocalDate()}
               value={stopForm.endDate}
               onChange={(v) => setStopForm({ endDate: v })}
             />
@@ -761,6 +890,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         onClose={() => {
           setDetailsStaffId(null);
           setEditingProfile(false);
+          setEditingRate(null);
         }}
         title={detailsStaff?.name ?? text("details", "Details")}
         className="max-w-2xl"
@@ -806,7 +936,8 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                     <p className="font-medium">{detailsStaff.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {text("joiningDate", "Joined")} {formatBSLong(detailsStaff.startDate)} ·{" "}
-                      {formatCurrency(detailsStaff.currentMonthlySalary)}/mo
+                      {formatCurrency(detailsStaff.currentRate)}
+                      {rateUnit(detailsStaff.payType)} · {payTypeLabel(detailsStaff.payType)}
                     </p>
                   </div>
                   <Button
@@ -825,6 +956,109 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                   </Button>
                 </div>
               )}
+            </div>
+          )}
+
+          {detailsStaff && detailsFull && (
+            <div className="mb-4 rounded-lg border p-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {rateLabel(detailsStaff.payType)} history
+              </p>
+              <div className="space-y-1.5">
+                {detailsFull.salaries.map((salary) =>
+                  editingRate?.id === salary.id ? (
+                    <div key={salary.id} className="space-y-2 rounded-md border bg-muted/30 p-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={editingRate.rate}
+                        onChange={(e) => setEditingRate((r) => (r ? { ...r, rate: e.target.value } : r))}
+                      />
+                      {detailsStaff.payType === "DAILY" ? (
+                        <DateInput
+                          label={text("effectiveFrom", "Effective from")}
+                          value={editingRate.effectiveFrom}
+                          onChange={(v) =>
+                            setEditingRate((r) => (r ? { ...r, effectiveFrom: v?.split("T")[0] ?? r.effectiveFrom } : r))
+                          }
+                        />
+                      ) : (
+                        <BSMonthPicker
+                          label={text("effectiveFrom", "Effective from")}
+                          value={editingRate.effectiveFrom}
+                          onChange={(v) => setEditingRate((r) => (r ? { ...r, effectiveFrom: v } : r))}
+                        />
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={updateRateMutation.isPending || !editingRate.rate}
+                          onClick={handleSaveRate}
+                        >
+                          {updateRateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {text("save", "Save")}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingRate(null)}>
+                          {text("cancel", "Cancel")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={salary.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-muted-foreground">
+                        From{" "}
+                        {detailsStaff.payType === "DAILY"
+                          ? formatBSLong(salary.effectiveFrom)
+                          : formatBSMonthYear(salary.effectiveFrom)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-semibold tabular-nums">
+                          {formatCurrency(salary.rate)}
+                          {rateUnit(detailsStaff.payType)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() =>
+                            setEditingRate({
+                              id: salary.id,
+                              rate: String(salary.rate),
+                              effectiveFrom: salary.effectiveFrom.split("T")[0],
+                            })
+                          }
+                          aria-label="Edit salary"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        {detailsFull.salaries.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive"
+                            onClick={() => setRateToDelete(salary)}
+                            aria-label="Remove salary"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          )}
+
+          {detailsStaff?.payType === "DAILY" && detailsFull && (
+            <div className="mb-4">
+              <StaffAttendanceCalendar
+                owner={owner}
+                staffId={detailsStaff.id}
+                startDate={detailsFull.startDate}
+                endDate={detailsFull.endDate}
+                attendance={detailsFull.attendance}
+              />
             </div>
           )}
 
@@ -867,7 +1101,12 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                           {text("accrual", "Salary")}
                         </span>
                         <span className="truncate text-xs text-muted-foreground">
-                          {tx.bsYear}/{tx.bsMonth} · {tx.workedDays}/{tx.daysInMonth} days
+                          {BS_MONTH_NAMES[tx.bsMonth - 1]} {tx.bsYear} ·{" "}
+                          {detailsStaff?.payType === "DAILY"
+                            ? `${tx.workedDays} days × ${formatCurrency(tx.dailyRate)}${
+                                tx.absentDays ? ` · ${tx.absentDays} absent` : ""
+                              }${tx.halfDays ? ` · ${tx.halfDays} half` : ""}`
+                            : `${tx.workedDays}/${tx.daysInMonth} days`}
                         </span>
                       </div>
                       <span className="shrink-0 font-semibold tabular-nums">
@@ -924,6 +1163,29 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
             </div>
           )}
         </ModalContent>
+      </Modal>
+
+      <Modal isOpen={!!rateToDelete} onClose={() => setRateToDelete(null)} title="Remove salary?">
+        <ModalContent>
+          <p className="text-sm text-muted-foreground">
+            Remove {formatCurrency(rateToDelete?.rate ?? 0)}
+            {detailsStaff ? rateUnit(detailsStaff.payType) : ""}? Earnings will use the salary before it.
+          </p>
+        </ModalContent>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setRateToDelete(null)}>
+            {text("cancel", "Cancel")}
+          </Button>
+          <Button
+            variant="destructive"
+            className="bg-destructive text-white"
+            disabled={deleteRateMutation.isPending}
+            onClick={handleDeleteRate}
+          >
+            {deleteRateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Remove
+          </Button>
+        </ModalFooter>
       </Modal>
 
       <Modal

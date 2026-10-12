@@ -2711,6 +2711,18 @@ enum StaffStatus {
   STOPPED // No longer employed; no more accrual, show remaining balance
 }
 
+// How a payroll staff member earns. Fixed when the staff member is added.
+enum StaffPayType {
+  MONTHLY // Monthly salary, prorated by days worked in each BS month
+  DAILY // Daily wage, earned for every day not marked absent
+}
+
+// Only days that differ from a normal working day are stored.
+enum StaffAttendanceStatus {
+  ABSENT
+  HALF_DAY
+}
+
 // Login-capable staff are separate from payroll Staff records.
 enum StaffPermission {
   DEALER_VIEW_FINANCIAL_SUMMARIES
@@ -2731,18 +2743,20 @@ enum StaffPermission {
 }
 
 model Staff {
-  id        String      @id @default(cuid())
+  id        String       @id @default(cuid())
   ownerId   String
-  owner     User        @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner     User         @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
+  payType   StaffPayType @default(MONTHLY)
   startDate DateTime // First day of employment (AD stored)
   endDate   DateTime? // When stopped (AD); null if ACTIVE
-  status    StaffStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  status    StaffStatus  @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  salaries StaffSalary[]
-  payments StaffPayment[]
+  salaries   StaffSalary[]
+  payments   StaffPayment[]
+  attendance StaffAttendance[]
 
   @@index([ownerId])
   @@index([status])
@@ -2813,8 +2827,11 @@ model StaffSalary {
   id            String   @id @default(cuid())
   staffId       String
   staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  monthlyAmount Decimal  @db.Decimal(12, 2)
-  effectiveFrom DateTime // First day of BS month in AD (when this salary applies from)
+  // Per month for MONTHLY staff, per day for DAILY staff. The column keeps its
+  // original name so existing rows need no data migration.
+  rate          Decimal  @map("monthlyAmount") @db.Decimal(12, 2)
+  // MONTHLY: first day of a BS month in AD. DAILY: any day.
+  effectiveFrom DateTime
   createdAt     DateTime @default(now())
 
   @@index([staffId])
@@ -2833,6 +2850,18 @@ model StaffPayment {
 
   @@index([staffId])
   @@index([paidAt])
+}
+
+model StaffAttendance {
+  id        String                @id @default(cuid())
+  staffId   String
+  staff     Staff                 @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime // Date only, UTC midnight
+  status    StaffAttendanceStatus
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([staffId, date])
 }
 
 // ==================== HATCHERY SUPPLIER LEDGER + INVENTORY ====================

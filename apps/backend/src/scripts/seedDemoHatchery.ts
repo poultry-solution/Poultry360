@@ -2045,7 +2045,7 @@ async function seedDemoHatchery(): Promise<void> {
         });
         await upsertById(tx.staffSalary, id(`staff-${staff.key}-salary`), {
           staffId,
-          monthlyAmount: decimal(staff.monthlyAmount),
+          rate: decimal(staff.monthlyAmount),
           effectiveFrom: staff.startDate,
         });
         await upsertById(tx.staffPayment, id(`staff-${staff.key}-payment`), {
