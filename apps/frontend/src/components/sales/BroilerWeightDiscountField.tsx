@@ -14,6 +14,7 @@ interface BroilerWeightDiscountFieldProps {
 
 /** Above this the % is allowed but flagged, since "10" typed for "1.0" is an easy slip. */
 const LARGE_DISCOUNT_PERCENT = 10;
+const DEFAULT_DISCOUNT_PERCENT = "1";
 
 /**
  * Buyers of broilers often take a % off the weighed amount. Only the bill uses
@@ -37,7 +38,11 @@ export function BroilerWeightDiscountField({
         <input
           type="checkbox"
           checked={enabled}
-          onChange={(e) => onEnabledChange(e.target.checked)}
+          onChange={(e) => {
+            onEnabledChange(e.target.checked);
+            // Start at the usual 1% so the user only types when it differs.
+            if (e.target.checked && !percent.trim()) onPercentChange(DEFAULT_DISCOUNT_PERCENT);
+          }}
           className="h-4 w-4"
         />
         Weight discount (%)
@@ -52,7 +57,11 @@ export function BroilerWeightDiscountField({
               min={0}
               max={99.99}
               value={percent}
-              onChange={(e) => onPercentChange(e.target.value)}
+              onChange={(e) => {
+                // 100% or more would bill nothing, so those keys are ignored.
+                if (Number(e.target.value) >= 100) return;
+                onPercentChange(e.target.value);
+              }}
               placeholder="1"
               className="w-28"
               aria-label="Weight discount percent"
