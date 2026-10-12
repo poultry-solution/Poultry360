@@ -44,7 +44,7 @@ import {
   Package,
   AlertCircle,
 } from "lucide-react";
-import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
+import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm, useUpdateFarm } from "@/fetchers/farms/farmQueries";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { getBSMonthDayForDisplay } from "@/common/lib/nepali-date";
 import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
@@ -66,6 +66,8 @@ export default function FarmDetailPage() {
 
   // State for modals and filters
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", capacity: "", description: "" });
   const [batchFilter, setBatchFilter] = useState<"all" | "active" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isFarmDeleted, setIsFarmDeleted] = useState(false);
@@ -93,6 +95,7 @@ export default function FarmDetailPage() {
 
   // Delete farm mutation
   const deleteFarmMutation = useDeleteFarm();
+  const updateFarmMutation = useUpdateFarm();
   const createBatchMutation = useCreateBatch();
   const deleteBatchMutation = useDeleteBatch();
 
@@ -132,6 +135,41 @@ export default function FarmDetailPage() {
     }
   };
 
+
+  const openEditFarm = () => {
+    if (!farm) return;
+    setEditForm({
+      name: farm.name,
+      capacity: String(farm.capacity),
+      description: farm.description ?? "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateFarm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = editForm.name.trim();
+    const capacity = Number(editForm.capacity);
+    if (!name) {
+      toast.error("Please enter a farm name");
+      return;
+    }
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      toast.error("Capacity must be a whole number above 0");
+      return;
+    }
+    try {
+      await updateFarmMutation.mutateAsync({
+        id: farmId,
+        data: { name, capacity, description: editForm.description.trim() },
+      });
+      toast.success("Farm updated");
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error("Failed to update farm:", error);
+      // Error toast is handled by axios interceptor
+    }
+  };
 
   const calculateBatchAge = (startDate: string | Date) => {
     const start = new Date(startDate);
@@ -328,6 +366,7 @@ export default function FarmDetailPage() {
             variant="outline"
             size="sm"
             className="h-9 w-full p-0 md:h-9 md:w-[112px] md:justify-center md:px-4"
+            onClick={openEditFarm}
             title="Edit Farm"
             aria-label="Edit Farm"
           >
@@ -645,6 +684,71 @@ export default function FarmDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Farm Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Edit Farm"
+      >
+        <form onSubmit={handleUpdateFarm}>
+          <ModalContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-farm-name">Farm name</Label>
+                <Input
+                  id="edit-farm-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-farm-capacity">Capacity (birds)</Label>
+                <Input
+                  id="edit-farm-capacity"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={editForm.capacity}
+                  onChange={(e) => setEditForm((p) => ({ ...p, capacity: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-farm-description">Description</Label>
+                <textarea
+                  id="edit-farm-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </ModalContent>
+          <ModalFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditModalOpen(false)}
+              disabled={updateFarmMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={updateFarmMutation.isPending}>
+              {updateFarmMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
 
       {/* Delete Farm Modal */}
       <Modal
