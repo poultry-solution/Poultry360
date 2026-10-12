@@ -589,6 +589,8 @@ export const CreateSaleSchema = z
     amount: z.number().positive(),
     quantity: z.number().positive(),
     weight: z.number().positive().optional().nullable(),
+    // Broiler sales only: % of weight not charged. The server works out the bill.
+    weightDiscountPercent: z.number().gt(0).lt(100).optional().nullable(),
     unitPrice: z.number().positive(),
     description: z.string().optional(),
     isCredit: z.boolean().optional().default(false),
@@ -631,6 +633,8 @@ export const UpdateSaleSchema = z.object({
   amount: z.number().positive().optional(),
   quantity: z.number().positive().optional(),
   weight: z.number().positive().optional(),
+  // null removes the discount; leaving it out keeps the saved one.
+  weightDiscountPercent: z.number().gt(0).lt(100).nullable().optional(),
   unitPrice: z.number().positive().optional(),
   description: z.string().nullable().optional(),
   isCredit: z.boolean().optional(),

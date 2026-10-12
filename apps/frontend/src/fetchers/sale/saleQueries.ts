@@ -404,9 +404,8 @@ export const useSoftDeleteCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
+      // Deleting a receipt made from a sale payment also changes that sale.
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
       queryClient.invalidateQueries({
         queryKey: ["customers", "detail", variables.customerId],

@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
+import { laterPaymentsTotal, syncInitialPayment } from "../services/salePaymentSync";
 import prisma from "../utils/prisma";
 import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
 import {
@@ -115,7 +117,6 @@ export const getAllSalePayments = async (
       },
       orderBy: { date: "desc" },
     });
-    const salePaymentsCountPromise = prisma.salePayment.count({ where });
 
     // Customer-level receipts: CustomerTransaction(RECEIPT) for customers owned by this user
     // Note: we apply the same date/search/customer filters at transaction level where possible.
@@ -154,21 +155,25 @@ export const getAllSalePayments = async (
       },
       orderBy: { date: "desc" },
     });
-    const customerReceiptsCountPromise = prisma.customerTransaction.count({
-      where: txnWhere,
-    });
 
-    const [salePayments, salePaymentsTotal, customerReceipts, customerReceiptsTotal] =
-      await Promise.all([
-        salePaymentsPromise,
-        salePaymentsCountPromise,
-        customerReceiptsPromise,
-        customerReceiptsCountPromise,
-      ]);
+    const [salePayments, customerReceipts] = await Promise.all([
+      salePaymentsPromise,
+      customerReceiptsPromise,
+    ]);
+
+    // A payment added to a credit sale is saved twice: a SalePayment on the
+    // sale and a RECEIPT on the customer (reference = SalePayment id). List it
+    // once, as the receipt, because receipts are the rows that can be deleted.
+    const salePaymentById = new Map(salePayments.map((p) => [p.id, p]));
+    const mirroredSalePaymentIds = new Set(
+      customerReceipts
+        .filter((t) => !t.deletedAt && t.reference && salePaymentById.has(t.reference))
+        .map((t) => t.reference as string)
+    );
 
     // Normalize into one list and paginate in-memory (simple, safe for farmer-scale data)
     const normalized = [
-      ...salePayments.map((p) => ({
+      ...salePayments.filter((p) => !mirroredSalePaymentIds.has(p.id)).map((p) => ({
         id: p.id,
         date: p.date,
         amount: Number(p.amount),
@@ -186,25 +191,24 @@ export const getAllSalePayments = async (
         description: t.description,
         receiptUrl: t.imageUrl,
         source: "CUSTOMER_RECEIPT" as const,
-        sale: { customer: t.customer },
+        sale: (t.reference && salePaymentById.get(t.reference)?.sale) || { customer: t.customer },
         reference: t.reference,
         deletedAt: t.deletedAt,
         customerId: t.customerId,
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const total = salePaymentsTotal + customerReceiptsTotal;
+    const total = normalized.length;
     const start = skip;
     const end = skip + limitNumber;
     const payments = normalized.slice(start, end);
-    const totalAmount = normalized.reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0
-    );
-    const pageAmount = payments.reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0
-    );
+    // Deleted receipts stay listed (marked deleted) but are not money received.
+    const totalAmount = normalized
+      .filter((payment) => !payment.deletedAt)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const pageAmount = payments
+      .filter((payment) => !payment.deletedAt)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
     return res.json({
       success: true,
@@ -690,6 +694,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       amount,
       quantity,
       weight,
+      weightDiscountPercent,
       unitPrice,
       description,
       isCredit = false,
@@ -704,6 +709,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     } = data;
 
     const useEggLines = itemType === SalesItemType.EGGS && eggLineItems != null && eggLineItems.length > 0;
+    if (weightDiscountPercent != null && itemType !== SalesItemType.Chicken_Meat) {
+      return res.status(400).json({ message: "Weight discount is only for chicken meat sales" });
+    }
     // Ensure required categoryId is present (Prisma requires non-null string)
     const categoryId = await getSalesCategoryIdForItemType(currentUserId, itemType as SalesItemType);
 
@@ -906,7 +914,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       numericUnitPrice = Number(unitPrice);
     }
 
-    const numericPaidAmount = Number(paidAmount);
+    let numericPaidAmount = Number(paidAmount);
     const numericWeight = weight !== undefined && weight !== null ? Number(weight) : null;
     const numericBirdsCount = numericQuantity;
 
@@ -931,6 +939,17 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     }
     if (isNaN(numericPaidAmount) || numericPaidAmount < 0) {
       return res.status(400).json({ message: "Invalid paid amount" });
+    }
+
+    // Broiler bill is worked out here, not taken from the app: rate x weight,
+    // less any weight discount. The saved weight stays the real weight.
+    if (itemType === SalesItemType.Chicken_Meat && numericWeight !== null) {
+      numericAmount = computeBroilerSaleAmount(numericWeight, numericUnitPrice, weightDiscountPercent).amount;
+      if (!isCredit) {
+        numericPaidAmount = numericAmount;
+      } else if (numericPaidAmount > numericAmount) {
+        return res.status(400).json({ message: "Paid amount cannot exceed the sale amount" });
+      }
     }
 
     // For EGGS sales (single type): validate egg type and inventory
@@ -977,6 +996,8 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           amount: numericAmount,
           quantity: numericQuantity,
           weight: numericWeight !== null ? numericWeight : null,
+          weightDiscountPercent:
+            itemType === SalesItemType.Chicken_Meat && weightDiscountPercent != null ? weightDiscountPercent : null,
           unitPrice: saleUnitPrice,
           description: description || null,
           isCredit,
@@ -1049,10 +1070,10 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       }
 
       // 3. Create initial payment record if paidAmount > 0
-      if (Number(paidAmount) > 0) {
+      if (numericPaidAmount > 0) {
         await tx.salePayment.create({
           data: {
-            amount: Number(paidAmount),
+            amount: numericPaidAmount,
             date: new Date(date),
             description: "Initial payment",
             saleId: sale.id,
@@ -1209,6 +1230,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
           },
         },
         customer: true,
+        payments: true,
       },
     });
 
@@ -1242,8 +1264,12 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    if (data.weightDiscountPercent != null && finalItemType !== SalesItemType.Chicken_Meat) {
+      return res.status(400).json({ message: "Weight discount is only for chicken meat sales" });
+    }
+
     const finalDate = data.date !== undefined ? new Date(data.date) : existingSale.date;
-    const finalAmount = data.amount !== undefined
+    let finalAmount = data.amount !== undefined
       ? Number(data.amount)
       : Number(existingSale.amount);
     const finalQuantity = data.quantity !== undefined
@@ -1252,12 +1278,31 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
     const finalWeight = data.weight !== undefined
       ? Number(data.weight)
       : existingSale.weight == null ? null : Number(existingSale.weight);
-    const finalPaidAmount = data.paidAmount !== undefined
+    let finalPaidAmount = data.paidAmount !== undefined
       ? Number(data.paidAmount)
       : Number(existingSale.paidAmount);
     const finalIsCredit = data.isCredit !== undefined
       ? data.isCredit
       : existingSale.isCredit;
+    const finalWeightDiscountPercent = data.weightDiscountPercent !== undefined
+      ? data.weightDiscountPercent
+      : existingSale.weightDiscountPercent == null ? null : Number(existingSale.weightDiscountPercent);
+    const finalUnitPrice = data.unitPrice !== undefined
+      ? Number(data.unitPrice)
+      : Number(existingSale.unitPrice);
+
+    // Any change to weight, rate or discount re-works the broiler bill on the
+    // server, the same way as createSale.
+    const broilerAmountChanged =
+      finalItemType === SalesItemType.Chicken_Meat &&
+      (data.amount !== undefined ||
+        data.weight !== undefined ||
+        data.unitPrice !== undefined ||
+        data.weightDiscountPercent !== undefined);
+    if (broilerAmountChanged && finalWeight != null && finalWeight > 0) {
+      finalAmount = computeBroilerSaleAmount(finalWeight, finalUnitPrice, finalWeightDiscountPercent).amount;
+      if (!finalIsCredit) finalPaidAmount = finalAmount;
+    }
     const finalCustomerId = data.customerId !== undefined
       ? data.customerId
       : existingSale.customerId;
@@ -1267,6 +1312,17 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
 
     if (finalPaidAmount > finalAmount) {
       return res.status(400).json({ message: "Paid amount cannot exceed the sale amount" });
+    }
+
+    // Payment rows must always add up to paidAmount. Only the initial payment
+    // can move; later payments are real receipts and stay as they are.
+    const paidAmountWillChange =
+      data.paidAmount !== undefined || (broilerAmountChanged && !finalIsCredit);
+    const laterPaid = laterPaymentsTotal(existingSale.payments);
+    if (paidAmountWillChange && finalPaidAmount < laterPaid) {
+      return res.status(400).json({
+        message: `Paid amount cannot be less than Rs ${laterPaid} already received in later payments. Delete those payments first.`,
+      });
     }
     if (finalItemType === SalesItemType.Chicken_Meat) {
       if (!Number.isInteger(finalQuantity) || finalQuantity <= 0) {
@@ -1371,6 +1427,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
     }
 
     const creditDetailsWereProvided =
+      broilerAmountChanged ||
       data.amount !== undefined ||
       data.paidAmount !== undefined ||
       data.isCredit !== undefined ||
@@ -1385,11 +1442,12 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
         where: { id },
         data: {
           date: data.date !== undefined ? finalDate : undefined,
-          amount: data.amount !== undefined ? finalAmount : undefined,
+          amount: data.amount !== undefined || broilerAmountChanged ? finalAmount : undefined,
           quantity: data.quantity !== undefined ? finalQuantity : undefined,
           weight: data.weight !== undefined ? finalWeight : undefined,
+          weightDiscountPercent: data.weightDiscountPercent !== undefined ? data.weightDiscountPercent : undefined,
           unitPrice: data.unitPrice !== undefined ? Number(data.unitPrice) : undefined,
-          paidAmount: data.paidAmount !== undefined ? finalPaidAmount : undefined,
+          paidAmount: paidAmountWillChange ? finalPaidAmount : undefined,
           description: data.description,
           isCredit: data.isCredit,
           farmId: data.farmId,
@@ -1403,6 +1461,15 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
             : undefined,
         },
       });
+
+      if (paidAmountWillChange || data.date !== undefined) {
+        await syncInitialPayment(
+          tx,
+          id,
+          paidAmountWillChange ? finalPaidAmount : Number(existingSale.paidAmount),
+          finalDate
+        );
+      }
 
       // Reverse the old credit effect and apply the new one. Combining the
       // values by customer also handles changing the customer safely.
@@ -1979,6 +2046,21 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
         where: { id: transactionId },
         data: { deletedAt: new Date() },
       });
+
+      // A receipt made by paying a sale also lives on the sale. Remove that
+      // payment too, so the sale shows the money as due again.
+      const salePayment = txn.reference
+        ? await tx.salePayment.findUnique({ where: { id: txn.reference }, include: { sale: true } })
+        : null;
+      if (salePayment && salePayment.sale.customerId === customerId) {
+        const newPaid = Math.max(0, Math.round((Number(salePayment.sale.paidAmount) - Number(salePayment.amount)) * 100) / 100);
+        const newDue = Math.round((Number(salePayment.sale.amount) - newPaid) * 100) / 100;
+        await tx.salePayment.delete({ where: { id: salePayment.id } });
+        await tx.sale.update({
+          where: { id: salePayment.saleId },
+          data: { paidAmount: newPaid, dueAmount: newDue > 0 ? newDue : null },
+        });
+      }
     });
 
     return res.json({

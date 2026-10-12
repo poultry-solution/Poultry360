@@ -771,7 +771,11 @@ model Sale {
   date          DateTime
   amount        Decimal  @db.Decimal(10, 2)
   quantity      Decimal  @db.Decimal(10, 2)
+  // Real live weight. FCR, cFCR and bird weight always use this.
   weight        Decimal? @db.Decimal(10, 2)
+  // Broiler only: % of weight not charged (buyer's weight discount). The bill
+  // uses weight minus this %; null means no discount.
+  weightDiscountPercent Decimal? @db.Decimal(5, 2)
   unitPrice     Decimal  @db.Decimal(10, 2)
   description   String?
 

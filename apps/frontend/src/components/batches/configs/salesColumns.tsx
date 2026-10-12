@@ -73,7 +73,17 @@ export function createSalesColumns({
       type: "number",
       align: "right",
       width: "100px",
-      render: (value) => (value ? `${Number(value).toFixed(2)} kg` : "—"),
+      render: (value, row) =>
+        value ? (
+          <span>
+            {Number(value).toFixed(2)} kg
+            {row?.weightDiscountPercent != null ? (
+              <span className="ml-1 text-xs text-amber-700">−{Number(row.weightDiscountPercent)}%</span>
+            ) : null}
+          </span>
+        ) : (
+          "—"
+        ),
     }),
     createColumn("unitPrice", "Rate", {
       type: "currency",

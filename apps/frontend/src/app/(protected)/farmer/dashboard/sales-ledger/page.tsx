@@ -1,5 +1,7 @@
 "use client";
 
+import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
+import { computeBroilerSaleAmount, parseWeightDiscountPercent } from "@/fetchers/sale/broilerSaleAmount";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -170,6 +172,8 @@ export default function SalesLedgerPage() {
     rate: string;
     quantity: string;
     weight: string;
+    weightDiscountEnabled: boolean;
+    weightDiscountPercent: string;
     date: string;
     remaining: boolean;
     customerId: string;
@@ -186,6 +190,8 @@ export default function SalesLedgerPage() {
     rate: "",
     quantity: "",
     weight: "",
+    weightDiscountEnabled: false,
+    weightDiscountPercent: "",
     date: getTodayLocalDate(),
     remaining: false,
     customerId: "",
@@ -348,9 +354,31 @@ export default function SalesLedgerPage() {
     return {
       columns: [
         { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Invoice", value: (row: any) => row.invoiceNumber || "" },
         { label: "Customer", value: (row: any) => row.customer?.name || "—" },
         { label: "Item", value: (row: any) => row.itemType || row.description || "—" },
+        { label: "Qty", value: (row: any) => (row.quantity != null ? Number(row.quantity) : "") },
+        // Weight is the real weighed amount; billed weight is what the bill charged.
+        { label: "Weight (kg)", value: (row: any) => (row.weight != null ? Number(row.weight).toFixed(2) : "") },
+        {
+          label: "Weight discount %",
+          value: (row: any) => (row.weightDiscountPercent != null ? Number(row.weightDiscountPercent) : ""),
+        },
+        {
+          label: "Billed weight (kg)",
+          value: (row: any) =>
+            row.weight != null && row.itemType === "Chicken_Meat"
+              ? computeBroilerSaleAmount(
+                  Number(row.weight),
+                  0,
+                  row.weightDiscountPercent == null ? null : Number(row.weightDiscountPercent)
+                ).billedWeight.toFixed(2)
+              : "",
+        },
+        { label: "Rate", value: (row: any) => (row.unitPrice != null ? Number(row.unitPrice).toFixed(2) : "") },
         { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
+        { label: "Paid", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
+        { label: "Due", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
         { label: "Payment", value: (row: any) => row.isCredit ? "Credit" : "Cash" },
         { label: "Note", value: (row: any) => row.description || "" },
       ],
@@ -569,6 +597,11 @@ export default function SalesLedgerPage() {
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
 
+    // Weight discount only exists for chicken meat sales.
+    if (name === "itemType" && value !== "Chicken_Meat") {
+      setSaleForm((p) => ({ ...p, weightDiscountEnabled: false, weightDiscountPercent: "" }));
+    }
+
     // If farm is changed, reset batch selection (same as home page)
     if (name === "farmId") {
       setSaleForm((p) => ({ ...p, batchId: "" }));
@@ -609,6 +642,12 @@ export default function SalesLedgerPage() {
           errors.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
         }
       }
+      if (
+        saleForm.weightDiscountEnabled &&
+        parseWeightDiscountPercent(true, saleForm.weightDiscountPercent) === null
+      ) {
+        errors.weightDiscountPercent = "Enter a discount above 0 and below 100";
+      }
     }
 
     // Customer validation for credit sales (align with home page)
@@ -629,7 +668,11 @@ export default function SalesLedgerPage() {
       } else {
         totalAmount =
           saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            ? computeBroilerSaleAmount(
+                Number(saleForm.weight || 0),
+                Number(saleForm.rate || 0),
+                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+              ).amount
             : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
       }
       const paidAmount = Number(saleForm.balance || 0);
@@ -668,7 +711,11 @@ export default function SalesLedgerPage() {
         unitPrice = parseFloat(saleForm.rate);
         amount =
           saleForm.itemType === "Chicken_Meat"
-            ? unitPrice * (weight || 0)
+            ? computeBroilerSaleAmount(
+                weight || 0,
+                unitPrice,
+                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+              ).amount
             : unitPrice * quantity;
       }
 
@@ -690,6 +737,15 @@ export default function SalesLedgerPage() {
         amount,
         quantity,
         weight: weight ?? undefined,
+        // null clears a saved discount when editing.
+        ...(saleForm.itemType === "Chicken_Meat"
+          ? {
+              weightDiscountPercent: parseWeightDiscountPercent(
+                saleForm.weightDiscountEnabled,
+                saleForm.weightDiscountPercent
+              ),
+            }
+          : {}),
         unitPrice,
         description: undefined,
         isCredit,
@@ -899,6 +955,47 @@ export default function SalesLedgerPage() {
 
   // Opening balance edit is handled on the party details page.
 
+  // Fill the form from the saved sale, so Edit never saves leftover values.
+  const openEditSale = (row: any) => {
+    const savedUnitPrice = row.unitPrice ?? row.rate;
+    const eggLines = row.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
+    setEditingSaleId(row.id);
+    setErrors({});
+    setSaleForm({
+      farmId: row.farmId || row.farm?.id || "",
+      batchId: row.batchId || row.batch?.id || "",
+      itemType: row.itemType || "Chicken_Meat",
+      eggTypeId: row.eggTypeId || "",
+      eggLineItems:
+        eggLines && eggLines.length > 0
+          ? eggLines.map((l) => ({
+              eggTypeId: l.eggTypeId,
+              quantity: String(l.quantity),
+              unitPrice: String(l.unitPrice),
+            }))
+          : row.eggTypeId
+            ? [{
+                eggTypeId: row.eggTypeId,
+                quantity: String(row.quantity),
+                unitPrice: savedUnitPrice == null ? "" : String(savedUnitPrice),
+              }]
+            : [{ eggTypeId: "", quantity: "", unitPrice: "" }],
+      rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
+      quantity: row.quantity == null ? "" : String(row.quantity),
+      weight: row.weight == null ? "" : String(row.weight),
+      weightDiscountEnabled: row.weightDiscountPercent != null,
+      weightDiscountPercent: row.weightDiscountPercent == null ? "" : String(Number(row.weightDiscountPercent)),
+      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
+      remaining: Boolean(row.isCredit),
+      customerId: row.customerId || row.customer?.id || "",
+      customerName: row.customer?.name || "",
+      contact: row.customer?.phone || "",
+      customerCategory: row.customer?.category || "Chicken",
+      balance: row.paidAmount == null ? "" : String(row.paidAmount),
+    });
+    setIsSaleModalOpen(true);
+  };
+
   const resetSaleForm = () => {
     setSaleForm((prev) => ({
       ...prev,
@@ -908,6 +1005,8 @@ export default function SalesLedgerPage() {
       rate: "",
       quantity: "",
       weight: "",
+      weightDiscountEnabled: false,
+      weightDiscountPercent: "",
       date: getTodayLocalDate(),
       remaining: false,
       customerId: "",
@@ -992,8 +1091,13 @@ export default function SalesLedgerPage() {
       label: t("farmer.salesLedger.table.weightKg"),
       width: "100px",
       align: "center" as const,
-      render: (value: number | null) => (
-        <span className="text-sm">{value ? `${Number(value).toFixed(2)} kg` : "—"}</span>
+      render: (value: number | null, row: any) => (
+        <span className="text-sm">
+          {value ? `${Number(value).toFixed(2)} kg` : "—"}
+          {value && row?.weightDiscountPercent != null ? (
+            <span className="ml-1 text-xs text-amber-700">−{Number(row.weightDiscountPercent)}%</span>
+          ) : null}
+        </span>
       ),
     },
     {
@@ -1058,10 +1162,7 @@ export default function SalesLedgerPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() => {
-              setEditingSaleId(row.id);
-              setIsSaleModalOpen(true);
-            }}
+            onClick={() => openEditSale(row)}
           >
             <Edit className="h-4 w-4" />
           </Button>
@@ -1961,6 +2062,20 @@ export default function SalesLedgerPage() {
                           kg
                         </p>
                       )}
+                    <div className="mt-3">
+                      <BroilerWeightDiscountField
+                        enabled={saleForm.weightDiscountEnabled}
+                        percent={saleForm.weightDiscountPercent}
+                        weight={saleForm.weight}
+                        error={errors.weightDiscountPercent}
+                        onEnabledChange={(enabled) =>
+                          setSaleForm((p) => ({ ...p, weightDiscountEnabled: enabled }))
+                        }
+                        onPercentChange={(percent) =>
+                          setSaleForm((p) => ({ ...p, weightDiscountPercent: percent }))
+                        }
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1984,7 +2099,11 @@ export default function SalesLedgerPage() {
                           const quantity = Number(saleForm.quantity || 0);
                           const weight = Number(saleForm.weight || 0);
                           if (saleForm.itemType === "Chicken_Meat" && weight) {
-                            return (rate * weight).toLocaleString();
+                            return computeBroilerSaleAmount(
+                              weight,
+                              rate,
+                              parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+                            ).amount.toLocaleString();
                           }
                           return (rate * quantity).toLocaleString();
                         })()}

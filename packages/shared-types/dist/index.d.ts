@@ -661,6 +661,7 @@ export declare const CreateSaleSchema: z.ZodObject<{
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
     weight: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    weightDiscountPercent: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
     unitPrice: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -698,6 +699,7 @@ export declare const UpdateSaleSchema: z.ZodObject<{
     amount: z.ZodOptional<z.ZodNumber>;
     quantity: z.ZodOptional<z.ZodNumber>;
     weight: z.ZodOptional<z.ZodNumber>;
+    weightDiscountPercent: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     unitPrice: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     isCredit: z.ZodOptional<z.ZodBoolean>;
@@ -2877,6 +2879,7 @@ export declare const schemas: {
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
         weight: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        weightDiscountPercent: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
         unitPrice: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -2913,6 +2916,7 @@ export declare const schemas: {
         amount: z.ZodOptional<z.ZodNumber>;
         quantity: z.ZodOptional<z.ZodNumber>;
         weight: z.ZodOptional<z.ZodNumber>;
+        weightDiscountPercent: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         unitPrice: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         isCredit: z.ZodOptional<z.ZodBoolean>;

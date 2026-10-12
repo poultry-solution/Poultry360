@@ -3,6 +3,7 @@
 import { Button } from "@/common/components/ui/button";
 import { Card } from "@/common/components/ui/card";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { computeBroilerSaleAmount } from "@/fetchers/sale/broilerSaleAmount";
 
 type SaleBillLine = {
   id?: string;
@@ -20,6 +21,21 @@ type SaleBillDocumentProps = {
   onBack?: () => void;
   showActions?: boolean;
 };
+
+const formatKg = (value: number) => `${value.toFixed(2)} kg`;
+
+/**
+ * Broiler line note. With a weight discount it shows the full working, so the
+ * buyer can check that the total uses the discounted weight.
+ */
+function broilerWeightNote(sale: any): string | undefined {
+  if (sale?.weight == null) return undefined;
+  const weight = Number(sale.weight);
+  const percent = sale?.weightDiscountPercent == null ? null : Number(sale.weightDiscountPercent);
+  if (sale?.itemType !== "Chicken_Meat" || !percent) return formatKg(weight);
+  const { billedWeight } = computeBroilerSaleAmount(weight, 0, percent);
+  return `Weighed ${formatKg(weight)} − ${percent}% weight discount (${formatKg(weight - billedWeight)}) = ${formatKg(billedWeight)} billed`;
+}
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-NP", {
@@ -61,10 +77,7 @@ export function SaleBillDocument({
             quantity: Number(sale?.quantity ?? 0),
             rate: Number(sale?.unitPrice ?? 0),
             total: Number(sale?.amount ?? 0),
-            note:
-              sale?.weight != null
-                ? `${Number(sale.weight).toFixed(2)} kg`
-                : undefined,
+            note: broilerWeightNote(sale),
           },
         ];
 
@@ -102,8 +115,20 @@ export function SaleBillDocument({
             </div>
           </div>
           <div className={isCompact ? "mt-3 text-xs text-slate-700" : "mt-3 text-sm text-slate-700"}>
-            <span className="font-medium">Category: </span>
-            {sale?.customer?.category || sale?.category?.name || "—"}
+            <div className="font-medium text-slate-900">Bill to</div>
+            {sale?.customer ? (
+              <>
+                <div>{sale.customer.name}</div>
+                {sale.customer.phone ? <div>Phone: {sale.customer.phone}</div> : null}
+                {sale.customer.address ? <div>Address: {sale.customer.address}</div> : null}
+              </>
+            ) : (
+              <div className="text-slate-500">Cash customer</div>
+            )}
+            <div className="mt-1">
+              <span className="font-medium">Category: </span>
+              {sale?.customer?.category || sale?.category?.name || "—"}
+            </div>
           </div>
         </div>
 

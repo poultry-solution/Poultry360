@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
+import { computeBroilerSaleAmount, parseWeightDiscountPercent } from "@/fetchers/sale/broilerSaleAmount";
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
@@ -1049,6 +1051,8 @@ export default function BatchDetailPage() {
     rate: string;
     quantity: string;
     weight: string;
+    weightDiscountEnabled: boolean;
+    weightDiscountPercent: string;
     itemType: string;
     eggTypeId: string;
     eggLineItems: EggLineRow[];
@@ -1065,6 +1069,8 @@ export default function BatchDetailPage() {
     rate: "",
     quantity: "",
     weight: "",
+    weightDiscountEnabled: false,
+    weightDiscountPercent: "",
     itemType: "Chicken_Meat",
     eggTypeId: "",
     eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1091,6 +1097,10 @@ export default function BatchDetailPage() {
       ...p,
       [name]:
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      // Weight discount only exists for chicken meat sales.
+      ...(name === "itemType" && value !== "Chicken_Meat"
+        ? { weightDiscountEnabled: false, weightDiscountPercent: "" }
+        : {}),
     }));
   }
   function openNewSale() {
@@ -1101,6 +1111,8 @@ export default function BatchDetailPage() {
       rate: "",
       quantity: "",
       weight: "",
+      weightDiscountEnabled: false,
+      weightDiscountPercent: "",
       itemType: "Chicken_Meat",
       eggTypeId: "",
       eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1140,6 +1152,8 @@ export default function BatchDetailPage() {
       rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
       quantity: String(row.quantity),
       weight: String(r.weight || ""),
+      weightDiscountEnabled: r.weightDiscountPercent != null,
+      weightDiscountPercent: r.weightDiscountPercent == null ? "" : String(Number(r.weightDiscountPercent)),
       itemType: r.itemType || "Chicken_Meat",
       eggTypeId: r.eggTypeId || "",
       eggLineItems,
@@ -1199,6 +1213,12 @@ export default function BatchDetailPage() {
           errs.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
         }
       }
+      if (
+        saleForm.weightDiscountEnabled &&
+        parseWeightDiscountPercent(true, saleForm.weightDiscountPercent) === null
+      ) {
+        errs.weightDiscountPercent = "Enter a discount above 0 and below 100";
+      }
     }
 
     if (saleForm.remaining) {
@@ -1218,7 +1238,11 @@ export default function BatchDetailPage() {
       } else {
         totalAmount =
           saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
+            ? computeBroilerSaleAmount(
+                Number(saleForm.weight || 0),
+                Number(saleForm.rate || 0),
+                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+              ).amount
             : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
       }
       const paidAmount = Number(saleForm.balance || 0);
@@ -1259,7 +1283,11 @@ export default function BatchDetailPage() {
         unitPrice = parseFloat(saleForm.rate);
         amount =
           saleForm.itemType === "Chicken_Meat"
-            ? unitPrice * (weight || 0)
+            ? computeBroilerSaleAmount(
+                weight || 0,
+                unitPrice,
+                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+              ).amount
             : unitPrice * quantity;
       }
 
@@ -1277,6 +1305,15 @@ export default function BatchDetailPage() {
         amount,
         quantity,
         weight: weight ?? undefined,
+        // null clears a saved discount when editing.
+        ...(saleForm.itemType === "Chicken_Meat"
+          ? {
+              weightDiscountPercent: parseWeightDiscountPercent(
+                saleForm.weightDiscountEnabled,
+                saleForm.weightDiscountPercent
+              ),
+            }
+          : {}),
         unitPrice,
         description: undefined,
         isCredit: saleForm.remaining,
@@ -2262,6 +2299,20 @@ export default function BatchDetailPage() {
                       {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
                     </p>
                   )}
+                  <div className="mt-3">
+                    <BroilerWeightDiscountField
+                      enabled={saleForm.weightDiscountEnabled}
+                      percent={saleForm.weightDiscountPercent}
+                      weight={saleForm.weight}
+                      error={saleErrors.weightDiscountPercent}
+                      onEnabledChange={(enabled) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountEnabled: enabled }))
+                      }
+                      onPercentChange={(percent) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountPercent: percent }))
+                      }
+                    />
+                  </div>
                 </div>
               )}
 
@@ -2278,7 +2329,11 @@ export default function BatchDetailPage() {
                           )
                           .toLocaleString()
                       : saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
-                        ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
+                        ? computeBroilerSaleAmount(
+                            Number(saleForm.weight),
+                            Number(saleForm.rate || 0),
+                            parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+                          ).amount.toLocaleString()
                         : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
                   </span>
                 </div>

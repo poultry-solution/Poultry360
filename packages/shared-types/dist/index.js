@@ -445,6 +445,8 @@ exports.CreateSaleSchema = zod_1.z
     amount: zod_1.z.number().positive(),
     quantity: zod_1.z.number().positive(),
     weight: zod_1.z.number().positive().optional().nullable(),
+    // Broiler sales only: % of weight not charged. The server works out the bill.
+    weightDiscountPercent: zod_1.z.number().gt(0).lt(100).optional().nullable(),
     unitPrice: zod_1.z.number().positive(),
     description: zod_1.z.string().optional(),
     isCredit: zod_1.z.boolean().optional().default(false),
@@ -481,6 +483,8 @@ exports.UpdateSaleSchema = zod_1.z.object({
     amount: zod_1.z.number().positive().optional(),
     quantity: zod_1.z.number().positive().optional(),
     weight: zod_1.z.number().positive().optional(),
+    // null removes the discount; leaving it out keeps the saved one.
+    weightDiscountPercent: zod_1.z.number().gt(0).lt(100).nullable().optional(),
     unitPrice: zod_1.z.number().positive().optional(),
     description: zod_1.z.string().nullable().optional(),
     isCredit: zod_1.z.boolean().optional(),
