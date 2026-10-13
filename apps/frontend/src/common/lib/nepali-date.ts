@@ -57,6 +57,11 @@ function formatADShortNepal(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Today's date in Nepal as AD YYYY-MM-DD, whatever the device time zone is. */
+export function getNepalTodayAd(): string {
+  return formatADShortNepal(new Date());
+}
+
 /**
  * Get the first day of a BS month as AD date string (YYYY-MM-DD).
  * Uses the library's toJsDate() directly and formats as Nepal calendar day.

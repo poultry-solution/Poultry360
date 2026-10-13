@@ -1886,6 +1886,10 @@ model DealerSaleItem {
   totalAmount  Decimal  @db.Decimal(10, 2)
   unit         String?
   baseQuantity Decimal? @db.Decimal(10, 2)
+  // Cost of the stock this line used, saved at sale time (after trade discount).
+  // unitCost is per base unit; costAmount = unitCost × stock quantity cut.
+  unitCost     Decimal? @db.Decimal(12, 4)
+  costAmount   Decimal? @db.Decimal(12, 2)
 
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)

@@ -17,16 +17,9 @@ import {
     Phone,
     MapPin,
 } from "lucide-react";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/common/components/ui/card";
+import { Card, CardContent } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import { Badge } from "@/common/components/ui/badge";
 import {
     Dialog,
     DialogContent,
@@ -342,250 +335,237 @@ export default function DealerCompanyPage() {
         setPurchaseItems(updated);
     };
 
-    if (manualLoading) {
-        return (
-            <div className="space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">My Companies</h1>
-                    <p className="text-muted-foreground">
-                        Manage manual company accounts, purchases, and payments
-                    </p>
-                </div>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-center py-8">Loading...</div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+    const openPurchase = (company: (typeof manualCompanies)[number]) => {
+        setPurchaseCompany(company);
+        setPurchaseItems([createEmptyPurchaseItem()]);
+        setPurchaseNotes("");
+        setPurchaseBillImageUrl("");
+    };
+
+    const openPayment = (company: (typeof manualCompanies)[number]) => {
+        setPaymentCompany(company);
+        setPaymentDateAd(getTodayLocalDate());
+        setPaymentAmount("");
+        setPaymentDirection("MADE");
+        setPaymentNotes("");
+    };
+
+    const openAccount = (companyId: string) => router.push(`/dealer/dashboard/company/manual/${companyId}`);
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{t("dealer.company.title")}</h1>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="space-y-1">
+                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t("dealer.company.title")}</h1>
+                    <p className="text-sm text-muted-foreground md:text-base">
+                        Suppliers you buy from. Track purchases, payments and what you owe.
+                    </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <BusinessDownloadDialog title="suppliers" fileName="dealer-suppliers" getData={downloadCompanies} hasDateFilter={false} buttonLabel="Download" />
+                    <Button onClick={() => setIsAddManualOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add company
+                    </Button>
+                </div>
             </div>
-            <BusinessDownloadDialog title="suppliers" fileName="dealer-suppliers" getData={downloadCompanies} hasDateFilter={false} buttonLabel="Download suppliers" />
-        </div>
 
-            <>
-                    <div className="max-w-md">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Search companies by name, phone, or address"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
+            {/* Toolbar: active / archived + search */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="inline-flex shrink-0 rounded-lg border bg-muted/40 p-1" role="tablist" aria-label="Company list">
+                    {(["active", "archived"] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            type="button"
+                            role="tab"
+                            aria-selected={manualTab === tab}
+                            onClick={() => setManualTab(tab)}
+                            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${manualTab === tab
+                                ? "bg-white text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
+                                }`}
+                        >
+                            {tab === "active" ? "Active" : "Archived"}
+                        </button>
+                    ))}
+                </div>
+                <div className="relative w-full sm:max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by name, phone or address"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="bg-white pl-10"
+                    />
+                </div>
+                {!manualLoading ? (
+                    <p className="text-sm text-muted-foreground sm:ml-auto">
+                        {filteredManualCompanies.length} {filteredManualCompanies.length === 1 ? "company" : "companies"}
+                    </p>
+                ) : null}
+            </div>
+
+            {/* Company cards */}
+            {manualLoading ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {[0, 1, 2].map((key) => (
+                        <div key={key} className="h-56 animate-pulse rounded-xl border bg-muted/40" />
+                    ))}
+                </div>
+            ) : filteredManualCompanies.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-white px-4 py-14 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                        <Building2 className="h-6 w-6 text-muted-foreground" />
+                    </span>
+                    <div>
+                        <p className="font-medium">
+                            {search
+                                ? "No matching companies"
+                                : manualTab === "archived"
+                                    ? "No archived companies"
+                                    : "No companies yet"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            {search
+                                ? "Try a different search."
+                                : "Add the companies you buy from to track purchases and payments."}
+                        </p>
                     </div>
-
-                    {/* Companies Section */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle>Companies</CardTitle>
-                                    <CardDescription>
-                                        Companies managed directly for purchase tracking ({filteredManualCompanies.length})
-                                    </CardDescription>
-                                    <div className="flex gap-2 border-b mt-3">
-                                        <button
-                                            onClick={() => setManualTab("active")}
-                                            className={`px-3 py-1.5 text-sm font-medium transition-colors ${manualTab === "active"
-                                                ? "border-b-2 border-primary text-primary"
-                                                : "text-muted-foreground hover:text-foreground"
-                                                }`}
-                                        >
-                                            Active
-                                        </button>
-                                        <button
-                                            onClick={() => setManualTab("archived")}
-                                            className={`px-3 py-1.5 text-sm font-medium transition-colors ${manualTab === "archived"
-                                                ? "border-b-2 border-primary text-primary"
-                                                : "text-muted-foreground hover:text-foreground"
-                                                }`}
-                                        >
-                                            Archived
-                                        </button>
+                    {manualTab === "active" && !search ? (
+                        <Button onClick={() => setIsAddManualOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add company
+                        </Button>
+                    ) : null}
+                </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredManualCompanies.map((company) => {
+                        const balance = Number(company.balance);
+                        const hasHistory = (company._count?.purchases || 0) > 0 || (company._count?.payments || 0) > 0;
+                        return (
+                            <Card key={company.id} className="flex flex-col rounded-xl bg-white transition-shadow hover:shadow-md">
+                                <CardContent className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
+                                    {/* Name + contact */}
+                                    <div className="flex items-start gap-3">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                                            <Building2 className="h-5 w-5 text-primary" />
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => openAccount(company.id)}
+                                                className="block max-w-full truncate text-left font-semibold hover:underline"
+                                            >
+                                                {company.name}
+                                            </button>
+                                            {company.phone ? (
+                                                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                    <Phone className="h-3 w-3 shrink-0" />
+                                                    {company.phone}
+                                                </p>
+                                            ) : null}
+                                            {company.address ? (
+                                                <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                                                    <MapPin className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate">{company.address}</span>
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                        {manualTab === "archived" ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                                                title="Unarchive"
+                                                aria-label="Unarchive company"
+                                                onClick={async () => {
+                                                    try {
+                                                        await unarchiveManualMutation.mutateAsync(company.id);
+                                                        toast.success("Manual company unarchived");
+                                                    } catch (error: any) {
+                                                        toast.error(error.response?.data?.message || "Failed to unarchive");
+                                                    }
+                                                }}
+                                            >
+                                                <ArchiveRestore className="h-4 w-4" />
+                                            </Button>
+                                        ) : hasHistory ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                                                title="Archive"
+                                                aria-label="Archive company"
+                                                onClick={async () => {
+                                                    try {
+                                                        await archiveManualMutation.mutateAsync(company.id);
+                                                        toast.success("Manual company archived");
+                                                    } catch (error: any) {
+                                                        toast.error(error.response?.data?.message || "Failed to archive");
+                                                    }
+                                                }}
+                                            >
+                                                <Archive className="h-4 w-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-red-600"
+                                                title="Delete"
+                                                aria-label="Delete company"
+                                                onClick={() => setDeleteManualConfirm(company)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        onClick={() => setIsAddManualOpen(true)}
-                                        size="sm"
-                                        className="hover:bg-green-50 hover:text-green-700 border-green-200"
-                                        variant="outline"
-                                    >
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Company
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {filteredManualCompanies.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                    <h3 className="text-lg font-semibold mb-2">
-                                        {search
-                                            ? "No Matching Companies"
-                                            : manualTab === "archived"
-                                                ? "No Archived Companies"
-                                                : "No Companies"}
-                                    </h3>
-                                    <p className="text-muted-foreground mb-4">
-                                        {search
-                                            ? "Try a different search term."
-                                            : "Add companies you purchase from and manage them here."}
-                                    </p>
-                                    <Button onClick={() => setIsAddManualOpen(true)} disabled={manualTab === "archived"}>
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Company
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                    {filteredManualCompanies.map((company) => (
-                                        <Card key={company.id} className="relative overflow-hidden border-blue-200 bg-blue-50/30">
-                                            <CardHeader className="pb-2">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <CardTitle className="text-lg">{company.name}</CardTitle>
-                                                        {company.phone && (
-                                                            <CardDescription className="mt-1 flex items-center gap-1">
-                                                                <Phone className="h-3 w-3" />
-                                                                {company.phone}
-                                                            </CardDescription>
-                                                        )}
-                                                        {company.address && (
-                                                            <CardDescription className="mt-0.5 flex items-center gap-1">
-                                                                <MapPin className="h-3 w-3" />
-                                                                {company.address}
-                                                            </CardDescription>
-                                                        )}
-                                                    </div>
-                                                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                                                        Manual
-                                                    </Badge>
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent className="pt-2">
-                                                <div className="space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Balance</span>
-                                                        <span className={`font-bold ${Number(company.balance) > 0 ? "text-red-600" :
-                                                            Number(company.balance) < 0 ? "text-green-600" : ""
-                                                            }`}>
-                                                            {Number(company.balance) > 0
-                                                                ? `${formatCurrency(Number(company.balance))} owed`
-                                                                : Number(company.balance) < 0
-                                                                    ? `${formatCurrency(Number(company.balance))} advance`
-                                                                    : "रू 0.00"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Total Purchases</span>
-                                                        <span className="font-medium">{formatCurrency(Number(company.totalPurchases))}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Total Payments</span>
-                                                        <span className="font-medium">{formatCurrency(Number(company.totalPayments))}</span>
-                                                    </div>
-                                                </div>
 
-                                                <div className="mt-4 flex flex-wrap gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="flex-1"
-                                        onClick={() => {
-                                            setPurchaseCompany(company);
-                                                            setPurchaseItems([createEmptyPurchaseItem()]);
-                                            setPurchaseNotes("");
-                                            setPurchaseBillImageUrl("");
-                                        }}
-                                    >
-                                                        <ShoppingCart className="mr-2 h-4 w-4" />
-                                                        Purchase
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="flex-1"
-                                                        onClick={() => {
-                                                            setPaymentCompany(company);
-                                                            setPaymentDateAd(getTodayLocalDate());
-                                                            setPaymentAmount("");
-                                                            setPaymentDirection("MADE");
-                                                            setPaymentNotes("");
-                                                        }}
-                                                    >
-                                                        <Wallet className="mr-2 h-4 w-4" />
-                                                        Pay
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => router.push(`/dealer/dashboard/company/manual/${company.id}`)}
-                                                    >
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        Account
-                                                    </Button>
-                                                    {manualTab === "archived" ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await unarchiveManualMutation.mutateAsync(company.id);
-                                                                    toast.success("Manual company unarchived");
-                                                                } catch (error: any) {
-                                                                    toast.error(error.response?.data?.message || "Failed to unarchive");
-                                                                }
-                                                            }}
-                                                            className="text-muted-foreground hover:text-foreground"
-                                                        >
-                                                            <ArchiveRestore className="h-4 w-4" />
-                                                        </Button>
-                                                    ) : (company._count?.purchases || 0) > 0 || (company._count?.payments || 0) > 0 ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={async () => {
-                                                                try {
-                                                                    await archiveManualMutation.mutateAsync(company.id);
-                                                                    toast.success("Manual company archived");
-                                                                } catch (error: any) {
-                                                                    toast.error(error.response?.data?.message || "Failed to archive");
-                                                                }
-                                                            }}
-                                                            className="text-muted-foreground hover:text-foreground"
-                                                        >
-                                                            <Archive className="h-4 w-4" />
-                                                        </Button>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => setDeleteManualConfirm(company)}
-                                                            className="text-muted-foreground hover:text-red-600"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-            </>
+                                    {/* Balance */}
+                                    <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+                                        <p className="text-xs text-muted-foreground">
+                                            {balance > 0 ? "You owe" : balance < 0 ? "Advance paid" : "Balance"}
+                                        </p>
+                                        <p className={`text-xl font-bold ${balance > 0 ? "text-red-600" : balance < 0 ? "text-green-600" : ""}`}>
+                                            {balance === 0 ? "रू 0.00" : formatCurrency(balance)}
+                                        </p>
+                                    </div>
+
+                                    {/* Totals */}
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Purchases</p>
+                                            <p className="font-medium">{formatCurrency(Number(company.totalPurchases))}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Payments</p>
+                                            <p className="font-medium">{formatCurrency(Number(company.totalPayments))}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="mt-auto grid grid-cols-3 gap-2 border-t pt-3">
+                                        <Button variant="outline" size="sm" onClick={() => openPurchase(company)}>
+                                            <ShoppingCart className="mr-1.5 h-4 w-4" />
+                                            Buy
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => openPayment(company)}>
+                                            <Wallet className="mr-1.5 h-4 w-4" />
+                                            Pay
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => openAccount(company.id)}>
+                                            <Eye className="mr-1.5 h-4 w-4" />
+                                            Account
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+            )}
 
             {/* Add Manual Company Dialog */}
             <Dialog open={isAddManualOpen} onOpenChange={setIsAddManualOpen}>

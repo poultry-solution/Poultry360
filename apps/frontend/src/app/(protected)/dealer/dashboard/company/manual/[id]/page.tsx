@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
     ArrowLeft,
@@ -9,16 +9,16 @@ import {
     MapPin,
     ShoppingCart,
     Wallet,
-    Calendar,
     Package,
     CreditCard,
     Edit,
     Trash2,
+    Eye,
+    Paperclip,
 } from "lucide-react";
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/common/components/ui/card";
@@ -43,7 +43,8 @@ import {
 } from "@/common/components/ui/select";
 import { toast } from "sonner";
 import {
-    useGetManualCompanyStatement,
+    useGetManualCompanyStatementTab,
+    type StatementTab,
     useSetManualCompanyOpeningBalance,
     useUpdateManualCompany,
     manualCompanyKeys,
@@ -51,6 +52,8 @@ import {
     useVoidManualPayment,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DataTable, type Column } from "@/common/components/ui/data-table";
+import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
@@ -59,11 +62,24 @@ import {
     useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
 
+const PAGE_SIZE = 10;
+
+const TABS: Array<{ key: StatementTab; label: string; icon: typeof ShoppingCart; activeClass: string; empty: string }> = [
+    { key: "purchases", label: "Purchases", icon: ShoppingCart, activeClass: "border-orange-500 text-orange-600", empty: "No purchases recorded yet" },
+    { key: "payments", label: "Payments", icon: Wallet, activeClass: "border-green-500 text-green-600", empty: "No payments recorded yet" },
+    { key: "settlements", label: "Settlement sales", icon: Package, activeClass: "border-blue-500 text-blue-600", empty: "No settlement sales yet" },
+    { key: "adjustments", label: "Adjustments", icon: CreditCard, activeClass: "border-blue-500 text-blue-600", empty: "No adjustments yet" },
+    { key: "voided", label: "Deleted", icon: Trash2, activeClass: "border-gray-500 text-gray-700", empty: "No deleted records" },
+];
+
 export default function ManualCompanyAccountPage() {
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
-    const [activeTab, setActiveTab] = useState<"purchases" | "payments" | "settlements" | "adjustments" | "voided">("purchases");
+    const [activeTab, setActiveTab] = useState<StatementTab>("purchases");
+    const [page, setPage] = useState(1);
+    // Purchase or settlement sale shown in the details popup.
+    const [detailsRow, setDetailsRow] = useState<any | null>(null);
     const [isEditOpeningOpen, setIsEditOpeningOpen] = useState(false);
     const [openingAmount, setOpeningAmount] = useState<string>("");
     const [openingDirection, setOpeningDirection] = useState<"OWED" | "ADVANCE">("OWED");
@@ -82,7 +98,7 @@ export default function ManualCompanyAccountPage() {
     const [voidReason, setVoidReason] = useState("");
 
     const queryClient = useQueryClient();
-    const { data, isLoading } = useGetManualCompanyStatement(id, { includeVoided: true });
+    const { data, isLoading, isFetching } = useGetManualCompanyStatementTab(id, { type: activeTab, page, limit: PAGE_SIZE });
     const setOpeningMutation = useSetManualCompanyOpeningBalance();
     const updateCompanyMutation = useUpdateManualCompany();
     const voidPurchaseMutation = useVoidManualPurchase();
@@ -90,11 +106,42 @@ export default function ManualCompanyAccountPage() {
     const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
         ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
     );
+    const { isEnabled: isSupplierSettlementEnabled } = useAccountFeature(
+        ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES
+    );
 
     const company = data?.company;
-    const transactions = data?.transactions || [];
-    const voidedTransactions = (data as any)?.voidedTransactions || [];
     const openingBalance = data?.openingBalance;
+    // Rows belong to the tab that was asked for; while a new tab loads, show nothing old.
+    const rows = data?.type === activeTab ? data.rows : [];
+    const counts = data?.counts;
+    const pagination = data?.pagination;
+    // "Sell to supplier" is admin-enabled. Show its tab and totals only when the
+    // feature is on, or this supplier already has such sales (old data stays visible).
+    const showSettlements =
+        isSupplierSettlementEnabled ||
+        (counts?.settlements ?? 0) > 0 ||
+        Number(company?.totalSettlementSales || 0) !== 0;
+    const visibleTabs = TABS.filter((tab) => tab.key !== "settlements" || showSettlements);
+
+    // A hidden tab can't stay selected.
+    useEffect(() => {
+        if (data && activeTab === "settlements" && !showSettlements) {
+            setActiveTab("purchases");
+            setPage(1);
+        }
+    }, [data, activeTab, showSettlements]);
+
+    // After a void, the last page can become empty: step back to the new last page.
+    useEffect(() => {
+        if (!pagination || isFetching) return;
+        if (page > 1 && page > pagination.totalPages) setPage(Math.max(1, pagination.totalPages));
+    }, [pagination, page, isFetching]);
+
+    const changeTab = (tab: StatementTab) => {
+        setActiveTab(tab);
+        setPage(1);
+    };
 
     const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
         const allTransactions = await fetchAllPages(async (page, limit) => {
@@ -116,7 +163,9 @@ export default function ManualCompanyAccountPage() {
             sections: [
                 { title: "Purchases", columns, rows: rows.filter((row: any) => row.type === "PURCHASE") },
                 { title: "Payments", columns, rows: rows.filter((row: any) => row.type === "PAYMENT") },
-                { title: "Supplier settlement sales", columns, rows: rows.filter((row: any) => row.type === "SUPPLIER_SETTLEMENT_SALE") },
+                ...(showSettlements
+                    ? [{ title: "Supplier settlement sales", columns, rows: rows.filter((row: any) => row.type === "SUPPLIER_SETTLEMENT_SALE") }]
+                    : []),
                 { title: "Other records", columns, rows: rows.filter((row: any) => !["PURCHASE", "PAYMENT", "SUPPLIER_SETTLEMENT_SALE"].includes(row.type)) },
             ],
             summary: [
@@ -126,9 +175,9 @@ export default function ManualCompanyAccountPage() {
                         ? "Rs 0.00"
                         : `Rs ${Math.abs(openingAmount).toFixed(2)} (${openingAmount > 0 ? "payable" : "advance"})`,
                 },
-                { label: "Current balance", value: `Rs ${Number(company.balance || 0).toFixed(2)}` },
-                { label: "Purchases", value: `Rs ${Number(company.totalPurchases || 0).toFixed(2)}` },
-                { label: "Payments", value: `Rs ${Number(company.totalPayments || 0).toFixed(2)}` },
+                { label: "Current balance", value: `Rs ${Number(company?.balance || 0).toFixed(2)}` },
+                { label: "Purchases", value: `Rs ${Number(company?.totalPurchases || 0).toFixed(2)}` },
+                { label: "Payments", value: `Rs ${Number(company?.totalPayments || 0).toFixed(2)}` },
             ],
         };
     };
@@ -166,7 +215,7 @@ export default function ManualCompanyAccountPage() {
                 phone: companyForm.phone.trim() || undefined,
                 address: companyForm.address.trim() || undefined,
             });
-            await queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(id) });
+            await queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(id) });
             toast.success("Company details updated");
             setIsEditCompanyOpen(false);
         } catch (e: any) {
@@ -192,6 +241,165 @@ export default function ManualCompanyAccountPage() {
         } catch (e: any) {
             toast.error(e?.response?.data?.message ?? "Failed to update opening balance");
         }
+    };
+
+    const askVoid = (kind: "PURCHASE" | "PAYMENT", row: any) => {
+        setVoidReason("");
+        setVoidConfirm({ kind, id: row.id, date: row.date, amount: Number(row.amount) });
+    };
+
+    const money = (value: number) => `रू ${Number(value || 0).toFixed(2)}`;
+    const dateColumn = (label = "Date", key = "date"): Column => ({
+        key,
+        label,
+        width: "130px",
+        render: (value) => <DateDisplay date={value} />,
+    });
+    const itemsSummary = (row: any) => {
+        const items: any[] = Array.isArray(row.items) ? row.items : [];
+        if (items.length === 0) return "—";
+        if (items.length > 1) return `${items.length} items`;
+        const item = items[0];
+        return `${item.productName ?? item.product?.name ?? "Product"} · ${Number(item.quantity).toFixed(2)} ${item.unit ?? item.product?.unit ?? ""}`;
+    };
+    const iconButton = (label: string, onClick: () => void, icon: React.ReactNode, danger = false) => (
+        <Button
+            variant="ghost"
+            size="sm"
+            aria-label={label}
+            title={label}
+            className={`h-8 w-8 p-0 ${danger ? "text-muted-foreground hover:text-red-600" : ""}`}
+            onClick={onClick}
+        >
+            {icon}
+        </Button>
+    );
+
+    const columnsFor = (tab: StatementTab): Column[] => {
+        if (tab === "purchases") {
+            return [
+                dateColumn(),
+                { key: "items", label: "Items", width: "180px", render: (_v, row) => <span className="text-sm">{itemsSummary(row)}</span> },
+                {
+                    key: "basicTotal",
+                    label: "Basic total",
+                    align: "right",
+                    width: "120px",
+                    render: (_v, row) => money((row.items || []).reduce((sum: number, item: any) => sum + Number(item.totalAmount || 0), 0)),
+                },
+                {
+                    key: "tradeDiscountAmount",
+                    label: "Discount",
+                    align: "right",
+                    width: "110px",
+                    render: (value) => Number(value) > 0 ? <span className="text-green-700">− {money(Number(value))}</span> : <span className="text-muted-foreground">—</span>,
+                },
+                { key: "amount", label: "Net total", align: "right", width: "120px", render: (value) => <span className="font-semibold">{money(Number(value))}</span> },
+                ...(isPurchaseBillEnabled
+                    ? [{
+                        key: "billImageUrl",
+                        label: "Bill",
+                        align: "center" as const,
+                        width: "70px",
+                        render: (value: any) => value ? (
+                            <a href={value} target="_blank" rel="noopener noreferrer" aria-label="View bill photo" className="inline-flex text-primary">
+                                <Paperclip className="h-4 w-4" />
+                            </a>
+                        ) : <span className="text-muted-foreground">—</span>,
+                    }]
+                    : []),
+                {
+                    key: "actions",
+                    label: "",
+                    align: "right",
+                    width: "90px",
+                    render: (_v, row) => (
+                        <div className="flex justify-end gap-1">
+                            {iconButton("View details", () => setDetailsRow(row), <Eye className="h-4 w-4" />)}
+                            {iconButton("Delete purchase", () => askVoid("PURCHASE", row), <Trash2 className="h-4 w-4" />, true)}
+                        </div>
+                    ),
+                },
+            ];
+        }
+        if (tab === "payments") {
+            return [
+                dateColumn(),
+                {
+                    key: "direction",
+                    label: "Type",
+                    width: "110px",
+                    render: (value) => value === "RECEIVED"
+                        ? <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Received</Badge>
+                        : <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Paid</Badge>,
+                },
+                { key: "paymentMethod", label: "Method", width: "110px", render: (value) => value ? String(value).replaceAll("_", " ") : "—" },
+                { key: "amount", label: "Amount", align: "right", width: "120px", render: (value) => <span className="font-semibold">{money(Number(value))}</span> },
+                { key: "balanceAfter", label: "Balance after", align: "right", width: "130px", render: (value) => money(Number(value)) },
+                {
+                    key: "notes",
+                    label: "Note / Ref",
+                    width: "160px",
+                    render: (_v, row) => <span className="text-xs text-muted-foreground">{[row.notes, row.reference && `Ref: ${row.reference}`].filter(Boolean).join(" · ") || "—"}</span>,
+                },
+                {
+                    key: "actions",
+                    label: "",
+                    align: "right",
+                    width: "60px",
+                    render: (_v, row) => <div className="flex justify-end">{iconButton("Delete payment", () => askVoid("PAYMENT", row), <Trash2 className="h-4 w-4" />, true)}</div>,
+                },
+            ];
+        }
+        if (tab === "settlements") {
+            return [
+                dateColumn(),
+                { key: "reference", label: "Invoice", width: "110px", render: (value) => value || "—" },
+                { key: "items", label: "Items", width: "180px", render: (_v, row) => <span className="text-sm">{itemsSummary(row)}</span> },
+                { key: "amount", label: "Amount", align: "right", width: "120px", render: (value) => <span className="font-semibold text-blue-700">− {money(Number(value))}</span> },
+                {
+                    key: "actions",
+                    label: "",
+                    align: "right",
+                    width: "60px",
+                    render: (_v, row) => <div className="flex justify-end">{iconButton("View details", () => setDetailsRow(row), <Eye className="h-4 w-4" />)}</div>,
+                },
+            ];
+        }
+        if (tab === "adjustments") {
+            return [
+                dateColumn(),
+                { key: "type", label: "Type", width: "130px", render: (value) => value === "OPENING_BALANCE" ? "Opening balance" : "Adjustment" },
+                {
+                    key: "amount",
+                    label: "Amount",
+                    align: "right",
+                    width: "140px",
+                    render: (value) => {
+                        const amount = Number(value);
+                        if (amount > 0) return <span className="font-semibold text-red-600">{money(amount)} owed</span>;
+                        if (amount < 0) return <span className="font-semibold text-green-600">{money(Math.abs(amount))} advance</span>;
+                        return money(0);
+                    },
+                },
+                { key: "balanceAfter", label: "Balance after", align: "right", width: "130px", render: (value) => money(Number(value)) },
+                { key: "notes", label: "Note", width: "160px", render: (value) => <span className="text-xs text-muted-foreground">{value || "—"}</span> },
+            ];
+        }
+        return [
+            dateColumn("Deleted on", "voidedAt"),
+            {
+                key: "kind",
+                label: "Record",
+                width: "150px",
+                render: (value, row) => value === "PURCHASE"
+                    ? `Purchase${row.itemsCount ? ` · ${row.itemsCount} item${row.itemsCount === 1 ? "" : "s"}` : ""}`
+                    : `Payment · ${row.direction === "RECEIVED" ? "Received" : "Paid"}`,
+            },
+            dateColumn("Original date"),
+            { key: "amount", label: "Amount", align: "right", width: "120px", render: (value) => money(Number(value)) },
+            { key: "voidedReason", label: "Reason", width: "180px", render: (value) => <span className="text-xs text-muted-foreground">{value || "—"}</span> },
+        ];
     };
 
     if (isLoading) {
@@ -233,24 +441,24 @@ export default function ManualCompanyAccountPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => router.push("/dealer/dashboard/company")}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Companies
+            <div className="space-y-3">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-2 h-8 px-2 text-muted-foreground"
+                    onClick={() => router.push("/dealer/dashboard/company")}
+                >
+                    <ArrowLeft className="mr-1.5 h-4 w-4" />
+                    Companies
                 </Button>
-            </div>
-
-            {/* Company Info */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-blue-600" />
-                                <CardTitle className="text-xl">{company.name}</CardTitle>
-                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Manual</Badge>
-                            </div>
-                            <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                            <Building2 className="h-5 w-5 text-primary" />
+                        </span>
+                        <div className="min-w-0">
+                            <h1 className="truncate text-xl font-bold tracking-tight sm:text-2xl">{company.name}</h1>
+                            <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                                 {company.phone && (
                                     <span className="flex items-center gap-1">
                                         <Phone className="h-3.5 w-3.5" />
@@ -258,508 +466,188 @@ export default function ManualCompanyAccountPage() {
                                     </span>
                                 )}
                                 {company.address && (
-                                    <span className="flex items-center gap-1">
-                                        <MapPin className="h-3.5 w-3.5" />
-                                        {company.address}
+                                    <span className="flex min-w-0 items-center gap-1">
+                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                        <span className="truncate">{company.address}</span>
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            <BusinessDownloadDialog title={`${company.name} statement`} fileName={`${company.name}-statement`} getData={downloadStatement} />
-                            <Button variant="outline" size="sm" onClick={openEditCompany}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                            </Button>
-                        </div>
                     </div>
-                </CardHeader>
-            </Card>
-
-            {/* Balance Summary */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-                <Card className="border-l-4 border-l-blue-400">
-                    <CardContent className="pt-4 pb-4">
-                        <div className="flex items-start justify-between gap-2">
-                            <div className="text-sm text-muted-foreground">Opening balance</div>
-                            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={openEditOpening}>
-                                <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                        </div>
-                        <div
-                            className={`text-2xl font-bold ${Number(openingBalance?.amount ?? 0) > 0
-                                ? "text-red-600"
-                                : Number(openingBalance?.amount ?? 0) < 0
-                                    ? "text-green-600"
-                                    : ""
-                                }`}
-                        >
-                            {Number(openingBalance?.amount ?? 0) > 0
-                                ? `${formatCurrency(Number(openingBalance?.amount))} owed`
-                                : Number(openingBalance?.amount ?? 0) < 0
-                                    ? `${formatCurrency(Number(openingBalance?.amount))} advance`
-                                    : "रू 0.00"}
-                        </div>
-                        {openingBalance?.date && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                                Set on <DateDisplay date={openingBalance.date} format="long" />
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-red-400">
-                    <CardContent className="pt-4 pb-4">
-                        <div className="text-sm text-muted-foreground">Balance</div>
-                        <div className={`text-2xl font-bold ${company.balance > 0 ? "text-red-600" : company.balance < 0 ? "text-green-600" : ""
-                            }`}>
-                            {company.balance > 0
-                                ? `${formatCurrency(company.balance)} owed`
-                                : company.balance < 0
-                                    ? `${formatCurrency(company.balance)} advance`
-                                    : "रू 0.00"}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-orange-400">
-                    <CardContent className="pt-4 pb-4">
-                        <div className="text-sm text-muted-foreground">Total Purchases</div>
-                        <div className="text-2xl font-bold">{formatCurrency(company.totalPurchases)}</div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-green-400">
-                    <CardContent className="pt-4 pb-4">
-                        <div className="text-sm text-muted-foreground">Total Payments</div>
-                        <div className="text-2xl font-bold">{formatCurrency(company.totalPayments)}</div>
-                    </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-blue-400">
-                    <CardContent className="pt-4 pb-4">
-                        <div className="text-sm text-muted-foreground">Supplier Settlement Sales</div>
-                        <div className="text-2xl font-bold text-blue-700">{formatCurrency(Number(company.totalSettlementSales || 0))}</div>
-                    </CardContent>
-                </Card>
+                    <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
+                        <BusinessDownloadDialog title={`${company.name} statement`} fileName={`${company.name}-statement`} getData={downloadStatement} />
+                        <Button variant="outline" size="sm" onClick={openEditCompany}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                        </Button>
+                    </div>
+                </div>
             </div>
 
-            {/* Transaction History — Tabbed */}
+            {/* Balance + totals: one slim strip */}
             {(() => {
-                const purchases = transactions.filter((t: any) => t.type === "PURCHASE");
-                const payments = transactions.filter((t: any) => t.type === "PAYMENT");
-                const settlements = transactions.filter((t: any) => t.type === "SUPPLIER_SETTLEMENT_SALE");
-                const adjustments = transactions.filter((t: any) => t.type === "OPENING_BALANCE" || t.type === "ADJUSTMENT");
-                const voided = Array.isArray(voidedTransactions) ? voidedTransactions : [];
-
+                const balance = Number(company.balance);
+                const opening = Number(openingBalance?.amount ?? 0);
+                const tone = (value: number) => (value > 0 ? "text-red-600" : value < 0 ? "text-green-600" : "");
+                const stats = [
+                    { label: "Purchases", value: formatCurrency(company.totalPurchases), className: "" },
+                    { label: "Payments", value: formatCurrency(company.totalPayments), className: "" },
+                    ...(showSettlements
+                        ? [{ label: "Settlement sales", value: formatCurrency(Number(company.totalSettlementSales || 0)), className: "text-blue-700" }]
+                        : []),
+                ];
                 return (
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle>Transaction History</CardTitle>
-                            {/* Tabs */}
-                            <div className="flex gap-2 border-b mt-2">
+                    <div className={`grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-gray-200 ${showSettlements ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+                        {/* With 5 boxes the balance takes a full row on phones; with 4 it's a neat 2×2. */}
+                        <div className={`bg-white px-3 py-2 ${showSettlements ? "col-span-2 sm:col-span-1" : ""}`}>
+                            <p className="text-[11px] text-muted-foreground">
+                                {balance > 0 ? "You owe" : balance < 0 ? "Advance paid" : "Balance"}
+                            </p>
+                            <p className={`text-lg font-bold leading-tight ${tone(balance)}`}>
+                                {balance === 0 ? "रू 0.00" : formatCurrency(balance)}
+                            </p>
+                        </div>
+                        <div className="bg-white px-3 py-2">
+                            <div className="flex items-center gap-1">
+                                <p className="text-[11px] text-muted-foreground">
+                                    Opening {opening > 0 ? "(owed)" : opening < 0 ? "(advance)" : ""}
+                                </p>
                                 <button
-                                    onClick={() => setActiveTab("purchases")}
-                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "purchases"
-                                        ? "border-b-2 border-orange-500 text-orange-600"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground"
+                                    aria-label="Edit opening balance"
+                                    title="Edit opening balance"
+                                    onClick={openEditOpening}
                                 >
-                                    <ShoppingCart className="inline h-4 w-4 mr-1.5 -mt-0.5" />
-                                    Purchases ({purchases.length})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("payments")}
-                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "payments"
-                                        ? "border-b-2 border-green-500 text-green-600"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Wallet className="inline h-4 w-4 mr-1.5 -mt-0.5" />
-                                    Payments ({payments.length})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("settlements")}
-                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "settlements"
-                                        ? "border-b-2 border-blue-500 text-blue-600"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Package className="inline h-4 w-4 mr-1.5 -mt-0.5" />
-                                    Settlement sales ({settlements.length})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("adjustments")}
-                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "adjustments"
-                                        ? "border-b-2 border-blue-500 text-blue-600"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <CreditCard className="inline h-4 w-4 mr-1.5 -mt-0.5" />
-                                    Adjustments ({adjustments.length})
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("voided")}
-                                    className={`px-4 py-2 font-medium transition-colors text-sm ${activeTab === "voided"
-                                        ? "border-b-2 border-gray-500 text-gray-700"
-                                        : "text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Trash2 className="inline h-4 w-4 mr-1.5 -mt-0.5" />
-                                    Voided ({voided.length})
+                                    <Edit className="h-3 w-3" />
                                 </button>
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            {/* Purchases Tab */}
-                            {activeTab === "purchases" && (
-                                purchases.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                                        <p>No purchases recorded yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {purchases.map((txn: any) => (
-                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-orange-400">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center">
-                                                            <ShoppingCart className="h-4 w-4 text-orange-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">Purchase</p>
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3" />
-                                                                <DateDisplay date={txn.date} format="long" />
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="text-lg font-bold text-orange-600">
-                                                            + {formatCurrency(txn.amount)}
-                                                        </p>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-muted-foreground hover:text-red-600"
-                                                            onClick={() => {
-                                                                setVoidReason("");
-                                                                setVoidConfirm({
-                                                                    kind: "PURCHASE",
-                                                                    id: txn.id,
-                                                                    date: txn.date,
-                                                                    amount: Number(txn.amount),
-                                                                });
-                                                            }}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mt-3 rounded-md border bg-gray-50 px-3 py-2 text-sm space-y-1">
-                                                    {(() => {
-                                                        const basicTotal = Array.isArray(txn.items)
-                                                            ? txn.items.reduce((s: number, it: any) => s + Number(it.totalAmount || 0), 0)
-                                                            : 0;
-                                                        const tradeDiscount = Number(txn.tradeDiscountAmount || 0);
-                                                        const netTotal = Number(txn.amount || 0);
-                                                        return (
-                                                            <>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Basic total</span>
-                                                                    <span className="font-medium">{formatCurrency(basicTotal)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Trade discount</span>
-                                                                    <span className="font-medium text-green-700">- {formatCurrency(tradeDiscount)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between border-t pt-1">
-                                                                    <span className="font-medium">Net total</span>
-                                                                    <span className="font-semibold">{formatCurrency(netTotal)}</span>
-                                                                </div>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-
-                                                {txn.items && txn.items.length > 0 && (
-                                                    <div className="mt-3 border-t pt-3">
-                                                        <p className="text-xs text-muted-foreground mb-2 font-medium">Items purchased:</p>
-                                                        <div className="space-y-1.5">
-                                                            {txn.items.map((item: any, idx: number) => (
-                                                                <div key={idx} className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-1.5">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Package className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                        <span className="font-medium">{item.productName}</span>
-                                                                        <Badge variant="secondary" className="text-xs py-0">{item.type}</Badge>
-                                                                    </div>
-                                                                    <div className="text-right text-xs">
-                                                                        <span>{Number(item.quantity).toFixed(2)} {item.unit}</span>
-                                                                        {item.expiryDate && (
-                                                                            <span className="ml-2">Expiry: {String(item.expiryDate).slice(0, 10)}</span>
-                                                                        )}
-                                                                        <span className="mx-1">×</span>
-                                                                        <span>रू {Number(item.costPrice).toFixed(2)}</span>
-                                                                        <span className="font-medium ml-2">= रू {Number(item.totalAmount).toFixed(2)}</span>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {txn.notes && (
-                                                    <div className="mt-2 text-xs text-muted-foreground italic">Note: {txn.notes}</div>
-                                                )}
-                                                {txn.reference && (
-                                                    <div className="mt-1 text-xs text-muted-foreground">Ref: {txn.reference}</div>
-                                                )}
-                                                {isPurchaseBillEnabled && txn.billImageUrl && (
-                                                    <a
-                                                        href={txn.billImageUrl}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="mt-1 inline-block text-xs text-blue-600 underline"
-                                                    >
-                                                        View bill
-                                                    </a>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )
-                            )}
-
-                            {/* Payments Tab */}
-                            {activeTab === "payments" && (
-                                payments.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Wallet className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                                        <p>No payments recorded yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {payments.map((txn: any) => (
-                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-green-400">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                                                            <Wallet className="h-4 w-4 text-green-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                {txn.direction === "RECEIVED" ? "Payment received" : "Payment made"}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3" />
-                                                                <DateDisplay date={txn.date} format="long" />
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right flex items-center gap-2">
-                                                        <div>
-                                                            <p className={`text-lg font-bold ${txn.direction === "RECEIVED" ? "text-red-600" : "text-green-600"}`}>
-                                                                {txn.direction === "RECEIVED" ? "+" : "-"} {formatCurrency(txn.amount)}
-                                                            </p>
-                                                        {txn.paymentMethod && (
-                                                            <Badge variant="secondary" className="text-xs mt-1">
-                                                                <CreditCard className="h-3 w-3 mr-1" />
-                                                                {txn.paymentMethod}
-                                                            </Badge>
-                                                        )}
-                                                        </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-muted-foreground hover:text-red-600"
-                                                            onClick={() => {
-                                                                setVoidReason("");
-                                                                setVoidConfirm({
-                                                                    kind: "PAYMENT",
-                                                                    id: txn.id,
-                                                                    date: txn.date,
-                                                                    amount: Number(txn.amount),
-                                                                });
-                                                            }}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                {txn.balanceAfter !== undefined && (
-                                                    <div className="mt-2 text-xs text-muted-foreground">
-                                                        Balance after: रू {Number(txn.balanceAfter).toFixed(2)}
-                                                    </div>
-                                                )}
-                                                {txn.notes && (
-                                                    <div className="mt-1 text-xs text-muted-foreground italic">Note: {txn.notes}</div>
-                                                )}
-                                                {txn.reference && (
-                                                    <div className="mt-1 text-xs text-muted-foreground">Ref: {txn.reference}</div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )
-                            )}
-
-                            {/* Supplier settlement sales tab */}
-                            {activeTab === "settlements" && (
-                                settlements.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Package className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                                        <p>No supplier settlement sales recorded yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {settlements.map((txn: any) => (
-                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-blue-400">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                            <Package className="h-4 w-4 text-blue-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">Supplier settlement sale</p>
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3" />
-                                                                <DateDisplay date={txn.date} format="long" />
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-lg font-bold text-blue-700">- {formatCurrency(Number(txn.amount))}</p>
-                                                        <Badge variant="outline" className="mt-1 border-blue-300 text-blue-800">No cash payment</Badge>
-                                                    </div>
-                                                </div>
-                                                <p className="mt-2 text-xs text-blue-800">Goods supplied to the company; this amount reduced its payable balance.</p>
-                                                {txn.reference ? <div className="mt-2 text-xs text-muted-foreground">Invoice: {txn.reference}</div> : null}
-                                                {txn.items?.length ? (
-                                                    <div className="mt-3 border-t pt-3 space-y-1.5">
-                                                        {txn.items.map((item: any) => (
-                                                            <div key={item.id} className="flex justify-between gap-3 rounded bg-muted/40 px-3 py-1.5 text-sm">
-                                                                <span>{item.product?.name || "Product"}</span>
-                                                                <span>{Number(item.quantity).toFixed(2)} {item.unit || item.product?.unit || ""} × रू {Number(item.unitPrice).toFixed(2)}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : null}
-                                                {txn.notes ? <div className="mt-2 text-xs text-muted-foreground italic">Note: {txn.notes}</div> : null}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )
-                            )}
-
-                            {/* Adjustments Tab */}
-                            {activeTab === "adjustments" && (
-                                adjustments.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                                        <p>No adjustments yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {adjustments.map((txn: any) => (
-                                            <div key={txn.id} className="border rounded-lg p-4 border-l-4 border-l-blue-400">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                            <CreditCard className="h-4 w-4 text-blue-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium">
-                                                                {txn.type === "OPENING_BALANCE" ? "Opening balance" : "Adjustment"}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Calendar className="h-3 w-3" />
-                                                                <DateDisplay date={txn.date} format="long" />
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <p className={`text-lg font-bold ${Number(txn.amount) > 0 ? "text-red-600" : Number(txn.amount) < 0 ? "text-green-600" : "text-muted-foreground"}`}>
-                                                        {Number(txn.amount) > 0 ? `+ ${formatCurrency(Number(txn.amount))}` : Number(txn.amount) < 0 ? `- ${formatCurrency(Number(txn.amount))}` : "रू 0.00"}
-                                                    </p>
-                                                </div>
-                                                {txn.notes && (
-                                                    <div className="mt-2 text-xs text-muted-foreground italic">Note: {txn.notes}</div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )
-                            )}
-
-                            {/* Voided Tab */}
-                            {activeTab === "voided" && (
-                                voided.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
-                                        <Trash2 className="h-12 w-12 mx-auto mb-3 opacity-40" />
-                                        <p>No voided records yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {voided
-                                            .slice()
-                                            .sort(
-                                                (a: any, b: any) =>
-                                                    new Date(b.voidedAt).getTime() -
-                                                    new Date(a.voidedAt).getTime()
-                                            )
-                                            .map((v: any) => (
-                                                <div key={`${v.kind}-${v.id}`} className="border rounded-lg p-4 border-l-4 border-l-gray-400">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
-                                                                <Trash2 className="h-4 w-4 text-gray-600" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="font-medium">
-                                                                        {v.kind === "PURCHASE" ? "Purchase" : "Payment"}
-                                                                    </p>
-                                                                    {v.kind === "PAYMENT" && (
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {v.direction === "RECEIVED" ? "Received" : "Made"}
-                                                                        </Badge>
-                                                                    )}
-                                                                    <Badge variant="secondary" className="text-xs">
-                                                                        Voided
-                                                                    </Badge>
-                                                                </div>
-                                                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                    <Calendar className="h-3 w-3" />
-                                                                    Original: <DateDisplay date={v.date} format="long" />
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                                                    <Calendar className="h-3 w-3" />
-                                                                    Voided: <DateDisplay date={v.voidedAt} format="long" />
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="text-lg font-bold text-gray-700">
-                                                                {v.kind === "PURCHASE" ? "+ " : "- "}
-                                                                {formatCurrency(Number(v.amount))}
-                                                            </p>
-                                                            {v.itemsCount != null && v.kind === "PURCHASE" ? (
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Items: {v.itemsCount}
-                                                                </p>
-                                                            ) : null}
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-2 text-xs text-muted-foreground">
-                                                        Reason: {v.voidedReason ? v.voidedReason : "—"}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                    </div>
-                                )
-                            )}
-                        </CardContent>
-                    </Card>
+                            <p className={`text-sm font-semibold leading-tight ${tone(opening)}`}>
+                                {opening === 0 ? "रू 0.00" : formatCurrency(opening)}
+                            </p>
+                        </div>
+                        {stats.map((stat) => (
+                            <div key={stat.label} className="bg-white px-3 py-2">
+                                <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+                                <p className={`text-sm font-semibold leading-tight ${stat.className}`}>{stat.value}</p>
+                            </div>
+                        ))}
+                    </div>
                 );
             })()}
+
+            {/* Transaction History — one table per tab, paged on the server */}
+            <Card>
+                <CardHeader className="pb-2">
+                    <CardTitle>Transaction History</CardTitle>
+                    <div className="mt-2 flex gap-1 overflow-x-auto border-b">
+                        {visibleTabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const active = activeTab === tab.key;
+                            return (
+                                <button
+                                    key={tab.key}
+                                    type="button"
+                                    onClick={() => changeTab(tab.key)}
+                                    className={`-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${active
+                                        ? tab.activeClass
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Icon className="h-4 w-4" />
+                                    {tab.label} ({counts?.[tab.key] ?? 0})
+                                </button>
+                            );
+                        })}
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <DataTable
+                        data={rows}
+                        columns={columnsFor(activeTab)}
+                        loading={isFetching && rows.length === 0}
+                        emptyMessage={TABS.find((tab) => tab.key === activeTab)?.empty}
+                        getRowKey={(row: any) => `${row.kind ?? row.type}-${row.id}`}
+                    />
+                    <LedgerPagination
+                        page={page}
+                        totalPages={pagination?.totalPages ?? 0}
+                        totalRows={pagination?.total ?? 0}
+                        pageLimit={PAGE_SIZE}
+                        onPageChange={setPage}
+                        loading={isFetching}
+                    />
+                </CardContent>
+            </Card>
+
+            {/* Purchase / settlement sale details */}
+            <Dialog open={!!detailsRow} onOpenChange={(open) => !open && setDetailsRow(null)}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto bg-white sm:max-w-lg">
+                    {detailsRow && (() => {
+                        const isPurchase = detailsRow.type === "PURCHASE";
+                        const items: any[] = Array.isArray(detailsRow.items) ? detailsRow.items : [];
+                        const basicTotal = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+                        const discount = Number(detailsRow.tradeDiscountAmount || 0);
+                        return (
+                            <>
+                                <DialogHeader>
+                                    <DialogTitle>{isPurchase ? "Purchase details" : "Settlement sale details"}</DialogTitle>
+                                    <DialogDescription>
+                                        <DateDisplay date={detailsRow.date} format="long" />
+                                        {detailsRow.reference ? ` · ${isPurchase ? "Ref" : "Invoice"}: ${detailsRow.reference}` : ""}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="divide-y rounded-lg border">
+                                    {items.map((item: any, index: number) => (
+                                        <div key={item.id ?? index} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
+                                            <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-medium">{item.productName ?? item.product?.name ?? "Product"}</span>
+                                                    {item.type ? <Badge variant="secondary" className="py-0 text-xs">{item.type}</Badge> : null}
+                                                </div>
+                                                {item.expiryDate ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Expiry: <DateDisplay date={item.expiryDate} />
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="shrink-0 text-right text-xs text-muted-foreground">
+                                                <p>
+                                                    {Number(item.quantity).toFixed(2)} {item.unit ?? item.product?.unit ?? ""} × रू {Number(item.costPrice ?? item.unitPrice ?? 0).toFixed(2)}
+                                                </p>
+                                                <p className="text-sm font-medium text-foreground">रू {Number(item.totalAmount || 0).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="space-y-1 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                                    {isPurchase ? (
+                                        <>
+                                            <div className="flex justify-between"><span>Basic total</span><span>{formatCurrency(basicTotal)}</span></div>
+                                            <div className="flex justify-between text-green-700"><span>Trade discount</span><span>− {formatCurrency(discount)}</span></div>
+                                        </>
+                                    ) : null}
+                                    <div className="flex justify-between border-t pt-1 font-semibold">
+                                        <span>{isPurchase ? "Net total" : "Total"}</span>
+                                        <span>{formatCurrency(Number(detailsRow.amount || 0))}</span>
+                                    </div>
+                                </div>
+                                {detailsRow.notes ? <p className="text-sm text-muted-foreground">Note: {detailsRow.notes}</p> : null}
+                                {isPurchase && isPurchaseBillEnabled && detailsRow.billImageUrl ? (
+                                    <a
+                                        href={detailsRow.billImageUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                                    >
+                                        <Paperclip className="h-4 w-4" /> View bill photo
+                                    </a>
+                                ) : null}
+                            </>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
 
             {/* Edit Opening Balance Dialog */}
             <Dialog open={isEditOpeningOpen} onOpenChange={setIsEditOpeningOpen}>

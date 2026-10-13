@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, Bird, Building2 } from "lucide-react";
+import { Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -32,9 +32,10 @@ import {
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { useAuthStore } from "@/common/store/store";
-import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
+import { NewSaleMenuButton } from "@/components/dealer/sales/NewSaleMenuButton";
 
 export default function DealerSalesPage() {
   const router = useRouter();
@@ -47,12 +48,6 @@ export default function DealerSalesPage() {
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
-  const supplierSettlementFeature = useAccountFeature(
-    ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES
-  );
-  const broilerFeature = useAccountFeature(
-    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
-  );
   const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
 
   // Get sales
@@ -124,37 +119,11 @@ export default function DealerSalesPage() {
         </div>
         <div className="flex flex-col items-start sm:items-end gap-2 sm:flex-row">
           <BusinessDownloadDialog title="sales" fileName="dealer-sales" getData={downloadSales} className="w-full sm:w-auto" />
-          {broilerFeature.isEnabled ? (
-            <Button
-              onClick={() => router.push("/dealer/dashboard/sales/chicken-by-farmer")}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Bird className="mr-2 h-4 w-4" />
-              Broiler Sales by Farmer
-            </Button>
-          ) : null}
-          <Button
-            onClick={() => router.push("/dealer/dashboard/sales/new")}
-            variant="outline"
-            className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t("dealer.sales.buttons.newSale")}</span>
-            <span className="sm:hidden">{t("dealer.sales.buttons.newSale")}</span>
-          </Button>
-          {supplierSettlementFeature.isEnabled ? (
-            <Button
-              onClick={() => router.push("/dealer/dashboard/sales/supplier-settlement")}
-              variant="outline"
-              className="w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              Sell to company
-            </Button>
-          ) : null}
+          <NewSaleMenuButton label={t("dealer.sales.buttons.newSale")} />
         </div>
       </div>
+
+      <DealerSalesTabs />
 
       {/* Search */}
       <div className="max-w-md">

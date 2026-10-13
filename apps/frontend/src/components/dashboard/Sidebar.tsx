@@ -168,12 +168,6 @@ export const dealerNavigation: NavigationItem[] = [
     icon: Receipt,
   },
   {
-    nameKey: "sidebar.nav.analytics",
-    href: "/dealer/dashboard/analytics",
-    icon: BarChart3,
-    requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
-  },
-  {
     nameKey: "sidebar.nav.staffAccess",
     href: "/dealer/dashboard/staff-access",
     icon: KeyRound,
@@ -199,6 +193,12 @@ export const dealerNavigation: NavigationItem[] = [
     icon: Wallet,
     // Cash details are private by default for staff. Dealer owners always see it.
     requiredStaffPermission: "DEALER_VIEW_CASH_HISTORY",
+  },
+  {
+    nameKey: "sidebar.nav.analytics",
+    href: "/dealer/dashboard/analytics",
+    icon: BarChart3,
+    requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
   },
 ];
 

@@ -3,6 +3,7 @@ import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import { parseDealerExpiryDate } from "../utils/dealerExpiryDate";
+import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 
 type ManualCompanyPaymentDirection = "RECEIVED" | "MADE";
 
@@ -935,6 +936,204 @@ export const voidManualCompanyPayment = async (req: Request, res: Response): Pro
 };
 
 // ==================== GET STATEMENT ====================
+const STATEMENT_TABS = ["purchases", "payments", "settlements", "adjustments", "voided"] as const;
+type StatementTab = (typeof STATEMENT_TABS)[number];
+
+const mapStatementPurchase = (p: any) => ({
+    type: "PURCHASE" as const,
+    id: p.id,
+    date: p.date,
+    amount: Number(p.totalAmount),
+    tradeDiscountAmount: Number(p.tradeDiscountAmount ?? 0),
+    notes: p.notes,
+    reference: p.reference,
+    billImageUrl: p.billImageUrl,
+    items: p.items,
+});
+
+const mapStatementPayment = (p: any) => ({
+    type: "PAYMENT" as const,
+    id: p.id,
+    date: p.paymentDate,
+    amount: Number(p.amount),
+    direction: getManualCompanyPaymentDirection(p.direction),
+    notes: p.notes,
+    reference: p.reference,
+    paymentMethod: p.paymentMethod,
+    balanceAfter: Number(p.balanceAfter),
+});
+
+const mapStatementSettlementSale = (sale: any) => ({
+    type: "SUPPLIER_SETTLEMENT_SALE" as const,
+    id: sale.id,
+    date: sale.date,
+    amount: Number(sale.totalAmount),
+    notes: sale.notes,
+    reference: sale.invoiceNumber,
+    items: sale.items,
+});
+
+const mapStatementAdjustment = (a: any) => ({
+    type: a.type as "OPENING_BALANCE" | "ADJUSTMENT",
+    id: a.id,
+    date: a.date,
+    amount: Number(a.amount),
+    notes: a.notes,
+    balanceAfter: Number(a.balanceAfter),
+});
+
+const mapVoidedPurchase = (p: any) => ({
+    kind: "PURCHASE" as const,
+    id: p.id,
+    date: p.date,
+    amount: Number(p.totalAmount),
+    tradeDiscountAmount: Number(p.tradeDiscountAmount ?? 0),
+    voidedAt: p.voidedAt,
+    voidedReason: p.voidedReason,
+    billImageUrl: p.billImageUrl,
+    itemsCount: Array.isArray(p.items) ? p.items.length : 0,
+});
+
+const mapVoidedPayment = (p: any) => ({
+    kind: "PAYMENT" as const,
+    id: p.id,
+    date: p.paymentDate,
+    amount: Number(p.amount),
+    direction: getManualCompanyPaymentDirection(p.direction),
+    voidedAt: p.voidedAt,
+    voidedReason: p.voidedReason,
+});
+
+/**
+ * One tab of a supplier's account, paged in the database (10 per page by
+ * default), plus the true row count of every tab.
+ */
+async function getStatementTab(
+    res: Response,
+    dealerId: string,
+    company: any,
+    query: Record<string, any>
+) {
+    const type = String(query.type) as StatementTab;
+    if (!STATEMENT_TABS.includes(type)) {
+        return res.status(400).json({ message: "Invalid tab" });
+    }
+
+    const page = Math.max(1, Math.floor(Number(query.page)) || 1);
+    const limit = Math.min(50, Math.max(1, Math.floor(Number(query.limit)) || 10));
+    const skip = (page - 1) * limit;
+    const manualCompanyId = company.id;
+
+    const purchaseWhere = { manualCompanyId, voidedAt: null };
+    const paymentWhere = { manualCompanyId, voidedAt: null };
+    const settlementWhere = { dealerId, manualCompanyId, isSupplierSettlementSale: true };
+    const voidedWhere = { manualCompanyId, voidedAt: { not: null } };
+
+    const [purchases, payments, settlements, adjustments, voidedPurchases, voidedPayments, latestOpening] =
+        await Promise.all([
+            prisma.dealerManualPurchase.count({ where: purchaseWhere }),
+            prisma.dealerManualCompanyPayment.count({ where: paymentWhere }),
+            prisma.dealerSale.count({ where: settlementWhere }),
+            prisma.dealerManualCompanyAdjustment.count({ where: { manualCompanyId } }),
+            prisma.dealerManualPurchase.count({ where: voidedWhere }),
+            prisma.dealerManualCompanyPayment.count({ where: voidedWhere }),
+            prisma.dealerManualCompanyAdjustment.findFirst({
+                where: { manualCompanyId, type: "OPENING_BALANCE" },
+                orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+            }),
+        ]);
+    const counts = {
+        purchases,
+        payments,
+        settlements,
+        adjustments,
+        voided: voidedPurchases + voidedPayments,
+    };
+
+    let rows: any[];
+    if (type === "purchases") {
+        rows = (await prisma.dealerManualPurchase.findMany({
+            where: purchaseWhere,
+            include: { items: true },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+            skip,
+            take: limit,
+        })).map(mapStatementPurchase);
+    } else if (type === "payments") {
+        rows = (await prisma.dealerManualCompanyPayment.findMany({
+            where: paymentWhere,
+            orderBy: [{ paymentDate: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+            skip,
+            take: limit,
+        })).map(mapStatementPayment);
+    } else if (type === "settlements") {
+        rows = (await prisma.dealerSale.findMany({
+            where: settlementWhere,
+            include: {
+                items: {
+                    include: { product: { select: { id: true, name: true, unit: true } } },
+                },
+            },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+            skip,
+            take: limit,
+        })).map(mapStatementSettlementSale);
+    } else if (type === "adjustments") {
+        rows = (await prisma.dealerManualCompanyAdjustment.findMany({
+            where: { manualCompanyId },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+            skip,
+            take: limit,
+        })).map(mapStatementAdjustment);
+    } else {
+        // Voided rows live in two tables: take enough from each, merge, then cut the page.
+        const [vPurchases, vPayments] = await Promise.all([
+            prisma.dealerManualPurchase.findMany({
+                where: voidedWhere,
+                include: { items: true },
+                orderBy: [{ voidedAt: "desc" }, { id: "desc" }],
+                take: skip + limit,
+            }),
+            prisma.dealerManualCompanyPayment.findMany({
+                where: voidedWhere,
+                orderBy: [{ voidedAt: "desc" }, { id: "desc" }],
+                take: skip + limit,
+            }),
+        ]);
+        rows = [...vPurchases.map(mapVoidedPurchase), ...vPayments.map(mapVoidedPayment)]
+            .sort((a, b) => new Date(b.voidedAt).getTime() - new Date(a.voidedAt).getTime())
+            .slice(skip, skip + limit);
+    }
+
+    const total = counts[type];
+    return res.status(200).json({
+        success: true,
+        data: {
+            company: {
+                id: company.id,
+                name: company.name,
+                phone: company.phone,
+                address: company.address,
+                balance: Number(company.balance),
+                totalPurchases: Number(company.totalPurchases),
+                totalPayments: Number(company.totalPayments),
+                totalSettlementSales: Number(company.totalSettlementSales),
+            },
+            openingBalance: latestOpening
+                ? {
+                    amount: Number(latestOpening.amount),
+                    date: latestOpening.date,
+                    notes: latestOpening.notes,
+                }
+                : { amount: 0, date: null, notes: null },
+            type,
+            rows,
+            counts,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        },
+    });
+}
+
 export const getManualCompanyStatement = async (
     req: Request,
     res: Response
@@ -959,6 +1158,12 @@ export const getManualCompanyStatement = async (
 
         if (!company || company.dealerId !== dealer.id) {
             return res.status(404).json({ message: "Manual company not found" });
+        }
+
+        // The account page asks for one tab at a time. Without `type` the old
+        // mixed statement below is returned (used by Download statement).
+        if (req.query.type !== undefined) {
+            return getStatementTab(res, dealer.id, company, req.query);
         }
 
         const pageNum = Number(page);
@@ -1128,12 +1333,20 @@ export const getManualCompanyStatement = async (
 };
 
 // ==================== GET PROFIT SUMMARY ====================
+// Profit = product sales − cost of the items sold + settled Broiler margin.
+// Optional startDate/endDate (YYYY-MM-DD) are full Nepal days.
 export const getDealerProfitSummary = async (
     req: Request,
     res: Response
 ): Promise<any> => {
     try {
         const userId = req.userId;
+
+        const dateRange = parseDealerDateRange(req.query.startDate, req.query.endDate);
+        if (!dateRange.ok) {
+            return res.status(400).json({ message: dateRange.message });
+        }
+        const dateFilter = dateRange.range ? { date: dateRange.range } : {};
 
         const dealer = await prisma.dealer.findUnique({
             where: { ownerId: userId },
@@ -1144,36 +1357,50 @@ export const getDealerProfitSummary = async (
             return res.status(404).json({ message: "Dealer not found" });
         }
 
-        // Total purchases: sum of all DealerProductTransaction with type PURCHASE
-        const purchaseAggregate = await prisma.dealerProductTransaction.aggregate({
-            where: {
-                product: { dealerId: dealer.id },
-                type: "PURCHASE",
-            },
-            _sum: { totalAmount: true },
-        });
-
         // Broiler proceeds belong to the farmer. Only the settled margin is dealer income.
-        const saleAggregate = await prisma.dealerSale.aggregate({
-            where: {
-                dealerId: dealer.id,
-                farmerId: null,
-                accountId: null,
-                isChickenSale: false,
-            },
-            _sum: { totalAmount: true },
-        });
+        const saleWhere: Prisma.DealerSaleWhereInput = {
+            dealerId: dealer.id,
+            farmerId: null,
+            accountId: null,
+            isChickenSale: false,
+            ...dateFilter,
+        };
 
-        const marginAggregate = await prisma.dealerLedgerEntry.aggregate({
-            where: { dealerId: dealer.id, type: "BROILER_SALE_MARGIN" },
-            _sum: { amount: true },
-        });
+        const [saleAggregate, costAggregate, itemsMissingCost, marginAggregate, purchaseAggregate] =
+            await Promise.all([
+                prisma.dealerSale.aggregate({
+                    where: saleWhere,
+                    _sum: { totalAmount: true },
+                }),
+                prisma.dealerSaleItem.aggregate({
+                    where: { sale: saleWhere },
+                    _sum: { costAmount: true },
+                }),
+                prisma.dealerSaleItem.count({
+                    where: { sale: saleWhere, OR: [{ productId: null }, { costAmount: null }] },
+                }),
+                prisma.dealerLedgerEntry.aggregate({
+                    where: { dealerId: dealer.id, type: "BROILER_SALE_MARGIN", ...dateFilter },
+                    _sum: { amount: true },
+                }),
+                // What was bought, after trade discount, without voided bills.
+                prisma.dealerManualPurchase.aggregate({
+                    where: {
+                        manualCompany: { dealerId: dealer.id },
+                        voidedAt: null,
+                        ...dateFilter,
+                    },
+                    _sum: { totalAmount: true },
+                }),
+            ]);
 
-        const totalPurchases = Number(purchaseAggregate._sum.totalAmount || 0);
-        const normalSales = Number(saleAggregate._sum.totalAmount || 0);
-        const broilerMargin = Number(marginAggregate._sum.amount || 0);
-        const totalSales = normalSales + broilerMargin;
-        const profit = totalSales - totalPurchases;
+        const round2 = (value: number) => Math.round(value * 100) / 100;
+        const normalSales = round2(Number(saleAggregate._sum.totalAmount || 0));
+        const costOfGoodsSold = round2(Number(costAggregate._sum.costAmount || 0));
+        const broilerMargin = round2(Number(marginAggregate._sum.amount || 0));
+        const totalPurchases = round2(Number(purchaseAggregate._sum.totalAmount || 0));
+        const totalSales = round2(normalSales + broilerMargin);
+        const profit = round2(normalSales - costOfGoodsSold + broilerMargin);
 
         return res.status(200).json({
             success: true,
@@ -1181,8 +1408,10 @@ export const getDealerProfitSummary = async (
                 totalPurchases,
                 totalSales,
                 normalSales,
+                costOfGoodsSold,
                 broilerMargin,
                 profit,
+                itemsMissingCost,
             },
         });
     } catch (error: any) {

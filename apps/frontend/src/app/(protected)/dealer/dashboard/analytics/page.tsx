@@ -1,35 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ComponentType } from "react";
 import Link from "next/link";
-import {
-  AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  BarChart3,
-  Building2,
-  CalendarRange,
-  LayoutDashboard,
-  RefreshCcw,
-  ReceiptText,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
-import {
-  Cell,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CalendarRange, RefreshCcw } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { Badge } from "@/common/components/ui/badge";
-import { DateInput } from "@/common/components/ui/date-input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/common/components/ui/table";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/common/components/ui/chart";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
+import {
+  convertADtoBS,
+  getBSYearMonthFromAD,
+  getFirstDayOfBSMonthAD,
+  getNepalTodayAd,
+} from "@/common/lib/nepali-date";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetInventorySummary, useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";
@@ -37,84 +19,31 @@ import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetManualCompanies, useGetDealerProfitSummary } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useAuthStore } from "@/common/store/store";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
-const quickRanges = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "month", label: "This month" },
-  { value: "quarter", label: "This quarter" },
-  { value: "year", label: "This year" },
-] as const;
+type DateRange = { startDate: string; endDate: string };
 
-const chartConfig = {
-  count: {
-    label: "Products",
-    color: "hsl(var(--chart-1))",
-  },
-};
-
-const chartColors = [
-  "#16a34a",
-  "#2563eb",
-  "#f59e0b",
-  "#a855f7",
-  "#ef4444",
-  "#14b8a6",
-  "#f97316",
-  "#0f766e",
-];
-
-function toDateOnly(value: string | Date | null | undefined) {
-  if (!value) return "";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().split("T")[0];
+/** Problem with a custom range, or null when it can be used. Dates are AD YYYY-MM-DD. */
+function getRangeError(startDate: string, endDate: string, today: string): string | null {
+  if (!startDate || !endDate) return "Please pick both dates.";
+  if (startDate > today || endDate > today) return "Dates cannot be in the future.";
+  if (startDate > endDate) return "Start date must be on or before end date.";
+  return null;
 }
 
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function startOfQuarter(date: Date) {
-  const quarterStartMonth = Math.floor(date.getMonth() / 3) * 3;
-  return new Date(date.getFullYear(), quarterStartMonth, 1);
-}
-
-function startOfYear(date: Date) {
-  return new Date(date.getFullYear(), 0, 1);
-}
-
-function buildPresetRange(preset: (typeof quickRanges)[number]["value"]) {
-  const end = new Date();
-  const start = new Date(end);
-  switch (preset) {
-    case "7d":
-      start.setDate(end.getDate() - 6);
-      break;
-    case "30d":
-      start.setDate(end.getDate() - 29);
-      break;
-    case "month":
-      return {
-        startDate: toDateOnly(startOfMonth(end)),
-        endDate: toDateOnly(end),
-      };
-    case "quarter":
-      return {
-        startDate: toDateOnly(startOfQuarter(end)),
-        endDate: toDateOnly(end),
-      };
-    case "year":
-      return {
-        startDate: toDateOnly(startOfYear(end)),
-        endDate: toDateOnly(end),
-      };
+function toBsLabel(adDate: string) {
+  try {
+    return convertADtoBS(adDate);
+  } catch {
+    return adDate;
   }
+}
 
-  return {
-    startDate: toDateOnly(start),
-    endDate: toDateOnly(end),
-  };
+function describeRange(range: DateRange | null) {
+  if (!range) return "All time";
+  const start = toBsLabel(range.startDate);
+  const end = toBsLabel(range.endDate);
+  return start === end ? start : `${start} to ${end}`;
 }
 
 function formatMoney(value: number | string | null | undefined) {
@@ -131,48 +60,78 @@ function formatNumber(value: number | string | null | undefined) {
   }).format(Number(value || 0));
 }
 
-function MetricCard({
+type StatItem = { label: string; value: string; sub?: string; valueClass?: string; note?: string };
+
+function SectionLabel({ title, tag }: { title: string; tag?: string }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      {title}
+      {tag ? <span className="font-normal normal-case tracking-normal"> · {tag}</span> : null}
+    </p>
+  );
+}
+
+/** One slim bordered row of numbers; 2 per row on phones. */
+function StatStrip({ items, columns }: { items: StatItem[]; columns: 3 | 4 }) {
+  const desktopCols = columns === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3";
+  return (
+    <div className={`grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-gray-200 bg-gray-200 ${desktopCols}`}>
+      {items.map((item, index) => (
+        <div
+          key={item.label}
+          className={`bg-white px-3 py-2.5 ${items.length % 2 === 1 && index === items.length - 1 ? "col-span-2 lg:col-span-1" : ""}`}
+        >
+          <p className="text-[11px] text-gray-500">{item.label}</p>
+          <p className={`text-lg font-semibold leading-tight ${item.valueClass ?? ""}`}>{item.value}</p>
+          {item.sub ? <p className="mt-0.5 text-[11px] text-gray-500">{item.sub}</p> : null}
+          {item.note ? <p className="mt-0.5 text-[11px] text-amber-600">{item.note}</p> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListBox({
   title,
-  value,
-  description,
-  icon: Icon,
-  tone,
-  badge,
-  scopeBadge,
+  count,
+  empty,
+  viewAllHref,
+  children,
 }: {
   title: string;
-  value: string;
-  description: string;
-  icon: ComponentType<{ className?: string }>;
-  tone: string;
-  badge?: string;
-  scopeBadge?: string;
+  count: number;
+  empty: string;
+  viewAllHref?: string;
+  children: React.ReactNode;
 }) {
+  const hasRows = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <div className="space-y-1">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <CardDescription className="text-xs">{description}</CardDescription>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          {scopeBadge ? (
-            <Badge variant="outline" className="text-[10px] font-normal">
-              {scopeBadge}
-            </Badge>
-          ) : null}
-          <Icon className={`h-4 w-4 ${tone}`} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="text-2xl font-semibold tracking-tight">{value}</div>
-        {badge ? (
-          <Badge variant="outline" className="text-[10px] font-normal">
-            {badge}
-          </Badge>
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          {title}
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-600">{count}</span>
+        </p>
+        {viewAllHref ? (
+          <Link href={viewAllHref} className="shrink-0 text-xs font-medium text-primary hover:underline">
+            View all →
+          </Link>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      {hasRows ? <div className="divide-y divide-gray-100">{children}</div> : <p className="px-3 py-6 text-center text-sm text-gray-500">{empty}</p>}
+    </div>
+  );
+}
+
+function ListRow({ title, sub, value, valueClass }: { title: string; sub?: string; value: string; valueClass?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{title}</p>
+        {sub ? <p className="truncate text-xs text-gray-500">{sub}</p> : null}
+      </div>
+      <p className={`shrink-0 text-sm font-semibold ${valueClass ?? ""}`}>{value}</p>
+    </div>
   );
 }
 
@@ -187,31 +146,52 @@ export default function DealerAnalyticsPage() {
 
 function DealerAnalyticsContent() {
   const queryClient = useQueryClient();
-  const [rangePreset, setRangePreset] = useState<(typeof quickRanges)[number]["value"]>("30d");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  // All time by default. Custom dates are Nepal days (AD YYYY-MM-DD under the hood).
+  const [isCustomRange, setIsCustomRange] = useState(false);
+  const [customStartAd, setCustomStartAd] = useState("");
+  const [customEndAd, setCustomEndAd] = useState("");
+  // Last valid custom range; numbers keep showing it while the picked dates are wrong.
+  const [appliedRange, setAppliedRange] = useState<DateRange | null>(null);
 
-  const presetRange = useMemo(() => buildPresetRange(rangePreset), [rangePreset]);
-  const resolvedStartDate = toDateOnly(startDate) || presetRange.startDate;
-  const resolvedEndDate = toDateOnly(endDate) || presetRange.endDate;
-  const rangeLabel = useMemo(() => {
-    if (startDate || endDate) return "Custom range";
-    return quickRanges.find((range) => range.value === rangePreset)?.label ?? "Custom range";
-  }, [endDate, rangePreset, startDate]);
+  const rangeError = isCustomRange ? getRangeError(customStartAd, customEndAd, getNepalTodayAd()) : null;
+  const rangeLabel = describeRange(appliedRange);
 
-  const statsParams = useMemo(
-    () => ({ startDate: resolvedStartDate, endDate: resolvedEndDate }),
-    [resolvedEndDate, resolvedStartDate]
-  );
+  const setCustomDates = (startDate: string, endDate: string) => {
+    setCustomStartAd(startDate);
+    setCustomEndAd(endDate);
+    if (!getRangeError(startDate, endDate, getNepalTodayAd())) {
+      setAppliedRange({ startDate, endDate });
+    }
+  };
+
+  const showCustomRange = () => {
+    if (isCustomRange) return;
+    const today = getNepalTodayAd();
+    const { year, month } = getBSYearMonthFromAD(today);
+    setIsCustomRange(true);
+    setCustomDates(getFirstDayOfBSMonthAD(year, month), today);
+  };
+
+  const showAllTime = () => {
+    setIsCustomRange(false);
+    setCustomStartAd("");
+    setCustomEndAd("");
+    setAppliedRange(null);
+  };
+
+  const statsParams = useMemo(() => appliedRange ?? {}, [appliedRange]);
 
   const inventorySummaryQuery = useGetInventorySummary();
   const lowStockProductsQuery = useGetDealerProducts({ lowStock: true, limit: 6 });
   const salesStatsQuery = useGetSalesStatistics(statsParams);
   const lifetimeSalesStatsQuery = useGetSalesStatistics();
+  const supplierSettlementFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES);
   const lifetimeLedgerSummaryQuery = useGetLedgerSummary();
   const manualCompaniesQuery = useGetManualCompanies({ archived: false });
-  const profitSummaryQuery = useGetDealerProfitSummary();
-  const customersQuery = useGetDealerCustomers({ page: 1, limit: 100, archived: false });
+  const profitSummaryQuery = useGetDealerProfitSummary(appliedRange ?? undefined);
+  const lifetimeProfitSummaryQuery = useGetDealerProfitSummary();
+  // Top 5 customers who owe, chosen on the server from all customers; total = how many owe.
+  const customersQuery = useGetDealerCustomers({ page: 1, limit: 5, archived: false, owing: true });
 
   const inventorySummary = inventorySummaryQuery.data?.data;
   const salesStats = salesStatsQuery.data?.data;
@@ -219,20 +199,12 @@ function DealerAnalyticsContent() {
   const lifetimeLedgerSummary = lifetimeLedgerSummaryQuery.data?.data;
   const manualCompanies = manualCompaniesQuery.data ?? [];
   const profitSummary = profitSummaryQuery.data;
+  const lifetimeProfitSummary = lifetimeProfitSummaryQuery.data;
   const customers = customersQuery.data?.data ?? [];
   const lowStockProducts = lowStockProductsQuery.data?.data ?? [];
 
-  const activeCustomers = useMemo(
-    () => customers.filter((customer) => Number(customer.balance || 0) > 0),
-    [customers]
-  );
-  const overdueCustomers = useMemo(
-    () =>
-      [...activeCustomers]
-        .sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0))
-        .slice(0, 5),
-    [activeCustomers]
-  );
+  const overdueCustomers = customers;
+  const owingCustomerCount = Number(customersQuery.data?.pagination?.total ?? customers.length);
 
   const sortedManualCompanies = useMemo(
     () =>
@@ -256,13 +228,6 @@ function DealerAnalyticsContent() {
 
   const lowStockCount = Number(inventorySummary?.lowStockProducts || 0);
   const outOfStockCount = Number(inventorySummary?.outOfStockProducts || 0);
-  const alertCount = lowStockCount + overdueCustomers.length + outOfStockCount;
-
-  const handleReset = () => {
-    setRangePreset("30d");
-    setStartDate("");
-    setEndDate("");
-  };
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
@@ -278,8 +243,15 @@ function DealerAnalyticsContent() {
   const dueAtSale = Number(salesStats?.totalDue || 0);
   const supplierSettlementSales = Number(salesStats?.supplierSettlementSales || 0);
   const supplierSettlementRevenue = Number(salesStats?.supplierSettlementRevenue || 0);
+  // "Sell to supplier" is an admin-enabled feature. Show its numbers only to
+  // dealers who have it, or who already made such sales (so old numbers stay
+  // visible if the feature is later turned off).
+  const showSupplierSettlements =
+    supplierSettlementFeature.isEnabled || Number(lifetimeSalesStats?.supplierSettlementSales || 0) > 0;
   const lifetimeSalesTotal = Number(lifetimeSalesStats?.totalRevenue || 0);
-  const totalPurchases = Number(profitSummary?.totalPurchases || 0);
+  const totalPurchases = Number(lifetimeProfitSummary?.totalPurchases || 0);
+  const costOfGoodsSold = Number(profitSummary?.costOfGoodsSold || 0);
+  const itemsMissingCost = Number(profitSummary?.itemsMissingCost || 0);
   const totalPaymentsReceived = Number(lifetimeLedgerSummary?.totalPaymentsReceived || 0);
   const totalPaymentsMade = Number(lifetimeLedgerSummary?.totalPaymentsMade || 0);
   const netCustomerBalance = Number(lifetimeLedgerSummary?.netCustomerBalance || 0);
@@ -291,13 +263,16 @@ function DealerAnalyticsContent() {
         title: "Summary",
         columns: [{ label: "Item", value: (row: any) => row.label }, { label: "Amount", value: (row: any) => row.value }],
         rows: [
-          { label: "Sales", value: formatMoney(salesTotal) },
-          { label: "Paid at sale", value: formatMoney(paidAtSale) },
-          { label: "Due at sale", value: formatMoney(dueAtSale) },
-          { label: "Supplier settlement sales", value: formatMoney(supplierSettlementRevenue) },
-          { label: "Profit", value: formatMoney(profit) },
-          { label: "Customer balance", value: formatMoney(netCustomerBalance) },
-          { label: "Supplier balance", value: formatMoney(netCompanyBalance) },
+          { label: `Sales (${rangeLabel})`, value: formatMoney(salesTotal) },
+          { label: `Paid at sale time (${rangeLabel})`, value: formatMoney(paidAtSale) },
+          { label: `Not paid at sale time (${rangeLabel})`, value: formatMoney(dueAtSale) },
+          ...(showSupplierSettlements
+            ? [{ label: `Supplier settlement sales (${rangeLabel})`, value: formatMoney(supplierSettlementRevenue) }]
+            : []),
+          { label: `Cost of items sold (${rangeLabel})`, value: formatMoney(costOfGoodsSold) },
+          { label: `Profit (${rangeLabel})`, value: formatMoney(profit) },
+          { label: "Customers owe you (today)", value: formatMoney(netCustomerBalance) },
+          { label: "You owe suppliers (today)", value: formatMoney(netCompanyBalance) },
         ],
       },
       {
@@ -311,440 +286,230 @@ function DealerAnalyticsContent() {
         rows: lowStockProducts,
       },
     ],
-    summary: [{ label: "Range", value: rangeLabel }, { label: "Settlement sales", value: supplierSettlementSales }],
+    summary: [
+      { label: "Range", value: rangeLabel },
+      ...(showSupplierSettlements ? [{ label: "Settlement sales", value: supplierSettlementSales }] : []),
+    ],
   });
 
+  const rangeTag = appliedRange ? rangeLabel : "All time";
+  const loadingOr = (isLoading: boolean, value: string) => (isLoading ? "…" : value);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Analytics</h1>
-          <p className="text-sm text-muted-foreground md:text-base">
-            Dealer sales, balances, inventory pressure, and company exposure in one view.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <BusinessDownloadDialog title="analytics" fileName="dealer-analytics" getData={downloadAnalytics} hasDateFilter={false} buttonLabel="Download analytics" />
-          <Button asChild variant="outline" className="gap-2">
-            <Link href="/dealer/dashboard/home">
-              <LayoutDashboard className="h-4 w-4" />
-              Home
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" className="gap-2" onClick={handleRefresh}>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+        <div className="flex gap-2">
+          <BusinessDownloadDialog title="analytics" fileName="dealer-analytics" getData={downloadAnalytics} hasDateFilter={false} buttonLabel="Download" />
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={handleRefresh} aria-label="Refresh">
             <RefreshCcw className="h-4 w-4" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Dealer analytics
-              </CardTitle>
-              <CardDescription>Current range: {rangeLabel}</CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {quickRanges.map((range) => (
-                <Button
-                  key={range.value}
-                  type="button"
-                  size="sm"
-                  variant={rangePreset === range.value ? "default" : "outline"}
-                  onClick={() => {
-                    setRangePreset(range.value);
-                    setStartDate("");
-                    setEndDate("");
-                  }}
-                  className="gap-1.5"
-                >
-                  {range.label}
-                </Button>
-              ))}
-              <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={handleReset}>
-                <RefreshCcw className="h-4 w-4" />
-                Reset
-              </Button>
-            </div>
+      {/* Date bar */}
+      <div className="space-y-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2 text-sm">
+            <CalendarRange className="h-4 w-4 text-gray-500" />
+            <span className="text-gray-500">Showing:</span>
+            <span className="font-semibold">{rangeLabel}</span>
+          </p>
+          <div className="inline-flex w-full rounded-md border border-gray-200 bg-gray-50 p-0.5 sm:w-auto">
+            {([
+              { key: "all", label: "All time", active: !isCustomRange, onClick: showAllTime },
+              { key: "custom", label: "Custom dates", active: isCustomRange, onClick: showCustomRange },
+            ] as const).map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={option.onClick}
+                className={`flex-1 rounded px-3 py-1 text-sm font-medium transition-colors sm:flex-none ${option.active ? "bg-primary text-primary-foreground shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr]">
-            <div className="space-y-2">
-              <div className="text-sm font-medium">Range preset</div>
-              <div className="rounded-lg border bg-background p-2">
-                <select
-                  value={rangePreset}
-                  onChange={(e) => {
-                    setRangePreset(e.target.value as typeof rangePreset);
-                    setStartDate("");
-                    setEndDate("");
-                  }}
-                  className="h-10 w-full bg-transparent px-2 text-sm outline-none"
-                >
-                  {quickRanges.map((range) => (
-                    <option key={range.value} value={range.value}>
-                      {range.label}
-                    </option>
-                  ))}
-                </select>
+        </div>
+        {isCustomRange ? (
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Start date</p>
+                <NepaliDatePicker
+                  defaultDate={customStartAd ? toBsLabel(customStartAd) : undefined}
+                  onChange={({ adDate }) => setCustomDates(adDate.split("T")[0], customEndAd)}
+                  className="w-full rounded-md border border-gray-300"
+                  theme="light"
+                  language="en"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">End date</p>
+                <NepaliDatePicker
+                  defaultDate={customEndAd ? toBsLabel(customEndAd) : undefined}
+                  onChange={({ adDate }) => setCustomDates(customStartAd, adDate.split("T")[0])}
+                  className="w-full rounded-md border border-gray-300"
+                  theme="light"
+                  language="en"
+                />
               </div>
             </div>
-            <DateInput label="Start date" value={startDate} onChange={setStartDate} preferNativeInput />
-            <DateInput label="End date" value={endDate} onChange={setEndDate} preferNativeInput />
+            {rangeError ? (
+              <p className="text-sm text-red-600">
+                {rangeError} Still showing {rangeLabel}.
+              </p>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Badge variant="secondary" className="gap-1">
-              <CalendarRange className="h-3.5 w-3.5" />
-              Filtered summary
-            </Badge>
-            <span>Use the quick ranges or override with custom dates. Only sales and collections follow this range.</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">This date range</div>
-            <div className="text-xs text-muted-foreground">
-              These numbers change when you change the dates.
-            </div>
-          </div>
-          <Badge variant="secondary">Selected dates</Badge>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Sales"
-            value={salesStatsQuery.isLoading ? "..." : formatMoney(salesTotal)}
-            description="Product sales in these dates, including supplier settlements"
-            icon={ReceiptText}
-            tone="text-green-600"
-            scopeBadge="Selected range"
-            badge={`${formatNumber(salesStats?.totalSales || 0)} sales`}
-          />
-          <MetricCard
-            title="Paid when sold"
-            value={salesStatsQuery.isLoading ? "..." : formatMoney(paidAtSale)}
-            description="Money received when products were sold"
-            icon={Wallet}
-            tone="text-blue-600"
-            scopeBadge="Selected range"
-            badge={`${formatMoney(dueAtSale)} sold on credit`}
-          />
-          <MetricCard
-            title="Supplier settlements"
-            value={salesStatsQuery.isLoading ? "..." : formatMoney(supplierSettlementRevenue)}
-            description="Inventory supplied to Manual Company suppliers to settle their balances"
-            icon={Building2}
-            tone="text-blue-600"
-            scopeBadge="Selected range"
-            badge={`${formatNumber(supplierSettlementSales)} settlement sale${supplierSettlementSales === 1 ? "" : "s"}`}
-          />
-        </div>
+        ) : null}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Current position</div>
-            <div className="text-xs text-muted-foreground">
-              Your current money, stock, and customer situation.
-            </div>
-          </div>
-          <Badge variant="outline">Current</Badge>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Estimated profit"
-            value={profitSummaryQuery.isLoading ? "..." : formatMoney(profit)}
-            description="Sales income minus purchase cost"
-            icon={TrendingUp}
-            tone="text-emerald-600"
-            scopeBadge="Lifetime"
-            badge={`${formatMoney(totalPurchases)} purchases`}
-          />
-          <MetricCard
-            title="Customers owe you"
-            value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCustomerBalance)}
-            description="Current unpaid customer amount"
-            icon={Users}
-            tone="text-violet-600"
-            scopeBadge="Lifetime"
-            badge={`${formatNumber(overdueCustomers.length)} overdue`}
-          />
-          <MetricCard
-            title="You owe suppliers"
-            value={lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(netCompanyBalance)}
-            description="Current unpaid supplier amount"
-            icon={Building2}
-            tone="text-amber-600"
-            scopeBadge="Lifetime"
-            badge={`${manualCompanies.length} suppliers`}
-          />
-          <MetricCard
-            title="Things to check"
-            value={inventorySummaryQuery.isLoading ? "..." : formatNumber(alertCount)}
-            description="Low stock, no stock, or unpaid money"
-            icon={AlertTriangle}
-            tone="text-red-600"
-            scopeBadge="Lifetime"
-            badge={`${formatNumber(lowStockCount)} low stock`}
-          />
-        </div>
+      {/* Strip 1: sales for the chosen dates */}
+      <section className="space-y-2">
+        <SectionLabel title="Sales" tag={rangeTag} />
+        <StatStrip
+          columns={showSupplierSettlements ? 4 : 3}
+          items={[
+            {
+              label: "Sales",
+              value: loadingOr(salesStatsQuery.isLoading, formatMoney(salesTotal)),
+              sub: !salesStatsQuery.isLoading && Number(salesStats?.totalSales || 0) === 0
+                ? "No sales in these dates"
+                : `${formatNumber(salesStats?.totalSales || 0)} sales`,
+            },
+            {
+              label: "Paid at sale",
+              value: loadingOr(salesStatsQuery.isLoading, formatMoney(paidAtSale)),
+              sub: `${formatMoney(dueAtSale)} not paid at sale`,
+            },
+            ...(showSupplierSettlements
+              ? [{
+                  label: "Supplier settlements",
+                  value: loadingOr(salesStatsQuery.isLoading, formatMoney(supplierSettlementRevenue)),
+                  sub: `${formatNumber(supplierSettlementSales)} sale${supplierSettlementSales === 1 ? "" : "s"}`,
+                  valueClass: "text-blue-700",
+                }]
+              : []),
+            {
+              label: "Profit",
+              value: loadingOr(profitSummaryQuery.isLoading, formatMoney(profit)),
+              sub: `Cost ${formatMoney(costOfGoodsSold)}`,
+              valueClass: profit < 0 ? "text-red-600" : "text-green-700",
+              note: itemsMissingCost > 0
+                ? `${formatNumber(itemsMissingCost)} old item${itemsMissingCost === 1 ? " has" : "s have"} no cost saved, so profit may be a little high.`
+                : undefined,
+            },
+          ]}
+        />
+      </section>
+
+      {/* Strip 2: right now */}
+      <section className="space-y-2">
+        <SectionLabel title="Right now" />
+        <StatStrip
+          columns={4}
+          items={[
+            {
+              label: "Customers owe you",
+              value: loadingOr(lifetimeLedgerSummaryQuery.isLoading, formatMoney(netCustomerBalance)),
+              sub: `${formatNumber(owingCustomerCount)} owing`,
+              valueClass: netCustomerBalance > 0 ? "text-red-600" : undefined,
+            },
+            {
+              label: "You owe suppliers",
+              value: loadingOr(lifetimeLedgerSummaryQuery.isLoading, formatMoney(netCompanyBalance)),
+              sub: `${formatNumber(manualCompanies.length)} suppliers`,
+              valueClass: netCompanyBalance > 0 ? "text-amber-700" : undefined,
+            },
+            {
+              label: "Low stock",
+              value: loadingOr(inventorySummaryQuery.isLoading, formatNumber(lowStockCount)),
+              sub: "products",
+              valueClass: lowStockCount > 0 ? "text-amber-700" : undefined,
+            },
+            {
+              label: "Out of stock",
+              value: loadingOr(inventorySummaryQuery.isLoading, formatNumber(outOfStockCount)),
+              sub: "products",
+              valueClass: outOfStockCount > 0 ? "text-red-600" : undefined,
+            },
+          ]}
+        />
+      </section>
+
+      {/* Lists: who owes you, low stock */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ListBox title="Customers who owe you" count={owingCustomerCount} empty="No one owes you right now." viewAllHref="/dealer/dashboard/customers">
+          {overdueCustomers.map((customer) => (
+            <ListRow
+              key={customer.id}
+              title={customer.name}
+              sub={customer.phone || "—"}
+              value={formatMoney(customer.balance)}
+              valueClass="text-red-600"
+            />
+          ))}
+        </ListBox>
+        <ListBox title="Low stock" count={lowStockCount} empty="All stock is fine." viewAllHref="/dealer/dashboard/inventory">
+          {lowStockProducts.map((product: any) => (
+            <ListRow
+              key={product.id}
+              title={product.name}
+              sub={product.type ? String(product.type).toLowerCase() : "—"}
+              value={`${formatNumber(product.currentStock)}${product.minStock != null ? ` / ${formatNumber(product.minStock)}` : ""} ${product.unit || ""}`.trim()}
+              valueClass="text-amber-700"
+            />
+          ))}
+        </ListBox>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="min-h-[360px]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <AlertTriangle className="h-5 w-5" />
-              Watch list
-            </CardTitle>
-            <CardDescription>Current overdue customers and products needing attention.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium">Top overdue customers</div>
-                <Badge variant="outline">{formatNumber(overdueCustomers.length)}</Badge>
-              </div>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Customer</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {overdueCustomers.length > 0 ? (
-                      overdueCustomers.map((customer) => (
-                        <TableRow key={customer.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="font-medium">{customer.name}</div>
-                              <div className="text-xs text-muted-foreground">{customer.phone || "—"}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium text-red-600">
-                            {formatMoney(customer.balance)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                          No overdue customers right now.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium">Low stock products</div>
-                <Badge variant="outline">{formatNumber(lowStockCount)}</Badge>
-              </div>
-              <div className="space-y-2">
-                {lowStockProducts.length > 0 ? (
-                  lowStockProducts.map((product: any) => (
-                    <div key={product.id} className="flex items-start justify-between rounded-lg border p-3">
-                      <div className="space-y-1">
-                        <div className="font-medium">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.type}</div>
-                      </div>
-                      <div className="text-right text-sm">
-                        <div className="font-medium text-red-600">{formatNumber(product.currentStock)} left</div>
-                        <div className="text-xs text-muted-foreground">Min {formatNumber(product.minStock || 0)}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    No low stock products.
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Building2 className="h-5 w-5" />
-              Company balances
-            </CardTitle>
-            <CardDescription>Manual companies currently on the books.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {sortedManualCompanies.length > 0 ? (
-              sortedManualCompanies.map((company) => {
-                const balance = Number(company.balance || 0);
-                const isOwed = balance >= 0;
-                return (
-                  <div key={company.id} className="rounded-lg border p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="font-medium">{company.name}</div>
-                        <div className="text-xs text-muted-foreground">{company.phone || "No phone"}</div>
-                      </div>
-                      <Badge variant={isOwed ? "default" : "secondary"} className="gap-1">
-                        {isOwed ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-                        {isOwed ? "Owed" : "Advance"}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Balance</div>
-                        <div className={`font-medium ${balance >= 0 ? "text-red-600" : "text-green-600"}`}>
-                          {formatMoney(Math.abs(balance))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Purchases</div>
-                        <div className="font-medium">{formatMoney(company.totalPurchases)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Payments</div>
-                        <div className="font-medium">{formatMoney(company.totalPayments)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">Status</div>
-                        <div className="font-medium">{company.archivedAt ? "Archived" : "Active"}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                No manual companies found.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-            <Wallet className="h-5 w-5" />
-            Lifetime balance summary
-          </CardTitle>
-          <CardDescription>Aggregated money flow across dealer books, not the selected range.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-muted-foreground">Total sales</div>
-              <div className="mt-1 text-lg font-semibold">
-                {lifetimeSalesStatsQuery.isLoading ? "..." : formatMoney(lifetimeSalesTotal)}
-              </div>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-muted-foreground">Total purchases</div>
-              <div className="mt-1 text-lg font-semibold">
-                {profitSummaryQuery.isLoading ? "..." : formatMoney(totalPurchases)}
-              </div>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-muted-foreground">Payments received</div>
-              <div className="mt-1 text-lg font-semibold">
-                {lifetimeLedgerSummaryQuery.isLoading ? "..." : formatMoney(totalPaymentsReceived)}
-              </div>
-            </div>
-            <div className="rounded-lg border p-3">
-              <div className="text-xs text-muted-foreground">Payments made</div>
-              <div className="mt-1 text-lg font-semibold">
-                {manualCompaniesQuery.isLoading ? "..." : formatMoney(totalPaymentsMade)}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <BarChart3 className="h-5 w-5" />
-              Inventory type distribution
-            </CardTitle>
-            <CardDescription>Compact view of stock composition.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {productsByTypeChart.length > 0 ? (
-              <ChartContainer config={chartConfig} className="h-[280px] w-full">
-                <PieChart>
-                  <Pie
-                    data={productsByTypeChart}
-                    dataKey="count"
-                    nameKey="type"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={3}
-                    stroke="hsl(var(--background))"
-                    strokeWidth={2}
-                  >
-                    {productsByTypeChart.map((entry, index) => (
-                      <Cell
-                        key={entry.type}
-                        fill={chartColors[index % chartColors.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-                </PieChart>
-              </ChartContainer>
-            ) : (
-              <div className="flex min-h-[240px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-                No stock mix data.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Users className="h-5 w-5" />
-              Customer exposure
-            </CardTitle>
-            <CardDescription>Customers with outstanding balances.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {overdueCustomers.length > 0 ? (
-              overdueCustomers.map((customer) => (
-                <div key={customer.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{customer.name}</div>
-                      <div className="text-xs text-muted-foreground">{customer.phone || "—"}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-red-600">{formatMoney(customer.balance)}</div>
-                      <div className="text-xs text-muted-foreground">Outstanding</div>
-                    </div>
-                  </div>
+      {/* Lists: suppliers, stock by type */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ListBox title="Suppliers" count={manualCompanies.length} empty="No suppliers yet." viewAllHref="/dealer/dashboard/company">
+          {sortedManualCompanies.map((company) => {
+            const balance = Number(company.balance || 0);
+            return (
+              <ListRow
+                key={company.id}
+                title={company.name}
+                sub={company.phone || "—"}
+                value={balance === 0 ? formatMoney(0) : `${formatMoney(Math.abs(balance))} ${balance > 0 ? "owed" : "advance"}`}
+                valueClass={balance > 0 ? "text-red-600" : balance < 0 ? "text-green-700" : "text-gray-500"}
+              />
+            );
+          })}
+        </ListBox>
+        <ListBox title="Stock by type" count={Number(inventorySummary?.totalProducts || 0)} empty="No products yet.">
+          {(() => {
+            const max = Math.max(1, ...productsByTypeChart.map((entry) => entry.count));
+            return productsByTypeChart.map((entry) => (
+              <div key={entry.type} className="flex items-center gap-3 px-3 py-2">
+                <span className="w-24 shrink-0 truncate text-sm capitalize">{String(entry.type).toLowerCase()}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${(entry.count / max) * 100}%` }} />
                 </div>
-              ))
-            ) : (
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                No overdue customer balances.
+                <span className="w-8 shrink-0 text-right text-sm font-medium">{entry.count}</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            ));
+          })()}
+        </ListBox>
       </div>
+
+      {/* Strip 3: all time totals */}
+      <section className="space-y-2">
+        <SectionLabel title="All time totals" />
+        <StatStrip
+          columns={4}
+          items={[
+            { label: "Total sales", value: loadingOr(lifetimeSalesStatsQuery.isLoading, formatMoney(lifetimeSalesTotal)) },
+            { label: "Purchases (after discount)", value: loadingOr(lifetimeProfitSummaryQuery.isLoading, formatMoney(totalPurchases)) },
+            { label: "Payments received", value: loadingOr(lifetimeLedgerSummaryQuery.isLoading, formatMoney(totalPaymentsReceived)) },
+            { label: "Payments made", value: loadingOr(lifetimeLedgerSummaryQuery.isLoading, formatMoney(totalPaymentsMade)) },
+          ]}
+        />
+      </section>
     </div>
   );
 }

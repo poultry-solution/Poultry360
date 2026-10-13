@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
@@ -86,6 +86,8 @@ export default function NewSalePage() {
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
   const [savedSaleForPrint, setSavedSaleForPrint] = useState<any>(null);
+  // Sale type the user asked to switch to while the form already has items.
+  const [pendingSaleType, setPendingSaleType] = useState<"product" | "broiler" | null>(null);
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
     phone: "",
@@ -110,6 +112,39 @@ export default function NewSalePage() {
     setSelectedProductId("");
     setItems([]);
   };
+
+  const enterBroilerSaleMode = () => {
+    setIsChickenSale(true);
+    setSourceFarmerId("");
+    setSelectedProductId("");
+    setItems([{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]);
+  };
+
+  const applySaleType = (type: "product" | "broiler") => {
+    if (type === "broiler") enterBroilerSaleMode();
+    else exitBroilerSaleMode();
+  };
+
+  // Switching type clears the item lines, so ask first if something was entered.
+  const requestSaleType = (type: "product" | "broiler") => {
+    if ((type === "broiler") === isChickenSale) return;
+    const hasEnteredItems = items.some((item) => item.productId || item.quantity > 0 || item.unitPrice > 0);
+    if (hasEnteredItems) {
+      setPendingSaleType(type);
+      return;
+    }
+    applySaleType(type);
+  };
+
+  // "New Sale ▾ → Broiler sale" opens this page with ?type=broiler.
+  const appliedTypeFromUrl = useRef(false);
+  useEffect(() => {
+    if (appliedTypeFromUrl.current || !broilerFeature.isEnabled) return;
+    appliedTypeFromUrl.current = true;
+    if (new URLSearchParams(window.location.search).get("type") === "broiler") {
+      enterBroilerSaleMode();
+    }
+  }, [broilerFeature.isEnabled]);
 
   // An Admin can turn the feature off while this form is open. Return the
   // form to its normal sale state without showing a feature-access error.
@@ -316,11 +351,13 @@ export default function NewSalePage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {t("dealer.newSale.title")}
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            {isChickenSale ? "New Broiler Sale" : t("dealer.newSale.title")}
           </h1>
-          <p className="text-muted-foreground">
-            {t("dealer.newSale.subtitle")}
+          <p className="text-sm md:text-base text-muted-foreground">
+            {isChickenSale
+              ? "Sell a farmer's broilers to a buyer. Settle with the farmer later."
+              : t("dealer.newSale.subtitle")}
           </p>
         </div>
       </div>
@@ -336,6 +373,36 @@ export default function NewSalePage() {
               <CardDescription>{t("dealer.newSale.customer.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {broilerFeature.isEnabled ? (
+                <div className="space-y-2">
+                  <Label>Sale type</Label>
+                  <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1" role="radiogroup" aria-label="Sale type">
+                    {([
+                      { type: "product", label: "Feed / products", icon: Package, active: !isChickenSale },
+                      { type: "broiler", label: "Broiler", icon: Bird, active: isChickenSale },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.type}
+                        type="button"
+                        role="radio"
+                        aria-checked={option.active}
+                        onClick={() => requestSaleType(option.type)}
+                        className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                          option.active
+                            ? option.type === "broiler"
+                              ? "bg-amber-500 text-white shadow-sm"
+                              : "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <option.icon className="h-4 w-4" />
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="space-y-2">
                 <Label>Date</Label>
                 <NepaliDatePicker
@@ -354,6 +421,57 @@ export default function NewSalePage() {
                   language="en"
                 />
               </div>
+
+              {/* Custom Invoice Number */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+                    useCustomInvoice
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                  onClick={() => {
+                    setUseCustomInvoice(!useCustomInvoice);
+                    if (useCustomInvoice) setInvoiceNumber("");
+                  }}
+                >
+                  <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
+                    useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
+                  }`}>
+                    {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
+                  </div>
+                  Custom invoice number
+                </button>
+                {useCustomInvoice ? (
+                  <Input
+                    placeholder="e.g. BILL-001"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="max-w-[200px] h-8 text-sm"
+                  />
+                ) : null}
+              </div>
+
+              {isChickenSale && (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                  <Label>Farmer (whose broilers)</Label>
+                  <SearchableSelect
+                    value={sourceFarmerId}
+                    onValueChange={setSourceFarmerId}
+                    options={sourceFarmerSelect.options}
+                    placeholder="Select source farmer"
+                    searchPlaceholder="Search farmers..."
+                    emptyText="No matching farmers found"
+                    isLoading={sourceFarmerSelect.isLoading}
+                    onSearch={sourceFarmerSelect.onSearch}
+                  />
+                  <p className="text-xs text-amber-900">
+                    Used later to settle with this farmer. It does not change the farmer&apos;s balance now.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label>{isChickenSale ? "Buyer" : t("dealer.newSale.customer.label")}</Label>
                 <SearchableSelect
@@ -367,56 +485,6 @@ export default function NewSalePage() {
                   onSearch={customerSelect.onSearch}
                 />
               </div>
-
-              {broilerFeature.isEnabled ? (
-                <button
-                  type="button"
-                  className={`flex w-full items-center gap-3 rounded-md border p-3 text-left transition-colors ${
-                    isChickenSale
-                      ? "border-amber-300 bg-amber-50 text-amber-950"
-                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
-                  }`}
-                  onClick={() => {
-                    const nextIsChickenSale = !isChickenSale;
-                    if (!nextIsChickenSale) {
-                      exitBroilerSaleMode();
-                      return;
-                    }
-                    setIsChickenSale(true);
-                    setSourceFarmerId("");
-                    setSelectedProductId("");
-                    setItems([{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]);
-                  }}
-                >
-                  <span className={`flex h-4 w-4 items-center justify-center rounded-sm border ${isChickenSale ? "border-amber-600 bg-amber-600 text-white" : "border-muted-foreground/50"}`}>
-                    {isChickenSale && <span className="text-xs leading-none">✓</span>}
-                  </span>
-                  <Bird className="h-4 w-4" />
-                  <span>
-                    <span className="block font-medium">Broiler Sale</span>
-                    <span className="block text-xs opacity-80">Record the farmer that supplied the broilers for later manual settlement.</span>
-                  </span>
-                </button>
-              ) : null}
-
-              {isChickenSale && (
-                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                  <Label>Source Farmer</Label>
-                  <SearchableSelect
-                    value={sourceFarmerId}
-                    onValueChange={setSourceFarmerId}
-                    options={sourceFarmerSelect.options}
-                    placeholder="Select source farmer"
-                    searchPlaceholder="Search farmers..."
-                    emptyText="No matching farmers found"
-                    isLoading={sourceFarmerSelect.isLoading}
-                    onSearch={sourceFarmerSelect.onSearch}
-                  />
-                  <p className="text-xs text-amber-900">
-                    This is tentative reconciliation information only. It does not change this farmer&apos;s balance or due amount.
-                  </p>
-                </div>
-              )}
 
               {/* Customer Info Display */}
               {selectedCustomer && (
@@ -444,39 +512,6 @@ export default function NewSalePage() {
               </Button>
             </CardContent>
           </Card>
-
-          {/* Custom Invoice Number (Toggle) */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
-                useCustomInvoice
-                  ? "bg-primary/10 border-primary/30 text-primary"
-                  : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
-              }`}
-              onClick={() => {
-                setUseCustomInvoice(!useCustomInvoice);
-                if (useCustomInvoice) setInvoiceNumber("");
-              }}
-            >
-              <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
-                useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
-              }`}>
-                {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
-              </div>
-              Custom invoice number
-            </button>
-            {useCustomInvoice ? (
-              <Input
-                placeholder="e.g. BILL-001"
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                className="max-w-[200px] h-8 text-sm"
-              />
-            ) : (
-              <span className="text-xs text-muted-foreground">Invoice will be auto-generated (e.g. INV-001)</span>
-            )}
-          </div>
 
           {/* Products Section */}
           <Card>
@@ -989,8 +1024,45 @@ export default function NewSalePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Confirm sale type switch */}
+      <Dialog open={pendingSaleType !== null} onOpenChange={(open) => !open && setPendingSaleType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Switch to {pendingSaleType === "broiler" ? "Broiler sale" : "feed / product sale"}?
+            </DialogTitle>
+            <DialogDescription>
+              The items you added will be cleared. Customer, date and notes stay.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingSaleType(null)}>
+              Keep items
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingSaleType) applySaleType(pendingSaleType);
+                setPendingSaleType(null);
+              }}
+            >
+              Switch and clear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Print Prompt Dialog */}
-      <Dialog open={isPrintPromptOpen} onOpenChange={setIsPrintPromptOpen}>
+      <Dialog
+        open={isPrintPromptOpen}
+        onOpenChange={(open) => {
+          if (open) return;
+          // Closing the prompt (Esc / outside click) acts like "Later", so the
+          // filled form is never left open to be saved a second time.
+          setIsPrintPromptOpen(false);
+          setSavedSaleForPrint(null);
+          router.push("/dealer/dashboard/sales");
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sale saved</DialogTitle>

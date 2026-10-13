@@ -560,7 +560,9 @@ export const getDealerCustomers = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, page = 1, limit = 10, archived } = req.query;
+    const { search, page = 1, limit = 10, archived, owing } = req.query;
+    // owing=true: only customers who owe money, biggest balance first (Analytics).
+    const owingOnly = owing === "true";
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -592,12 +594,18 @@ export const getDealerCustomers = async (
       where.archivedAt = null;
     }
 
+    if (owingOnly) {
+      where.balance = { gt: 0 };
+    }
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: Number(limit),
-        orderBy: { createdAt: "desc" },
+        orderBy: owingOnly
+          ? [{ balance: "desc" }, { createdAt: "desc" }]
+          : { createdAt: "desc" },
         select: {
           id: true,
           name: true,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bird, CircleDollarSign, Users } from "lucide-react";
+import { Bird, CircleDollarSign, Users } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -16,6 +16,7 @@ import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect
 import { toast } from "sonner";
 import { ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer } from "@/fetchers/dealer/dealerSaleQueries";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
+import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
 
 export default function ChickenSalesByFarmerPage() {
   const router = useRouter();
@@ -112,19 +113,14 @@ function ChickenSalesByFarmerContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dealer/dashboard/sales")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broiler Settlement</h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Check Broiler money and pay each farmer.
-            </p>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broiler settlements</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Check Broiler money and pay each farmer.
+        </p>
       </div>
+
+      <DealerSalesTabs />
 
       <Card className="border-amber-200 bg-amber-50/50">
         <CardContent className="flex gap-3 p-4 text-sm text-amber-900">

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 // Query keys
@@ -184,7 +184,8 @@ export const useGetDealerSales = (
     isChickenSale?: boolean;
     sourceFarmerId?: string;
   },
-  options?: { enabled?: boolean }
+  /** keepPrevious: show the current page until the next one loads (paged tables). */
+  options?: { enabled?: boolean; keepPrevious?: boolean }
 ) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
@@ -199,6 +200,7 @@ export const useGetDealerSales = (
       return data;
     },
     enabled: options?.enabled ?? true,
+    placeholderData: options?.keepPrevious ? keepPreviousData : undefined,
   });
 };
 
@@ -237,8 +239,9 @@ export const useGetSalesStatistics = (params?: {
   });
 };
 
-export const useGetChickenSalesByFarmer = (sourceFarmerId?: string) => {
+export const useGetChickenSalesByFarmer = (sourceFarmerId?: string, options?: { enabled?: boolean }) => {
   return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: dealerSaleKeys.chickenByFarmer(sourceFarmerId),
     queryFn: async () => {
       const { data } = await axiosInstance.get("/dealer/sales/chicken-by-farmer", {
@@ -307,7 +310,8 @@ export const useCreateDealerSale = () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
-      queryClient.invalidateQueries({ queryKey: ["dealerProducts"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
     },
   });
@@ -370,7 +374,8 @@ export const useDeleteDealerSale = () => {
       // Invalidate everything that could be affected by sale deletion
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
-      queryClient.invalidateQueries({ queryKey: ["dealerProducts"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer-search"] });
@@ -399,6 +404,8 @@ export const useGetDealerCustomers = (params?: {
   limit?: number;
   search?: string;
   archived?: boolean;
+  /** Only customers who owe money, biggest balance first. */
+  owing?: boolean;
 }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
