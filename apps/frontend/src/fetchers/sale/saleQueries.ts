@@ -203,6 +203,8 @@ export const useCreateSale = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
@@ -253,6 +255,8 @@ export const useUpdateSale = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch the specific sale
       queryClient.invalidateQueries({
         queryKey: saleQueryKeys.detail(variables.id),
@@ -308,6 +312,8 @@ export const useDeleteSale = () => {
       return response.data;
     },
     onSuccess: (data, id) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Remove the sale from cache
       queryClient.removeQueries({ queryKey: saleQueryKeys.detail(id) });
 
@@ -356,6 +362,8 @@ export const useAddSalePayment = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch the specific sale
       queryClient.invalidateQueries({
         queryKey: saleQueryKeys.detail(variables.saleId),
@@ -404,6 +412,8 @@ export const useSoftDeleteCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Deleting a receipt made from a sale payment also changes that sale.
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
@@ -438,6 +448,8 @@ export const useAddCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
@@ -798,6 +810,8 @@ export const useSetCustomerOpeningBalance = () => {
       return response.data;
     },
     onSuccess: (_data, vars) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["customers", "detail", vars.customerId] });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
     },

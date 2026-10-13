@@ -535,11 +535,9 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 
 ### Local Seed Commands
 
-- `pnpm --filter backend seed:demo:dealer` — demo dealer with sample data.
-- `pnpm --filter backend seed:clean:dealer` — creates one empty local dealer account for accounting checks. It refuses to overwrite
-  an existing account. Override the phone/password with `P360_CLEAN_DEALER_PHONE` and
-  `P360_CLEAN_DEALER_PASSWORD` if needed.
-- Current clean local account: `+9779800360099` with the configured clean-seed password.
+- `pnpm --filter backend seed:admin:local` — local Super Admin login (needs `P360_DEMO_SUPER_ADMIN_PASSWORD`; refuses non-localhost databases).
+- `pnpm --filter backend seed:demo:farmer` — realistic demo farmer entered through the API (backend must be running).
+- Old dealer, company, hatchery, inventory, clean-dealer and blog seeds were removed; new ones will be written per module.
 
 ### Recent Dealer Migrations
 

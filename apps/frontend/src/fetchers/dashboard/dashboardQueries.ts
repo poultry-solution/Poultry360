@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 // ==================== QUERY KEYS ====================
@@ -34,8 +34,12 @@ export interface DashboardOverview {
   monthlyRevenue: number;
   monthlyRevenueGrowth: number;
   moneyToReceive: number;
+  /** Customers who owe money now. */
+  customersOwingCount?: number;
   moneyToGive: number;
   totalExpenses: number;
+  /** Current Nepali month, e.g. "Ashwin 2083" ("this month" figures use it). */
+  monthLabel?: string;
   recentActivity: Array<{
     id: string;
     type: "expense" | "sale" | "batch";
@@ -210,6 +214,8 @@ export const useDashboardStats = (options?: { enabled?: boolean }) => {
     moneyToReceive: overviewData?.data?.moneyToReceive || 0,
     moneyToGive: overviewData?.data?.moneyToGive || 0,
     totalExpenses: overviewData?.data?.totalExpenses || 0,
+    customersOwingCount: overviewData?.data?.customersOwingCount,
+    monthLabel: overviewData?.data?.monthLabel,
     recentActivity: overviewData?.data?.recentActivity || [],
   };
 };
@@ -283,12 +289,18 @@ export interface BatchPerformanceItem {
   id: string;
   batchNumber: string;
   farmName: string;
+  farmId?: string;
+  batchType?: "BROILER" | "LAYERS" | string;
   status: "ACTIVE" | "COMPLETED";
   startDate: string;
+  endDate?: string | null;
   days: number;
   mortality: number;
   mortalityRate: string;
   fcr: string;
+  /** FCR to show today (final for closed batches, "N/A" when out of date or not broiler). */
+  currentFcr?: string;
+  cfcr?: string;
   expenses: number;
   salesAmount: number;
   avgWeight: string;
@@ -369,5 +381,33 @@ export const useGetBatchPerformance = (
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
     enabled: options?.enabled === true,
+  });
+};
+
+/**
+ * Latest batches with income, cost and profit for the Home "Profit per batch"
+ * graph. Newest first from the server; limit is capped at 60 there.
+ */
+export const useGetBatchProfitTrend = (
+  params: { limit: number; farmId?: string; batchType?: "BROILER" | "LAYERS" },
+  options?: { enabled?: boolean }
+) => {
+  const { limit, farmId, batchType } = params;
+  return useQuery({
+    queryKey: [...dashboardQueryKeys.all, "batch-profit-trend", { limit, farmId: farmId ?? null, batchType: batchType ?? null }] as const,
+    queryFn: async (): Promise<{
+      success: boolean;
+      data: BatchPerformanceItem[];
+      hasMore?: boolean;
+      availableTypes?: Array<"BROILER" | "LAYERS">;
+    }> => {
+      const response = await axiosInstance.get("/dashboard/batch-performance", {
+        params: { limit, sortBy: "startDate", sortOrder: "desc", ...(farmId ? { farmId } : {}), ...(batchType ? { batchType } : {}) },
+      });
+      return response.data;
+    },
+    staleTime: 2 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
   });
 };

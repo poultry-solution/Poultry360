@@ -120,6 +120,8 @@ export const useCreateExpense = () => {
       return response.data;
     },
     onSuccess: () => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch expense-related queries
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
@@ -138,6 +140,8 @@ export const useUpdateExpense = () => {
       return response.data;
     },
     onSuccess: (_, { id }) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch expense-related queries
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["expenses", id] });
@@ -157,6 +161,8 @@ export const useDeleteExpense = () => {
       return response.data;
     },
     onSuccess: () => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch expense-related queries
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });

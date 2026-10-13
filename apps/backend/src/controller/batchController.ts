@@ -622,12 +622,15 @@ export const createBatch = async (
         },
       });
 
-      // 2) For each allocation: record usage, decrement stock, and create transaction
+      // 2) For each allocation: record usage, decrement stock, and create transaction.
+      // Dated on the batch start day (not "now") so a backdated batch keeps its chick
+      // cost inside the batch dates (close summary, reports and the expense list).
+      const allocationDate = batch.startDate;
       const usages = [] as any[];
       for (const alloc of allocations) {
         const usage = await tx.inventoryUsage.create({
           data: {
-            date: new Date(),
+            date: allocationDate,
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,
             totalAmount: alloc.totalAmount,
@@ -640,7 +643,7 @@ export const createBatch = async (
 
         const expense = await tx.expense.create({
           data: {
-            date: new Date(),
+            date: allocationDate,
             amount: alloc.totalAmount,
             description: `Purchase of ${alloc.item.name} for batch creation ${batch.batchNumber}`,
             quantity: alloc.requested,
@@ -673,7 +676,7 @@ export const createBatch = async (
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,
             totalAmount: alloc.totalAmount,
-            date: new Date(),
+            date: allocationDate,
             description: `Chicks allocated to batch ${batch.batchNumber}`,
             itemId: alloc.itemId,
           },

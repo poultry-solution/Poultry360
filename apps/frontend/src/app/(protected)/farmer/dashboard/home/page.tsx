@@ -13,11 +13,14 @@ import {
   useGetMoneyToReceiveDetails,
 } from "@/fetchers/dashboard/dashboardQueries";
 import { StatsCards } from "@/components/dashboard/StatsCards";
+import { BatchProfitChart } from "@/components/dashboard/BatchProfitChart";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
 import { ReminderCard } from "@/components/dashboard/ReminderCard";
 import { QuickActionBtnsFarmer } from "@/components/dashboard/QuickActionBtns-Farmer";
 import { useI18n } from "@/i18n/useI18n";
 import { Card, CardContent } from "@/common/components/ui/card";
+
+const ACTIVE_BATCH_LIST_LIMIT = 100;
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -26,13 +29,18 @@ export default function DashboardPage() {
   const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("FARMER_VIEW_FINANCIAL_SUMMARIES");
 
   // Fetch real data from APIs
-  const { data: batchesResponse } = useGetAllBatches(undefined, { enabled: canManageOperations });
+  // Ask the server for ACTIVE batches only (the default list is just the latest 10 of any status).
+  const { data: batchesResponse } = useGetAllBatches(
+    { status: "ACTIVE", limit: ACTIVE_BATCH_LIST_LIMIT },
+    { enabled: canManageOperations }
+  );
   const { data: farmsResponse } = useGetUserFarms("all", undefined, { enabled: canManageOperations });
 
-  // Only keep ACTIVE batches globally so completed ones are never selectable
   const activeBatches = (batchesResponse?.data || []).filter(
     (batch: any) => batch.status === "ACTIVE"
   );
+  // True count from the server, even if there are more than the list shows.
+  const activeBatchCount = batchesResponse?.pagination?.total ?? activeBatches.length;
   const farms = farmsResponse?.data || [];
 
   const [isFarmsOpen, setIsFarmsOpen] = useState(false);
@@ -47,6 +55,8 @@ export default function DashboardPage() {
     moneyToReceive,
     moneyToGive,
     totalExpenses,
+    customersOwingCount,
+    monthLabel,
     isLoading: statsLoading,
   } = useDashboardStats({ enabled: canManageOperations && canViewFinancialSummaries });
 
@@ -126,6 +136,11 @@ export default function DashboardPage() {
       >
         <ModalContent>
           <div className="space-y-3">
+            {activeBatchCount > activeBatches.length ? (
+              <p className="text-xs text-gray-500">
+                Showing {activeBatches.length} of {activeBatchCount} active batches. See all on the Batches page.
+              </p>
+            ) : null}
             {activeBatches.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -180,18 +195,23 @@ export default function DashboardPage() {
       {canViewFinancialSummaries && <StatsCards
         farms={farms}
         activeBatches={activeBatches}
+        activeBatchCount={activeBatchCount}
         lifetimeProfit={lifetimeProfit}
         monthlyRevenue={monthlyRevenue}
         monthlyRevenueGrowth={monthlyRevenueGrowth}
         moneyToReceive={moneyToReceive}
         moneyToGive={moneyToGive}
         totalExpenses={totalExpenses}
+        customersOwingCount={customersOwingCount}
+        monthLabel={monthLabel}
         statsLoading={statsLoading}
         onFarmsClick={() => setIsFarmsOpen(true)}
         onBatchesClick={() => setIsBatchesOpen(true)}
         onMoneyToReceiveClick={() => setIsMoneyToReceiveOpen(true)}
         onMoneyToPayClick={undefined}
       />}
+
+      {canManageOperations && canViewFinancialSummaries ? <BatchProfitChart farms={farms} /> : null}
 
       {/* Reminders (same grid so size/placement unchanged) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

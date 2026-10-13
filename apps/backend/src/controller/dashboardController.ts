@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
+import { getNepalBsMonthWindow } from "../utils/nepalBsDate";
 import {
   aggregateCurrentCfcr,
   aggregateCurrentFcr,
@@ -81,18 +82,19 @@ export const getDashboardOverview = async (
           monthlyRevenue: 0,
           monthlyRevenueGrowth: 0,
           moneyToReceive: 0,
+          customersOwingCount: 0,
           moneyToGive,
           totalExpenses: 0,
+          monthLabel: getNepalBsMonthWindow().monthLabel,
+          growthBasis: "same-days-last-month",
           recentActivity: [],
         },
       });
     }
 
-    // Get current month and last month dates
-    const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    // "This month" is the current Nepali (BS) month in Nepal days. Growth compares
+    // the month so far with the same number of days at the start of last month.
+    const month = getNepalBsMonthWindow();
 
     // Get all analytics data in parallel
     const [
@@ -104,7 +106,7 @@ export const getDashboardOverview = async (
       currentMonthSales,
       lastMonthSales,
       currentMonthExpenses,
-      creditSales,
+      owingCustomers,
       recentExpenses,
       recentSales,
       recentBatches,
@@ -155,18 +157,18 @@ export const getDashboardOverview = async (
       prisma.sale.aggregate({
         where: {
           farmId: { in: farmIds },
-          date: { gte: currentMonthStart },
+          date: { gte: month.currentStart },
         },
         _sum: { amount: true },
       }),
 
-      // Last month sales
+      // Same number of days at the start of last month
       prisma.sale.aggregate({
         where: {
           farmId: { in: farmIds },
           date: {
-            gte: lastMonthStart,
-            lte: lastMonthEnd,
+            gte: month.previousStart,
+            lte: month.previousSameDaysEnd,
           },
         },
         _sum: { amount: true },
@@ -176,18 +178,17 @@ export const getDashboardOverview = async (
       prisma.expense.aggregate({
         where: {
           farmId: { in: farmIds },
-          date: { gte: currentMonthStart },
+          date: { gte: month.currentStart },
         },
         _sum: { amount: true },
       }),
 
-      // Credit sales (money to receive)
-      prisma.sale.aggregate({
-        where: {
-          farmId: { in: farmIds },
-          isCredit: true,
-        },
-        _sum: { dueAmount: true },
+      // Money to receive = what customers owe now (same as the Sales ledger).
+      // Sale.dueAmount is not used: customer payments lower the balance, not each sale.
+      prisma.customer.aggregate({
+        where: { userId: currentUserId, balance: { gt: 0 } },
+        _sum: { balance: true },
+        _count: { _all: true },
       }),
 
       // Recent expenses (last 5)
@@ -256,7 +257,8 @@ export const getDashboardOverview = async (
           100
         : 0;
 
-    const moneyToReceive = Number(creditSales._sum.dueAmount || 0);
+    const moneyToReceive = Number(owingCustomers._sum.balance || 0);
+    const customersOwingCount = owingCustomers._count._all;
 
     const totalExpenses = Number(currentMonthExpenses._sum.amount || 0);
 
@@ -266,7 +268,7 @@ export const getDashboardOverview = async (
         id: `expense-${expense.id}`,
         type: "expense" as const,
         title: `New expense recorded`,
-        description: `${expense.category.name} - ₹${Number(expense.amount).toLocaleString()}`,
+        description: `${expense.category.name} - रू ${Number(expense.amount).toLocaleString("en-IN")}`,
         timestamp: expense.createdAt,
         farmName: expense.farm?.name || "General",
       })),
@@ -274,7 +276,7 @@ export const getDashboardOverview = async (
         id: `sale-${sale.id}`,
         type: "sale" as const,
         title: `New sale recorded`,
-        description: `${sale.category.name} - ₹${Number(sale.amount).toLocaleString()}${sale.customer ? ` to ${sale.customer.name}` : ""}`,
+        description: `${sale.category.name} - रू ${Number(sale.amount).toLocaleString("en-IN")}${sale.customer ? ` to ${sale.customer.name}` : ""}`,
         timestamp: sale.createdAt,
         farmName: sale.farm?.name || "General",
       })),
@@ -303,8 +305,11 @@ export const getDashboardOverview = async (
         monthlyRevenue: currentMonthSalesAmount,
         monthlyRevenueGrowth,
         moneyToReceive,
+        customersOwingCount,
         moneyToGive,
         totalExpenses,
+        monthLabel: month.monthLabel,
+        growthBasis: "same-days-last-month",
         recentActivity,
       },
     });
@@ -719,139 +724,70 @@ export const getMoneyToReceiveDetails = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
-    const { page = 1, limit = 10 } = req.query;
+    const pageNumber = Math.max(1, Math.floor(Number(req.query.page)) || 1);
+    const limitNumber = Math.min(100, Math.max(1, Math.floor(Number(req.query.limit)) || 10));
+    const skip = (pageNumber - 1) * limitNumber;
 
-    const skip = (Number(page) - 1) * Number(limit);
-
-    // Get user's farms
-    const userFarms = await prisma.farm.findMany({
-      where: {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      },
-      select: { id: true },
-    });
-
-    const farmIds = userFarms.map((farm) => farm.id);
-
-    if (farmIds.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          totalAmount: 0,
-          totalCustomers: 0,
-          customers: [],
-          pagination: {
-            page: Number(page),
-            limit: Number(limit),
-            total: 0,
-            totalPages: 0,
-          },
-        },
-      });
-    }
-
-    // Get credit sales with customer details
-    const [creditSales, totalCreditSales] = await Promise.all([
-      prisma.sale.findMany({
-        where: {
-          farmId: { in: farmIds },
-          isCredit: true,
-          dueAmount: { gt: 0 },
-        },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              balance: true,
-            },
-          },
-          farm: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          category: {
-            select: {
-              name: true,
-            },
-          },
-        },
-        orderBy: { date: "desc" },
+    // Customers who owe money now (Customer.balance, same as the Sales ledger).
+    const owingWhere = { userId: currentUserId, balance: { gt: 0 } };
+    const [customers, totals] = await Promise.all([
+      prisma.customer.findMany({
+        where: owingWhere,
+        orderBy: [{ balance: "desc" }, { id: "asc" }],
         skip,
-        take: Number(limit),
+        take: limitNumber,
+        select: { id: true, name: true, phone: true, balance: true },
       }),
-      prisma.sale.count({
-        where: {
-          farmId: { in: farmIds },
-          isCredit: true,
-          dueAmount: { gt: 0 },
-        },
+      prisma.customer.aggregate({
+        where: owingWhere,
+        _sum: { balance: true },
+        _count: { _all: true },
       }),
     ]);
 
-    // Group by customer and calculate totals
-    const customerMap = new Map();
+    // Recent unpaid credit sales of these customers, for context in the popup.
+    const recentSales = customers.length
+      ? await prisma.sale.findMany({
+          where: { customerId: { in: customers.map((c) => c.id) }, isCredit: true, dueAmount: { gt: 0 } },
+          include: { farm: { select: { name: true } }, category: { select: { name: true } } },
+          orderBy: { date: "desc" },
+        })
+      : [];
 
-    creditSales.forEach((sale) => {
-      if (!sale.customer) return;
-
-      const customerId = sale.customer.id;
-      if (!customerMap.has(customerId)) {
-        customerMap.set(customerId, {
-          customerId,
-          customerName: sale.customer.name,
-          customerPhone: sale.customer.phone,
-          totalBalance: 0,
-          totalDueAmount: 0,
-          salesCount: 0,
-          lastSaleDate: sale.date,
-          sales: [],
-        });
-      }
-
-      const customer = customerMap.get(customerId);
-      customer.totalDueAmount += Number(sale.dueAmount || 0);
-      customer.salesCount += 1;
-      customer.sales.push({
-        saleId: sale.id,
-        amount: Number(sale.amount),
-        dueAmount: Number(sale.dueAmount || 0),
-        date: sale.date,
-        farmName: sale.farm?.name,
-        categoryName: sale.category.name,
-      });
-
-      if (sale.date > customer.lastSaleDate) {
-        customer.lastSaleDate = sale.date;
-      }
+    const rows = customers.map((customer) => {
+      const sales = recentSales.filter((sale) => sale.customerId === customer.id);
+      const balance = Number(customer.balance);
+      return {
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        totalBalance: balance,
+        totalDueAmount: balance,
+        salesCount: sales.length,
+        lastSaleDate: sales[0]?.date ?? null,
+        sales: sales.slice(0, 5).map((sale) => ({
+          saleId: sale.id,
+          amount: Number(sale.amount),
+          dueAmount: Number(sale.dueAmount || 0),
+          date: sale.date,
+          farmName: sale.farm?.name,
+          categoryName: sale.category.name,
+        })),
+      };
     });
 
-    const customers = Array.from(customerMap.values()).sort(
-      (a, b) => b.totalDueAmount - a.totalDueAmount
-    );
-
-    const totalAmount = customers.reduce(
-      (sum, customer) => sum + customer.totalDueAmount,
-      0
-    );
-
+    const totalCustomers = totals._count._all;
     return res.json({
       success: true,
       data: {
-        totalAmount,
-        totalCustomers: customers.length,
-        customers,
+        totalAmount: Number(totals._sum.balance || 0),
+        totalCustomers,
+        customers: rows,
         pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total: totalCreditSales,
-          totalPages: Math.ceil(totalCreditSales / Number(limit)),
+          page: pageNumber,
+          limit: limitNumber,
+          total: totalCustomers,
+          totalPages: Math.ceil(totalCustomers / limitNumber),
         },
       },
     });
@@ -1078,8 +1014,20 @@ export const getBatchPerformanceList = async (
 ): Promise<any> => {
   try {
     const currentUserId = req.userId;
-    const { status, sortBy = 'startDate', sortOrder = 'desc' } = req.query;
-    
+    const { status, sortBy, sortOrder, farmId, limit, batchType } = req.query;
+
+    // Only known values reach Prisma (a raw sortBy used to crash with a 500).
+    const safeSortBy = sortBy === "createdAt" ? "createdAt" : "startDate";
+    const safeSortOrder = sortOrder === "asc" ? "asc" : "desc";
+    const safeStatus = status === "ACTIVE" || status === "COMPLETED" ? status : undefined;
+    const safeBatchType = batchType === "BROILER" || batchType === "LAYERS" ? batchType : undefined;
+    // Optional cap for the Home graph (the FCR work is per batch). No limit = all batches, as before.
+    const BATCH_PERFORMANCE_MAX_LIMIT = 60;
+    const parsedLimit = Math.floor(Number(limit));
+    const take = limit === undefined || !Number.isFinite(parsedLimit)
+      ? undefined
+      : Math.min(BATCH_PERFORMANCE_MAX_LIMIT, Math.max(1, parsedLimit));
+
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
       where: {
@@ -1092,28 +1040,43 @@ export const getBatchPerformanceList = async (
     });
 
     const farmIds = userFarms.map((farm) => farm.id);
-    
+
+    if (farmId !== undefined && !farmIds.includes(String(farmId))) {
+      return res.status(400).json({ message: "Farm not found" });
+    }
+
     if (farmIds.length === 0) {
       return res.json({
         success: true,
         data: [],
+        hasMore: false,
+        availableTypes: [],
       });
     }
-    
-    // Build where clause with optional status filter
-    const where: any = { farmId: { in: farmIds } };
-    if (status) {
-      where.status = status; // 'ACTIVE' or 'COMPLETED'
-    }
 
-    // Fetch all batches with aggregated data
-    const batches = await prisma.batch.findMany({
+    const scope = { farmId: farmId !== undefined ? String(farmId) : { in: farmIds } };
+    const where: any = { ...scope };
+    if (safeStatus) {
+      where.status = safeStatus;
+    }
+    if (safeBatchType) {
+      where.batchType = safeBatchType;
+    }
+    // Which batch types exist here, so the graph only offers a Broiler/Layers switch when both do.
+    const typeGroups = await prisma.batch.groupBy({ by: ["batchType"], where: scope });
+    const availableTypes = typeGroups.map((group) => group.batchType).sort();
+
+    // Take one extra row to know whether more batches exist than were returned.
+    const rows = await prisma.batch.findMany({
       where,
       include: {
         farm: { select: { name: true } },
       },
-      orderBy: { [sortBy as string]: sortOrder },
+      orderBy: [{ [safeSortBy]: safeSortOrder }, { id: safeSortOrder }],
+      ...(take !== undefined ? { take: take + 1 } : {}),
     });
+    const hasMore = take !== undefined && rows.length > take;
+    const batches = hasMore ? rows.slice(0, take) : rows;
 
     // Calculate metrics for each batch
     const batchesWithMetrics = await Promise.all(
@@ -1136,9 +1099,11 @@ export const getBatchPerformanceList = async (
           (endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
         );
 
-        // Calculate mortality count (only natural deaths)
-        const mortalityCount = fcrResult?.currentDeaths || 0;
-        const mortalityRate = (mortalityCount / batch.initialChicks) * 100;
+        // Natural deaths only. currentDeaths also holds the birds written off when a
+        // batch is closed (closureBirdCount); those are not deaths.
+        const closureBirds = batch.status === "COMPLETED" ? Number(batch.closureBirdCount || 0) : 0;
+        const mortalityCount = Math.max(0, (fcrResult?.currentDeaths || 0) - closureBirds);
+        const mortalityRate = batch.initialChicks > 0 ? (mortalityCount / batch.initialChicks) * 100 : 0;
 
         // Calculate financials
         const totalExpenses = Number(expenses._sum.amount || 0);
@@ -1152,12 +1117,21 @@ export const getBatchPerformanceList = async (
           id: batch.id,
           batchNumber: batch.batchNumber,
           farmName: batch.farm.name,
+          farmId: batch.farmId,
+          batchType: batch.batchType,
           status: batch.status,
           startDate: batch.startDate,
+          endDate: batch.endDate,
           days,
           mortality: mortalityCount,
           mortalityRate: mortalityRate.toFixed(2),
           fcr: fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A',
+          // FCR to show today: final for closed batches; for active ones null when
+          // newer feed/sales/deaths make the last calculation out of date.
+          currentFcr:
+            batch.status === "COMPLETED"
+              ? (fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A')
+              : (fcrResult?.currentFcr != null ? fcrResult.currentFcr.toFixed(2) : 'N/A'),
           cfcr:
             fcrResult?.currentCfcr != null
               ? fcrResult.currentCfcr.toFixed(2)
@@ -1178,6 +1152,8 @@ export const getBatchPerformanceList = async (
     return res.json({
       success: true,
       data: batchesWithMetrics,
+      hasMore,
+      availableTypes,
     });
   } catch (error) {
     console.error("Get batch performance list error:", error);

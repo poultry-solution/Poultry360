@@ -66,3 +66,64 @@ export function prevBsDate(bs: string): string {
 export function bsDateBefore(bsDate1: string, bsDate2: string): boolean {
   return bsDate1 < bsDate2;
 }
+
+// ── BS month window (dashboard "this month") ────────────────────────────────
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const BS_MONTH_NAMES = ["Baisakh", "Jestha", "Ashadh", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra"];
+
+type AdParts = { y: number; m: number; d: number };
+
+/** BS date for an AD calendar day. Built from local noon, so the result does not depend on the server TZ. */
+function bsFromAd({ y, m, d }: AdParts) {
+  const nd = new NepaliDate(new Date(y, m - 1, d, 12));
+  return { year: nd.getYear(), month: nd.getMonth() + 1, day: nd.getDate() };
+}
+
+function adFromBs(year: number, month: number, day: number): AdParts {
+  const ad = new NepaliDate(year, month - 1, day).getAD();
+  return { y: ad.year, m: ad.month + 1, d: ad.date };
+}
+
+/** 00:00 Nepal time on an AD calendar day. */
+function nepalMidnight({ y, m, d }: AdParts): Date {
+  return new Date(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T00:00:00.000+05:45`);
+}
+
+export interface NepalBsMonthWindow {
+  /** 00:00 Nepal time on day 1 of the current BS month. */
+  currentStart: Date;
+  /** Days of the current BS month so far, including today. */
+  daysElapsed: number;
+  /** 00:00 Nepal time on day 1 of the previous BS month. */
+  previousStart: Date;
+  /** End (23:59:59.999 Nepal) of the same number of days into the previous month, capped at its last day. */
+  previousSameDaysEnd: Date;
+  bsYear: number;
+  bsMonth: number;
+  /** e.g. "Ashwin 2083" */
+  monthLabel: string;
+}
+
+/** Current and previous BS month boundaries for "this month" figures, in Nepal days. */
+export function getNepalBsMonthWindow(now: Date = new Date()): NepalBsMonthWindow {
+  const nepal = new Date(now.getTime() + NEPAL_OFFSET_MS);
+  const today = bsFromAd({ y: nepal.getUTCFullYear(), m: nepal.getUTCMonth() + 1, d: nepal.getUTCDate() });
+
+  const currentStart = nepalMidnight(adFromBs(today.year, today.month, 1));
+  const prevYear = today.month === 1 ? today.year - 1 : today.year;
+  const prevMonth = today.month === 1 ? 12 : today.month - 1;
+  const previousStart = nepalMidnight(adFromBs(prevYear, prevMonth, 1));
+  const previousMonthDays = Math.round((currentStart.getTime() - previousStart.getTime()) / DAY_MS);
+  const sameDays = Math.min(today.day, previousMonthDays);
+
+  return {
+    currentStart,
+    daysElapsed: today.day,
+    previousStart,
+    previousSameDaysEnd: new Date(previousStart.getTime() + sameDays * DAY_MS - 1),
+    bsYear: today.year,
+    bsMonth: today.month,
+    monthLabel: `${BS_MONTH_NAMES[today.month - 1]} ${today.year}`,
+  };
+}
