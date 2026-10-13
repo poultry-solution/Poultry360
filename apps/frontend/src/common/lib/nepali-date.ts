@@ -57,6 +57,11 @@ function formatADShortNepal(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** The Nepal calendar day (AD YYYY-MM-DD) a moment falls on, whatever the device time zone is. */
+export function toNepalDayAd(value: Date | string): string {
+  return formatADShortNepal(typeof value === "string" ? new Date(value) : value);
+}
+
 /** Today's date in Nepal as AD YYYY-MM-DD, whatever the device time zone is. */
 export function getNepalTodayAd(): string {
   return formatADShortNepal(new Date());

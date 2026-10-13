@@ -2416,7 +2416,8 @@
       },
       "badges": {
         "credit": "Credit",
-        "cash": "Cash"
+        "cash": "Cash",
+        "partlyPaid": "Partly paid"
       }
     },
     "saleRequests": {

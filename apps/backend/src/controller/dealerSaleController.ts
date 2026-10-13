@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma, TransactionType } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
+import { parseDealerSaleDateRange, parseNepalBoundary } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
 import { getDealerSalesTrend } from "../services/dealerSalesTrendService";
 import bcrypt from "bcrypt";
@@ -304,14 +304,19 @@ export const getDealerSales = async (
       where.sourceFarmerId = sourceFarmerId;
     }
 
+    // Dates are full Nepal days (UTC+5:45), the same rule as statistics and analytics.
     if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) {
-        const end = new Date(endDate as string);
-        end.setUTCHours(23, 59, 59, 999);
-        where.date.lte = end;
+      let gte: Date | null;
+      let lte: Date | null;
+      try {
+        gte = parseNepalBoundary(startDate, "start");
+        lte = parseNepalBoundary(endDate, "end");
+      } catch {
+        return res.status(400).json({ message: "Invalid startDate or endDate" });
       }
+      where.date = {};
+      if (gte) where.date.gte = gte;
+      if (lte) where.date.lte = lte;
     }
 
     const [sales, total] = await Promise.all([

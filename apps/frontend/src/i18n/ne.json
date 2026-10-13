@@ -2415,7 +2415,8 @@
       },
       "badges": {
         "credit": "उधारो",
-        "cash": "नगद"
+        "cash": "नगद",
+        "partlyPaid": "आंशिक भुक्तानी"
       }
     },
     "saleRequests": {

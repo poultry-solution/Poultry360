@@ -243,17 +243,21 @@ export default function DealerSalesPage() {
               {
                 key: 'isCredit',
                 label: t("dealer.sales.table.type"),
-                width: '70px',
+                width: '100px',
                 render: (_val, row) => {
                   if (row.isSupplierSettlementSale) {
                     return <Badge variant="outline" className="border-blue-300 text-blue-800">Settled</Badge>;
                   }
-                  const hadInitialPayment = Number(row.paidAmount) > 0;
-                  return (
-                    <Badge variant={hadInitialPayment ? "default" : "secondary"} className="text-xs">
-                      {hadInitialPayment ? t("dealer.sales.badges.cash") : t("dealer.sales.badges.credit")}
-                    </Badge>
-                  );
+                  // Based on what was paid when the sale was made.
+                  const paid = Number(row.paidAmount) || 0;
+                  const total = Number(row.totalAmount) || 0;
+                  if (paid > 0 && paid >= total) {
+                    return <Badge className="bg-green-100 text-xs text-green-800 hover:bg-green-100">{t("dealer.sales.badges.cash")}</Badge>;
+                  }
+                  if (paid > 0) {
+                    return <Badge className="bg-amber-100 text-xs text-amber-800 hover:bg-amber-100">{t("dealer.sales.badges.partlyPaid")}</Badge>;
+                  }
+                  return <Badge className="bg-red-100 text-xs text-red-800 hover:bg-red-100">{t("dealer.sales.badges.credit")}</Badge>;
                 }
               },
               {

@@ -171,10 +171,10 @@ export function DealerSaleBillDocument({
                       </td>
                     ) : null}
                     <td className={["text-right align-top", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
-                      ₹{formatCurrency(line.rate)}
+                      रू {formatCurrency(line.rate)}
                     </td>
                     <td className={["text-right align-top font-medium", isCompact ? "px-2 py-2" : "px-3 py-2"].join(" ")}>
-                      ₹{formatCurrency(line.total)}
+                      रू {formatCurrency(line.total)}
                     </td>
                   </tr>
                 ))}
@@ -188,39 +188,39 @@ export function DealerSaleBillDocument({
                 <div className={isCompact ? "space-y-1 text-xs" : "space-y-1 text-sm"}>
                   <div className="flex items-center justify-between">
                     <span>Subtotal</span>
-                    <span className="font-semibold">₹{formatCurrency(subtotalAmount)}</span>
+                    <span className="font-semibold">रू {formatCurrency(subtotalAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Discount</span>
-                    <span className="font-semibold text-green-600">- ₹{formatCurrency(discountAmount)}</span>
+                    <span className="font-semibold text-green-600">- रू {formatCurrency(discountAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t">
                     <span>Total Amount</span>
-                    <span className="font-semibold">₹{formatCurrency(totalAmount)}</span>
+                    <span className="font-semibold">रू {formatCurrency(totalAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Paid</span>
-                    <span className="font-semibold">₹{formatCurrency(paidAmount)}</span>
+                    <span className="font-semibold">रू {formatCurrency(paidAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Due</span>
-                    <span className="font-semibold">₹{formatCurrency(dueAmount)}</span>
+                    <span className="font-semibold">रू {formatCurrency(dueAmount)}</span>
                   </div>
                 </div>
               ) : (
                 <div>
                   <div className={isCompact ? "flex items-center justify-between text-xs" : "flex items-center justify-between text-sm"}>
                     <span>Total Amount</span>
-                    <span className="font-semibold">₹{formatCurrency(totalAmount)}</span>
+                    <span className="font-semibold">रू {formatCurrency(totalAmount)}</span>
                   </div>
                   {!sale?.isSupplierSettlementSale ? <>
                     <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
                       <span>Paid</span>
-                      <span className="font-semibold">₹{formatCurrency(paidAmount)}</span>
+                      <span className="font-semibold">रू {formatCurrency(paidAmount)}</span>
                     </div>
                     <div className={isCompact ? "mt-1.5 flex items-center justify-between text-xs" : "mt-2 flex items-center justify-between text-sm"}>
                       <span>Due</span>
-                      <span className="font-semibold">₹{formatCurrency(dueAmount)}</span>
+                      <span className="font-semibold">रू {formatCurrency(dueAmount)}</span>
                     </div>
                   </> : <div className="mt-2 text-xs text-blue-800">Applied to the supplier balance; no cash was received.</div>}
                 </div>

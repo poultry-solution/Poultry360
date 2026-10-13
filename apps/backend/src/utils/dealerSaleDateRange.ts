@@ -24,7 +24,11 @@ function buildNepalBoundaryDate(datePart: string, boundary: "start" | "end"): Da
   return new Date(`${datePart}T${suffix}`);
 }
 
-function parseNepalBoundary(value: unknown, boundary: "start" | "end"): Date | null {
+/**
+ * Start (00:00) or end (23:59:59.999) of one Nepal day, from "YYYY-MM-DD"
+ * (an ISO string is cut to its date). Null when empty; throws when malformed.
+ */
+export function parseNepalBoundary(value: unknown, boundary: "start" | "end"): Date | null {
   const datePart = normalizeDatePart(value);
   if (!datePart) return null;
 
