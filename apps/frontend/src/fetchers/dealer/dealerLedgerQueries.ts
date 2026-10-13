@@ -237,6 +237,8 @@ export const useAddDealerPayment = () => {
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.balance() });
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.summary() });
       queryClient.invalidateQueries({ queryKey: [...dealerLedgerKeys.all, "parties"] });
+      // Home "Sales vs collected" graph lives under the statistics key.
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
     },
   });
 };

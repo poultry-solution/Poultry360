@@ -1,17 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { CalendarRange, RefreshCcw } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
-import {
-  convertADtoBS,
-  getBSYearMonthFromAD,
-  getFirstDayOfBSMonthAD,
-  getNepalTodayAd,
-} from "@/common/lib/nepali-date";
+import { CustomRangePickers, RangeModeSwitch, useNepaliDateRange } from "@/components/dealer/NepaliRangeFilter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetInventorySummary, useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";
@@ -20,31 +14,6 @@ import { useGetManualCompanies, useGetDealerProfitSummary } from "@/fetchers/dea
 import { useAuthStore } from "@/common/store/store";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
-
-type DateRange = { startDate: string; endDate: string };
-
-/** Problem with a custom range, or null when it can be used. Dates are AD YYYY-MM-DD. */
-function getRangeError(startDate: string, endDate: string, today: string): string | null {
-  if (!startDate || !endDate) return "Please pick both dates.";
-  if (startDate > today || endDate > today) return "Dates cannot be in the future.";
-  if (startDate > endDate) return "Start date must be on or before end date.";
-  return null;
-}
-
-function toBsLabel(adDate: string) {
-  try {
-    return convertADtoBS(adDate);
-  } catch {
-    return adDate;
-  }
-}
-
-function describeRange(range: DateRange | null) {
-  if (!range) return "All time";
-  const start = toBsLabel(range.startDate);
-  const end = toBsLabel(range.endDate);
-  return start === end ? start : `${start} to ${end}`;
-}
 
 function formatMoney(value: number | string | null | undefined) {
   return new Intl.NumberFormat("en-NP", {
@@ -147,37 +116,8 @@ export default function DealerAnalyticsPage() {
 function DealerAnalyticsContent() {
   const queryClient = useQueryClient();
   // All time by default. Custom dates are Nepal days (AD YYYY-MM-DD under the hood).
-  const [isCustomRange, setIsCustomRange] = useState(false);
-  const [customStartAd, setCustomStartAd] = useState("");
-  const [customEndAd, setCustomEndAd] = useState("");
-  // Last valid custom range; numbers keep showing it while the picked dates are wrong.
-  const [appliedRange, setAppliedRange] = useState<DateRange | null>(null);
-
-  const rangeError = isCustomRange ? getRangeError(customStartAd, customEndAd, getNepalTodayAd()) : null;
-  const rangeLabel = describeRange(appliedRange);
-
-  const setCustomDates = (startDate: string, endDate: string) => {
-    setCustomStartAd(startDate);
-    setCustomEndAd(endDate);
-    if (!getRangeError(startDate, endDate, getNepalTodayAd())) {
-      setAppliedRange({ startDate, endDate });
-    }
-  };
-
-  const showCustomRange = () => {
-    if (isCustomRange) return;
-    const today = getNepalTodayAd();
-    const { year, month } = getBSYearMonthFromAD(today);
-    setIsCustomRange(true);
-    setCustomDates(getFirstDayOfBSMonthAD(year, month), today);
-  };
-
-  const showAllTime = () => {
-    setIsCustomRange(false);
-    setCustomStartAd("");
-    setCustomEndAd("");
-    setAppliedRange(null);
-  };
+  const dateRange = useNepaliDateRange();
+  const { appliedRange, rangeLabel } = dateRange;
 
   const statsParams = useMemo(() => appliedRange ?? {}, [appliedRange]);
 
@@ -317,51 +257,11 @@ function DealerAnalyticsContent() {
             <span className="text-gray-500">Showing:</span>
             <span className="font-semibold">{rangeLabel}</span>
           </p>
-          <div className="inline-flex w-full rounded-md border border-gray-200 bg-gray-50 p-0.5 sm:w-auto">
-            {([
-              { key: "all", label: "All time", active: !isCustomRange, onClick: showAllTime },
-              { key: "custom", label: "Custom dates", active: isCustomRange, onClick: showCustomRange },
-            ] as const).map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={option.onClick}
-                className={`flex-1 rounded px-3 py-1 text-sm font-medium transition-colors sm:flex-none ${option.active ? "bg-primary text-primary-foreground shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <RangeModeSwitch state={dateRange} />
         </div>
-        {isCustomRange ? (
-          <div className="space-y-2 border-t border-gray-100 pt-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Start date</p>
-                <NepaliDatePicker
-                  defaultDate={customStartAd ? toBsLabel(customStartAd) : undefined}
-                  onChange={({ adDate }) => setCustomDates(adDate.split("T")[0], customEndAd)}
-                  className="w-full rounded-md border border-gray-300"
-                  theme="light"
-                  language="en"
-                />
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">End date</p>
-                <NepaliDatePicker
-                  defaultDate={customEndAd ? toBsLabel(customEndAd) : undefined}
-                  onChange={({ adDate }) => setCustomDates(customStartAd, adDate.split("T")[0])}
-                  className="w-full rounded-md border border-gray-300"
-                  theme="light"
-                  language="en"
-                />
-              </div>
-            </div>
-            {rangeError ? (
-              <p className="text-sm text-red-600">
-                {rangeError} Still showing {rangeLabel}.
-              </p>
-            ) : null}
+        {dateRange.isCustomRange ? (
+          <div className="border-t border-gray-100 pt-3">
+            <CustomRangePickers state={dateRange} />
           </div>
         ) : null}
       </div>

@@ -204,6 +204,35 @@ export const useGetDealerSales = (
   });
 };
 
+export interface SalesTrendDay {
+  /** Nepal day, AD YYYY-MM-DD */
+  day: string;
+  sales: number;
+  collected: number;
+}
+
+/** Sales vs money collected per Nepal day. No range = all time. */
+export const useGetDealerSalesTrend = (
+  range?: { startDate: string; endDate: string } | null,
+  options?: { enabled?: boolean }
+) => {
+  const startDate = range?.startDate;
+  const endDate = range?.endDate;
+  return useQuery({
+    // Under "statistics" so sale and payment changes refresh it too.
+    queryKey: [...dealerSaleKeys.statistics(), "trend", { startDate, endDate }] as const,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ success: boolean; data: SalesTrendDay[] }>(
+        "/dealer/sales/trend",
+        { params: { startDate, endDate } }
+      );
+      return data.data;
+    },
+    enabled: options?.enabled ?? true,
+    placeholderData: keepPreviousData,
+  });
+};
+
 // Get dealer sale by ID
 export const useGetDealerSaleById = (id: string) => {
   return useQuery({

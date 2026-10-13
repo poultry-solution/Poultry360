@@ -3,6 +3,7 @@ import { Prisma, TransactionType } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
+import { getDealerSalesTrend } from "../services/dealerSalesTrendService";
 import bcrypt from "bcrypt";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import {
@@ -958,6 +959,30 @@ export const createCustomer = async (
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET SALES VS COLLECTED (HOME GRAPH) ====================
+export const getSalesTrend = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const range = parseDealerSaleDateRange(req.query.startDate, req.query.endDate);
+    if (!range.ok) {
+      return res.status(400).json({ message: range.message });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: req.userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const days = await getDealerSalesTrend(dealer.id, range.range);
+    return res.status(200).json({ success: true, data: days });
+  } catch (error: any) {
+    console.error("Get sales trend error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
