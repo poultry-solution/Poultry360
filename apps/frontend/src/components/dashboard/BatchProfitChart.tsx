@@ -308,7 +308,7 @@ export function BatchProfitChart({ farms }: { farms: Array<{ id: string; name: s
                 style={{ minWidth: points.length * (points.some((p) => p.label.includes("'")) ? PX_PER_BATCH_WITH_YEAR : PX_PER_BATCH) }}
                 className={`aspect-auto h-60 w-full [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-gray-100 [&_.recharts-cartesian-axis-tick_text]:fill-gray-500 ${isFetching ? "opacity-60" : ""}`}
               >
-                <ComposedChart data={points} margin={{ left: 0, right: 28, top: 8, bottom: 0 }} barGap={3} barCategoryGap="30%">
+                <ComposedChart data={points} margin={{ left: 0, right: 28, top: 8, bottom: 0 }} barGap={12} barCategoryGap="30%">
                   <CartesianGrid vertical={false} stroke="#eef0f3" />
                   <XAxis dataKey="label" height={X_AXIS_HEIGHT} tickLine={false} axisLine={false} tickMargin={8} interval={0} fontSize={10} padding={{ left: 8, right: 8 }} />
                   <YAxis hide domain={yScale.domain} ticks={yScale.ticks} />
