@@ -244,7 +244,7 @@ export default function FarmerSaleRequestsPage() {
           </CardHeader>
           <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
             <div className="text-base md:text-2xl font-bold text-yellow-600">{stats.pending}</div>
-            <p className="text-[9px] md:text-xs text-muted-foreground">
+            <p className="text-[9px] md:text-xs text-gray-700">
               <span className="hidden md:inline">{formatCurrency(stats.pendingAmount)}</span>
               <span className="md:hidden">रू{Math.round(stats.pendingAmount).toLocaleString()}</span>
             </p>
@@ -321,7 +321,7 @@ export default function FarmerSaleRequestsPage() {
                       <span className="md:hidden">रू{Math.round(request.totalAmount).toLocaleString()}</span>
                     </div>
                     {request.paidAmount > 0 && (
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-700">
                         {t("farmer.saleRequests.paid")}: {formatCurrency(request.paidAmount)}
                       </div>
                     )}

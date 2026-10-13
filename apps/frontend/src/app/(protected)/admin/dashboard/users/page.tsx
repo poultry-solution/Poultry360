@@ -262,7 +262,7 @@ export default function AdminUsersPage() {
             </div>
           ) : isError ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-muted-foreground">Failed to load users</p>
+              <p className="text-red-600">Failed to load users</p>
               <Button
                 variant="outline"
                 size="sm"

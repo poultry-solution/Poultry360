@@ -93,7 +93,7 @@ export default function AdminBlogPostsPage() {
             <p className="text-sm text-muted-foreground">Loading blog posts...</p>
           ) : isError ? (
             <div className="space-y-3 text-center">
-              <p className="text-sm text-muted-foreground">Failed to load blog posts.</p>
+              <p className="text-sm text-red-600">Failed to load blog posts.</p>
               <Button variant="outline" onClick={() => refetch()}>
                 Retry
               </Button>

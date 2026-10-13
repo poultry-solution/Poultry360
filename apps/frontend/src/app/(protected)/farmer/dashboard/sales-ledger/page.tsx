@@ -1358,7 +1358,7 @@ export default function SalesLedgerPage() {
                 <div className="text-base md:text-2xl font-bold">
                   {salesStats.totalSales}
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">
+                <p className="text-[9px] md:text-xs text-gray-700">
                   रू{salesStats.totalAmount.toLocaleString()}
                 </p>
               </CardContent>
@@ -1375,7 +1375,7 @@ export default function SalesLedgerPage() {
                 <div className="text-base md:text-2xl font-bold">
                   {salesStats.creditSales}
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">
+                <p className="text-[9px] md:text-xs text-gray-700">
                   रू{salesStats.creditAmount.toLocaleString()} {t("farmer.salesLedger.overview.dueLabel")}
                 </p>
               </CardContent>
