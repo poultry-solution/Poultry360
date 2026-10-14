@@ -393,23 +393,15 @@
       "addParty": "पार्टी थप्नुहोस्",
       "newSale": "नयाँ बिक्री",
       "tabs": {
-        "overview": "अवलोकन",
-        "overviewShort": "तथ्याङ्क",
         "sales": "बिक्री",
         "parties": "पार्टीहरू",
-        "payments": "भुक्तानीहरू",
-        "payShort": "भुक्तानी"
+        "payments": "भुक्तानीहरू"
       },
       "overview": {
         "sales": "बिक्री",
-        "credit": "उधारो",
         "parties": "पार्टीहरू",
-        "due": "बाँकी",
         "owe": "दिनुपर्छ",
-        "dueLabel": "बाँकी",
-        "outstanding": "बाँकी रकम",
-        "recentSales": "भर्खरै बिक्रीहरू",
-        "latestTransactions": "भर्खरै लेनदेनहरू"
+        "outstanding": "बाँकी रकम"
       },
       "filters": "फिल्टरहरू",
       "search": "खोज्नुहोस्",
@@ -468,7 +460,6 @@
       "saleModal": {
         "editSale": "बिक्री सम्पादन गर्नुहोस्",
         "addNewSale": "नयाँ बिक्री थप्नुहोस्",
-        "smartForm": "💡 स्मार्ट फर्म: अर्को बिक्रीको लागि फार्म र ब्याच छानाइ सम्झनुहोस्!",
         "selectFarm": "फार्म छान्नुहोस् *",
         "chooseFarm": "फार्म छान्नुहोस्",
         "selectBatch": "ब्याच छान्नुहोस् *",
@@ -480,7 +471,6 @@
         "type": "प्रकार",
         "eggType": "अण्डा प्रकार",
         "addLine": "लाइन थप्नुहोस्",
-        "rateRupee": "दर (रू)",
         "ratePerUnit": "प्रति युनिट दर",
         "quantityBirds": "मात्रा (चराहरू)",
         "quantityUnits": "मात्रा (युनिटहरू)",
@@ -494,7 +484,7 @@
         "calculatedRateWeight": "दर × तौल अनुसार",
         "calculatedRateQty": "दर × मात्रा अनुसार",
         "date": "मिति",
-        "remainingBalance": "बाँकी ब्यालेन्स?",
+        "remainingBalance": "उधारोमा बेचेको",
         "searchCustomer": "ग्राहक खोज्नुहोस्",
         "searchExistingCustomers": "अवस्थित ग्राहक खोज्नुहोस्...",
         "noCustomersFound": "ग्राहक भेटिएन",
@@ -510,7 +500,16 @@
         "updating": "अपडेट हुँदैछ...",
         "creating": "सिर्जना हुँदैछ...",
         "updateSale": "बिक्री अपडेट गर्नुहोस्",
-        "createSale": "बिक्री सिर्जना गर्नुहोस्"
+        "createSale": "बिक्री सिर्जना गर्नुहोस्",
+        "chickenMeat": "कुखुरा (मासु)",
+        "ratePerEgg": "प्रति अण्डा दर (रू)",
+        "ratePerUnitLabel": "प्रति युनिट दर (रू)",
+        "ratePerKgLabel": "प्रति किलो दर (रू)",
+        "ratePerKg": "प्रति किलो दर",
+        "moreOptions": "थप विकल्प",
+        "moreOptionsChicken": "थप विकल्प (तौल छुट, बिल नम्बर)",
+        "moreOptionsOther": "थप विकल्प (बिल नम्बर)",
+        "calculatedRateWeightDiscount": "दर × तौल, {percent}% तौल छुट सहित"
       },
       "partyModal": {
         "editParty": "पार्टी सम्पादन गर्नुहोस्",
@@ -578,7 +577,39 @@
         "partyDeleted": "पार्टी सफलतापूर्वक मेटियो",
         "deletePartyFailed": "पार्टी मेट्न असफल भयो"
       },
-      "failedCreateSale": "बिक्री सिर्जना गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।"
+      "failedCreateSale": "बिक्री सिर्जना गर्न असफल भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+      "ui": {
+        "creditSales": "उधारो बिक्री",
+        "soldOnCredit": "{amount} उधारोमा बेचेको",
+        "toReceive": "पाउन बाँकी",
+        "filtered": "फिल्टर गरिएको",
+        "searchSales": "ग्राहक, फार्म वा नोट",
+        "searchParties": "नाम वा फोन",
+        "searchPayments": "ग्राहक, नोट वा सन्दर्भ",
+        "item": "सामान",
+        "allItems": "सबै सामान",
+        "chicken": "कुखुरा",
+        "eggs": "अण्डा",
+        "payment": "भुक्तानी",
+        "allPayments": "नगद र उधारो",
+        "cash": "नगद",
+        "credit": "उधारो",
+        "from": "देखि",
+        "to": "सम्म",
+        "clear": "हटाउनुहोस्",
+        "owesOnly": "बाँकी हुनेमात्र",
+        "dateOrder": "सुरु मिति अन्तिम मितिभन्दा पछि छ।",
+        "noMatch": "यी फिल्टरसँग केही मिलेन।",
+        "paidAtSale": "बिक्री गर्दा तिरेको",
+        "paidLater": "पछि तिरेको",
+        "more": "थप",
+        "showDeleted": "मेटाइएका देखाउनुहोस्",
+        "hideDeleted": "मेटाइएका लुकाउनुहोस्",
+        "deleteEntries": "एन्ट्री मेटाउनुहोस्",
+        "showingDeleted": "मेटाइएका भुक्तानी देखाइँदै",
+        "deleteCount": "मेटाउनुहोस् ({count})",
+        "dates": "मिति"
+      }
     },
     "paymentRequests": {
       "title": "भुक्तानी अनुरोधहरू",

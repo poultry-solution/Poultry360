@@ -37,9 +37,7 @@ import { DataTable } from "@/common/components/ui/data-table";
 import {
   Plus,
   Search,
-  Filter,
 
-  TrendingUp,
   Users,
 
   CreditCard,
@@ -51,10 +49,11 @@ import {
   Trash2,
   UserPlus,
   Receipt,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
   X,
+  MoreHorizontal,
+  CalendarDays,
 } from "lucide-react";
 import {
   useSalesManagement,
@@ -78,12 +77,15 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { useI18n } from "@/i18n/useI18n";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import { formatRupeesExact, getTodayLocalDate } from "@/common/lib/utils";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
+import { Popover, PopoverContent, PopoverTrigger } from "@/common/components/ui/popover";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
 // Types
-type TabType = "overview" | "sales" | "parties" | "payments";
+type TabType = "sales" | "parties" | "payments";
 
 interface SalesFilters {
   search: string;
@@ -114,7 +116,7 @@ export default function SalesLedgerPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   // State management
-  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [activeTab, setActiveTab] = useState<TabType>("sales");
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
@@ -202,6 +204,10 @@ export default function SalesLedgerPage() {
   });
 
   const [useCustomInvoice, setUseCustomInvoice] = useState(false);
+  const [showSaleMoreOptions, setShowSaleMoreOptions] = useState(false);
+  useEffect(() => {
+    if (!isSaleModalOpen) setShowSaleMoreOptions(false);
+  }, [isSaleModalOpen]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
 
   const [partyForm, setPartyForm] = useState({
@@ -500,6 +506,107 @@ export default function SalesLedgerPage() {
     setPaymentFilters((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Unfiltered party totals for the top tiles (party filters must not change them).
+  const { data: partyTotalsResponse, isLoading: partyTotalsLoading } = useGetCustomersForSalesPage(
+    { page: 1, limit: 1 },
+    { enabled: true }
+  );
+  const partyTotals = partyTotalsResponse?.summary
+    ? {
+        totalParties: Number(partyTotalsResponse.summary.totalParties ?? 0),
+        totalBalance: Number(partyTotalsResponse.summary.totalBalance ?? 0),
+        partiesWithBalance: Number(partyTotalsResponse.summary.partiesWithBalance ?? 0),
+      }
+    : partyStats;
+
+  const itemTypeLabel = (value: string) => {
+    if (value === "Chicken_Meat") return t("farmer.salesLedger.ui.chicken");
+    if (value === "EGGS") return t("farmer.salesLedger.ui.eggs");
+    if (!value) return "—";
+    return value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ");
+  };
+
+  // Filter bars: search is typed into local state and applied after a short pause.
+  const [salesSearchInput, setSalesSearchInput] = useState("");
+  const [partySearchInput, setPartySearchInput] = useState("");
+  const [paymentSearchInput, setPaymentSearchInput] = useState("");
+  useEffect(() => {
+    if (salesSearchInput === salesFilters.search) return;
+    const timer = setTimeout(() => handleSalesFilterChange("search", salesSearchInput), salesSearchInput ? 300 : 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesSearchInput]);
+  useEffect(() => {
+    if (partySearchInput === partyFilters.search) return;
+    const timer = setTimeout(() => handlePartyFilterChange("search", partySearchInput), partySearchInput ? 300 : 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partySearchInput]);
+  useEffect(() => {
+    if (paymentSearchInput === paymentFilters.search) return;
+    const timer = setTimeout(() => handlePaymentFilterChange("search", paymentSearchInput), paymentSearchInput ? 300 : 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentSearchInput]);
+
+  // Date range: AD YYYY-MM-DD inputs, sent as Nepal-day boundaries so "To = today" includes all of today.
+  const [salesRange, setSalesRange] = useState({ from: "", to: "" });
+  const [paymentRange, setPaymentRange] = useState({ from: "", to: "" });
+  // Date boxes are hidden until the user asks for them, so an empty filter never shows a date.
+  const [isSalesDateOpen, setIsSalesDateOpen] = useState(false);
+  const [isPaymentDateOpen, setIsPaymentDateOpen] = useState(false);
+  const openSalesDates = () => {
+    const today = getNepalTodayAd();
+    setSalesRange({ from: today, to: today });
+    setIsSalesDateOpen(true);
+  };
+  const openPaymentDates = () => {
+    const today = getNepalTodayAd();
+    setPaymentRange({ from: today, to: today });
+    setIsPaymentDateOpen(true);
+  };
+  const rangeIsValid = (range: { from: string; to: string }) => !range.from || !range.to || range.from <= range.to;
+  const nepalDayStart = (day: string) => (day ? `${day}T00:00:00.000+05:45` : "");
+  const nepalDayEnd = (day: string) => (day ? `${day}T23:59:59.999+05:45` : "");
+  useEffect(() => {
+    if (!rangeIsValid(salesRange)) return;
+    const start = nepalDayStart(salesRange.from);
+    const end = nepalDayEnd(salesRange.to);
+    if (start === salesFilters.startDate && end === salesFilters.endDate) return;
+    setSalesPage(1);
+    setSalesFilters((prev) => ({ ...prev, startDate: start, endDate: end }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesRange.from, salesRange.to]);
+  useEffect(() => {
+    if (!rangeIsValid(paymentRange)) return;
+    const start = nepalDayStart(paymentRange.from);
+    const end = nepalDayEnd(paymentRange.to);
+    if (start === paymentFilters.startDate && end === paymentFilters.endDate) return;
+    setPaymentsPage(1);
+    setPaymentFilters((prev) => ({ ...prev, startDate: start, endDate: end }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentRange.from, paymentRange.to]);
+
+  const salesFiltersActive = Boolean(
+    salesFilters.search || salesFilters.itemType || salesFilters.isCredit || salesFilters.startDate || salesFilters.endDate
+  );
+  const paymentFiltersActive = Boolean(paymentFilters.search || paymentFilters.startDate || paymentFilters.endDate);
+  const clearSalesFilters = () => {
+    setSalesSearchInput("");
+    setSalesRange({ from: "", to: "" });
+    setIsSalesDateOpen(false);
+    setSalesPage(1);
+    setSalesFilters((prev) => ({ ...prev, search: "", itemType: "", isCredit: "", startDate: "", endDate: "" }));
+  };
+  const clearPaymentFilters = () => {
+    setPaymentSearchInput("");
+    setPaymentRange({ from: "", to: "" });
+    setIsPaymentDateOpen(false);
+    setPaymentsPage(1);
+    setPaymentFilters((prev) => ({ ...prev, search: "", startDate: "", endDate: "" }));
+  };
+  const [isPaymentMenuOpen, setIsPaymentMenuOpen] = useState(false);
+
   // Payment delete mode handlers
   function toggleAllPayments() {
     const selectablePayments = payments.filter(
@@ -677,7 +784,7 @@ export default function SalesLedgerPage() {
       }
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
-        errors.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
+        errors.balance = `Paid amount cannot exceed total amount of ${formatRupeesExact(totalAmount)}`;
       }
     }
 
@@ -901,7 +1008,7 @@ export default function SalesLedgerPage() {
     if (!paymentForm.amount) errors.amount = t("farmer.salesLedger.validation.amountRequired");
     if (!paymentForm.date) errors.date = t("farmer.salesLedger.validation.dateRequired");
     if (selectedParty && Number(paymentForm.amount) > selectedParty.balance) {
-      errors.amount = `Amount cannot exceed balance of ₹${selectedParty.balance.toLocaleString()}`;
+      errors.amount = `Amount cannot exceed balance of ${formatRupeesExact(selectedParty.balance)}`;
     }
     setPaymentErrors(errors);
     return Object.keys(errors).length === 0;
@@ -1055,7 +1162,7 @@ export default function SalesLedgerPage() {
         };
         return (
           <Badge className={colors[value] || "bg-gray-100 text-gray-800"}>
-            {value}
+            {itemTypeLabel(value)}
           </Badge>
         );
       },
@@ -1113,7 +1220,7 @@ export default function SalesLedgerPage() {
             .map((l) => {
               const name = l.eggType?.name ?? "—";
               const rate = Number(l.unitPrice ?? 0);
-              return `${name} ₹${rate.toLocaleString()}`;
+              return `${name} ${formatRupeesExact(rate)}`;
             })
             .join(", ");
           return (
@@ -1122,7 +1229,7 @@ export default function SalesLedgerPage() {
             </div>
           );
         }
-        return value != null ? `₹${Number(value).toLocaleString()}` : "—";
+        return value != null ? formatRupeesExact(value) : "—";
       },
     },
     {
@@ -1131,6 +1238,7 @@ export default function SalesLedgerPage() {
       type: "currency" as const,
       width: "120px",
       align: "right" as const,
+      render: (value: unknown) => <span className="font-medium">{formatRupeesExact(value)}</span>,
     },
     {
       key: "isCredit",
@@ -1216,7 +1324,7 @@ export default function SalesLedgerPage() {
         <span
           className={value > 0 ? "text-red-600 font-medium" : "text-green-600"}
         >
-          ₹{value.toLocaleString()}
+          {formatRupeesExact(value)}
         </span>
       ),
     },
@@ -1320,13 +1428,53 @@ export default function SalesLedgerPage() {
         </div>
       </div>
 
+      {/* Summary tiles (all tabs) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile
+          tile={{
+            label: t("farmer.salesLedger.overview.sales"),
+            icon: Receipt,
+            value: Number(salesStats.totalSales || 0).toLocaleString("en-IN"),
+            sub: `${rupees(salesStats.totalAmount)}${salesFiltersActive ? ` · ${t("farmer.salesLedger.ui.filtered")}` : ""}`,
+            loading: isLoading && !salesSummary,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.salesLedger.ui.creditSales"),
+            icon: CreditCard,
+            value: Number(salesStats.creditSales || 0).toLocaleString("en-IN"),
+            sub: `${t("farmer.salesLedger.ui.soldOnCredit", { amount: rupees(salesStats.creditAmount) })}${salesFiltersActive ? ` · ${t("farmer.salesLedger.ui.filtered")}` : ""}`,
+            loading: isLoading && !salesSummary,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.salesLedger.overview.parties"),
+            icon: Users,
+            value: Number(partyTotals.totalParties || 0).toLocaleString("en-IN"),
+            sub: `${partyTotals.partiesWithBalance} ${t("farmer.salesLedger.overview.owe")}`,
+            loading: partyTotalsLoading && !partyTotalsResponse,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.salesLedger.ui.toReceive"),
+            icon: CreditCard,
+            value: rupees(partyTotals.totalBalance),
+            valueClass: Math.round(partyTotals.totalBalance) > 0 ? "text-red-600" : "",
+            sub: t("farmer.salesLedger.overview.outstanding"),
+            loading: partyTotalsLoading && !partyTotalsResponse,
+          }}
+        />
+      </div>
+
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
+      <div className="flex w-fit max-w-full gap-1 bg-muted p-1 rounded-lg overflow-x-auto">
         {[
-          { id: "overview", label: t("farmer.salesLedger.tabs.overview"), shortLabel: t("farmer.salesLedger.tabs.overviewShort"), icon: TrendingUp },
-          { id: "sales", label: t("farmer.salesLedger.tabs.sales"), shortLabel: t("farmer.salesLedger.tabs.sales"), icon: Receipt },
-          { id: "parties", label: t("farmer.salesLedger.tabs.parties"), shortLabel: t("farmer.salesLedger.tabs.parties"), icon: Users },
-          { id: "payments", label: t("farmer.salesLedger.tabs.payments"), shortLabel: t("farmer.salesLedger.tabs.payShort"), icon: CreditCard },
+          { id: "sales", label: t("farmer.salesLedger.tabs.sales"), icon: Receipt },
+          { id: "parties", label: t("farmer.salesLedger.tabs.parties"), icon: Users },
+          { id: "payments", label: t("farmer.salesLedger.tabs.payments"), icon: CreditCard },
         ].map((tab) => (
           <Button
             key={tab.id}
@@ -1336,127 +1484,107 @@ export default function SalesLedgerPage() {
             className="flex items-center gap-1 md:gap-2 text-xs md:text-sm whitespace-nowrap"
           >
             <tab.icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">{tab.label}</span>
-            <span className="sm:hidden">{tab.shortLabel}</span>
+            <span>{tab.label}</span>
           </Button>
         ))}
       </div>
-
-      {/* Overview Tab */}
-      {activeTab === "overview" && (
-        <div className="space-y-4 md:space-y-6">
-          {/* Sales Statistics */}
-          <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">
-                  {t("farmer.salesLedger.overview.sales")}
-                </CardTitle>
-                <Receipt className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold">
-                  {salesStats.totalSales}
-                </div>
-                <p className="text-[9px] md:text-xs text-gray-700">
-                  रू{salesStats.totalAmount.toLocaleString()}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">
-                  {t("farmer.salesLedger.overview.credit")}
-                </CardTitle>
-                <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold">
-                  {salesStats.creditSales}
-                </div>
-                <p className="text-[9px] md:text-xs text-gray-700">
-                  रू{salesStats.creditAmount.toLocaleString()} {t("farmer.salesLedger.overview.dueLabel")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">
-                  {t("farmer.salesLedger.overview.parties")}
-                </CardTitle>
-                <Users className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold">
-                  {partyStats.totalParties}
-                </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">
-                  {partyStats.partiesWithBalance} {t("farmer.salesLedger.overview.owe")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2 md:p-6 md:pb-2">
-                <CardTitle className="text-[10px] md:text-sm font-medium">
-                  {t("farmer.salesLedger.overview.due")}
-                </CardTitle>
-                <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold text-red-600">
-                  <span className="hidden md:inline">रू</span>{partyStats.totalBalance.toLocaleString()}
-                </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">
-                  {t("farmer.salesLedger.overview.outstanding")}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Sales */}
-          <Card>
-            <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.overview.recentSales")}</CardTitle>
-              <CardDescription className="text-xs md:text-sm">{t("farmer.salesLedger.overview.latestTransactions")}</CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
-              <div className="overflow-x-auto">
-                <DataTable
-                  data={sales.slice(0, 5)}
-                  columns={salesColumns.filter((col) => col.key !== "actions")}
-                  showFooter={false}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Sales Tab */}
       {activeTab === "sales" && (
         <div className="space-y-4 md:space-y-6">
           {/* Sales Table */}
-          <Card>
-            <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.salesRecords")}</CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                {pagination?.total || 0} {t("farmer.salesLedger.total")}
-              </CardDescription>
+          <Card className="gap-3 py-0">
+            <CardHeader className="px-3 pt-3 pb-0 md:px-6 md:pt-5">
+              <CardTitle className="text-base md:text-lg">
+                {t("farmer.salesLedger.salesRecords")}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {pagination?.total || 0} {t("farmer.salesLedger.total")}
+                </span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
+            <CardContent className="px-3 pb-3 pt-0 md:px-6 md:pb-5 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={salesSearchInput}
+                    onChange={(e) => setSalesSearchInput(e.target.value)}
+                    placeholder={t("farmer.salesLedger.ui.searchSales")}
+                    className="h-9 pl-8 text-sm"
+                  />
+                </div>
+                <Select
+                  value={salesFilters.itemType || "ALL"}
+                  onValueChange={(v) => handleSalesFilterChange("itemType", v === "ALL" ? "" : v)}
+                >
+                  <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] sm:w-36 bg-background text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">{t("farmer.salesLedger.ui.allItems")}</SelectItem>
+                    <SelectItem value="Chicken_Meat">{t("farmer.salesLedger.ui.chicken")}</SelectItem>
+                    <SelectItem value="EGGS">{t("farmer.salesLedger.ui.eggs")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={salesFilters.isCredit || "ALL"}
+                  onValueChange={(v) => handleSalesFilterChange("isCredit", v === "ALL" ? "" : v)}
+                >
+                  <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] sm:w-40 bg-background text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">{t("farmer.salesLedger.ui.allPayments")}</SelectItem>
+                    <SelectItem value="false">{t("farmer.salesLedger.ui.cash")}</SelectItem>
+                    <SelectItem value="true">{t("farmer.salesLedger.ui.credit")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isSalesDateOpen ? (
+                  <>
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
+                      <span className="shrink-0 text-sm text-muted-foreground">{t("farmer.salesLedger.ui.from")}</span>
+                      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                        <DateInput
+                          value={salesRange.from}
+                          onChange={(v) => setSalesRange((r) => ({ ...r, from: v ? v.split("T")[0] : "" }))}
+                        />
+                      </div>
+                      <span className="shrink-0 text-sm text-muted-foreground">{t("farmer.salesLedger.ui.to")}</span>
+                      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                        <DateInput
+                          value={salesRange.to}
+                          onChange={(v) => setSalesRange((r) => ({ ...r, to: v ? v.split("T")[0] : "" }))}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" className="h-9" onClick={openSalesDates}>
+                    <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                    {t("farmer.salesLedger.ui.dates")}
+                  </Button>
+                )}
+                {(salesFiltersActive || salesSearchInput || salesRange.from || salesRange.to) && (
+                  <Button type="button" variant="ghost" size="sm" className="h-9" onClick={clearSalesFilters}>
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    {t("farmer.salesLedger.ui.clear")}
+                  </Button>
+                )}
+              </div>
+              {!rangeIsValid(salesRange) && (
+                <p className="text-xs text-red-600">{t("farmer.salesLedger.ui.dateOrder")}</p>
+              )}
               <div className="overflow-x-auto">
                 <DataTable
                   data={sales}
                   columns={salesColumns}
+                  emptyMessage={salesFiltersActive ? t("farmer.salesLedger.ui.noMatch") : undefined}
                   showFooter={true}
                   footerContent={
                     <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
                       <span>{t("farmer.salesLedger.table.total")}: {salesStats.totalSales}</span>
                       <span>
-                        रू{salesStats.totalAmount.toLocaleString()}
+                        {formatRupeesExact(salesStats.totalAmount)}
                       </span>
                     </div>
                   }
@@ -1501,14 +1629,36 @@ export default function SalesLedgerPage() {
       {activeTab === "parties" && (
         <div className="space-y-4 md:space-y-6">
           {/* Parties Table */}
-          <Card>
-            <CardHeader className="p-3 md:p-6">
-              <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.partiesTitle")}</CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                {partyStats.totalParties} {t("farmer.salesLedger.total")}, {partyStats.partiesWithBalance} {t("farmer.salesLedger.overview.owe")}
-              </CardDescription>
+          <Card className="gap-3 py-0">
+            <CardHeader className="px-3 pt-3 pb-0 md:px-6 md:pt-5">
+              <CardTitle className="text-base md:text-lg">
+                {t("farmer.salesLedger.partiesTitle")}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {partyStats.totalParties} {t("farmer.salesLedger.total")}, {partyStats.partiesWithBalance} {t("farmer.salesLedger.overview.owe")}
+                </span>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
+            <CardContent className="px-3 pb-3 pt-0 md:px-6 md:pb-5 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={partySearchInput}
+                    onChange={(e) => setPartySearchInput(e.target.value)}
+                    placeholder={t("farmer.salesLedger.ui.searchParties")}
+                    className="h-9 pl-8 text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant={partyFilters.hasBalance === "true" ? "default" : "outline"}
+                  size="sm"
+                  className="h-9"
+                  onClick={() => handlePartyFilterChange("hasBalance", partyFilters.hasBalance === "true" ? "" : "true")}
+                >
+                  {t("farmer.salesLedger.ui.owesOnly")}
+                </Button>
+              </div>
               {partiesLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -1525,7 +1675,7 @@ export default function SalesLedgerPage() {
                         <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
                           <span>{t("farmer.salesLedger.table.total")}: {partyStats.totalParties}</span>
                           <span>
-                            {t("farmer.salesLedger.table.due")}: रू{partyStats.totalBalance.toLocaleString()}
+                            {t("farmer.salesLedger.table.due")}: {formatRupeesExact(partyStats.totalBalance)}
                           </span>
                         </div>
                       }
@@ -1573,14 +1723,16 @@ export default function SalesLedgerPage() {
           {activeTab === "payments" && (
         <div className="space-y-4 md:space-y-6">
           {/* Payments Table */}
-          <Card>
-            <CardHeader className="p-3 md:p-6">
+          <Card className="gap-3 py-0">
+            <CardHeader className="px-3 pt-3 pb-0 md:px-6 md:pt-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base md:text-lg">{t("farmer.salesLedger.recentPayments")}</CardTitle>
-                  <CardDescription className="text-xs md:text-sm">
-                    {paymentsPagination?.total || 0} {t("farmer.salesLedger.totalRecords")}
-                  </CardDescription>
+                  <CardTitle className="text-base md:text-lg">
+                    {t("farmer.salesLedger.recentPayments")}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {paymentsPagination?.total || 0} {t("farmer.salesLedger.totalRecords")}
+                    </span>
+                  </CardTitle>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {isPaymentDeleteMode ? (
@@ -1604,32 +1756,91 @@ export default function SalesLedgerPage() {
                       </Button>
                     </>
                   ) : (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`h-7 text-xs ${showDeletedPayments ? "bg-gray-100" : ""}`}
-                        onClick={() => setShowDeletedPayments((v) => !v)}
-                      >
-                        <Eye className="h-3 w-3 mr-1 sm:mr-0" />
-                        <span className="hidden sm:inline sm:ml-1">{showDeletedPayments ? "Hide Deleted" : "Show Deleted"}</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setIsPaymentDeleteMode(true)}
-                        disabled={payments.length === 0}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1 sm:mr-0" />
-                        <span className="hidden sm:inline sm:ml-1">Delete Entries</span>
-                      </Button>
-                    </>
+                    <Popover open={isPaymentMenuOpen} onOpenChange={setIsPaymentMenuOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8" aria-label={t("farmer.salesLedger.ui.more")}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-52 p-1">
+                        <button
+                          type="button"
+                          className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm hover:bg-gray-100"
+                          onClick={() => {
+                            setIsPaymentMenuOpen(false);
+                            setShowDeletedPayments((v) => !v);
+                          }}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          {showDeletedPayments ? t("farmer.salesLedger.ui.hideDeleted") : t("farmer.salesLedger.ui.showDeleted")}
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={payments.length === 0}
+                          onClick={() => {
+                            setIsPaymentMenuOpen(false);
+                            setIsPaymentDeleteMode(true);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t("farmer.salesLedger.ui.deleteEntries")}
+                        </button>
+                      </PopoverContent>
+                    </Popover>
                   )}
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-3 md:p-6 pt-0">
+            <CardContent className="px-3 pb-3 pt-0 md:px-6 md:pb-5 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full sm:w-64">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={paymentSearchInput}
+                    onChange={(e) => setPaymentSearchInput(e.target.value)}
+                    placeholder={t("farmer.salesLedger.ui.searchPayments")}
+                    className="h-9 pl-8 text-sm"
+                  />
+                </div>
+                {isPaymentDateOpen ? (
+                  <>
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
+                      <span className="shrink-0 text-sm text-muted-foreground">{t("farmer.salesLedger.ui.from")}</span>
+                      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                        <DateInput
+                          value={paymentRange.from}
+                          onChange={(v) => setPaymentRange((r) => ({ ...r, from: v ? v.split("T")[0] : "" }))}
+                        />
+                      </div>
+                      <span className="shrink-0 text-sm text-muted-foreground">{t("farmer.salesLedger.ui.to")}</span>
+                      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
+                        <DateInput
+                          value={paymentRange.to}
+                          onChange={(v) => setPaymentRange((r) => ({ ...r, to: v ? v.split("T")[0] : "" }))}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <Button type="button" variant="outline" size="sm" className="h-9" onClick={openPaymentDates}>
+                    <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                    {t("farmer.salesLedger.ui.dates")}
+                  </Button>
+                )}
+                {(paymentFiltersActive || paymentSearchInput || paymentRange.from || paymentRange.to) && (
+                  <Button type="button" variant="ghost" size="sm" className="h-9" onClick={clearPaymentFilters}>
+                    <X className="mr-1 h-3.5 w-3.5" />
+                    {t("farmer.salesLedger.ui.clear")}
+                  </Button>
+                )}
+              </div>
+              {!rangeIsValid(paymentRange) && (
+                <p className="text-xs text-red-600">{t("farmer.salesLedger.ui.dateOrder")}</p>
+              )}
+              {showDeletedPayments && (
+                <p className="text-xs text-muted-foreground">{t("farmer.salesLedger.ui.showingDeleted")}</p>
+              )}
               {paymentsLoading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -1656,7 +1867,12 @@ export default function SalesLedgerPage() {
                         key: "description",
                         label: t("farmer.salesLedger.table.description"),
                         width: "250px",
-                        render: (value: string) => value || t("farmer.salesLedger.table.paymentLabel"),
+                        render: (value: string) =>
+                          value === "Initial payment"
+                            ? t("farmer.salesLedger.ui.paidAtSale")
+                            : value === "Payment received"
+                              ? t("farmer.salesLedger.ui.paidLater")
+                              : value || t("farmer.salesLedger.table.paymentLabel"),
                       },
                       {
                         key: "amount",
@@ -1664,6 +1880,7 @@ export default function SalesLedgerPage() {
                         type: "currency" as const,
                         width: "120px",
                         align: "right" as const,
+                        render: (value: unknown) => formatRupeesExact(value),
                       },
                       {
                         key: "receiptUrl",
@@ -1700,7 +1917,7 @@ export default function SalesLedgerPage() {
                     footerContent={
                       <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground w-full">
                         <span>{t("farmer.salesLedger.totalRecords")}: {paymentsTotalRows}</span>
-                        <span>Total: रू{Number(paymentsSummary?.totalAmount ?? 0).toLocaleString()}</span>
+                        <span>Total: {formatRupeesExact(paymentsSummary?.totalAmount ?? 0)}</span>
                       </div>
                     }
                   />
@@ -1754,6 +1971,7 @@ export default function SalesLedgerPage() {
           setErrors({});
         }}
         title={editingSaleId ? t("farmer.salesLedger.saleModal.editSale") : t("farmer.salesLedger.saleModal.addNewSale")}
+        className="max-w-xl"
       >
         <form onSubmit={handleSaleSubmit}>
           <ModalContent>
@@ -1764,46 +1982,7 @@ export default function SalesLedgerPage() {
                 </div>
               )}
 
-              {/* Smart persistence info */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-sm text-blue-700">
-                  {t("farmer.salesLedger.saleModal.smartForm")}
-                </p>
-              </div>
-
-              {/* Custom Invoice Number (Toggle) */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
-                    useCustomInvoice
-                      ? "bg-primary/10 border-primary/30 text-primary"
-                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
-                  }`}
-                  onClick={() => {
-                    setUseCustomInvoice(!useCustomInvoice);
-                    if (useCustomInvoice) setInvoiceNumber("");
-                  }}
-                >
-                  <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
-                    useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
-                  }`}>
-                    {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
-                  </div>
-                  Custom invoice number
-                </button>
-                {useCustomInvoice ? (
-                  <Input
-                    placeholder="e.g. BILL-001"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    className="max-w-[200px] h-8 text-sm"
-                  />
-                ) : (
-                  <span className="text-xs text-muted-foreground">Invoice will be auto-generated (e.g. INV-001)</span>
-                )}
-              </div>
-
+              <div className="grid gap-4 sm:grid-cols-2">
               {/* Farm Selection */}
               <div>
                 <Label htmlFor="farmId">{t("farmer.salesLedger.saleModal.selectFarm")}</Label>
@@ -1863,6 +2042,24 @@ export default function SalesLedgerPage() {
                 )}
               </div>
 
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>{t("farmer.salesLedger.saleModal.date")}</Label>
+                <DateInput
+                  value={saleForm.date}
+                  onChange={(v) =>
+                    setSaleForm((p) => ({
+                      ...p,
+                      date: v.includes("T") ? v.split("T")[0] : v,
+                    }))
+                  }
+                />
+                {errors.date && (
+                  <p className="text-xs text-red-600 mt-1">{errors.date}</p>
+                )}
+              </div>
               <div>
                 <Label htmlFor="itemType">{t("farmer.salesLedger.saleModal.itemType")}</Label>
                 <Select
@@ -1877,10 +2074,11 @@ export default function SalesLedgerPage() {
                   </SelectTrigger>
                   <SelectContent className="bg-white">
                     <SelectItem value="EGGS">{t("farmer.salesLedger.eggs")}</SelectItem>
-                    <SelectItem value="Chicken_Meat">Chicken/Layer (Meat)</SelectItem>
+                    <SelectItem value="Chicken_Meat">{t("farmer.salesLedger.saleModal.chickenMeat")}</SelectItem>
                     <SelectItem value="OTHER">{t("farmer.salesLedger.other")}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
               </div>
 
               {saleForm.itemType === "EGGS" && (
@@ -1937,7 +2135,7 @@ export default function SalesLedgerPage() {
                         />
                       </div>
                       <div className="w-28">
-                        <Label className="text-xs">{t("farmer.salesLedger.saleModal.rateRupee")}</Label>
+                        <Label className="text-xs">{t("farmer.salesLedger.saleModal.ratePerEgg")}</Label>
                         <Input
                           type="number"
                           min={0}
@@ -1992,147 +2190,94 @@ export default function SalesLedgerPage() {
               )}
 
               {saleForm.itemType !== "EGGS" && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="rate">{t("farmer.salesLedger.saleModal.rateRupee")}</Label>
-                    <Input
-                      id="rate"
-                      name="rate"
-                      type="number"
-                      value={saleForm.rate}
-                      onChange={updateSaleField}
-                      placeholder={t("farmer.salesLedger.saleModal.ratePerUnit")}
-                    />
-                    {errors.rate && (
-                      <p className="text-xs text-red-600 mt-1">{errors.rate}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="quantity">
-                      {saleForm.itemType === "Chicken_Meat"
-                        ? t("farmer.salesLedger.saleModal.quantityBirds")
-                        : t("farmer.salesLedger.saleModal.quantityUnits")}
-                    </Label>
-                    <Input
-                      id="quantity"
-                      name="quantity"
-                      type="number"
-                      value={saleForm.quantity}
-                      onChange={updateSaleField}
-                      placeholder={
-                        saleForm.itemType === "Chicken_Meat"
-                          ? t("farmer.salesLedger.saleModal.numberOfBirds")
-                          : t("farmer.salesLedger.saleModal.numberOfUnits")
-                      }
-                    />
-                    {errors.quantity && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {errors.quantity}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {["Chicken_Meat"].includes(
-                saleForm.itemType
-              ) && (
-                  <div>
-                    <Label htmlFor="weight">{t("farmer.salesLedger.saleModal.weightKg")}</Label>
-                    <Input
-                      id="weight"
-                      name="weight"
-                      type="number"
-                      step="0.01"
-                      value={saleForm.weight}
-                      onChange={updateSaleField}
-                      placeholder={t("farmer.salesLedger.saleModal.totalWeightKg")}
-                    />
-                    {errors.weight && (
-                      <p className="text-xs text-red-600 mt-1">{errors.weight}</p>
-                    )}
-                    {saleForm.itemType === "Chicken_Meat" &&
-                      saleForm.quantity &&
-                      saleForm.weight && (
-                        <p className="text-xs text-green-600 mt-1">
-                          {t("farmer.salesLedger.saleModal.avgWeightPerBird")}{" "}
-                          {(
-                            Number(saleForm.weight) / Number(saleForm.quantity)
-                          ).toFixed(2)}{" "}
-                          kg
-                        </p>
-                      )}
-                    <div className="mt-3">
-                      <BroilerWeightDiscountField
-                        enabled={saleForm.weightDiscountEnabled}
-                        percent={saleForm.weightDiscountPercent}
-                        weight={saleForm.weight}
-                        error={errors.weightDiscountPercent}
-                        onEnabledChange={(enabled) =>
-                          setSaleForm((p) => ({ ...p, weightDiscountEnabled: enabled }))
-                        }
-                        onPercentChange={(percent) =>
-                          setSaleForm((p) => ({ ...p, weightDiscountPercent: percent }))
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <Label htmlFor="quantity">
+                        {saleForm.itemType === "Chicken_Meat"
+                          ? t("farmer.salesLedger.saleModal.quantityBirds")
+                          : t("farmer.salesLedger.saleModal.quantityUnits")}
+                      </Label>
+                      <Input
+                        id="quantity"
+                        name="quantity"
+                        type="number"
+                        value={saleForm.quantity}
+                        onChange={updateSaleField}
+                        placeholder={
+                          saleForm.itemType === "Chicken_Meat"
+                            ? t("farmer.salesLedger.saleModal.numberOfBirds")
+                            : t("farmer.salesLedger.saleModal.numberOfUnits")
                         }
                       />
+                      {errors.quantity && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {errors.quantity}
+                        </p>
+                      )}
                     </div>
+                    {saleForm.itemType === "Chicken_Meat" ? (
+                      <div>
+                        <Label htmlFor="weight">{t("farmer.salesLedger.saleModal.weightKg")}</Label>
+                        <Input
+                          id="weight"
+                          name="weight"
+                          type="number"
+                          step="0.01"
+                          value={saleForm.weight}
+                          onChange={updateSaleField}
+                          placeholder={t("farmer.salesLedger.saleModal.totalWeightKg")}
+                        />
+                        {errors.weight && (
+                          <p className="text-xs text-red-600 mt-1">{errors.weight}</p>
+                        )}
+                        {saleForm.quantity && saleForm.weight && (
+                          <p className="text-xs text-green-600 mt-1">
+                            {t("farmer.salesLedger.saleModal.avgWeightPerBird")}{" "}
+                            {(
+                              Number(saleForm.weight) / Number(saleForm.quantity)
+                            ).toFixed(2)}{" "}
+                            kg
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <Label htmlFor="rate">{t("farmer.salesLedger.saleModal.ratePerUnitLabel")}</Label>
+                        <Input
+                          id="rate"
+                          name="rate"
+                          type="number"
+                          value={saleForm.rate}
+                          onChange={updateSaleField}
+                          placeholder={t("farmer.salesLedger.saleModal.ratePerUnit")}
+                        />
+                        {errors.rate && (
+                          <p className="text-xs text-red-600 mt-1">{errors.rate}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-
-              {/* Total Preview */}
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    {t("farmer.salesLedger.saleModal.totalAmount")}
-                  </span>
-                  <span className="text-lg font-bold text-green-700">
-                    ₹
-                    {saleForm.itemType === "EGGS"
-                      ? saleForm.eggLineItems
-                          .reduce(
-                            (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
-                            0
-                          )
-                          .toLocaleString()
-                      : (() => {
-                          const rate = Number(saleForm.rate || 0);
-                          const quantity = Number(saleForm.quantity || 0);
-                          const weight = Number(saleForm.weight || 0);
-                          if (saleForm.itemType === "Chicken_Meat" && weight) {
-                            return computeBroilerSaleAmount(
-                              weight,
-                              rate,
-                              parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
-                            ).amount.toLocaleString();
-                          }
-                          return (rate * quantity).toLocaleString();
-                        })()}
-                  </span>
+                  {saleForm.itemType === "Chicken_Meat" && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <Label htmlFor="rate">{t("farmer.salesLedger.saleModal.ratePerKgLabel")}</Label>
+                        <Input
+                          id="rate"
+                          name="rate"
+                          type="number"
+                          value={saleForm.rate}
+                          onChange={updateSaleField}
+                          placeholder={t("farmer.salesLedger.saleModal.ratePerKg")}
+                        />
+                        {errors.rate && (
+                          <p className="text-xs text-red-600 mt-1">{errors.rate}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {saleForm.itemType === "EGGS"
-                    ? t("farmer.salesLedger.saleModal.sumOfLines")
-                    : saleForm.itemType === "Chicken_Meat"
-                      ? t("farmer.salesLedger.saleModal.calculatedRateWeight")
-                      : t("farmer.salesLedger.saleModal.calculatedRateQty")}
-                </p>
-              </div>
-
-              <div>
-                <DateInput
-                  label={t("farmer.salesLedger.saleModal.date")}
-                  value={saleForm.date}
-                  onChange={(v) =>
-                    setSaleForm((p) => ({
-                      ...p,
-                      date: v.includes("T") ? v.split("T")[0] : v,
-                    }))
-                  }
-                />
-                {errors.date && (
-                  <p className="text-xs text-red-600 mt-1">{errors.date}</p>
-                )}
-              </div>
+              )}
 
               <div className="col-span-2">
                 <label className="inline-flex items-center gap-2 text-sm">
@@ -2275,9 +2420,113 @@ export default function SalesLedgerPage() {
                   </div>
                 </div>
               )}
+              {/* More options: weight discount (chicken) and custom invoice number.
+                  Opens by itself when either is in use, so a discount is never hidden. */}
+              {showSaleMoreOptions || useCustomInvoice || saleForm.weightDiscountEnabled ? (
+                <div className="space-y-3 rounded-md border border-gray-200 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {t("farmer.salesLedger.saleModal.moreOptions")}
+                  </p>
+                  {saleForm.itemType === "Chicken_Meat" && (
+                    <BroilerWeightDiscountField
+                      enabled={saleForm.weightDiscountEnabled}
+                      percent={saleForm.weightDiscountPercent}
+                      weight={saleForm.weight}
+                      error={errors.weightDiscountPercent}
+                      onEnabledChange={(enabled) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountEnabled: enabled }))
+                      }
+                      onPercentChange={(percent) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountPercent: percent }))
+                      }
+                    />
+                  )}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+                    useCustomInvoice
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "border-dashed border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                  }`}
+                  onClick={() => {
+                    setUseCustomInvoice(!useCustomInvoice);
+                    if (useCustomInvoice) setInvoiceNumber("");
+                  }}
+                >
+                  <div className={`h-3.5 w-3.5 rounded-sm border flex items-center justify-center ${
+                    useCustomInvoice ? "bg-primary border-primary" : "border-muted-foreground/50"
+                  }`}>
+                    {useCustomInvoice && <span className="text-white text-[10px] leading-none">✓</span>}
+                  </div>
+                  Custom invoice number
+                </button>
+                {useCustomInvoice ? (
+                  <Input
+                    placeholder="e.g. BILL-001"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="max-w-[200px] h-8 text-sm"
+                  />
+                ) : null}
+              </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="text-sm text-primary underline-offset-2 hover:underline"
+                  onClick={() => setShowSaleMoreOptions(true)}
+                >
+                  + {saleForm.itemType === "Chicken_Meat"
+                    ? t("farmer.salesLedger.saleModal.moreOptionsChicken")
+                    : t("farmer.salesLedger.saleModal.moreOptionsOther")}
+                </button>
+              )}
             </div>
           </ModalContent>
-          <ModalFooter>
+          <div className="sticky -bottom-4 z-10 -mx-6 -mb-4 border-t border-black/10 bg-white px-6 pt-3 pb-1">
+              <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    {t("farmer.salesLedger.saleModal.totalAmount")}
+                  </span>
+                  <span className="text-lg font-bold text-green-700">
+                    {saleForm.itemType === "EGGS"
+                      ? formatRupeesExact(
+                          saleForm.eggLineItems.reduce(
+                            (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+                            0
+                          )
+                        )
+                      : (() => {
+                          const rate = Number(saleForm.rate || 0);
+                          const quantity = Number(saleForm.quantity || 0);
+                          const weight = Number(saleForm.weight || 0);
+                          if (saleForm.itemType === "Chicken_Meat" && weight) {
+                            return formatRupeesExact(computeBroilerSaleAmount(
+                              weight,
+                              rate,
+                              parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+                            ).amount);
+                          }
+                          return formatRupeesExact(rate * quantity);
+                        })()}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {saleForm.itemType === "EGGS"
+                    ? t("farmer.salesLedger.saleModal.sumOfLines")
+                    : saleForm.itemType === "Chicken_Meat"
+                      ? (() => {
+                          const discount = parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent);
+                          return discount
+                            ? t("farmer.salesLedger.saleModal.calculatedRateWeightDiscount", { percent: String(discount) })
+                            : t("farmer.salesLedger.saleModal.calculatedRateWeight");
+                        })()
+                      : t("farmer.salesLedger.saleModal.calculatedRateQty")}
+                </p>
+              </div>
+          <ModalFooter className="px-0 py-3 border-t-0">
             <Button
               type="button"
               variant="outline"
@@ -2308,6 +2557,7 @@ export default function SalesLedgerPage() {
               )}
             </Button>
           </ModalFooter>
+          </div>
         </form>
       </Modal>
 
@@ -2473,7 +2723,7 @@ export default function SalesLedgerPage() {
                     <div>
                       <p className="text-sm font-medium">Opening balance</p>
                       <p className="text-xs text-muted-foreground">
-                        ₹{Math.abs(Number(editingPartyFull?.openingBalance?.amount ?? 0)).toLocaleString()}{" "}
+                        {formatRupeesExact(Math.abs(Number(editingPartyFull?.openingBalance?.amount ?? 0)))}{" "}
                         {Number(editingPartyFull?.openingBalance?.amount ?? 0) > 0
                           ? "(Party owes me)"
                           : Number(editingPartyFull?.openingBalance?.amount ?? 0) < 0
@@ -2556,8 +2806,8 @@ export default function SalesLedgerPage() {
                     {selectedParty.name}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {t("farmer.salesLedger.paymentModal.outstandingBalance")} ₹
-                    {Number(selectedParty.balance || 0).toLocaleString()}
+                    {t("farmer.salesLedger.paymentModal.outstandingBalance")}{" "}
+                    {formatRupeesExact(selectedParty.balance || 0)}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
                     {t("farmer.salesLedger.paymentModal.phone")} {selectedParty.phone}

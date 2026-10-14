@@ -394,23 +394,15 @@
       "addParty": "Add Party",
       "newSale": "New Sale",
       "tabs": {
-        "overview": "Overview",
-        "overviewShort": "Stats",
         "sales": "Sales",
         "parties": "Parties",
-        "payments": "Payments",
-        "payShort": "Pay"
+        "payments": "Payments"
       },
       "overview": {
         "sales": "Sales",
-        "credit": "Credit",
         "parties": "Parties",
-        "due": "Due",
         "owe": "owe",
-        "dueLabel": "due",
-        "outstanding": "Outstanding",
-        "recentSales": "Recent Sales",
-        "latestTransactions": "Latest transactions"
+        "outstanding": "Outstanding"
       },
       "filters": "Filters",
       "search": "Search",
@@ -469,7 +461,6 @@
       "saleModal": {
         "editSale": "Edit Sale",
         "addNewSale": "Add New Sale",
-        "smartForm": "💡 Smart Form: Farm and batch selections are remembered for your next sale to save time!",
         "selectFarm": "Select Farm *",
         "chooseFarm": "Choose a farm",
         "selectBatch": "Select Batch *",
@@ -481,7 +472,6 @@
         "type": "Type",
         "eggType": "Egg type",
         "addLine": "Add line",
-        "rateRupee": "Rate (₹)",
         "ratePerUnit": "Rate per unit",
         "quantityBirds": "Quantity (Birds)",
         "quantityUnits": "Quantity (Units)",
@@ -495,7 +485,7 @@
         "calculatedRateWeight": "Calculated as rate × weight",
         "calculatedRateQty": "Calculated as rate × quantity",
         "date": "Date",
-        "remainingBalance": "Remaining balance?",
+        "remainingBalance": "Sold on credit",
         "searchCustomer": "Search Customer",
         "searchExistingCustomers": "Search existing customers...",
         "noCustomersFound": "No customers found",
@@ -511,7 +501,16 @@
         "updating": "Updating...",
         "creating": "Creating...",
         "updateSale": "Update Sale",
-        "createSale": "Create Sale"
+        "createSale": "Create Sale",
+        "chickenMeat": "Chicken (meat)",
+        "ratePerEgg": "Rate per egg (रू)",
+        "ratePerUnitLabel": "Rate per unit (रू)",
+        "ratePerKgLabel": "Rate per kg (रू)",
+        "ratePerKg": "Rate per kg",
+        "moreOptions": "More options",
+        "moreOptionsChicken": "More options (weight discount, invoice number)",
+        "moreOptionsOther": "More options (invoice number)",
+        "calculatedRateWeightDiscount": "Rate × weight, with {percent}% weight discount"
       },
       "partyModal": {
         "editParty": "Edit Party",
@@ -579,7 +578,39 @@
         "partyDeleted": "Party deleted successfully",
         "deletePartyFailed": "Failed to delete party"
       },
-      "failedCreateSale": "Failed to create sale. Please try again."
+      "failedCreateSale": "Failed to create sale. Please try again.",
+      "ui": {
+        "creditSales": "Credit sales",
+        "soldOnCredit": "{amount} sold on credit",
+        "toReceive": "To receive",
+        "filtered": "Filtered",
+        "searchSales": "Customer, farm or note",
+        "searchParties": "Name or phone",
+        "searchPayments": "Customer, note or reference",
+        "item": "Item",
+        "allItems": "All items",
+        "chicken": "Chicken",
+        "eggs": "Eggs",
+        "payment": "Payment",
+        "allPayments": "Cash and credit",
+        "cash": "Cash",
+        "credit": "Credit",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear",
+        "owesOnly": "Owes only",
+        "dateOrder": "From date is after To date.",
+        "noMatch": "Nothing matches these filters.",
+        "paidAtSale": "Paid at sale",
+        "paidLater": "Paid later",
+        "more": "More",
+        "showDeleted": "Show deleted",
+        "hideDeleted": "Hide deleted",
+        "deleteEntries": "Delete entries",
+        "showingDeleted": "Showing deleted payments",
+        "deleteCount": "Delete ({count})",
+        "dates": "Dates"
+      }
     },
     "paymentRequests": {
       "title": "Payment Requests",

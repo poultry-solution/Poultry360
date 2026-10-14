@@ -39,3 +39,14 @@ export function formatDate(date: Date | string): string {
     minute: "2-digit",
   })
 }
+
+/** Exact money for ledger rows: "रू 1,13,100" (lakh commas), paisa only when it is not zero. */
+export function formatRupeesExact(value: unknown): string {
+  const n = Number(value || 0)
+  const hasPaisa = Math.round(Math.abs(n) * 100) % 100 !== 0
+  const text = Math.abs(n).toLocaleString("en-IN", {
+    minimumFractionDigits: hasPaisa ? 2 : 0,
+    maximumFractionDigits: 2,
+  })
+  return `${n < 0 ? "-" : ""}रू ${text}`
+}

@@ -21,7 +21,7 @@ import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { formatRupeesExact, getNowLocalDateTime } from "@/common/lib/utils";
 import {
   Modal,
   ModalContent,
@@ -67,6 +67,7 @@ import {
 } from "@/fetchers/accountFeatureQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 const PURCHASE_CATEGORY_VALUES = [
   "FEED",
@@ -356,7 +357,7 @@ export default function SupplierLedgerPage() {
         if (Array.isArray(unitPrices) && unitPrices.length > 0) {
           const parts = unitPrices.map((p: number, i: number) => {
             const u = Array.isArray(units) && units[i] != null ? units[i] : "unit";
-            return `रू ${Number(p).toFixed(2)}/${u}`;
+            return `${formatRupeesExact(p)}/${u}`;
           });
           return <span className="text-xs">{parts.join(", ")}</span>;
         }
@@ -364,7 +365,7 @@ export default function SupplierLedgerPage() {
         const unit = row.unit || "unit";
         return (
           <span className="text-xs">
-            रू {Number(price).toFixed(2)}/{unit}
+            {formatRupeesExact(price)}/{unit}
           </span>
         );
       },
@@ -372,13 +373,14 @@ export default function SupplierLedgerPage() {
     createColumn("amount", t("farmer.supplierLedger.table.amount"), {
       type: "currency",
       align: "right",
+      render: (value) => formatRupeesExact(value),
     }),
     createColumn("date", t("farmer.supplierLedger.table.date"), {
       type: "date",
     }),
     createColumn("description", t("farmer.supplierLedger.table.note"), {
       render: (_, row) => (
-        <span className="text-xs text-muted-foreground truncate max-w-[120px] block">
+        <span className="text-xs text-muted-foreground block">
           {row.description || "—"}
         </span>
       ),
@@ -410,6 +412,7 @@ export default function SupplierLedgerPage() {
     createColumn("amount", t("farmer.supplierLedger.table.amount"), {
       type: "currency",
       align: "right",
+      render: (value) => formatRupeesExact(value),
     }),
     createColumn("date", t("farmer.supplierLedger.table.date"), {
       type: "date",
@@ -693,82 +696,37 @@ export default function SupplierLedgerPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-2 md:gap-3 grid-cols-3">
-        <Card
-          onClick={() => setIsSummaryOpen(true)}
-          className="cursor-pointer transition-colors hover:bg-[#10841E] hover:text-white"
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
-            <CardTitle className="text-[9px] md:text-xs font-medium">
-              {t("farmer.supplierLedger.stats.suppliers")}
-            </CardTitle>
-            <Users className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
-            {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
-            ) : (
-              <div className="text-sm md:text-xl font-bold leading-none">
-                {statistics.totalDealers || 0}
-              </div>
-            )}
-            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
-              {t("farmer.supplierLedger.stats.activeSuppliers")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
-            <CardTitle className="text-[9px] md:text-xs font-medium">
-              {t("farmer.supplierLedger.stats.outstanding")}
-            </CardTitle>
-            <TrendingUp className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
-            {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
-            ) : (
-              <div className="text-sm md:text-xl font-bold leading-none">
-                <span className="hidden md:inline">
-                  ₹{(statistics.outstandingAmount || 0).toLocaleString()}
-                </span>
-                <span className="md:hidden">
-                  ₹{Math.round(statistics.outstandingAmount || 0).toLocaleString()}
-                </span>
-              </div>
-            )}
-            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
-              {t("farmer.supplierLedger.stats.amountDue")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 px-2.5 py-1.5 md:px-4 md:py-2">
-            <CardTitle className="text-[9px] md:text-xs font-medium">
-              {t("farmer.supplierLedger.stats.thisMonth")}
-            </CardTitle>
-            <TrendingUp className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-2.5 pb-2 pt-0 md:px-4 md:pb-3 md:pt-0">
-            {statisticsLoading ? (
-              <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
-            ) : (
-              <div className="text-sm md:text-xl font-bold leading-none">
-                <span className="hidden md:inline">
-                  ₹{(statistics.thisMonthAmount || 0).toLocaleString()}
-                </span>
-                <span className="md:hidden">
-                  ₹{Math.round(statistics.thisMonthAmount || 0).toLocaleString()}
-                </span>
-              </div>
-            )}
-            <p className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block mt-0.5">
-              {t("farmer.supplierLedger.stats.purchases")}
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatTile
+          tile={{
+            label: t("farmer.supplierLedger.stats.suppliers"),
+            icon: Users,
+            value: Number(statistics.totalDealers || 0).toLocaleString("en-IN"),
+            sub: t("farmer.supplierLedger.stats.activeSuppliers"),
+            loading: statisticsLoading,
+            onClick: () => setIsSummaryOpen(true),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.supplierLedger.stats.outstanding"),
+            icon: TrendingUp,
+            value: rupees(statistics.outstandingAmount || 0),
+            sub: t("farmer.supplierLedger.stats.amountDue"),
+            loading: statisticsLoading,
+          }}
+        />
+        <div className="col-span-2 md:col-span-1">
+          <StatTile
+            tile={{
+              label: t("farmer.supplierLedger.stats.thisMonth"),
+              icon: TrendingUp,
+              value: rupees(statistics.thisMonthAmount || 0),
+              sub: t("farmer.supplierLedger.stats.purchases"),
+              loading: statisticsLoading,
+            }}
+          />
+        </div>
       </div>
 
       {/* Summary Modal */}
@@ -801,7 +759,7 @@ export default function SupplierLedgerPage() {
                     </div>
                   </div>
                   <div className="text-right font-medium">
-                    ₹{(supplier.balance || 0).toLocaleString()}
+                    {formatRupeesExact(supplier.balance || 0)}
                   </div>
                 </div>
               ))
@@ -1291,7 +1249,7 @@ export default function SupplierLedgerPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("farmer.supplierLedger.addEntry.total")}</span>
                     <span className="font-semibold">
-                      ₹{(Number(newEntry.rate) * Number(newEntry.quantity)).toLocaleString()}
+                      {formatRupeesExact(Number(newEntry.rate) * Number(newEntry.quantity))}
                     </span>
                   </div>
                   {newEntry.category === "CHICKS" && computeFreeQuantity() > 0 && (
@@ -1423,8 +1381,8 @@ export default function SupplierLedgerPage() {
                     <strong>{t("farmer.supplierLedger.recordPayment.supplier")}</strong> {activeSupplier.name}
                   </p>
                   <p className="text-sm text-blue-800">
-                    <strong>{t("farmer.supplierLedger.recordPayment.balanceDue")}</strong> ₹
-                    {(activeSupplier.balance || 0).toLocaleString()}
+                    <strong>{t("farmer.supplierLedger.recordPayment.balanceDue")}</strong>{" "}
+                    {formatRupeesExact(activeSupplier.balance || 0)}
                   </p>
                 </div>
               )}
@@ -1587,12 +1545,12 @@ export default function SupplierLedgerPage() {
                     </CardTitle>
                       {activeSupplier && (
                         <CardDescription className="text-[10px] md:text-sm mt-1">
-                          {t("farmer.supplierLedger.balance")} ₹
-                          {(activeSupplier.balance || 0).toLocaleString()} |{" "}
-                          {t("farmer.supplierLedger.purchased")} ₹
-                          {Number(activeSummary.totalPurchasedAmount || 0).toLocaleString()}{" "}
-                          | {t("farmer.supplierLedger.paid")} ₹
-                          {Number(activeSummary.totalPaidAmount || 0).toLocaleString()}
+                          {t("farmer.supplierLedger.balance")}{" "}
+                          {formatRupeesExact(activeSupplier.balance || 0)} |{" "}
+                          {t("farmer.supplierLedger.purchased")}{" "}
+                          {formatRupeesExact(activeSummary.totalPurchasedAmount || 0)}{" "}
+                          | {t("farmer.supplierLedger.paid")}{" "}
+                          {formatRupeesExact(activeSummary.totalPaidAmount || 0)}
                         </CardDescription>
                       )}
                   </div>
@@ -1735,8 +1693,7 @@ export default function SupplierLedgerPage() {
                           <div className="flex justify-between text-sm px-2">
                             <span className="font-semibold">{t("farmer.supplierLedger.total")}</span>
                             <span className="font-semibold">
-                              ₹
-                              {Number(activeSummary.totalPurchasedAmount || 0).toLocaleString()}
+                              {formatRupeesExact(activeSummary.totalPurchasedAmount || 0)}
                             </span>
                           </div>
                         }
@@ -1773,8 +1730,7 @@ export default function SupplierLedgerPage() {
                           <div className="flex justify-between text-sm px-2">
                             <span className="font-semibold">{t("farmer.supplierLedger.totalPaid")}</span>
                             <span className="font-semibold text-green-600">
-                              ₹
-                              {Number(activeSummary.totalPaidAmount || 0).toLocaleString()}
+                              {formatRupeesExact(activeSummary.totalPaidAmount || 0)}
                             </span>
                           </div>
                         }

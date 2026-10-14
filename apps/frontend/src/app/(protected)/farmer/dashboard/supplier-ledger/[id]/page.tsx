@@ -54,6 +54,8 @@ import {
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { formatRupeesExact } from "@/common/lib/utils";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
@@ -125,9 +127,7 @@ export default function SupplierDetailPage() {
   const openingHistory: any[] = supplier?.openingBalanceHistory ?? [];
   const summary = supplier?.summary ?? {};
 
-  const formatCurrency = (amount: number) => {
-    return `रू ${amount.toFixed(2)}`;
-  };
+  const formatCurrency = (amount: number) => formatRupeesExact(amount);
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-IN", {
@@ -200,12 +200,13 @@ export default function SupplierDetailPage() {
       align: "right",
       render: (_, row: any) => {
         const unitPrice = row.unitPrice ?? (row.quantity ? row.amount / row.quantity : 0);
-        return <span>रू {Number(unitPrice || 0).toFixed(2)}</span>;
+        return <span>{formatRupeesExact(unitPrice || 0)}</span>;
       },
     }),
     createColumn("amount", "Amount", {
       type: "currency",
       align: "right",
+      render: (value) => formatRupeesExact(value),
     }),
     createColumn("date", "Date", {
       type: "date",
@@ -219,6 +220,7 @@ export default function SupplierDetailPage() {
     createColumn("amount", "Amount", {
       type: "currency",
       align: "right",
+      render: (value) => formatRupeesExact(value),
     }),
     createColumn("date", "Date", {
       type: "date",
@@ -356,76 +358,47 @@ export default function SupplierDetailPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Outstanding Balance
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-xl md:text-2xl font-bold ${
-                currentBalance > 0 ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {formatCurrency(Math.abs(currentBalance))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {currentBalance > 0
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile
+          tile={{
+            label: "Outstanding Balance",
+            icon: Wallet,
+            value: rupees(Math.abs(Number(currentBalance))),
+            valueClass: currentBalance > 0 ? "text-red-600" : "text-green-600",
+            sub:
+              currentBalance > 0
                 ? "You owe this supplier"
                 : currentBalance < 0
                   ? "Advance payment"
-                  : "Settled"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Purchased
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">
-              {formatCurrency(totalPurchased)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Number(summary.totalPurchases || 0)} purchase(s)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-            <TrendingDown className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">
-              {formatCurrency(totalPaid)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {Number(summary.totalPayments || 0)} payment(s)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payment Rate</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl md:text-2xl font-bold">{paymentRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Paid vs purchased
-            </p>
-          </CardContent>
-        </Card>
+                  : "Settled",
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Total Purchased",
+            icon: TrendingUp,
+            iconClass: "text-blue-600",
+            value: rupees(totalPurchased),
+            sub: `${Number(summary.totalPurchases || 0)} purchase(s)`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Total Paid",
+            icon: TrendingDown,
+            iconClass: "text-green-600",
+            value: rupees(totalPaid),
+            sub: `${Number(summary.totalPayments || 0)} payment(s)`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Payment Rate",
+            icon: Calendar,
+            value: `${paymentRate}%`,
+            sub: "Paid vs purchased",
+          }}
+        />
       </div>
 
       {canEditOpeningBalance && (
@@ -500,7 +473,7 @@ export default function SupplierDetailPage() {
                   <div className="flex items-center justify-between px-2 text-sm">
                     <span className="font-semibold">Total</span>
                     <span className="font-semibold text-red-600">
-                      ₹{Number(summary.totalPurchasedAmount || 0).toLocaleString()}
+                      {formatRupeesExact(summary.totalPurchasedAmount || 0)}
                     </span>
                   </div>
                 }
@@ -526,7 +499,7 @@ export default function SupplierDetailPage() {
                   <div className="flex items-center justify-between px-2 text-sm">
                     <span className="font-semibold">Total paid</span>
                     <span className="font-semibold text-green-600">
-                      ₹{Number(summary.totalPaidAmount || 0).toLocaleString()}
+                      {formatRupeesExact(summary.totalPaidAmount || 0)}
                     </span>
                   </div>
                 }
