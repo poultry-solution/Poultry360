@@ -21,7 +21,7 @@ export const DEMO_ACCOUNTS = {
     requiresExplicitPassword: true,
   },
   // New demo farmer (v2). The old v1 demo accounts on production use phones
-  // +9779800360001..04 and are left alone; they are deleted by hand.
+  // +9779800360001..04 and are left alone; they can be deleted by hand.
   farmer: {
     id: "p360-demo-user-farmer-v2",
     phone: "+9779800360011",
@@ -30,6 +30,15 @@ export const DEMO_ACCOUNTS = {
     businessName: "Green Valley Poultry Farm",
     location: "Bharatpur-16, Chitwan",
     passwordEnv: "P360_DEMO_FARMER_PASSWORD",
+  },
+  dealer: {
+    id: "p360-demo-user-dealer-v2",
+    phone: "+9779800360021",
+    role: UserRole.DEALER,
+    name: "Suresh Demo Dealer",
+    businessName: "Shree Ganesh Feed Center",
+    location: "Narayangadh, Chitwan",
+    passwordEnv: "P360_DEMO_DEALER_PASSWORD",
   },
 } as const;
 

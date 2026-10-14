@@ -1927,13 +1927,13 @@ export default function BatchDetailPage() {
           perBroilerExpenseData={perBroilerExpenseData}
           receivableTotal={receivableTotal}
           perBirdRevenue={perBirdRevenue}
-          expenseBreakdown={[]}
-          salesBreakdown={[]}
+          isBatchClosed={isBatchClosed}
+          expenses={(batch as any).expenses || []}
         />
       )}
 
       {activeTab === "Notes" && batchId && (
-        <NotesTab batchId={batchId} />
+        <NotesTab batchId={batchId} batchStartDate={batch.startDate} />
       )}
 
       {activeTab === "Growth" && batch && (batch as any).batchType !== "LAYERS" && (

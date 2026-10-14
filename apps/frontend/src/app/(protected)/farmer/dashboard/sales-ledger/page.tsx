@@ -1118,7 +1118,7 @@ export default function SalesLedgerPage() {
             .join(", ");
           return (
             <div className="text-right">
-              <div className="text-xs text-muted-foreground whitespace-normal">{breakdown}</div>
+              <div className="text-xs text-muted-foreground">{breakdown}</div>
             </div>
           );
         }
