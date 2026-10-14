@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Users,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
@@ -47,6 +48,7 @@ import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
+import { StatTile } from "@/components/dashboard/StatsCards";
 
 
 export default function BatchesPage() {
@@ -456,83 +458,48 @@ export default function BatchesPage() {
 
       {!batchesLoading && !batchesError && (
         <>
-          {/* Batch Stats */}
-          <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-            <Card
-              className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-              onClick={() => openCountModal("Active")}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                  {t("farmer.batches.stats.active")}
-                </CardTitle>
-                <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
-                  {activeCount.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                  {t("farmer.batches.stats.running")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("farmer.batches.stats.totalBirds")}</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold">
-                  {totalBirds.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("farmer.batches.stats.acrossAll")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {t("farmer.batches.stats.currentBirds")}
-                </CardTitle>
-                <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold">
-                  {currentBirds.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">{t("farmer.batches.stats.currentlyAlive")}</p>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="group cursor-pointer transition-colors hover:bg-primary hover:text-primary-foreground hover:border-transparent"
-              onClick={() => openCountModal("Closed")}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium group-hover:text-primary-foreground">
-                  {t("farmer.batches.stats.closed")}
-                </CardTitle>
-                <Layers className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground group-hover:text-primary-foreground" />
-              </CardHeader>
-              <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-                <div className="text-base md:text-2xl font-bold group-hover:text-primary-foreground">
-                  {closedCount.toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground group-hover:text-primary-foreground">
-                  {t("farmer.batches.stats.tillNow")}
-                </p>
-              </CardContent>
-            </Card>
+          {/* Batch Stats (same compact tiles as Home) */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile
+              tile={{
+                label: t("farmer.batches.stats.active"),
+                icon: Layers,
+                value: activeCount.toLocaleString("en-IN"),
+                sub: t("farmer.batches.stats.running"),
+                onClick: () => openCountModal("Active"),
+              }}
+            />
+            <StatTile
+              tile={{
+                label: t("farmer.batches.stats.totalBirds"),
+                icon: Users,
+                value: totalBirds.toLocaleString("en-IN"),
+                sub: t("farmer.batches.stats.acrossAll"),
+              }}
+            />
+            <StatTile
+              tile={{
+                label: t("farmer.batches.stats.currentBirds"),
+                icon: TrendingUp,
+                value: currentBirds.toLocaleString("en-IN"),
+                sub: t("farmer.batches.stats.currentlyAlive"),
+              }}
+            />
+            <StatTile
+              tile={{
+                label: t("farmer.batches.stats.closed"),
+                icon: Layers,
+                value: closedCount.toLocaleString("en-IN"),
+                sub: t("farmer.batches.stats.tillNow"),
+                onClick: () => openCountModal("Closed"),
+              }}
+            />
           </div>
 
           {/* Table Filters */}
           <div className="rounded-lg border border-border/70 bg-background p-3 sm:p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid flex-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground">Farm</Label>
                   <Select
@@ -596,10 +563,6 @@ export default function BatchesPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Page size</Label>
-                  <Input value={limit} readOnly className="bg-muted cursor-not-allowed" />
-                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -810,8 +773,9 @@ export default function BatchesPage() {
                 {multiSource && (
                   <div className="space-y-2">
                     {allocations.map((row, idx) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                        <div className="md:col-span-6">
+                      <div key={idx} className="space-y-2 rounded-md border border-gray-200 p-3">
+                        <div className="flex items-end gap-2">
+                        <div className="min-w-0 flex-1">
                           <Label>{t("farmer.batches.modal.selectChicksItem")}</Label>
                           <Select
                             value={row.itemId}
@@ -831,7 +795,22 @@ export default function BatchesPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="md:col-span-3">
+                        {allocations.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 w-9 shrink-0 p-0 text-gray-400 hover:text-red-600"
+                            aria-label={t("farmer.batches.modal.remove")}
+                            title={t("farmer.batches.modal.remove")}
+                            onClick={() => setAllocations((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                        <div>
                           <Label>{t("farmer.batches.modal.quantity")}</Label>
                           <Input
                             type="number"
@@ -843,7 +822,7 @@ export default function BatchesPage() {
                             }}
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div>
                           <Label>{t("farmer.batches.modal.notes")}</Label>
                           <Input
                             placeholder={t("common.optional")}
@@ -854,21 +833,14 @@ export default function BatchesPage() {
                             }}
                           />
                         </div>
-                        <div className="md:col-span-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setAllocations((prev) => prev.filter((_, i) => i !== idx))}
-                          >
-                            {t("farmer.batches.modal.remove")}
-                          </Button>
                         </div>
                       </div>
                     ))}
                     <div>
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="outline"
+                        size="sm"
                         onClick={() => setAllocations((prev) => [...prev, { itemId: "", quantity: "" }])}
                       >
                         {t("farmer.batches.modal.addItem")}

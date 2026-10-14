@@ -21,6 +21,10 @@ import {
   Trash2,
   Loader2,
   CheckCircle,
+  Bird,
+  CalendarDays,
+  HeartPulse,
+  Scale,
 } from "lucide-react";
 import {
   useGetBatchById,
@@ -90,6 +94,8 @@ import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
+import { StatTile } from "@/components/dashboard/StatsCards";
+import { useCalendar } from "@/common/hooks/useCalendar";
 import { ExpensesTab, ExpenseCategoryFilter } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
 import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
@@ -187,6 +193,7 @@ export default function BatchDetailPage() {
     enabled: !!batchId,
   });
   const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
+  const { toDisplayDate } = useCalendar();
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -338,7 +345,8 @@ export default function BatchDetailPage() {
 
   // Per Broiler Expense Calculation (place before any early returns to keep hooks order stable)
   const perBroilerExpenseData = useMemo(() => {
-    const expensesList: any[] = (expensesResponse?.data as any[]) || [];
+    // Full expense list from the batch detail (not the paged Expenses tab list).
+    const expensesList: any[] = ((batch as any)?.expenses as any[]) || [];
     const totalExpenses = expensesList.reduce(
       (sum: number, ex: any) => sum + Number(ex.amount || 0),
       0
@@ -393,14 +401,12 @@ export default function BatchDetailPage() {
       isProfit,
     };
   }, [
-    expensesResponse?.data,
+    (batch as any)?.expenses,
     batchSales,
     batch?.initialChicks,
     mortalityStats?.totalMortality,
     analytics?.totalSalesQuantity,
   ]);
-
-  console.log("perBroilerExpenseData", perBroilerExpenseData);
 
   // ==================== WEIGHTS (Growth) ====================
   const {
@@ -1764,39 +1770,52 @@ export default function BatchDetailPage() {
         <Banner type="error" message="Batch appears finished. You can close the batch to finalize records and generate a summary." />
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Start Date</CardTitle>
-            <CardDescription>
-              <DateDisplay date={batch.startDate} format="short" />
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Current Chicks</CardTitle>
-            <CardDescription>
-              {batch.currentChicks.toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Initial Birds</CardTitle>
-            <CardDescription>
-              {batch.initialChicks.toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Current Age</CardTitle>
-            <CardDescription>{currentAge} days</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile
+          tile={{
+            label: "Birds left",
+            icon: Bird,
+            value: batch.currentChicks.toLocaleString("en-IN"),
+            sub: `of ${batch.initialChicks.toLocaleString("en-IN")}${
+              analytics ? ` · ${Number(analytics.totalSalesQuantity || 0).toLocaleString("en-IN")} sold` : ""
+            }`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Age",
+            icon: CalendarDays,
+            value: `${isBatchClosed ? analytics?.daysActive ?? currentAge : currentAge} days`,
+            sub: isBatchClosed
+              ? "Closed batch"
+              : `Started ${toDisplayDate(batch.startDate, "long")}`,
+            loading: isBatchClosed && analyticsLoading,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Deaths",
+            icon: HeartPulse,
+            value: Number(mortalityStats?.totalMortality || 0).toLocaleString("en-IN"),
+            sub:
+              analytics?.mortalityRate != null
+                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds`
+                : "—",
+            loading: mortalityLoading || analyticsLoading,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Avg weight",
+            icon: Scale,
+            value:
+              analytics?.currentAvgWeight != null
+                ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
+                : "—",
+            sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
+            loading: analyticsLoading,
+          }}
+        />
       </div>
 
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -1827,9 +1846,9 @@ export default function BatchDetailPage() {
           salesTotal={salesTotal}
           expensesTotal={expensesTotal}
           mortalityStats={mortalityStats}
-          recentExpenses={(batch as any).expenses?.slice(0, 3) || []}
-          recentSales={batchSales?.slice(0, 3) || []}
-          recentMortalities={batchMortalities.slice(0, 3)}
+          recentExpenses={(batch as any).expenses?.slice(0, 5) || []}
+          recentSales={batchSales?.slice(0, 5) || []}
+          recentMortalities={batchMortalities.slice(0, 5)}
           onRecordWeight={() => setIsWeightModalOpen(true)}
           cfcrEnabled={cfcrFeature.isEnabled}
           onSaveCfcrSettings={saveCfcrSettings}

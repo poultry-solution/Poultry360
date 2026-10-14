@@ -32,7 +32,7 @@ interface StatsCardsProps {
   onMoneyToPayClick?: () => void;
 }
 
-type Tile = {
+export type Tile = {
   label: string;
   icon: typeof Building2;
   iconClass?: string;
@@ -44,7 +44,7 @@ type Tile = {
 };
 
 /** Compact number tile; clickable tiles get a green hover edge. */
-function StatTile({ tile }: { tile: Tile }) {
+export function StatTile({ tile }: { tile: Tile }) {
   const Icon = tile.icon;
   const body = (
     <>
@@ -75,7 +75,7 @@ function StatTile({ tile }: { tile: Tile }) {
 }
 
 /** Nepali (lakh) grouping, whole rupees, same as the profit graph. */
-const rupees = (value: number) =>
+export const rupees = (value: number) =>
   `रू ${Math.round(Number(value || 0)).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 export function StatsCards({

@@ -3,7 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { Activity, AlertTriangle, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle, Settings2, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/common/components/ui/dialog";
+import { rupees } from "@/components/dashboard/StatsCards";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
   ChartContainer,
@@ -25,6 +34,33 @@ const fcrChartConfig = {
     color: "#2563eb",
   },
 } satisfies ChartConfig;
+
+const FCR_ROWS_DEFAULT = 10;
+const RECENT_ACTIVITY_LIMIT = 5;
+/** Above this many days the dots crowd together, so only the lines are drawn. */
+const FCR_CHART_DOTS_MAX = 20;
+
+const kg = (value: number | null | undefined) =>
+  value == null ? "—" : Number(value).toLocaleString("en-IN", { maximumFractionDigits: 1 });
+
+/** "2083-06-10" -> "06-10" for chart ticks; other formats stay as they are. */
+const shortDateTick = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? String(value).slice(5) : String(value);
+
+/** Signed money: loss "−रू 2,94,010", profit "+रू 45", zero "रू 0". */
+const signedRupees = (value: number) => {
+  const rounded = Math.round(value);
+  if (rounded === 0) return rupees(0);
+  return `${rounded < 0 ? "−" : "+"}${rupees(Math.abs(rounded))}`;
+};
+
+type ActivityItem = {
+  key: string;
+  kind: "expense" | "sale" | "mortality";
+  text: string;
+  date: string | null;
+  time: number;
+};
 
 interface OverviewTabProps {
   batch: any;
@@ -100,17 +136,96 @@ export function OverviewTab({
     isBatchClosed,
   ]);
 
+  const [cfcrDialogOpen, setCfcrDialogOpen] = React.useState(false);
+  const [cfcrError, setCfcrError] = React.useState<string | null>(null);
+  const [showFcrDetails, setShowFcrDetails] = React.useState(false);
+  const [showAllFcrRows, setShowAllFcrRows] = React.useState(false);
+
+  const openCfcrDialog = () => {
+    // Start from the saved values so Cancel drops any edits.
+    setCfcrTarget(
+      batch?.cfcrTargetWeightKg == null
+        ? isBatchClosed ? "" : "2.00"
+        : String(batch.cfcrTargetWeightKg),
+    );
+    setCfcrFactor(
+      batch?.cfcrCorrectionFactorPerKg == null
+        ? isBatchClosed ? "" : "0.40"
+        : String(batch.cfcrCorrectionFactorPerKg),
+    );
+    setCfcrError(null);
+    setCfcrDialogOpen(true);
+  };
+
   const saveCfcrSettings = async () => {
     const target = Number(cfcrTarget);
     const factor = Number(cfcrFactor);
-    if (!Number.isFinite(target) || target <= 0) return;
-    if (!Number.isFinite(factor) || factor < 0) return;
+    if (cfcrTarget.trim() === "" || !Number.isFinite(target) || target <= 0) {
+      setCfcrError("Enter a target weight above 0.");
+      return;
+    }
+    if (cfcrFactor.trim() === "" || !Number.isFinite(factor) || factor < 0) {
+      setCfcrError("Correction cannot be below 0.");
+      return;
+    }
+    setCfcrError(null);
     try {
       await onSaveCfcrSettings(target, factor);
+      setCfcrDialogOpen(false);
     } catch {
       // The shared request handler shows the server error.
     }
   };
+  const fcrRowsNewestFirst = [...fcrHistory].reverse();
+  const visibleFcrRows = showAllFcrRows
+    ? fcrRowsNewestFirst
+    : fcrRowsNewestFirst.slice(0, FCR_ROWS_DEFAULT);
+  const latestFcrRowId = fcrRowsNewestFirst[0]?.id;
+
+  const netResult = perBroilerExpenseData.netExpenses;
+  const isLoss = Math.round(netResult) > 0;
+  const isGain = Math.round(netResult) < 0;
+  const perBirdBase =
+    perBroilerExpenseData.remainingBroilers > 0
+      ? `÷ ${perBroilerExpenseData.remainingBroilers.toLocaleString("en-IN")} birds left`
+      : Number(batch?.initialChicks || 0) > 0
+        ? `÷ ${Number(batch.initialChicks).toLocaleString("en-IN")} birds started`
+        : null;
+  const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
+
+  const toTime = (value: unknown) => {
+    const time = value ? new Date(value as string).getTime() : NaN;
+    return Number.isFinite(time) ? time : -Infinity;
+  };
+  const recentActivity: ActivityItem[] = [
+    ...recentExpenses.map((ex: any, i: number) => ({
+      key: `e-${ex.id ?? i}`,
+      kind: "expense" as const,
+      text: `Expense · ${ex.category?.name || ex.description || "Other"} · ${rupees(Number(ex.amount || 0))}`,
+      date: ex.date ?? null,
+      time: toTime(ex.date),
+    })),
+    ...recentSales.map((sale: any, i: number) => ({
+      key: `s-${sale.id ?? i}`,
+      kind: "sale" as const,
+      text: `Sale · ${sale.category?.name || "Sale"} · ${rupees(Number(sale.amount || 0))}`,
+      date: sale.date ?? null,
+      time: toTime(sale.date),
+    })),
+    ...recentMortalities.map((m: any, i: number) => ({
+      key: `m-${m.id ?? i}`,
+      kind: "mortality" as const,
+      text: `Deaths · ${Number(m.count || 0).toLocaleString("en-IN")} ${Number(m.count) === 1 ? "bird" : "birds"}`,
+      date: m.date ?? null,
+      time: toTime(m.date),
+    })),
+  ]
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => b.item.time - a.item.time || a.index - b.index)
+    .slice(0, RECENT_ACTIVITY_LIMIT)
+    .map(({ item }) => item);
+
+  const showFcrDots = fcrHistory.length <= FCR_CHART_DOTS_MAX;
   const fcrChartData = fcrHistory.map((row) => ({
     ...row,
     dateLabel: toDisplayDate(row.calculationDate, "short"),
@@ -162,6 +277,9 @@ export function OverviewTab({
       ? fcrData?.message || "Record feed and a live weight to calculate FCR."
       : null;
 
+  const isBroiler = (batch as { batchType?: string })?.batchType === "BROILER";
+  const showCfcrSettings = cfcrEnabled && isBroiler;
+
   return (
     <div className="space-y-6">
       {/* Batch Status Banner */}
@@ -196,121 +314,58 @@ export function OverviewTab({
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {/* Performance Metrics */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Money */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Performance Metrics</CardTitle>
-            <CardDescription>
-              {isBatchClosed
-                ? "Final performance summary"
-                : "Current performance snapshot"}
-            </CardDescription>
+            <CardTitle className="text-base">Money</CardTitle>
+            <CardDescription>Sales and costs of this batch</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Initial Birds:
-                </span>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Sales</span>
+                <span className="font-medium">{rupees(salesTotal)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Costs</span>
+                <span className="font-medium">{rupees(expensesTotal)}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-t pt-3">
                 <span className="font-medium">
-                  {batch?.initialChicks?.toLocaleString() || 0}
+                  {isGain ? "Profit" : "Loss"}
+                  {isBatchClosed ? "" : " so far"}
+                </span>
+                <span
+                  className={`text-base font-bold ${
+                    isLoss ? "text-red-600" : isGain ? "text-green-600" : "text-gray-600"
+                  }`}
+                >
+                  {/* netExpenses is cost − sales, so flip the sign for profit/loss. */}
+                  {signedRupees(-netResult)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">
-                  Current Birds:
+                  Per bird
+                  {perBirdBase && (
+                    <span className="ml-1.5 text-xs text-gray-400">{perBirdBase}</span>
+                  )}
                 </span>
-                <span className="font-medium">
-                  {mortalityStats?.currentBirds?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Mortality:
-                </span>
-                <span className="font-medium text-red-600">
-                  {mortalityStats?.totalMortality?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Sold:
-                </span>
-                <span className="font-medium text-blue-600">
-                  {analytics?.totalSalesQuantity?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Age:
-                </span>
-                <span className="font-medium">
-                  {currentAge} days
-                </span>
-              </div>
-              {analytics?.mortalityRate != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Mortality Rate:
-                  </span>
-                  <span className="font-medium">
-                    {analytics.mortalityRate.toFixed(2)}%
-                  </span>
-                </div>
-              )}
-              {analytics?.currentAvgWeight != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Avg weight (kg):
-                  </span>
-                  <span className="font-medium">
-                    {Number(analytics.currentAvgWeight).toFixed(2)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Financial Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Financial Summary</CardTitle>
-            <CardDescription>Revenue and cost breakdown</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Total Revenue:
-                </span>
-                <span className="font-medium text-green-600">
-                  ₹{salesTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Total Expenses:
-                </span>
-                <span className="font-medium text-red-600">
-                  ₹{expensesTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Net Result:
-                </span>
-                <span className={`font-medium ${perBroilerExpenseData.netExpenses >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  ₹{Math.abs(perBroilerExpenseData.netExpenses).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Per Broiler:
-                </span>
-                <span className={`font-medium ${perBroilerExpenseData.isProfit ? 'text-green-600' : 'text-red-600'}`}>
-                  {perBroilerExpenseData.isProfit ? '+' : '-'}₹{perBroilerExpenseData.displayValue.toFixed(2)}
+                <span
+                  className={`font-medium ${
+                    !perBirdBase || perBirdRounded === 0
+                      ? "text-gray-600"
+                      : perBroilerExpenseData.isProfit
+                        ? "text-green-600"
+                        : "text-red-600"
+                  }`}
+                >
+                  {!perBirdBase
+                    ? "—"
+                    : perBirdRounded === 0
+                      ? rupees(0)
+                      : `${perBroilerExpenseData.isProfit ? "+" : "−"}${rupees(perBirdRounded)}`}
                 </span>
               </div>
             </div>
@@ -320,88 +375,96 @@ export function OverviewTab({
         {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent Activity</CardTitle>
-            <CardDescription>Latest batch activities</CardDescription>
+            <CardTitle className="text-base">Recent activity</CardTitle>
+            <CardDescription>Latest records in this batch</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 text-sm">
-              {recentExpenses.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <TrendingDown className="h-4 w-4 text-red-500" />
-                  <span className="text-muted-foreground">
-                    Latest expense: ₹{recentExpenses[0]?.amount?.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {recentSales.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="text-muted-foreground">
-                    Latest sale: ₹{recentSales[0]?.amount?.toLocaleString()}
-                  </span>
-                </div>
-              )}
-              {recentMortalities.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <Activity className="h-4 w-4 text-orange-500" />
-                  <span className="text-muted-foreground">
-                    Latest mortality: {recentMortalities[0]?.count} birds
-                  </span>
-                </div>
-              )}
-            </div>
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
+            ) : (
+              <ul className="space-y-2.5 text-sm">
+                {recentActivity.map((item) => (
+                  <li key={item.key} className="flex items-center gap-2">
+                    {item.kind === "expense" ? (
+                      <TrendingDown className="h-4 w-4 shrink-0 text-red-500" />
+                    ) : item.kind === "sale" ? (
+                      <TrendingUp className="h-4 w-4 shrink-0 text-green-500" />
+                    ) : (
+                      <Activity className="h-4 w-4 shrink-0 text-orange-500" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-gray-700">{item.text}</span>
+                    {item.date && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        <DateDisplay date={item.date} format="short" />
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {(batch as { batchType?: string })?.batchType === "BROILER" && (
+      {isBroiler && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">FCR Performance</CardTitle>
-            <CardDescription>Latest result, history, and trend</CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">FCR Performance</CardTitle>
+                <CardDescription>Latest result, history, and trend</CardDescription>
+              </div>
+              {showCfcrSettings && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={openCfcrDialog}
+                >
+                  <Settings2 className="mr-1.5 h-3.5 w-3.5" />
+                  cFCR settings
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div
-              className={`mb-6 rounded-lg border p-4 ${
+              className={`mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-3 py-2.5 ${
                 fcrIsStale ? "border-amber-200 bg-amber-50/50" : "bg-muted/20"
               }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex gap-8">
-                  <div>
-                    <p className="text-xs text-muted-foreground">FCR</p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      {displayedFcr == null ? "—" : Number(displayedFcr).toFixed(2)}
-                    </p>
-                  </div>
-                  {cfcrEnabled && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">cFCR</p>
-                      <p className="mt-1 text-2xl font-semibold text-blue-700">
-                        {displayedCfcr == null ? "—" : Number(displayedCfcr).toFixed(2)}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="text-right">
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${fcrStatusClass}`}>
-                    {fcrStatusLabel}
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xs text-muted-foreground">FCR</span>
+                <span className="text-xl font-semibold">
+                  {displayedFcr == null ? "—" : Number(displayedFcr).toFixed(2)}
+                </span>
+              </div>
+              {cfcrEnabled && (
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs text-muted-foreground">cFCR</span>
+                  <span className="text-xl font-semibold text-blue-700">
+                    {displayedCfcr == null ? "—" : Number(displayedCfcr).toFixed(2)}
                   </span>
-                  {fcrData?.asOfDate && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      As of <DateDisplay date={fcrData.asOfDate} format="short" />
-                    </p>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    (target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg)
+                  </span>
                 </div>
+              )}
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${fcrStatusClass}`}>
+                  {fcrStatusLabel}
+                </span>
+                {fcrData?.asOfDate && (
+                  <span className="text-xs text-muted-foreground">
+                    as of <DateDisplay date={fcrData.asOfDate} format="short" />
+                  </span>
+                )}
               </div>
 
               {fcrSummaryMessage && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                  <p className={`flex items-center gap-2 text-xs ${fcrIsStale ? "text-amber-800" : "text-muted-foreground"}`}>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                  <p className={`flex items-center gap-1.5 text-xs ${fcrIsStale ? "text-amber-800" : "text-muted-foreground"}`}>
                     {fcrIsStale && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
                     {fcrSummaryMessage}
                   </p>
@@ -410,10 +473,10 @@ export function OverviewTab({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8"
+                      className="h-7 px-2.5 text-xs"
                       onClick={onRecordWeight}
                     >
-                      Record current weight
+                      Record weight
                     </Button>
                   )}
                 </div>
@@ -426,70 +489,109 @@ export function OverviewTab({
               </p>
             ) : (
               <div className="space-y-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="px-2 py-2 font-medium">Date</th>
-                        <th className="px-2 py-2 font-medium">FCR</th>
-                        {cfcrEnabled && (
-                          <>
-                            <th className="px-2 py-2 font-medium">cFCR</th>
-                            <th className="px-2 py-2 font-medium">Output birds</th>
-                            <th className="px-2 py-2 font-medium">Output avg kg</th>
-                          </>
-                        )}
-                        <th className="px-2 py-2 font-medium">Average kg</th>
-                        <th className="px-2 py-2 font-medium">Feed kg</th>
-                        <th className="px-2 py-2 font-medium">Produced kg</th>
-                        <th className="px-2 py-2 font-medium">Gain kg</th>
-                        <th className="px-2 py-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...fcrHistory].reverse().map((row) => (
-                        <tr key={row.id} className="border-b last:border-0">
-                          <td className="px-2 py-2">
-                            <DateDisplay date={row.calculationDate} format="short" />
-                          </td>
-                          <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
-                          {cfcrEnabled && (
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">History</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setShowFcrDetails((v) => !v)}
+                    >
+                      {showFcrDetails ? "Hide details" : "Show details"}
+                    </Button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className={`w-full text-sm ${showFcrDetails ? "min-w-[760px]" : "min-w-[480px]"}`}>
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="px-2 py-2 font-medium">Date</th>
+                          <th className="px-2 py-2 font-medium">FCR</th>
+                          {cfcrEnabled && <th className="px-2 py-2 font-medium">cFCR</th>}
+                          <th className="px-2 py-2 font-medium">Avg weight (kg)</th>
+                          <th className="px-2 py-2 font-medium">Feed (kg)</th>
+                          {showFcrDetails && (
                             <>
+                              {cfcrEnabled && (
+                                <>
+                                  <th className="px-2 py-2 font-medium">Birds counted</th>
+                                  <th className="px-2 py-2 font-medium">Avg incl. sold (kg)</th>
+                                </>
+                              )}
+                              <th className="px-2 py-2 font-medium">Total weight (kg)</th>
+                              <th className="px-2 py-2 font-medium">Weight gained (kg)</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleFcrRows.map((row) => (
+                          <tr key={row.id} className="border-b last:border-0">
+                            <td className="px-2 py-2">
+                              <span className="inline-flex items-center gap-1.5">
+                                <DateDisplay date={row.calculationDate} format="short" />
+                                {row.displayStatus === "FINAL" ? (
+                                  <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                                    Final
+                                  </span>
+                                ) : row.id === latestFcrRowId ? (
+                                  <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                                    Latest
+                                  </span>
+                                ) : null}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
+                            {cfcrEnabled && (
                               <td className="px-2 py-2 font-medium text-blue-700">
                                 {row.cfcr == null ? "—" : row.cfcr.toFixed(2)}
                               </td>
-                              <td className="px-2 py-2">
-                                {row.outputBirdCount ?? "—"}
-                              </td>
-                              <td className="px-2 py-2">
-                                {row.averageOutputWeightKg == null
-                                  ? "—"
-                                  : row.averageOutputWeightKg.toFixed(2)}
-                              </td>
-                            </>
-                          )}
-                          <td className="px-2 py-2">
-                            {row.remainingAverageWeightKg == null
-                              ? "—"
-                              : row.remainingAverageWeightKg.toFixed(2)}
-                          </td>
-                          <td className="px-2 py-2">{row.feedKg.toFixed(2)}</td>
-                          <td className="px-2 py-2">{row.producedLiveWeightKg.toFixed(2)}</td>
-                          <td className="px-2 py-2">{row.weightGainKg.toFixed(2)}</td>
-                          <td className="px-2 py-2">
-                            <span className={row.displayStatus === "FRESH"
-                              ? "text-green-700"
-                              : row.displayStatus === "FINAL"
-                                ? "text-blue-700"
-                                : "text-amber-700"}
-                            >
-                              {row.displayStatus}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            )}
+                            <td className="px-2 py-2">
+                              {row.remainingAverageWeightKg == null
+                                ? "—"
+                                : row.remainingAverageWeightKg.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-2">{kg(row.feedKg)}</td>
+                            {showFcrDetails && (
+                              <>
+                                {cfcrEnabled && (
+                                  <>
+                                    <td className="px-2 py-2">
+                                      {row.outputBirdCount == null
+                                        ? "—"
+                                        : row.outputBirdCount.toLocaleString("en-IN")}
+                                    </td>
+                                    <td className="px-2 py-2">
+                                      {row.averageOutputWeightKg == null
+                                        ? "—"
+                                        : row.averageOutputWeightKg.toFixed(2)}
+                                    </td>
+                                  </>
+                                )}
+                                <td className="px-2 py-2">{kg(row.producedLiveWeightKg)}</td>
+                                <td className="px-2 py-2">{kg(row.weightGainKg)}</td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {fcrRowsNewestFirst.length > FCR_ROWS_DEFAULT && (
+                    <div className="mt-2 text-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setShowAllFcrRows((v) => !v)}
+                      >
+                        {showAllFcrRows ? "Show less" : `Show all (${fcrRowsNewestFirst.length})`}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t pt-5">
@@ -508,6 +610,7 @@ export function OverviewTab({
                         axisLine={false}
                         tickMargin={10}
                         minTickGap={24}
+                        tickFormatter={shortDateTick}
                       />
                       <YAxis
                         tickLine={false}
@@ -537,7 +640,7 @@ export function OverviewTab({
                         type="monotone"
                         stroke="var(--color-fcr)"
                         strokeWidth={2.5}
-                        dot={{ r: 3.5, fill: "var(--color-fcr)", strokeWidth: 0 }}
+                        dot={showFcrDots ? { r: 3.5, fill: "var(--color-fcr)", strokeWidth: 0 } : false}
                         activeDot={{ r: 5, fill: "var(--color-fcr)", stroke: "white", strokeWidth: 2 }}
                       />
                       {cfcrEnabled && (
@@ -547,12 +650,24 @@ export function OverviewTab({
                           stroke="var(--color-cfcr)"
                           strokeWidth={2.5}
                           connectNulls={false}
-                          dot={{ r: 3.5, fill: "var(--color-cfcr)", strokeWidth: 0 }}
+                          dot={showFcrDots ? { r: 3.5, fill: "var(--color-cfcr)", strokeWidth: 0 } : false}
                           activeDot={{ r: 5, fill: "var(--color-cfcr)", stroke: "white", strokeWidth: 2 }}
                         />
                       )}
                     </LineChart>
                   </ChartContainer>
+                  <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: fcrChartConfig.fcr.color }} />
+                      FCR
+                    </span>
+                    {cfcrEnabled && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: fcrChartConfig.cfcr.color }} />
+                        cFCR
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -560,64 +675,71 @@ export function OverviewTab({
         </Card>
       )}
 
-      {cfcrEnabled &&
-        (batch as { batchType?: string })?.batchType === "BROILER" && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Corrected FCR settings</CardTitle>
-              <CardDescription>
-                cFCR uses a target bird weight to make batch results easier to compare.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
-                  <Input
-                    id="batch-cfcr-target"
-                    type="number"
-                    min="0.001"
-                    step="0.01"
-                    value={cfcrTarget}
-                    onChange={(event) => setCfcrTarget(event.target.value)}
-                    disabled={isBatchClosed || cfcrSettingsSaving}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
-                  <Input
-                    id="batch-cfcr-factor"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={cfcrFactor}
-                    onChange={(event) => setCfcrFactor(event.target.value)}
-                    disabled={isBatchClosed || cfcrSettingsSaving}
-                  />
-                </div>
+      {showCfcrSettings && (
+        <Dialog
+          open={cfcrDialogOpen}
+          onOpenChange={(open) => {
+            if (!cfcrSettingsSaving) setCfcrDialogOpen(open);
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>cFCR settings</DialogTitle>
+              <DialogDescription>
+                cFCR = FCR + (target weight − avg weight) × correction. Used to
+                compare batches sold at different weights.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
+                <Input
+                  id="batch-cfcr-target"
+                  type="number"
+                  min="0.001"
+                  step="0.01"
+                  value={cfcrTarget}
+                  onChange={(event) => setCfcrTarget(event.target.value)}
+                  disabled={isBatchClosed || cfcrSettingsSaving}
+                />
               </div>
-              {!isBatchClosed ? (
-                <div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={saveCfcrSettings}
-                    disabled={cfcrSettingsSaving}
-                  >
-                    {cfcrSettingsSaving ? "Saving..." : "Save corrected FCR settings"}
-                  </Button>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Changing these values recalculates saved cFCR values. Raw FCR does not change.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  These settings are locked because the batch is closed.
-                </p>
+              <div>
+                <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
+                <Input
+                  id="batch-cfcr-factor"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cfcrFactor}
+                  onChange={(event) => setCfcrFactor(event.target.value)}
+                  disabled={isBatchClosed || cfcrSettingsSaving}
+                />
+              </div>
+            </div>
+            {cfcrError && <p className="text-sm text-red-600">{cfcrError}</p>}
+            <p className="text-xs text-muted-foreground">
+              {isBatchClosed
+                ? "Locked because the batch is closed."
+                : "Saving updates past cFCR values. FCR does not change."}
+            </p>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCfcrDialogOpen(false)}
+                disabled={cfcrSettingsSaving}
+              >
+                {isBatchClosed ? "Close" : "Cancel"}
+              </Button>
+              {!isBatchClosed && (
+                <Button type="button" onClick={saveCfcrSettings} disabled={cfcrSettingsSaving}>
+                  {cfcrSettingsSaving ? "Saving..." : "Save"}
+                </Button>
               )}
-            </CardContent>
-          </Card>
-        )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
