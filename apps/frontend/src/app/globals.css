@@ -103,3 +103,21 @@
     cursor: pointer;
   }
 }
+
+/* Printed sale bills (components/bills/BillDocument.tsx) */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .bill-table tr {
+    break-inside: avoid;
+  }
+  .bill-document {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

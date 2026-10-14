@@ -1,7 +1,7 @@
 "use client";
 
 import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
-import { computeBroilerSaleAmount, parseWeightDiscountPercent } from "@/fetchers/sale/broilerSaleAmount";
+import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -176,6 +176,8 @@ export default function SalesLedgerPage() {
     weight: string;
     weightDiscountEnabled: boolean;
     weightDiscountPercent: string;
+    discountType: BillDiscountType;
+    discountValue: string;
     date: string;
     remaining: boolean;
     customerId: string;
@@ -194,6 +196,8 @@ export default function SalesLedgerPage() {
     weight: "",
     weightDiscountEnabled: false,
     weightDiscountPercent: "",
+    discountType: "FLAT",
+    discountValue: "",
     date: getTodayLocalDate(),
     remaining: false,
     customerId: "",
@@ -202,6 +206,26 @@ export default function SalesLedgerPage() {
     customerCategory: "Chicken",
     balance: "",
   });
+
+  // Bill before the bill discount (after any weight discount), then the discount preview.
+  // The server works out the same numbers when the sale is saved.
+  const saleSubtotal = (() => {
+    if (saleForm.itemType === "EGGS") {
+      return saleForm.eggLineItems.reduce(
+        (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+        0
+      );
+    }
+    if (saleForm.itemType === "Chicken_Meat") {
+      return computeBroilerSaleAmount(
+        Number(saleForm.weight || 0),
+        Number(saleForm.rate || 0),
+        parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+      ).amount;
+    }
+    return Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+  })();
+  const billPreview = previewBillDiscount(saleSubtotal, saleForm.discountType, saleForm.discountValue);
 
   const [useCustomInvoice, setUseCustomInvoice] = useState(false);
   const [showSaleMoreOptions, setShowSaleMoreOptions] = useState(false);
@@ -382,6 +406,18 @@ export default function SalesLedgerPage() {
               : "",
         },
         { label: "Rate", value: (row: any) => (row.unitPrice != null ? Number(row.unitPrice).toFixed(2) : "") },
+        // Subtotal and discount are empty when the sale has no bill discount; Amount is what the customer pays.
+        { label: "Subtotal", value: (row: any) => (row.subtotalAmount != null ? Number(row.subtotalAmount).toFixed(2) : "") },
+        {
+          label: "Discount",
+          value: (row: any) =>
+            row.discount ? (row.discount.type === "PERCENT" ? `${Number(row.discount.value)}%` : "Flat") : "",
+        },
+        {
+          label: "Discount amount",
+          value: (row: any) =>
+            row.subtotalAmount != null ? (Number(row.subtotalAmount) - Number(row.amount || 0)).toFixed(2) : "",
+        },
         { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
         { label: "Paid", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
         { label: "Due", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
@@ -757,6 +793,13 @@ export default function SalesLedgerPage() {
       }
     }
 
+    if (billPreview.error) {
+      errors.discount =
+        billPreview.error === "percentRange"
+          ? t("farmer.salesLedger.saleModal.discountPercentRange")
+          : t("farmer.salesLedger.saleModal.discountFlatRange");
+    }
+
     // Customer validation for credit sales (align with home page)
     if (saleForm.remaining) {
       if (!saleForm.customerId && !saleForm.customerName) {
@@ -766,22 +809,8 @@ export default function SalesLedgerPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errors.contact = t("farmer.salesLedger.validation.contactRequired");
       }
-      let totalAmount: number;
-      if (saleForm.itemType === "EGGS" && saleForm.eggLineItems.length > 0) {
-        totalAmount = saleForm.eggLineItems.reduce(
-          (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
-          0
-        );
-      } else {
-        totalAmount =
-          saleForm.itemType === "Chicken_Meat"
-            ? computeBroilerSaleAmount(
-                Number(saleForm.weight || 0),
-                Number(saleForm.rate || 0),
-                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
-              ).amount
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
-      }
+      // Paid can't be more than the final total (after the bill discount).
+      const totalAmount = billPreview.amount;
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errors.balance = `Paid amount cannot exceed total amount of ${formatRupeesExact(totalAmount)}`;
@@ -826,11 +855,14 @@ export default function SalesLedgerPage() {
             : unitPrice * quantity;
       }
 
+      // `amount` is the bill before the bill discount; the customer pays billPreview.amount.
       const paidAmount = saleForm.remaining
         ? saleForm.balance
           ? parseFloat(saleForm.balance)
           : 0
-        : amount;
+        : billPreview.discount
+          ? billPreview.amount
+          : amount;
 
       const isCredit = saleForm.remaining;
 
@@ -853,6 +885,8 @@ export default function SalesLedgerPage() {
               ),
             }
           : {}),
+        // null removes a saved bill discount when editing.
+        discount: billPreview.discount,
         unitPrice,
         description: undefined,
         isCredit,
@@ -1092,6 +1126,8 @@ export default function SalesLedgerPage() {
       weight: row.weight == null ? "" : String(row.weight),
       weightDiscountEnabled: row.weightDiscountPercent != null,
       weightDiscountPercent: row.weightDiscountPercent == null ? "" : String(Number(row.weightDiscountPercent)),
+      discountType: row.discount?.type === "PERCENT" ? "PERCENT" : "FLAT",
+      discountValue: row.discount?.value != null ? String(Number(row.discount.value)) : "",
       date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
       remaining: Boolean(row.isCredit),
       customerId: row.customerId || row.customer?.id || "",
@@ -1114,6 +1150,8 @@ export default function SalesLedgerPage() {
       weight: "",
       weightDiscountEnabled: false,
       weightDiscountPercent: "",
+      discountType: "FLAT",
+      discountValue: "",
       date: getTodayLocalDate(),
       remaining: false,
       customerId: "",
@@ -1238,7 +1276,19 @@ export default function SalesLedgerPage() {
       type: "currency" as const,
       width: "120px",
       align: "right" as const,
-      render: (value: unknown) => <span className="font-medium">{formatRupeesExact(value)}</span>,
+      render: (value: unknown, row: any) => (
+        <div>
+          <div className="font-medium">{formatRupeesExact(value)}</div>
+          {row?.discount && row?.subtotalAmount != null && (
+            <div className="text-xs text-amber-700">
+              {t("farmer.salesLedger.table.was")} {formatRupeesExact(row.subtotalAmount)} · −
+              {row.discount.type === "PERCENT"
+                ? `${Number(row.discount.value)}%`
+                : formatRupeesExact(row.discount.value)}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       key: "isCredit",
@@ -2422,11 +2472,56 @@ export default function SalesLedgerPage() {
               )}
               {/* More options: weight discount (chicken) and custom invoice number.
                   Opens by itself when either is in use, so a discount is never hidden. */}
-              {showSaleMoreOptions || useCustomInvoice || saleForm.weightDiscountEnabled ? (
+              {showSaleMoreOptions ||
+              useCustomInvoice ||
+              saleForm.weightDiscountEnabled ||
+              Number(saleForm.discountValue) > 0 ? (
                 <div className="space-y-3 rounded-md border border-gray-200 p-3">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {t("farmer.salesLedger.saleModal.moreOptions")}
                   </p>
+                  {/* Bill discount: flat रू or % off the bill */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="billDiscount">{t("farmer.salesLedger.saleModal.billDiscount")}</Label>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex shrink-0 rounded-md border border-gray-200 p-0.5">
+                        {(["FLAT", "PERCENT"] as const).map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setSaleForm((p) => ({ ...p, discountType: type }))}
+                            className={`rounded px-3 py-1 text-sm transition-colors ${
+                              saleForm.discountType === type
+                                ? "bg-primary text-primary-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {type === "FLAT"
+                              ? t("farmer.salesLedger.saleModal.discountFlat")
+                              : t("farmer.salesLedger.saleModal.discountPercent")}
+                          </button>
+                        ))}
+                      </div>
+                      <Input
+                        id="billDiscount"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={saleForm.discountValue}
+                        onChange={(e) => setSaleForm((p) => ({ ...p, discountValue: e.target.value }))}
+                        placeholder={saleForm.discountType === "FLAT" ? "e.g. 500" : "e.g. 2"}
+                        className="h-9 max-w-[160px]"
+                      />
+                    </div>
+                    {(errors.discount || billPreview.error) && (
+                      <p className="text-xs text-red-600">
+                        {errors.discount ||
+                          (billPreview.error === "percentRange"
+                            ? t("farmer.salesLedger.saleModal.discountPercentRange")
+                            : t("farmer.salesLedger.saleModal.discountFlatRange"))}
+                      </p>
+                    )}
+                  </div>
                   {saleForm.itemType === "Chicken_Meat" && (
                     <BroilerWeightDiscountField
                       enabled={saleForm.weightDiscountEnabled}
@@ -2486,12 +2581,29 @@ export default function SalesLedgerPage() {
           </ModalContent>
           <div className="sticky -bottom-4 z-10 -mx-6 -mb-4 border-t border-black/10 bg-white px-6 pt-3 pb-1">
               <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-md">
+                {billPreview.discount && (
+                  <div className="mb-1.5 space-y-0.5 border-b border-gray-200 pb-1.5 text-sm text-gray-600">
+                    <div className="flex items-center justify-between">
+                      <span>{t("farmer.salesLedger.saleModal.subtotal")}</span>
+                      <span>{formatRupeesExact(billPreview.subtotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {t("farmer.salesLedger.saleModal.discount")}
+                        {billPreview.discount.type === "PERCENT" ? ` (${billPreview.discount.value}%)` : ""}
+                      </span>
+                      <span className="text-red-600">−{formatRupeesExact(billPreview.discountAmount)}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">
                     {t("farmer.salesLedger.saleModal.totalAmount")}
                   </span>
                   <span className="text-lg font-bold text-green-700">
-                    {saleForm.itemType === "EGGS"
+                    {billPreview.discount
+                      ? formatRupeesExact(billPreview.amount)
+                      : saleForm.itemType === "EGGS"
                       ? formatRupeesExact(
                           saleForm.eggLineItems.reduce(
                             (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),

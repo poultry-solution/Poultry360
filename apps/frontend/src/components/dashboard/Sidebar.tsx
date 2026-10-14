@@ -91,12 +91,6 @@ export const farmerNavigation: NavigationItem[] = [
     requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
-    nameKey: "sidebar.nav.listForSale",
-    href: "/farmer/dashboard/list-for-sale",
-    icon: Tag,
-    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
-  },
-  {
     nameKey: "sidebar.nav.staffManagement",
     href: "/farmer/dashboard/staff",
     icon: Users,
@@ -126,6 +120,13 @@ export const farmerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.chatWithDoctor",
     href: "/farmer/dashboard/chat-doctor",
     icon: MessageCircle,
+    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
+  },
+  {
+    nameKey: "sidebar.nav.listForSale",
+    href: "/farmer/dashboard/list-for-sale",
+    icon: Tag,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE,
     requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {

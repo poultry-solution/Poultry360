@@ -112,6 +112,19 @@ export function createSalesColumns({
       type: "currency",
       align: "right",
       width: "120px",
+      render: (value, row: any) => (
+        <div>
+          <div>₹{Number(value || 0).toLocaleString()}</div>
+          {row?.discount && row?.subtotalAmount != null && (
+            <div className="text-xs text-amber-700">
+              was ₹{Number(row.subtotalAmount).toLocaleString()} · −
+              {row.discount.type === "PERCENT"
+                ? `${Number(row.discount.value)}%`
+                : `₹${Number(row.discount.value).toLocaleString()}`}
+            </div>
+          )}
+        </div>
+      ),
     }),
     createColumn("isCredit", "Credit", {
       type: "badge",

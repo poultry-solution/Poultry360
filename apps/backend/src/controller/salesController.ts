@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
+import { applyBillDiscount, BillDiscountError, type BillDiscountResult } from "../utils/discountHelpers";
 import { laterPaymentsTotal, syncInitialPayment } from "../services/salePaymentSync";
 import prisma from "../utils/prisma";
 import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
@@ -377,6 +378,7 @@ export const getAllSales = async (
               code: true,
             },
           },
+          discount: { select: { type: true, value: true } },
           eggLines: {
             include: {
               eggType: { select: { id: true, name: true, code: true } },
@@ -504,6 +506,7 @@ export const getSaleById = async (
             code: true,
           },
         },
+        discount: { select: { type: true, value: true } },
         eggLines: {
           include: {
             eggType: { select: { id: true, name: true, code: true } },
@@ -613,6 +616,7 @@ export const getBatchSales = async (
           code: true,
         },
       },
+      discount: { select: { type: true, value: true } },
       eggLines: {
         include: {
           eggType: { select: { id: true, name: true, code: true } },
@@ -695,6 +699,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       quantity,
       weight,
       weightDiscountPercent,
+      discount,
       unitPrice,
       description,
       isCredit = false,
@@ -952,6 +957,26 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
+    // Bill discount (flat or %) on the bill after any weight discount.
+    // `amount` from here on is the final amount the customer pays.
+    let billDiscount: BillDiscountResult;
+    try {
+      billDiscount = applyBillDiscount(numericAmount, discount ?? null);
+    } catch (err) {
+      if (err instanceof BillDiscountError) {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
+    if (billDiscount.discount) {
+      numericAmount = billDiscount.amount;
+      if (!isCredit) {
+        numericPaidAmount = numericAmount;
+      } else if (numericPaidAmount > numericAmount) {
+        return res.status(400).json({ message: "Paid amount cannot exceed the sale amount" });
+      }
+    }
+
     // For EGGS sales (single type): validate egg type and inventory
     if (itemType === SalesItemType.EGGS && !useEggLines) {
       if (!eggTypeId) {
@@ -998,6 +1023,10 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           weight: numericWeight !== null ? numericWeight : null,
           weightDiscountPercent:
             itemType === SalesItemType.Chicken_Meat && weightDiscountPercent != null ? weightDiscountPercent : null,
+          subtotalAmount: billDiscount.discount ? billDiscount.subtotal : null,
+          ...(billDiscount.discount
+            ? { discount: { create: { type: billDiscount.discount.type, value: billDiscount.discount.value, scope: "SALE" as const } } }
+            : {}),
           unitPrice: saleUnitPrice,
           description: description || null,
           isCredit,
@@ -1165,6 +1194,7 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
               type: true,
             },
           },
+          discount: { select: { type: true, value: true } },
           payments: {
             orderBy: { date: "desc" },
           },
@@ -1231,6 +1261,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
         },
         customer: true,
         payments: true,
+        discount: true,
       },
     });
 
@@ -1303,6 +1334,38 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
       finalAmount = computeBroilerSaleAmount(finalWeight, finalUnitPrice, finalWeightDiscountPercent).amount;
       if (!finalIsCredit) finalPaidAmount = finalAmount;
     }
+
+    // Bill discount. The stored amount is after the discount, so the bill before
+    // it comes from: the broiler re-work, the sent amount, or the saved subtotal.
+    // `discount` sent → use it (null removes it); not sent → keep the saved one.
+    const discountWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, "discount");
+    const existingDiscount = existingSale.discount
+      ? { type: existingSale.discount.type, value: Number(existingSale.discount.value) }
+      : null;
+    const discountToApply = discountWasProvided ? data.discount ?? null : existingDiscount;
+    const billAmountTouched =
+      broilerAmountChanged || data.amount !== undefined || discountWasProvided;
+    const discountInvolved = Boolean(existingDiscount || discountToApply);
+    let finalSubtotalAmount: number | null | undefined = undefined; // undefined = leave as saved
+    if (billAmountTouched && discountInvolved) {
+      const billBeforeDiscount =
+        broilerAmountChanged || data.amount !== undefined
+          ? finalAmount
+          : Number(existingSale.subtotalAmount ?? existingSale.amount);
+      let applied: BillDiscountResult;
+      try {
+        applied = applyBillDiscount(billBeforeDiscount, discountToApply);
+      } catch (err) {
+        if (err instanceof BillDiscountError) {
+          return res.status(400).json({ message: err.message });
+        }
+        throw err;
+      }
+      finalAmount = applied.amount;
+      finalSubtotalAmount = applied.discount ? applied.subtotal : null;
+      if (!finalIsCredit) finalPaidAmount = finalAmount;
+    }
+    const billDiscountChanged = billAmountTouched && discountInvolved;
     const finalCustomerId = data.customerId !== undefined
       ? data.customerId
       : existingSale.customerId;
@@ -1317,7 +1380,9 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
     // Payment rows must always add up to paidAmount. Only the initial payment
     // can move; later payments are real receipts and stay as they are.
     const paidAmountWillChange =
-      data.paidAmount !== undefined || (broilerAmountChanged && !finalIsCredit);
+      data.paidAmount !== undefined ||
+      (broilerAmountChanged && !finalIsCredit) ||
+      (billDiscountChanged && !finalIsCredit);
     const laterPaid = laterPaymentsTotal(existingSale.payments);
     if (paidAmountWillChange && finalPaidAmount < laterPaid) {
       return res.status(400).json({
@@ -1428,6 +1493,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
 
     const creditDetailsWereProvided =
       broilerAmountChanged ||
+      billDiscountChanged ||
       data.amount !== undefined ||
       data.paidAmount !== undefined ||
       data.isCredit !== undefined ||
@@ -1442,7 +1508,22 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
         where: { id },
         data: {
           date: data.date !== undefined ? finalDate : undefined,
-          amount: data.amount !== undefined || broilerAmountChanged ? finalAmount : undefined,
+          amount: data.amount !== undefined || broilerAmountChanged || billDiscountChanged ? finalAmount : undefined,
+          subtotalAmount: finalSubtotalAmount,
+          ...(billDiscountChanged
+            ? discountToApply && finalSubtotalAmount != null
+              ? {
+                  discount: {
+                    upsert: {
+                      create: { type: discountToApply.type, value: discountToApply.value, scope: "SALE" as const },
+                      update: { type: discountToApply.type, value: discountToApply.value },
+                    },
+                  },
+                }
+              : existingDiscount
+                ? { discount: { delete: true } }
+                : {}
+            : {}),
           quantity: data.quantity !== undefined ? finalQuantity : undefined,
           weight: data.weight !== undefined ? finalWeight : undefined,
           weightDiscountPercent: data.weightDiscountPercent !== undefined ? data.weightDiscountPercent : undefined,
@@ -1567,6 +1648,7 @@ export const updateSale = async (req: Request, res: Response): Promise<any> => {
               type: true,
             },
           },
+          discount: { select: { type: true, value: true } },
           payments: {
             orderBy: { date: "desc" },
           },

@@ -50,3 +50,11 @@ export function formatRupeesExact(value: unknown): string {
   })
   return `${n < 0 ? "-" : ""}रू ${text}`
 }
+
+/** Money on printed bills: "रू 56,500.00" (lakh commas, always 2 decimals). */
+export function formatBillMoney(value: unknown): string {
+  const n = Number(value || 0)
+  const safe = Number.isFinite(n) ? n : 0
+  const text = Math.abs(safe).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `${safe < 0 ? "-" : ""}रू ${text}`
+}

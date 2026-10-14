@@ -286,6 +286,9 @@ model User {
   dealerFarmerBalanceLimitsSet DealerFarmerAccount[] @relation("DealerFarmerBalanceLimitSetter")
   dealerCashMovementsRecorded  DealerCashMovement[]  @relation("DealerCashMovementRecorder")
 
+  // Business details printed on sale bills (per business account)
+  billSettings                BillSettings?        @relation("UserBillSettings")
+
   // Farmer cash in hand (per user account)
   farmerCashSettings          FarmerCashSettings?
   farmerCashBookMovements     FarmerCashMovement[] @relation("FarmerCashBook")
@@ -776,6 +779,10 @@ model Sale {
   // Broiler only: % of weight not charged (buyer's weight discount). The bill
   // uses weight minus this %; null means no discount.
   weightDiscountPercent Decimal? @db.Decimal(5, 2)
+  // Bill before the bill discount (after any weight discount); null when no
+  // bill discount. `amount` is always the final amount the customer pays.
+  subtotalAmount Decimal? @db.Decimal(10, 2)
+  discount      SaleDiscount?
   unitPrice     Decimal  @db.Decimal(10, 2)
   description   String?
 
@@ -2030,10 +2037,15 @@ model SaleDiscount {
   companySaleId String?      @unique
   companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
 
+  // Farmer sale (Sales Ledger / batch sales)
+  saleId String? @unique
+  sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   @@index([dealerSaleId])
   @@index([companySaleId])
+  @@index([saleId])
 }
 
 // CompanySalePayment model removed - now using CompanyDealerPayment for account-level payments
@@ -2509,6 +2521,22 @@ model DealerCashDayClose {
 }
 
 // ==================== FARMER CASH IN HAND ====================
+
+// Business details printed on sale bills. One row per business account (the
+// owner user); staff use their owner's row. Empty fields fall back to the
+// business record (shop / company / hatchery / farm name, address, phone).
+model BillSettings {
+  id           String   @id @default(cuid())
+  accountId    String   @unique
+  account      User     @relation("UserBillSettings", fields: [accountId], references: [id], onDelete: Cascade)
+  businessName String?
+  address      String?
+  panNumber    String? // Nepal PAN: 9 digits
+  phone        String?
+  footerNote   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
 
 model FarmerCashSettings {
   id             String  @id @default(cuid())

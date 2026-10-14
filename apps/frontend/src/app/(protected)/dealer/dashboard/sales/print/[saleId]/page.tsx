@@ -19,7 +19,8 @@ export default function DealerSalePrintPage() {
   const [layout, setLayout] = useState<"standard" | "compact">(initialLayout);
   const companyName = useAuthStore((state) => {
     const user = state.user;
-    return user?.companyName || user?.company?.name || user?.name || "Dealer";
+    // Fallback only; the bill uses Settings → Bill details (shop name by default).
+    return (user as any)?.dealer?.name || user?.companyName || user?.company?.name || "Dealer";
   });
 
   const { data, isLoading, isError } = useGetDealerSaleById(saleId || "");

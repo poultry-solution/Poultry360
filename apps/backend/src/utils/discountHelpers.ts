@@ -57,3 +57,52 @@ export function distributeDiscountToItems(
   }
   return rawFinal;
 }
+
+export interface BillDiscountInput {
+  type: DiscountType;
+  value: number;
+}
+
+export interface BillDiscountResult {
+  /** Bill before the discount, rounded to paisa. */
+  subtotal: number;
+  discountAmount: number;
+  /** Final amount the customer pays. */
+  amount: number;
+  /** The discount that was applied, or null when none. */
+  discount: BillDiscountInput | null;
+}
+
+export class BillDiscountError extends Error {}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Bill-level discount for farmer sales. A missing or zero discount means none.
+ * PERCENT must be above 0 and below 100; FLAT must be above 0 and below the
+ * subtotal, so the final amount always stays above 0.
+ */
+export function applyBillDiscount(
+  rawSubtotal: number,
+  discount: BillDiscountInput | null | undefined
+): BillDiscountResult {
+  const subtotal = round2(rawSubtotal);
+  const value = discount ? Number(discount.value) : 0;
+  if (!discount || !Number.isFinite(value) || value <= 0) {
+    return { subtotal, discountAmount: 0, amount: subtotal, discount: null };
+  }
+  if (discount.type === "PERCENT") {
+    if (value >= 100) throw new BillDiscountError("Discount percent must be below 100");
+  } else if (discount.type === "FLAT") {
+    if (value >= subtotal) throw new BillDiscountError("Flat discount must be less than the bill amount");
+  } else {
+    throw new BillDiscountError("Invalid discount type");
+  }
+  const discountAmount = computeDiscountAmount(subtotal, discount.type, value);
+  return {
+    subtotal,
+    discountAmount,
+    amount: round2(subtotal - discountAmount),
+    discount: { type: discount.type, value },
+  };
+}

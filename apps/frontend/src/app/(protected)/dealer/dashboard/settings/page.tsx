@@ -1,4 +1,5 @@
 "use client";
+import { BillSettingsCard } from "@/components/settings/BillSettingsCard";
 
 import {
   Card,
@@ -194,6 +195,8 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <BillSettingsCard />
 
       {/* User Preferences */}
       <Card>

@@ -1,4 +1,5 @@
 "use client";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 import {
   Card,
@@ -735,59 +736,42 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalItems")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.totalItems || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inStock")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.lowStock")}</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.lowStockItems || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.needReorder")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalValue")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              <span className="hidden md:inline">रू</span>{(stats?.totalValue || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inventoryWorth")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.categories")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.categories || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.itemTypes")}</p>
-          </CardContent>
-        </Card>
+      {/* Stats tiles */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.totalItems"),
+            icon: Package,
+            value: Number(stats?.totalItems || 0).toLocaleString("en-IN"),
+            sub: t("farmer.inventory.stats.inStock"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.lowStock"),
+            icon: AlertTriangle,
+            iconClass: "text-orange-500",
+            value: Number(stats?.lowStockItems || 0).toLocaleString("en-IN"),
+            valueClass: Number(stats?.lowStockItems || 0) > 0 ? "text-orange-600" : "",
+            sub: t("farmer.inventory.stats.needReorder"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.totalValue"),
+            icon: Package,
+            value: rupees(stats?.totalValue || 0),
+            sub: t("farmer.inventory.stats.inventoryWorth"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.categories"),
+            icon: Package,
+            value: Number(stats?.categories || 0).toLocaleString("en-IN"),
+            sub: t("farmer.inventory.stats.itemTypes"),
+          }}
+        />
       </div>
 
       {/* Tabs */}

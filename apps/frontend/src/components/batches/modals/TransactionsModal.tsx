@@ -42,6 +42,13 @@ export function TransactionsModal({
                     ₹{Number(selectedSale.amount).toLocaleString()}
                   </span>
                 </div>
+                {selectedSale.discount && selectedSale.subtotalAmount != null && (
+                  <div className="col-span-2 text-xs text-gray-600">
+                    Before discount ₹{Number(selectedSale.subtotalAmount).toLocaleString()} · Discount{" "}
+                    {selectedSale.discount.type === "PERCENT" ? `${Number(selectedSale.discount.value)}% ` : ""}
+                    −₹{(Number(selectedSale.subtotalAmount) - Number(selectedSale.amount)).toLocaleString()}
+                  </div>
+                )}
                 <div>
                   <span className="text-gray-600">Paid:</span>
                   <span className="ml-2 font-medium text-green-600">

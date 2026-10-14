@@ -1,4 +1,5 @@
 "use client";
+import { BillSettingsCard } from "@/components/settings/BillSettingsCard";
 
 import {
   Card,
@@ -165,6 +166,8 @@ function CompanySettingsContent() {
           </CardContent>
         </Card>
       )}
+
+      <BillSettingsCard />
 
       {/* User Preferences */}
       <Card>

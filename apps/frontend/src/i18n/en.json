@@ -174,7 +174,25 @@
     "paymentDirection": "Show reverse payment option",
     "paymentDirectionDescription": "Show the option to receive from a company or pay a customer.",
     "paymentDirectionUpdated": "Payment options updated",
-    "paymentDirectionUpdateFailed": "Failed to update payment options"
+    "paymentDirectionUpdateFailed": "Failed to update payment options",
+    "bill": {
+      "title": "Bill details",
+      "description": "Shown on your printed bills. Leave a field empty to use your business details.",
+      "businessName": "Business name on bill",
+      "address": "Bill address",
+      "panNumber": "PAN number",
+      "phone": "Phone on bill",
+      "footerNote": "Footer note",
+      "footerNotePlaceholder": "e.g. Thank you for your business",
+      "preview": "Bill header preview",
+      "save": "Save bill details",
+      "saved": "Bill details saved",
+      "saveFailed": "Could not save bill details"
+    },
+    "listForSale": "List for sale",
+    "listForSaleDescription": "Post birds or eggs for sale on the public marketplace. When off, your listings are hidden.",
+    "listForSaleUpdated": "List for sale setting updated",
+    "listForSaleUpdateFailed": "Could not update List for sale"
   },
   "auth": {
     "login": {
@@ -455,7 +473,8 @@
         "amount": "Amount",
         "receipt": "Receipt",
         "view": "View",
-        "paymentLabel": "Payment"
+        "paymentLabel": "Payment",
+        "was": "was"
       },
       "viewCount": "View ({count})",
       "saleModal": {
@@ -508,9 +527,16 @@
         "ratePerKgLabel": "Rate per kg (रू)",
         "ratePerKg": "Rate per kg",
         "moreOptions": "More options",
-        "moreOptionsChicken": "More options (weight discount, invoice number)",
-        "moreOptionsOther": "More options (invoice number)",
-        "calculatedRateWeightDiscount": "Rate × weight, with {percent}% weight discount"
+        "moreOptionsChicken": "More options (discount, weight discount, invoice number)",
+        "moreOptionsOther": "More options (discount, invoice number)",
+        "calculatedRateWeightDiscount": "Rate × weight, with {percent}% weight discount",
+        "billDiscount": "Discount",
+        "discountFlat": "रू Flat",
+        "discountPercent": "% Percent",
+        "subtotal": "Subtotal",
+        "discount": "Discount",
+        "discountPercentRange": "Discount % must be above 0 and below 100.",
+        "discountFlatRange": "Flat discount must be less than the bill amount."
       },
       "partyModal": {
         "editParty": "Edit Party",
@@ -1875,6 +1901,10 @@
           "fail": "Failed to create payment request"
         }
       }
+    },
+    "listForSale": {
+      "turnedOff": "List for sale is turned off. Turn it on in Settings to post birds or eggs for sale.",
+      "openSettings": "Open Settings"
     }
   },
   "dealer": {

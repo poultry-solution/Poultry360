@@ -173,7 +173,25 @@
     "paymentDirection": "उल्टो भुक्तानी विकल्प देखाउनुहोस्",
     "paymentDirectionDescription": "कम्पनीबाट रकम लिने वा ग्राहकलाई रकम दिने विकल्प देखाउनुहोस्।",
     "paymentDirectionUpdated": "भुक्तानी विकल्प अपडेट भयो",
-    "paymentDirectionUpdateFailed": "भुक्तानी विकल्प अपडेट गर्न असफल भयो"
+    "paymentDirectionUpdateFailed": "भुक्तानी विकल्प अपडेट गर्न असफल भयो",
+    "bill": {
+      "title": "बिल विवरण",
+      "description": "छापिएको बिलमा देखिन्छ। खाली छोडेमा तपाईंको व्यवसायको विवरण प्रयोग हुन्छ।",
+      "businessName": "बिलमा व्यवसायको नाम",
+      "address": "बिलमा ठेगाना",
+      "panNumber": "प्यान नम्बर",
+      "phone": "बिलमा फोन",
+      "footerNote": "तलको सन्देश",
+      "footerNotePlaceholder": "जस्तै: तपाईंको व्यापारको लागि धन्यवाद",
+      "preview": "बिलको माथिल्लो भागको नमुना",
+      "save": "बिल विवरण सेभ गर्नुहोस्",
+      "saved": "बिल विवरण सेभ भयो",
+      "saveFailed": "बिल विवरण सेभ गर्न सकिएन"
+    },
+    "listForSale": "बिक्रीका लागि सूची",
+    "listForSaleDescription": "सार्वजनिक बजारमा कुखुरा वा अण्डा बिक्रीका लागि राख्नुहोस्। बन्द गर्दा तपाईंका सूचीहरू लुकाइन्छ।",
+    "listForSaleUpdated": "बिक्रीका लागि सूची सेटिङ अपडेट भयो",
+    "listForSaleUpdateFailed": "बिक्रीका लागि सूची अपडेट गर्न सकिएन"
   },
   "auth": {
     "login": {
@@ -454,7 +472,8 @@
         "amount": "रकम",
         "receipt": "रसिद",
         "view": "हेर्नुहोस्",
-        "paymentLabel": "भुक्तानी"
+        "paymentLabel": "भुक्तानी",
+        "was": "पहिले"
       },
       "viewCount": "हेर्नुहोस् ({count})",
       "saleModal": {
@@ -507,9 +526,16 @@
         "ratePerKgLabel": "प्रति किलो दर (रू)",
         "ratePerKg": "प्रति किलो दर",
         "moreOptions": "थप विकल्प",
-        "moreOptionsChicken": "थप विकल्प (तौल छुट, बिल नम्बर)",
-        "moreOptionsOther": "थप विकल्प (बिल नम्बर)",
-        "calculatedRateWeightDiscount": "दर × तौल, {percent}% तौल छुट सहित"
+        "moreOptionsChicken": "थप विकल्प (छुट, तौल छुट, बिल नम्बर)",
+        "moreOptionsOther": "थप विकल्प (छुट, बिल नम्बर)",
+        "calculatedRateWeightDiscount": "दर × तौल, {percent}% तौल छुट सहित",
+        "billDiscount": "छुट",
+        "discountFlat": "रू रकम",
+        "discountPercent": "% प्रतिशत",
+        "subtotal": "जम्मा (छुट अघि)",
+        "discount": "छुट",
+        "discountPercentRange": "छुट % ० भन्दा बढी र १०० भन्दा कम हुनुपर्छ।",
+        "discountFlatRange": "छुट रकम बिलको रकमभन्दा कम हुनुपर्छ।"
       },
       "partyModal": {
         "editParty": "पार्टी सम्पादन गर्नुहोस्",
@@ -1874,6 +1900,10 @@
           "fail": "भुक्तानी अनुरोध सिर्जना गर्न असफल"
         }
       }
+    },
+    "listForSale": {
+      "turnedOff": "बिक्रीका लागि सूची बन्द छ। कुखुरा वा अण्डा बिक्रीमा राख्न सेटिङमा गएर खोल्नुहोस्।",
+      "openSettings": "सेटिङ खोल्नुहोस्"
     }
   },
   "dealer": {

@@ -3,7 +3,7 @@
 "use client";
 
 import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
-import { computeBroilerSaleAmount, parseWeightDiscountPercent } from "@/fetchers/sale/broilerSaleAmount";
+import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
@@ -1059,6 +1059,8 @@ export default function BatchDetailPage() {
     weight: string;
     weightDiscountEnabled: boolean;
     weightDiscountPercent: string;
+    discountType: BillDiscountType;
+    discountValue: string;
     itemType: string;
     eggTypeId: string;
     eggLineItems: EggLineRow[];
@@ -1077,6 +1079,8 @@ export default function BatchDetailPage() {
     weight: "",
     weightDiscountEnabled: false,
     weightDiscountPercent: "",
+    discountType: "FLAT",
+    discountValue: "",
     itemType: "Chicken_Meat",
     eggTypeId: "",
     eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1088,6 +1092,26 @@ export default function BatchDetailPage() {
     balance: "",
     date: getTodayLocalDate(),
   });
+
+  // Bill before the bill discount (after any weight discount), and the discount preview.
+  // The server works out the same numbers when the sale is saved.
+  const saleSubtotal = (() => {
+    if (saleForm.itemType === "EGGS") {
+      return saleForm.eggLineItems.reduce(
+        (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+        0
+      );
+    }
+    if (saleForm.itemType === "Chicken_Meat") {
+      return computeBroilerSaleAmount(
+        Number(saleForm.weight || 0),
+        Number(saleForm.rate || 0),
+        parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+      ).amount;
+    }
+    return Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+  })();
+  const billPreview = previewBillDiscount(saleSubtotal, saleForm.discountType, saleForm.discountValue);
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
   const { data: eggInventoryResponse } = useGetEggInventory({
@@ -1119,6 +1143,8 @@ export default function BatchDetailPage() {
       weight: "",
       weightDiscountEnabled: false,
       weightDiscountPercent: "",
+      discountType: "FLAT",
+      discountValue: "",
       itemType: "Chicken_Meat",
       eggTypeId: "",
       eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1160,6 +1186,8 @@ export default function BatchDetailPage() {
       weight: String(r.weight || ""),
       weightDiscountEnabled: r.weightDiscountPercent != null,
       weightDiscountPercent: r.weightDiscountPercent == null ? "" : String(Number(r.weightDiscountPercent)),
+      discountType: r.discount?.type === "PERCENT" ? "PERCENT" : "FLAT",
+      discountValue: r.discount?.value != null ? String(Number(r.discount.value)) : "",
       itemType: r.itemType || "Chicken_Meat",
       eggTypeId: r.eggTypeId || "",
       eggLineItems,
@@ -1235,26 +1263,18 @@ export default function BatchDetailPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
-      let totalAmount: number;
-      if (saleForm.itemType === "EGGS" && saleForm.eggLineItems.length > 0) {
-        totalAmount = saleForm.eggLineItems.reduce(
-          (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
-          0
-        );
-      } else {
-        totalAmount =
-          saleForm.itemType === "Chicken_Meat"
-            ? computeBroilerSaleAmount(
-                Number(saleForm.weight || 0),
-                Number(saleForm.rate || 0),
-                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
-              ).amount
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
-      }
+      // Paid can't be more than the final total (after the bill discount).
+      const totalAmount = billPreview.amount;
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
       }
+    }
+    if (billPreview.error) {
+      errs.discount =
+        billPreview.error === "percentRange"
+          ? "Discount % must be above 0 and below 100."
+          : "Flat discount must be less than the bill amount.";
     }
     setSaleErrors(errs);
     return Object.keys(errs).length === 0;
@@ -1297,11 +1317,14 @@ export default function BatchDetailPage() {
             : unitPrice * quantity;
       }
 
+      // `amount` is the bill before the bill discount; the customer pays billPreview.amount.
       const paidAmount = saleForm.remaining
         ? saleForm.balance
           ? parseFloat(saleForm.balance)
           : 0
-        : amount;
+        : billPreview.discount
+          ? billPreview.amount
+          : amount;
       const saleDateRaw = saleForm.date || "";
       const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
@@ -1320,6 +1343,8 @@ export default function BatchDetailPage() {
               ),
             }
           : {}),
+        // null removes a saved bill discount when editing.
+        discount: billPreview.discount,
         unitPrice,
         description: undefined,
         isCredit: saleForm.remaining,
@@ -2335,12 +2360,68 @@ export default function BatchDetailPage() {
                 </div>
               )}
 
+              <div>
+                <Label htmlFor="batchBillDiscount">Discount</Label>
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex shrink-0 rounded-md border border-gray-200 p-0.5">
+                    {(["FLAT", "PERCENT"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setSaleForm((p) => ({ ...p, discountType: type }))}
+                        className={`rounded px-3 py-1 text-sm transition-colors ${
+                          saleForm.discountType === type
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {type === "FLAT" ? "रू Flat" : "% Percent"}
+                      </button>
+                    ))}
+                  </div>
+                  <Input
+                    id="batchBillDiscount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={saleForm.discountValue}
+                    onChange={(e) => setSaleForm((p) => ({ ...p, discountValue: e.target.value }))}
+                    placeholder={saleForm.discountType === "FLAT" ? "e.g. 500" : "e.g. 2"}
+                    className="h-9 max-w-[160px]"
+                  />
+                </div>
+                {(saleErrors.discount || billPreview.error) && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {saleErrors.discount ||
+                      (billPreview.error === "percentRange"
+                        ? "Discount % must be above 0 and below 100."
+                        : "Flat discount must be less than the bill amount.")}
+                  </p>
+                )}
+              </div>
+
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                {billPreview.discount && (
+                  <div className="mb-1.5 space-y-0.5 border-b border-gray-200 pb-1.5 text-sm text-gray-600">
+                    <div className="flex items-center justify-between">
+                      <span>Subtotal</span>
+                      <span>₹{billPreview.subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>
+                        Discount{billPreview.discount.type === "PERCENT" ? ` (${billPreview.discount.value}%)` : ""}
+                      </span>
+                      <span className="text-red-600">−₹{billPreview.discountAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Total Amount</span>
                   <span className="text-lg font-bold text-green-700">
                     ₹
-                    {saleForm.itemType === "EGGS"
+                    {billPreview.discount
+                      ? billPreview.amount.toLocaleString()
+                      : saleForm.itemType === "EGGS"
                       ? saleForm.eggLineItems
                           .reduce(
                             (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
