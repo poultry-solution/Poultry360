@@ -31,7 +31,7 @@ import {
 } from "@/common/lib/pushNotifications";
 
 interface TopbarProps {
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "MANAGER" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
@@ -68,7 +68,6 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   const markAllReadMutation = useMarkAllNotificationsRead();
 
   const getRoleSettings = () => {
-    if (role === "DOCTOR") return { settingsPath: "/doctor/dashboard/settings", homePath: "/doctor/dashboard" };
     if (role === "SUPER_ADMIN") return { settingsPath: "/admin/dashboard/settings", homePath: "/admin/dashboard" };
     if (role === "DEALER") return { settingsPath: "/dealer/dashboard/settings", homePath: "/dealer/dashboard/home" };
     if (role === "COMPANY") return { settingsPath: "/company/dashboard/settings", homePath: "/company/dashboard/home" };

@@ -29,13 +29,10 @@ export interface AdminUser {
   paymentStatus: "PAID" | "NOT_PAID";
   companyName: string | null;
   CompanyFarmLocation: string | null;
-  isOnline: boolean;
-  lastSeen: string | null;
   createdAt: string;
   _count: {
     ownedFarms: number;
     managedFarms: number;
-    doctorConversations: number;
   };
   ownedFarms: Array<{ id: string; name: string }>;
   managedFarms: Array<{ id: string; name: string }>;
@@ -46,7 +43,7 @@ export interface AdminUserFilters {
   limit?: number;
   search?: string;
   status?: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
-  role?: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY";
 }
 
 export interface AdminUsersResponse {
@@ -103,8 +100,6 @@ export interface AdminUserDetail {
   adminNotes: string | null;
   companyName: string | null;
   CompanyFarmLocation: string | null;
-  isOnline: boolean;
-  lastSeen: string | null;
   language: string;
   calendarType: string;
   createdAt: string;
@@ -167,13 +162,6 @@ export interface AdminUserDetail {
     name: string;
     address: string | null;
   } | null;
-  doctorConversations: Array<{
-    id: string;
-    subject: string | null;
-    status: string;
-    createdAt: string;
-    farmer: { id: string; name: string; phone: string };
-  }>;
 }
 
 export interface AdminAccountPayment {

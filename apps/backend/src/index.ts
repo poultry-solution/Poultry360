@@ -4,7 +4,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import routes from "./router/index";
-import { getSocketService } from "./services/socketService";
 import { startReminderDispatcher } from "./services/reminderDispatcher";
 import { startBusinessAuditArchiver } from "./services/businessAuditService";
 import { trustedGeoHeaderSource, trustedProxyHops } from "./config/auditSecurity";
@@ -80,14 +79,10 @@ app.get("/health", (req, res) => {
   res.json({ message: "Server is running" });
 });
 
-// Initialize Socket.IO service
-const socketService = getSocketService(server);
-
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`Socket.IO server initialized`);
     startReminderDispatcher(60_000);
     startBusinessAuditArchiver();
   });

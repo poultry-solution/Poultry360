@@ -50,7 +50,6 @@ const ROLE_OPTIONS: Array<{
   { value: "DEALER", label: "Dealer" },
   { value: "COMPANY", label: "Company" },
   { value: "HATCHERY", label: "Hatchery" },
-  { value: "DOCTOR", label: "Doctor" },
 ];
 
 function statusBadge(state: AccountApprovalState) {

@@ -87,14 +87,11 @@ export const getAllUsers = async (
           isTestAccount: true,
           companyName: true,
           CompanyFarmLocation: true,
-          isOnline: true,
-          lastSeen: true,
           createdAt: true,
           _count: {
             select: {
               ownedFarms: true,
               managedFarms: true,
-              doctorConversations: true,
             },
           },
           // Owned farms (preview)
@@ -124,7 +121,6 @@ export const getAllUsers = async (
       _count: {
         ownedFarms: user._count.ownedFarms,
         managedFarms: user._count.managedFarms,
-        doctorConversations: user._count.doctorConversations,
       },
     }));
 
@@ -167,8 +163,6 @@ export const getUserById = async (
         adminNotes: true,
         companyName: true,
         CompanyFarmLocation: true,
-        isOnline: true,
-        lastSeen: true,
         language: true,
         calendarType: true,
         createdAt: true,
@@ -253,22 +247,6 @@ export const getUserById = async (
             id: true,
             name: true,
             address: true,
-          },
-        },
-        // Doctor conversations
-        doctorConversations: {
-          select: {
-            id: true,
-            subject: true,
-            status: true,
-            createdAt: true,
-            farmer: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-              },
-            },
           },
         },
       },
@@ -551,65 +529,6 @@ export const updateAdminNotes = async (
 
 async function hardDeleteUserData(userId: string) {
   await prisma.$transaction(async (tx) => {
-    const conversations = await tx.conversation.findMany({
-      where: {
-        OR: [{ farmerId: userId }, { doctorId: userId }],
-      },
-      select: { id: true },
-    });
-    const conversationIds = conversations.map((conversation) => conversation.id);
-
-    const batchShares = await tx.batchShare.findMany({
-      where: {
-        OR: [
-          { farmerId: userId },
-          { sharedWithId: userId },
-          ...(conversationIds.length > 0
-            ? [{ conversationId: { in: conversationIds } }]
-            : []),
-        ],
-      },
-      select: { id: true },
-    });
-    const batchShareIds = batchShares.map((share) => share.id);
-
-    if (batchShareIds.length > 0) {
-      await tx.message.updateMany({
-        where: {
-          batchShareId: { in: batchShareIds },
-        },
-        data: {
-          batchShareId: null,
-        },
-      });
-
-      await tx.batchShare.deleteMany({
-        where: {
-          id: { in: batchShareIds },
-        },
-      });
-    }
-
-    await tx.batchShareView.deleteMany({
-      where: {
-        viewerId: userId,
-      },
-    });
-
-    if (conversationIds.length > 0) {
-      await tx.conversation.deleteMany({
-        where: {
-          id: { in: conversationIds },
-        },
-      });
-    }
-
-    await tx.message.deleteMany({
-      where: {
-        senderId: userId,
-      },
-    });
-
     await tx.auditLog.deleteMany({
       where: {
         userId,

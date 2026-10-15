@@ -10,7 +10,7 @@ This document describes the current deployment architecture, subdomain-based rou
 
 Today Poultry360 runs as:
 
-- **One Next.js app** (`apps/frontend`) — serves all roles (farmer, dealer, company, doctor, admin) via path-based and subdomain-based routing.
+- **One Next.js app** (`apps/frontend`) — serves all roles (farmer, dealer, company, hatchery, admin) via path-based and subdomain-based routing.
 - **One Express backend** (`apps/backend`) — single API at `/api/v1`, used by the frontend from all subdomains.
 
 So there is **one deployment** for the frontend and one for the backend. The “unified app” in terms of deployment is already in place: a single Next.js build is deployed and subdomains determine which role UI is shown.
@@ -19,7 +19,7 @@ So there is **one deployment** for the frontend and one for the backend. The “
 
 The vision in [UNIFIED_APP_REFACTOR_PLAN.md](./UNIFIED_APP_REFACTOR_PLAN.md) is to:
 
-- Consolidate into a **single Next.js app** under something like `apps/web/` with **modular route groups** by role: `(farmer)/`, `(dealer)/`, `(company)/`, `(doctor)/`, `(admin)/`, plus shared `(auth)/`, `(shared)/`, etc.
+- Consolidate into a **single Next.js app** under something like `apps/web/` with **modular route groups** by role: `(farmer)/`, `(dealer)/`, `(company)/`, `(hatchery)/`, `(admin)/`, plus shared `(auth)/`, `(shared)/`, etc.
 - Use **subdomain-based routing** so each role is accessed via its own subdomain (e.g. `dealer.p360.com`).
 - Reduce **shared package pain** by moving auth and most shared code into the app and keeping only minimal shared packages (`shared-types`, `utils`).
 - Improve **developer experience** (single install, single dev server, no cross-port auth) and **performance** (role-based code splitting, single deployment).
@@ -39,7 +39,6 @@ Deployment uses **one frontend deployment** with **subdomain-based routing**. Th
 | `farmer.p360.com`    | Farmer/Owner/Manager | `/farmer/*`  | `farmer.p360.com/dashboard/home` → `/farmer/dashboard/home` |
 | `dealer.p360.com`    | Dealer        | `/dealer/*`    | `dealer.p360.com/dashboard/home` → `/dealer/dashboard/home` |
 | `company.p360.com`   | Company       | `/company/*`   | `company.p360.com/dashboard/home` → `/company/dashboard/home` |
-| `doctor.p360.com`    | Doctor        | `/doctor/*`    | `doctor.p360.com/dashboard` → `/doctor/dashboard`            |
 | `admin.p360.com`     | Super Admin   | `/admin/*`     | `admin.p360.com/dashboard` → `/admin/dashboard`              |
 | `p360.com` / `www.p360.com` | —        | (no prefix)    | Landing and auth; no rewrite                                  |
 
@@ -71,17 +70,11 @@ For auth to work across subdomains, the refresh-token cookie must be set with a 
 | `DATABASE_URL`       | PostgreSQL connection string     | Prisma requirement                                   |
 | `JWT_SECRET`         | Access token signing             | Required in production                               |
 | `JWT_REFRESH_SECRET` | Refresh token signing            | Required in production                               |
-| `FRONTEND_URLS`      | CORS and Socket.IO allowed origins | Comma-separated, e.g. `https://farmer.p360.com,https://dealer.p360.com,...` |
-| `FRONTEND_URL`       | Fallback if `FRONTEND_URLS` unset| Single origin                                        |
 | `TRUST_PROXY_HOPS`   | Trusted proxy hops for sign-in IP capture | Keep `0` unless the API origin is protected by a trusted proxy |
 | `TRUSTED_GEO_HEADER_SOURCE` | Trusted approximate-location header source | `none` (default), `cloudflare`, or `vercel`; requires proxy trust |
 | `AUDIT_SECURITY_RETENTION_DAYS` | Sign-in IP/device retention | Defaults to `30`; security metadata is deleted after this period |
 | `VAPID_PUBLIC_KEY`   | Web Push (notifications)         | Optional; required for push                          |
 | `VAPID_PRIVATE_KEY`  | Web Push (notifications)         | Optional; required for push                          |
-| `R2_BUCKET`          | R2 bucket name (e.g. uploads)    | Optional                                             |
-| `R2_ENDPOINT`        | R2 endpoint URL                  | Optional                                             |
-| `R2_ACCESS_KEY_ID`   | R2 access key                    | Optional                                             |
-| `R2_ACCESS_KEY_SECRET` | R2 secret key                  | Optional                                             |
 
 Production cookie domain for refresh tokens should be set in auth code (e.g. `.p360.com`) when `NODE_ENV === 'production'` (or via a dedicated env var like `COOKIE_DOMAIN`).
 
@@ -95,10 +88,9 @@ is configured to overwrite those headers.
 | Variable                    | Purpose                    | Example / notes                    |
 |-----------------------------|----------------------------|------------------------------------|
 | `NEXT_PUBLIC_API_URL`       | Backend API base URL       | `https://api.p360.com/api/v1` (prod) or `http://localhost:8081/api/v1` (dev) |
-| `NEXT_PUBLIC_SOCKET_URL`    | Socket.IO server URL       | Same host as API in prod, e.g. `https://api.p360.com` |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push public key     | Must match backend VAPID key      |
 
-Build-time: ensure all subdomains and the main domain are included in `FRONTEND_URLS` (backend) so CORS and Socket.IO work for every role.
+Build-time: ensure all subdomains and the main domain are in the backend CORS list (`allowedOrigins` in `apps/backend/src/index.ts`).
 
 ### 3.3 Root / Workspace
 
@@ -155,7 +147,6 @@ The frontend is one Next.js build; the same build serves all subdomains. No sepa
   - `http://localhost:3000/farmer/dashboard/home`
   - `http://localhost:3000/dealer/dashboard/home`
   - `http://localhost:3000/company/dashboard/home`
-  - `http://localhost:3000/doctor/dashboard`
   - `http://localhost:3000/admin/dashboard`
 - **Auth**: Login at `http://localhost:3000/auth/login`; after login, redirect goes to the role-specific path. No subdomain needed.
 
@@ -164,7 +155,7 @@ The frontend is one Next.js build; the same build serves all subdomains. No sepa
 To test subdomain behavior locally:
 
 1. Add hosts entries, e.g. in `/etc/hosts`:
-   - `127.0.0.1 farmer.localhost dealer.localhost company.localhost doctor.localhost admin.localhost`
+   - `127.0.0.1 farmer.localhost dealer.localhost company.localhost admin.localhost`
 2. Open `http://farmer.localhost:3000/dashboard/home`, `http://dealer.localhost:3000/dashboard/home`, etc.
 3. Middleware treats `farmer.localhost` like `farmer` and rewrites to `/farmer/...`.
 
@@ -172,7 +163,7 @@ To test subdomain behavior locally:
 
 - **URLs**: `https://farmer.p360.com`, `https://dealer.p360.com`, etc. All resolve to the same Next.js app.
 - **Routing**: Middleware rewrites by subdomain so that e.g. `dealer.p360.com/dashboard/home` becomes `/dealer/dashboard/home`.
-- **Auth**: Cookie domain must be `.p360.com` (or equivalent) so refresh token is sent for every subdomain. Backend CORS and Socket.IO must list all frontend origins (`FRONTEND_URLS`).
+- **Auth**: Cookie domain must be `.p360.com` (or equivalent) so refresh token is sent for every subdomain. Backend CORS must list all frontend origins (`allowedOrigins` in `apps/backend/src/index.ts`).
 
 Summary: same codebase and single build; behavior differs only by host (localhost vs subdomains) and env (API URL, cookie domain, CORS).
 
@@ -180,12 +171,12 @@ Summary: same codebase and single build; behavior differs only by host (localhos
 
 ## 6. Migration Strategy: Multi-App to Unified App
 
-Historically the plan assumed multiple frontends (e.g. separate farmer, doctor, admin apps). Current repo already has **one** Next.js app with role-based routes. The migration described in [UNIFIED_APP_REFACTOR_PLAN.md](./UNIFIED_APP_REFACTOR_PLAN.md) is therefore about:
+Historically the plan assumed multiple frontends (e.g. separate farmer and admin apps). Current repo already has **one** Next.js app with role-based routes. The migration described in [UNIFIED_APP_REFACTOR_PLAN.md](./UNIFIED_APP_REFACTOR_PLAN.md) is therefore about:
 
-1. **Restructuring** the existing app into clear route groups `(farmer)/`, `(dealer)/`, `(company)/`, `(doctor)/`, `(admin)/` and shared `(auth)/`, `(shared)/` (optionally under a single `apps/web/`).
+1. **Restructuring** the existing app into clear route groups `(farmer)/`, `(dealer)/`, `(company)/`, `(hatchery)/`, `(admin)/` and shared `(auth)/`, `(shared)/` (optionally under a single `apps/web/`).
 2. **Subdomain middleware**: Already in place; extend or refine as needed (e.g. dealer/company were added so all four role subdomains are covered).
 3. **Shared code**: Move auth and most shared logic into the app; keep only minimal shared packages to avoid rebuild and symlink pain.
-4. **Phased rollout**: Migrate farmer first, then doctor, then dealer/company/admin, with feature flags or path-based toggles if needed.
+4. **Phased rollout**: Migrate farmer first, then dealer/company/hatchery/admin, with feature flags or path-based toggles if needed.
 5. **Single deployment**: Keep one Next.js build and one backend; no separate deployments per role.
 
 So “migration” here means refactoring the current single app and decommissioning or shrinking shared packages, not merging multiple deployed apps.
@@ -221,7 +212,7 @@ So “migration” here means refactoring the current single app and decommissio
 
 ### 8.1 Modular Architecture and Role-Based Code Splitting
 
-- **Route groups**: Organize by role with clear boundaries so that farmer, dealer, company, doctor, and admin code live in separate segments. This enables:
+- **Route groups**: Organize by role with clear boundaries so that farmer, dealer, company, hatchery, and admin code live in separate segments. This enables:
   - **Role-based code splitting**: Next.js and bundler can split by route so that e.g. dealer users don’t load farmer-only chunks.
   - **Lazy loading**: Heavy role-specific components can be dynamically imported.
 - **Shared layout and components**: Keep one shared layout and a common set of UI/forms/charts in a `(shared)/` or similar area to avoid duplication while preserving role-specific entry points.
@@ -229,7 +220,7 @@ So “migration” here means refactoring the current single app and decommissio
 ### 8.2 Subdomain and Auth Consistency
 
 - **Cookie domain**: Centralize production cookie domain (e.g. `COOKIE_DOMAIN=.p360.com`) and use it in backend auth.
-- **CORS and Socket.IO**: Ensure `FRONTEND_URLS` (or equivalent) includes every subdomain and the main domain so all roles work from their subdomains.
+- **CORS**: Ensure the backend CORS list (`allowedOrigins` in `apps/backend/src/index.ts`) includes every subdomain and the main domain so all roles work from their subdomains.
 
 ### 8.3 Observability and Deployment
 
@@ -238,7 +229,7 @@ So “migration” here means refactoring the current single app and decommissio
 
 ### 8.4 Alignment with UNIFIED_APP_REFACTOR_PLAN.md
 
-The refactor plan’s phases (foundation, doctor migration, shared infrastructure, data layer, testing) and success criteria (single codebase, no shared package pain, role-based code splitting, subdomain routing) are the main roadmap. This document’s deployment and subdomain setup are the operational basis for that plan.
+The refactor plan’s phases (foundation, shared infrastructure, data layer, testing) and success criteria (single codebase, no shared package pain, role-based code splitting, subdomain routing) are the main roadmap. This document’s deployment and subdomain setup are the operational basis for that plan.
 
 ---
 
@@ -247,7 +238,7 @@ The refactor plan’s phases (foundation, doctor migration, shared infrastructur
 | Topic              | Location / detail |
 |--------------------|--------------------|
 | Subdomain → route  | `apps/frontend/middleware.ts` |
-| Role routes       | `apps/frontend/src/app/{farmer,dealer,company,doctor,admin}/` |
+| Role routes       | `apps/frontend/src/app/{farmer,dealer,company,hatchery,admin}/` |
 | Backend env       | `apps/backend` (e.g. `.env`), see §3.1 |
 | Frontend env      | `apps/frontend` (e.g. `.env.local`), see §3.2 |
 | Build             | `pnpm build` at root; frontend: `pnpm --filter frontend build` |
@@ -275,4 +266,4 @@ against a non-localhost database, so it can never create an extra admin on produ
 
 ---
 
-*Last updated to reflect single deployment and subdomain-based routing (farmer, dealer, company, doctor, admin) and reference UNIFIED_APP_REFACTOR_PLAN.md for future architecture.*
+*Last updated to reflect single deployment and subdomain-based routing (farmer, dealer, company, hatchery, admin) and reference UNIFIED_APP_REFACTOR_PLAN.md for future architecture.*

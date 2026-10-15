@@ -24,6 +24,11 @@ import {
   updateBatchNote,
   deleteBatchNote,
 } from "../controller/batchNoteController";
+import {
+  createBatchShareLink,
+  deleteBatchShareLink,
+  getBatchShareLinks,
+} from "../controller/batchShareController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
 import { StaffPermission, UserRole } from "@prisma/client";
 import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
@@ -62,6 +67,11 @@ batchRouter.get("/:id/notes", getBatchNotes);
 batchRouter.post("/:id/notes", createBatchNote);
 batchRouter.put("/:id/notes/:noteId", updateBatchNote);
 batchRouter.delete("/:id/notes/:noteId", deleteBatchNote);
+
+// Share links (read-only health report for a vet; no money)
+batchRouter.get("/:id/share-links", getBatchShareLinks);
+batchRouter.post("/:id/share-links", createBatchShareLink);
+batchRouter.delete("/:id/share-links/:linkId", deleteBatchShareLink);
 
 // Egg production (Layers batches only)
 batchRouter.get("/:id/egg-production", getEggProductionByBatch);

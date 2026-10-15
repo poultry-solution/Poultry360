@@ -9,11 +9,10 @@
 | **Company** | Independent business | Product catalog, company sales, supplier and dealer records |
 | **Dealer** | Independent business | Inventory, manual customers and suppliers, product sales, Broiler settlement |
 | **Farmer** | Independent business | Farm operations, batch tracking, sales and expenses |
-| **Doctor** | Service | Consultations with farmers via real-time chat |
 | **Admin** | System | Cross-tier management and reporting |
 
 Each business account owns its own data. The system supports inventory, sales, payments,
-vaccinations, reminders, staff access, and real-time notifications without automatic cross-account
+vaccinations, reminders, staff access, and push notifications without automatic cross-account
 sales, payment requests, or balance updates.
 
 ---
@@ -23,7 +22,7 @@ sales, payment requests, or balance updates.
 ```
 Poultry360/
 ├── apps/
-│   ├── backend/          # Express 5 API, Prisma, Socket.IO
+│   ├── backend/          # Express 5 API, Prisma
 │   └── frontend/         # Next.js 15 App Router
 ├── pnpm-workspace.yaml   # pnpm workspaces config
 └── package.json
@@ -31,7 +30,7 @@ Poultry360/
 
 > **Note:** The `/packages/` folder is deprecated and no longer used. Do not import from or modify it.
 
-**Stack:** Next.js 15, React 19, TanStack Query, Zustand, Socket.IO, Express 5, Prisma, PostgreSQL, Tailwind CSS, Radix UI
+**Stack:** Next.js 15, React 19, TanStack Query, Zustand, Express 5, Prisma, PostgreSQL, Tailwind CSS, Radix UI
 
 **Run:** `pnpm install && pnpm dev` from repo root
 
@@ -82,7 +81,6 @@ account.
 | `OWNER`, `MANAGER` | `/farmer/*` | `/farmer/dashboard/home` |
 | `DEALER` | `/dealer/*` | `/dealer/dashboard/home` |
 | `COMPANY` | `/company/*` | `/company/dashboard/home` |
-| `DOCTOR` | `/doctor/*` | `/doctor/dashboard` |
 | `SUPER_ADMIN` | `/admin/*` | `/admin/dashboard` |
 
 Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection.
@@ -113,7 +111,6 @@ Production uses subdomain-based routing. Middleware (`apps/frontend/middleware.t
 | `farmer.p360.com/dashboard` | `/farmer/dashboard` |
 | `dealer.p360.com/dashboard` | `/dealer/dashboard` |
 | `company.p360.com/dashboard` | `/company/dashboard` |
-| `doctor.p360.com/dashboard` | `/doctor/dashboard` |
 | `admin.p360.com/dashboard` | `/admin/dashboard` |
 
 **Local dev:** Access routes directly at `localhost:3000/farmer/*`, etc.
@@ -130,7 +127,7 @@ Root Layout (providers)
 ### Provider Stack (order matters)
 
 ```
-AuthProvider → QueryProvider → InventoryProvider → ChatProvider → ToastProvider → LoadingProvider → RoleBasedMiddleware → AuthGuard
+AuthProvider → QueryProvider → InventoryProvider → ToastProvider → LoadingProvider → RoleBasedMiddleware → AuthGuard
 ```
 
 ---
@@ -178,7 +175,6 @@ export const useCreateBatch = () => useMutation({
 
 ### React Context
 
-- **ChatContext:** Socket.IO state, messages, typing, presence
 - **InventoryContext:** Local UI state for inventory views
 
 ---
@@ -196,7 +192,6 @@ All routes prefixed with `/api/v1`. Organized by domain in `apps/backend/src/rou
 | Company | `/company/*` | Products, sales, analytics |
 | Farms/Batches | `/farms`, `/batches` | Farm and batch CRUD |
 | Inventory | `/inventory` | Stock tracking |
-| Communication | `/conversations`, `/messages` | Chat |
 | Notifications | `/notifications`, `/reminder-notifications` | Push + reminders |
 
 ### Controller-Service Pattern
@@ -213,47 +208,8 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 |---------|---------|
 | `CompanyDealerAccountService` | Legacy linked-account support; do not use for new independent workflows |
 | `DealerService` | Dealer operations, farmer/customer balance-based ledger |
-| `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
 | `ReminderCronService` | Cron job for vaccination/reminder notifications |
-
----
-
-## Real-time (Socket.IO)
-
-### Architecture
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Socket as Socket Service
-    participant DB
-
-    Client->>Socket: Connect (JWT in handshake)
-    Socket->>Socket: Verify token
-    Socket-->>Client: authenticated
-    Client->>Socket: join_conversation
-    Client->>Socket: send_message
-    Socket->>DB: Save message
-    Socket-->>Client: new_message (broadcast to room)
-```
-
-### Events
-
-| Client → Server | Server → Client |
-|-----------------|-----------------|
-| `join_conversation`, `leave_conversation` | `joined_conversation`, `conversation_history` |
-| `send_message` | `message_sent`, `new_message` |
-| `typing_start`, `typing_stop` | `user_typing` |
-| `mark_messages_read` | `messages_read` |
-
-### Chat Features
-
-- **Message types:** TEXT, IMAGE, VIDEO, AUDIO, PDF, DOC, BATCH_SHARE, FARM_SHARE
-- **Voice messages:** AUDIO type with `durationMs`
-- **Batch sharing:** BATCH_SHARE type with `batchShareId`
-- **Presence:** `markUserOnline`/`markUserOffline` in roomService
-- **Push notifications:** Sent to offline users via webpushService
 
 ---
 
@@ -263,7 +219,6 @@ sequenceDiagram
 PORT                 # Server port (default: 8081)
 JWT_SECRET           # Access token secret
 JWT_REFRESH_SECRET   # Refresh token secret
-FRONTEND_URLS        # Comma-separated allowed origins
 DATABASE_URL         # PostgreSQL connection string
 VAPID_PUBLIC_KEY     # Web push public key
 VAPID_PRIVATE_KEY    # Web push private key
@@ -300,7 +255,6 @@ NODE_ENV             # development/production/test
 1. **Independent account changes:** Keep all writes within the acting business account. Do not add cross-account side effects.
 2. **New entity:** Add Prisma model → create service → create controller → create route → create frontend query hooks
 3. **Role-specific feature:** Add route under role prefix, enforce role in authMiddleware, use role layout on frontend
-4. **Real-time feature:** Add socket event handler in SocketService, emit from service layer, handle in ChatContext
 
 ---
 
@@ -324,7 +278,6 @@ graph TD
     end
     C -. independent data .- D
     D -. independent data .- F
-    Doc[Doctor] -->|consults| F
     Admin[Admin] -->|manages| C & D & F
 ```
 
@@ -507,9 +460,7 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
   Super Admin views all records at `/admin/dashboard/activity`.
 - Both pages have server-scoped filtering and CSV, Excel, and PDF export. Records older than 10
   days receive `archivedAt` via the backend audit archiver and are hidden by default, not deleted.
-- Chat auditing now records only successful sends and soft deletes as `chat.message.sent` and
-  `chat.message.deleted`, scoped to the sender and conversation. It stores message type and
-  yes/no text/attachment metadata only—never chat content, filenames, URLs, or storage keys.
+- Chat with Doctor was removed (2026-10-15); old `chat.message.*` audit rows may still exist.
   Login/logout auditing records only successful normal-user and staff sign-ins/sign-outs as
   `auth.login.succeeded` and `auth.logout.succeeded`. These records are visible and exportable
   only to Super Admin; normal users and staff never receive them. Successful sign-ins also have
@@ -531,7 +482,6 @@ Dealer staff logins are separate from normal `User` accounts and from payroll st
 - **Auth store:** `apps/frontend/src/common/store/store.ts`
 - **Dealer staff access:** `apps/frontend/src/app/(protected)/dealer/dashboard/staff-access/page.tsx`
 - **Staff authentication:** `apps/backend/src/router/staffAuthRoutes.ts`
-- **Socket service:** `apps/backend/src/services/socketService.ts`
 
 ### Local Seed Commands
 

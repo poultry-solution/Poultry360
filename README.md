@@ -3,7 +3,6 @@ Poultry360/
 │
 ├─ apps/
 │   ├─ farmer-frontend/    # nextjs app → app.com
-│   ├─ doctor-frontend/    # nextjs app → doctor.app.com
 │   └─ admin-frontend/     # nextjs app → admin.app.com
 │
 ├─ backend/                # your existing API (NestJS/Express/Prisma)

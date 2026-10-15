@@ -16,6 +16,7 @@ import {
   searchPublicLocations,
   reversePublicLocation,
 } from "../controller/listForSaleController";
+import { getPublicBatchShare } from "../controller/batchShareController";
 
 const router = Router();
 
@@ -43,5 +44,8 @@ router.get("/list-for-sale", getPublicListForSale);
 // Free location lookup for listing forms
 router.get("/locations/search", searchPublicLocations);
 router.get("/locations/reverse", reversePublicLocation);
+
+// Batch share link (read-only health report, no money)
+router.get("/batch-share/:token", getPublicBatchShare);
 
 export default router;

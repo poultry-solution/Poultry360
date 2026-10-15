@@ -29,10 +29,7 @@ import {
   Calendar,
   Tractor,
   Users,
-  MessageCircle,
   Globe,
-  Clock,
-  CircleDot,
   Layers,
   SlidersHorizontal,
   CreditCard,
@@ -53,7 +50,6 @@ import { toast } from "sonner";
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
   MANAGER: "bg-purple-100 text-purple-800",
-  DOCTOR: "bg-green-100 text-green-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
   HATCHERY: "bg-amber-100 text-amber-800",
@@ -231,59 +227,6 @@ function DealerAccountsSection({ accounts }: {
                 <TableCell className="text-muted-foreground">{account.dealer.address || "--"}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {new Date(account.accountCreatedAt).toLocaleDateString()}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function DoctorConversationsSection({ conversations }: {
-  conversations: AdminUserDetail["doctorConversations"];
-}) {
-  if (conversations.length === 0) return null;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MessageCircle className="size-4" />
-          Patient Conversations
-          <span className="ml-auto text-sm font-normal text-muted-foreground">
-            {conversations.length} total
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Farmer</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Started</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {conversations.map((conv) => (
-              <TableRow key={conv.id}>
-                <TableCell className="font-medium">{conv.farmer.name}</TableCell>
-                <TableCell className="text-muted-foreground">{conv.farmer.phone}</TableCell>
-                <TableCell className="text-muted-foreground">{conv.subject || "--"}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    conv.status === "ACTIVE"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}>
-                    {conv.status}
-                  </span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {new Date(conv.createdAt).toLocaleDateString()}
                 </TableCell>
               </TableRow>
             ))}
@@ -753,7 +696,6 @@ export default function AdminUserDetailPage({
             {
               OWNER: "bg-blue-500",
               MANAGER: "bg-purple-500",
-              DOCTOR: "bg-green-500",
               DEALER: "bg-orange-500",
               COMPANY: "bg-indigo-500",
               HATCHERY: "bg-amber-500",
@@ -804,12 +746,6 @@ export default function AdminUserDetailPage({
                     TEST ACCOUNT
                   </span>
                 )}
-                {user.isOnline && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                    <CircleDot className="size-3" />
-                    Online
-                  </span>
-                )}
               </div>
 
               {user.companyName && (
@@ -845,16 +781,6 @@ export default function AdminUserDetailPage({
                     })}
                   </span>
                 </div>
-                {(user.lastSeen || !user.isOnline) && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="size-4 shrink-0" />
-                    <span>
-                      {user.lastSeen
-                        ? `Last seen ${new Date(user.lastSeen).toLocaleDateString()}`
-                        : "Never seen"}
-                    </span>
-                  </div>
-                )}
                 {user.dealer && (
                   <div className="flex items-center gap-2 text-sm">
                     <Building2 className="size-4 text-muted-foreground shrink-0" />
@@ -908,38 +834,26 @@ export default function AdminUserDetailPage({
       />
 
       {/* Stat Cards Row */}
-      {(user.role === "MANAGER" || user.role === "DOCTOR") && (
+      {user.role === "MANAGER" && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {user.role === "MANAGER" && (
-            <>
-              <StatCard
-                icon={Tractor}
-                value={farmCount}
-                label={farmCount !== 1 ? "Farms" : "Farm"}
-                color="bg-emerald-100 text-emerald-700"
-              />
-              <StatCard
-                icon={Layers}
-                value={batchCount}
-                label={batchCount !== 1 ? "Batches" : "Batch"}
-                color="bg-sky-100 text-sky-700"
-              />
-              <StatCard
-                icon={Users}
-                value={user.dealerAccounts.length}
-                label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
-                color="bg-orange-100 text-orange-700"
-              />
-            </>
-          )}
-          {user.role === "DOCTOR" && (
-            <StatCard
-              icon={MessageCircle}
-              value={user.doctorConversations.length}
-              label={user.doctorConversations.length !== 1 ? "Patients" : "Patient"}
-              color="bg-sky-100 text-sky-700"
-            />
-          )}
+          <StatCard
+            icon={Tractor}
+            value={farmCount}
+            label={farmCount !== 1 ? "Farms" : "Farm"}
+            color="bg-emerald-100 text-emerald-700"
+          />
+          <StatCard
+            icon={Layers}
+            value={batchCount}
+            label={batchCount !== 1 ? "Batches" : "Batch"}
+            color="bg-sky-100 text-sky-700"
+          />
+          <StatCard
+            icon={Users}
+            value={user.dealerAccounts.length}
+            label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
+            color="bg-orange-100 text-orange-700"
+          />
         </div>
       )}
 
@@ -947,7 +861,6 @@ export default function AdminUserDetailPage({
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
       <FarmsSection title="Managed Farms" farms={user.managedFarms} />
       <DealerAccountsSection accounts={user.dealerAccounts} />
-      <DoctorConversationsSection conversations={user.doctorConversations} />
     </div>
   );
 }

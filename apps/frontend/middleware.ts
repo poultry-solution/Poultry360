@@ -56,14 +56,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (subdomain === "doctor" || subdomain === "doctor.localhost") {
-    // doctor.p360.com/dashboard → /doctor/dashboard
-    if (!url.pathname.startsWith("/doctor")) {
-      url.pathname = `/doctor${url.pathname}`;
-      return NextResponse.rewrite(url);
-    }
-  }
-
   if (subdomain === "admin" || subdomain === "admin.localhost") {
     // admin.p360.com/dashboard → /admin/dashboard
     if (!url.pathname.startsWith("/admin")) {

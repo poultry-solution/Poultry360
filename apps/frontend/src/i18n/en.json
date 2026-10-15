@@ -21,18 +21,6 @@
     "optional": "Optional",
     "notAvailable": "N/A"
   },
-  "chat": {
-    "unknown": "Unknown",
-    "online": "Online",
-    "offline": "Offline",
-    "deleteConversation": "Delete conversation",
-    "micAccessError": "Could not access microphone. Please check permissions.",
-    "recording": "Recording",
-    "stop": "Stop",
-    "send": "Send",
-    "sending": "Sending...",
-    "cancel": "Cancel"
-  },
   "topbar": {
     "expandSidebar": "Expand sidebar",
     "settings": "Settings",
@@ -41,7 +29,6 @@
     "signOut": "Sign Out",
     "search": {
       "farmer": "Search farms, batches, inventory...",
-      "doctor": "Search consultations, patients...",
       "admin": "Search users, farms, batches...",
       "dealer": "Search dealers, companies...",
       "company": "Search companies, dealers..."
@@ -50,10 +37,6 @@
   "sidebar": {
     "collapse": "Collapse sidebar",
     "roles": {
-      "doctor": {
-        "subtitle": "Veterinary Services",
-        "userTitle": "Doctor"
-      },
       "admin": {
         "subtitle": "System Management",
         "userTitle": "Administrator"
@@ -90,9 +73,7 @@
       "staffManagement": "Staff Payroll",
       "staffAccess": "Staff access",
       "activity": "Activity",
-      "chatWithDoctor": "Chat with Doctor",
       "dashboard": "Dashboard",
-      "chat": "Chat",
       "ledger": "Ledger",
       "companies": "Companies",
       "customers": "Customers",
@@ -239,8 +220,6 @@
       "signupDealer": "Sign up as Dealer",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
-      "registerDoctor": "Are you a vet or doctor?",
-      "signupDoctor": "Sign up as Doctor",
       "errors": {
         "passwordMismatch": "Passwords do not match!",
         "passwordTooShort": "Password must be at least 6 characters long!",
@@ -307,31 +286,6 @@
         "ownerNameRequired": "Owner name is required!",
         "phoneInvalid": "Phone number must be exactly 10 digits!",
         "dealerNameRequired": "Dealer name is required!",
-        "passwordTooShort": "Password must be at least 6 characters long!",
-        "passwordMismatch": "Passwords do not match!",
-        "registrationFailed": "Registration failed. Please try again."
-      }
-    },
-    "doctorSignup": {
-      "title": "Doctor Registration",
-      "subtitle": "Create your doctor account to support farmers",
-      "nameLabel": "Full Name *",
-      "phoneLabel": "Phone Number *",
-      "phonePlaceholder": "98XXXXXXXX",
-      "phoneHelp": "Your contact number for login and notifications.",
-      "clinicNameLabel": "Clinic / Practice Name",
-      "clinicNamePlaceholder": "Optional",
-      "clinicLocationLabel": "Clinic Location",
-      "clinicLocationPlaceholder": "e.g. Province, City",
-      "passwordLabel": "Password *",
-      "confirmPasswordLabel": "Confirm Password *",
-      "createAccount": "Create Doctor Account",
-      "creatingAccount": "Creating account...",
-      "alreadyHaveAccount": "Already have an account?",
-      "login": "Log in",
-      "errors": {
-        "nameRequired": "Name is required!",
-        "phoneInvalid": "Phone number must be exactly 10 digits!",
         "passwordTooShort": "Password must be at least 6 characters long!",
         "passwordMismatch": "Passwords do not match!",
         "registrationFailed": "Registration failed. Please try again."
@@ -2946,14 +2900,13 @@
       "dealer": "Feed Dealer",
       "company": "Feed mill company",
       "hatchery": "Hatchery",
-      "veterinary": "Veterinary Doctor",
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in"
     },
     "hero": {
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
-      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, hatcheries, and vets.",
+      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, and hatcheries.",
       "useWeb": "Use Web Version",
       "bookDemo": "Book a demo",
       "download": "Download Poultry360",
@@ -3000,7 +2953,7 @@
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, hatcheries, and veterinary doctors together—manage operations, inventory, and health in one platform.",
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and hatcheries together—manage operations, inventory, and health in one platform.",
       "cards": {
         "layer": {
           "title": "Layer Management",
@@ -3021,10 +2974,6 @@
         "hatchery": {
           "title": "Hatchery",
           "description": "Run parent flocks, egg production, incubation, hatch results, chick grades, sales, and supplier and party ledgers in one place."
-        },
-        "veterinary": {
-          "title": "Veterinary Doctor",
-          "description": "Track farm visits, prescriptions, and bird health across your client base."
         }
       }
     },
@@ -3225,7 +3174,6 @@
       "DEALER": "Feed dealer",
       "COMPANY": "Company",
       "HATCHERY": "Hatchery",
-      "DOCTOR": "Doctor",
       "SUPER_ADMIN": "Administrator"
     }
   },
@@ -3392,6 +3340,105 @@
       "saveFailed": "Could not save production",
       "undone": "Production undone",
       "undoFailed": "Could not undo production"
+    }
+  },
+  "share": {
+    "ended": {
+      "title": "This link has ended",
+      "body": "This link has expired or was turned off. Ask the farmer to send a new link."
+    }
+  },
+  "batchShare": {
+    "shareButton": "Share",
+    "modal": {
+      "title": "Share this batch",
+      "whatTheySee": "They will see bird health and growth only: deaths, weight, feed, medicine. No money is shown.",
+      "howLong": "How long should the link work?",
+      "oneDay": "1 day",
+      "days": "{n} days",
+      "showLocation": "Show farm location",
+      "showLocationHint": "Your address from your profile.",
+      "showNotes": "Show batch notes",
+      "showNotesHint": "Notes you wrote in the Notes tab.",
+      "create": "Create link",
+      "linkReady": "Link is ready. Send it to the doctor:",
+      "makeAnother": "Make another link",
+      "whatsapp": "WhatsApp",
+      "copy": "Copy link",
+      "copiedShort": "Copied",
+      "more": "More",
+      "copied": "Link copied",
+      "copyFailed": "Could not copy. Please copy it by hand.",
+      "createFailed": "Could not create the link",
+      "openLinks": "Open links",
+      "loading": "Loading...",
+      "noLinks": "No open links.",
+      "endsOn": "Ends",
+      "opened": "Opened {n} times",
+      "withLocation": "with location",
+      "withNotes": "with notes",
+      "turnOff": "Turn off",
+      "turnedOff": "Link turned off",
+      "turnOffFailed": "Could not turn off the link",
+      "close": "Close",
+      "whatsappText": "Batch {batch} health report (Poultry360): {url}"
+    },
+    "page": {
+      "headerTitle": "Batch health report",
+      "loading": "Loading report...",
+      "errorTitle": "Could not load this report",
+      "errorBody": "Please check your internet and try again.",
+      "tooMany": "Too many tries. Please wait a minute and try again.",
+      "broiler": "Broiler",
+      "layers": "Layers",
+      "active": "Active",
+      "closed": "Closed",
+      "dayN": "Day {n}",
+      "dayShort": "D{n}",
+      "started": "Started",
+      "closedOn": "Closed",
+      "updatedNow": "Live data",
+      "linkEnds": "Link ends",
+      "birdsAlive": "Birds alive",
+      "birdsStarted": "Birds started",
+      "ofStarted": "of {n} started",
+      "deaths": "Deaths",
+      "avgWeight": "Avg weight",
+      "noWeight": "Not weighed yet",
+      "layingPercent": "Laying %",
+      "noEggs": "No eggs recorded yet",
+      "fcrNeedsWeight": "Needs a new weight",
+      "fcrNotReady": "Not ready yet",
+      "fcrWeightFrom": "Weight from",
+      "fcrOldWeight": "Old weight from",
+      "birdsTitle": "Birds",
+      "died": "Died",
+      "sold": "Sold",
+      "leftAtClose": "Left at close",
+      "deathsTitle": "Deaths",
+      "noDeaths": "No deaths recorded.",
+      "chartByDay": "By batch day",
+      "last7Days": "Last 7 days",
+      "reasons": "Reasons",
+      "noReason": "No reason given",
+      "date": "Date",
+      "reason": "Reason",
+      "eggsTitle": "Eggs",
+      "totalEggs": "Total eggs",
+      "lastEggs": "Last day's eggs",
+      "eggChartHint": "Last 30 days: eggs (bars) and laying % (line)",
+      "weightTitle": "Weight",
+      "birdsWeighed": "Birds weighed",
+      "feedTitle": "Feed",
+      "totalFeed": "Total feed",
+      "feedPerBird": "Feed per bird",
+      "feedPerBirdHint": "Feed per bird = total feed ÷ (birds alive + sold).",
+      "feedChartHint": "Feed given in the last 14 days (kg)",
+      "medicineTitle": "Medicine and vaccines",
+      "noMedicine": "No medicine or vaccine recorded.",
+      "notesTitle": "Farmer's notes",
+      "footer": "Shared by the farmer from Poultry360. No money details are shown.",
+      "weightChartHint": "Average weight (kg) by batch day"
     }
   }
 }

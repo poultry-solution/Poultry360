@@ -25,6 +25,7 @@ import {
   CalendarDays,
   HeartPulse,
   Scale,
+  Share2,
 } from "lucide-react";
 import {
   useGetBatchById,
@@ -91,6 +92,8 @@ import { WeightModal } from "@/components/batches/modals/WeightModal";
 import { PaymentModal } from "@/components/batches/modals/PaymentModal";
 import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
+import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
+import { useI18n } from "@/i18n/useI18n";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
@@ -171,6 +174,7 @@ type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes
 export default function BatchDetailPage() {
   const params = useParams<{ id: string }>();
   const batchId = params?.id;
+  const { t } = useI18n();
 
   // Always call hooks with consistent parameters to avoid "hooks called conditionally" error
   // Even if batchId is empty, hooks will be disabled via `enabled: false` option
@@ -209,6 +213,7 @@ export default function BatchDetailPage() {
     useState<ExpenseCategoryFilter>("All");
   const [salesPage, setSalesPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
@@ -1761,6 +1766,14 @@ export default function BatchDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs sm:text-sm"
+          onClick={() => setIsShareModalOpen(true)}
+        >
+          <Share2 className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+          <span>{t("batchShare.shareButton")}</span>
+        </Button>
         {batch.status === "ACTIVE" && (
           <Button
             variant="outline"
@@ -1999,6 +2012,13 @@ export default function BatchDetailPage() {
         onSubmit={submitCloseBatch}
         onFieldUpdate={updateCloseBatchField}
         isPending={closeBatchMutation.isPending}
+      />
+
+      <ShareBatchModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        batchId={String(batchId ?? "")}
+        batchName={batch.batchNumber}
       />
 
       {/* Delete Batch Modal */}

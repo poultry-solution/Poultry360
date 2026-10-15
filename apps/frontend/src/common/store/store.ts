@@ -50,7 +50,7 @@ export interface User {
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   onboardingPayment?: {
     state:
@@ -98,7 +98,7 @@ export interface RegisterData {
   name: string;
   password: string;
   phone: string;
-  role: "OWNER" | "MANAGER" | "DOCTOR" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
+  role: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
   language?: "ENGLISH" | "NEPALI";
@@ -128,7 +128,6 @@ interface AuthState {
   initialize: () => Promise<void>;
   setUser: (user: User) => void;
   setAccessToken: (token: string) => void;
-  // navigateToDoctorApp: () => void; // TODO: Implement when unified architecture is ready
 }
 
 // API base URL - adjust according to your setup

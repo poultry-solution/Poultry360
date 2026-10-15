@@ -117,12 +117,6 @@ export const farmerNavigation: NavigationItem[] = [
     requiredStaffPermission: "FARMER_VIEW_CASH_HISTORY",
   },
   {
-    nameKey: "sidebar.nav.chatWithDoctor",
-    href: "/farmer/dashboard/chat-doctor",
-    icon: MessageCircle,
-    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
-  },
-  {
     nameKey: "sidebar.nav.listForSale",
     href: "/farmer/dashboard/list-for-sale",
     icon: Tag,
@@ -134,15 +128,6 @@ export const farmerNavigation: NavigationItem[] = [
     href: "/farmer/dashboard/analytics",
     icon: BarChart3,
     requiredStaffPermission: "FARMER_VIEW_ANALYTICS",
-  },
-];
-
-const doctorNavigation: NavigationItem[] = [
-  { nameKey: "sidebar.nav.dashboard", href: "/doctor/dashboard", icon: Home },
-  {
-    nameKey: "sidebar.nav.chat",
-    href: "/doctor/dashboard/chat",
-    icon: MessageCircle,
   },
 ];
 
@@ -401,7 +386,6 @@ interface SidebarProps {
   role?:
     | "OWNER"
     | "MANAGER"
-    | "DOCTOR"
     | "SUPER_ADMIN"
     | "DEALER"
     | "COMPANY"
@@ -421,7 +405,6 @@ export default function Sidebar({
 
   // Get navigation based on role
   const getNavigation = () => {
-    if (role === "DOCTOR") return doctorNavigation;
     if (role === "SUPER_ADMIN") return adminNavigation;
     if (role === "DEALER") return dealerNavigation;
     if (role === "COMPANY") return companyNavigation;
@@ -451,12 +434,6 @@ export default function Sidebar({
   // Get role display info
   const getRoleInfo = () => {
     const userTitle = user?.isStaff ? t("sidebar.roles.staff.userTitle") : undefined;
-    if (role === "DOCTOR") {
-      return {
-        subtitle: t("sidebar.roles.doctor.subtitle"),
-        userTitle: userTitle ?? t("sidebar.roles.doctor.userTitle"),
-      };
-    }
     if (role === "SUPER_ADMIN") {
       return {
         subtitle: t("sidebar.roles.admin.subtitle"),
@@ -548,9 +525,6 @@ export default function Sidebar({
           } else if (item.href === "/farmer/dashboard/home") {
             // For farmer home, only active if exactly on /farmer/dashboard/home
             isActive = pathname === "/farmer/dashboard/home";
-          } else if (item.href === "/doctor/dashboard") {
-            // For doctor dashboard, only active if exactly on /doctor/dashboard
-            isActive = pathname === "/doctor/dashboard";
           } else if (item.href === "/dealer/dashboard/home") {
             // For dealer home, only active if exactly on /dealer/dashboard/home
             isActive = pathname === "/dealer/dashboard/home";
