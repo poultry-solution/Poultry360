@@ -20,6 +20,28 @@ export function getNepaliNow(): Date {
 }
 
 /**
+ * The Nepal calendar day (AD) of a moment, as "YYYY-MM-DD".
+ * Use this to compare two dates by day instead of by time.
+ */
+export function toNepalDayKey(date: Date): string {
+  return new Date(date.getTime() + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The Nepal calendar day of a moment as a BS "YYYY-MM-DD" string.
+ * Works the same whatever the server timezone is.
+ */
+export function toNepalBsDayString(date: Date): string {
+  const shifted = new Date(date.getTime() + NEPAL_OFFSET_MS);
+  const nd = new NepaliDate(
+    new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate())
+  );
+  const m = String(nd.getMonth() + 1).padStart(2, "0");
+  const d = String(nd.getDate()).padStart(2, "0");
+  return `${nd.getYear()}-${m}-${d}`;
+}
+
+/**
  * Get today's BS date as a "YYYY-MM-DD" string, using Nepal wall clock.
  * This is the authoritative source of "today" on the server.
  */

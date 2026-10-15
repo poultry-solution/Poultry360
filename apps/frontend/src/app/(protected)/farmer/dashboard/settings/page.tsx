@@ -10,7 +10,6 @@ import { useAuth, useAuthStore } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
-import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useI18n } from "@/i18n/useI18n";
 import {
   ACCOUNT_FEATURE_KEYS,
@@ -29,12 +28,7 @@ export default function SettingsPage() {
   const listForSaleFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE);
   const updateAccountFeature = useUpdateCurrentAccountFeature();
 
-  // Fetch owned and managed farms
-  const { data: ownedFarmsResponse, isLoading: ownedFarmsLoading } = useGetUserFarms("owned");
-  const { data: managedFarmsResponse, isLoading: managedFarmsLoading } = useGetUserFarms("managed");
 
-  const ownedFarms = ownedFarmsResponse?.data || [];
-  const managedFarms = managedFarmsResponse?.data || [];
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
@@ -158,107 +152,6 @@ export default function SettingsPage() {
                 />
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Owned Farms */}
-      {ownedFarms.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("settings.ownedFarms")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {ownedFarmsLoading ? (
-              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-            ) : (
-              ownedFarms.map((farm: any) => (
-                <div key={farm.id} className="border rounded-lg p-4 space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.farmName")}</Label>
-                    <Input
-                      value={farm.name}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.capacity")}</Label>
-                    <Input
-                      value={farm.capacity || t("common.notSet")}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  {farm.description && (
-                    <div>
-                      <Label className="text-sm font-medium">{t("settings.description")}</Label>
-                      <Input
-                        value={farm.description}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Managed Farms */}
-      {managedFarms.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("settings.managedFarms")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {managedFarmsLoading ? (
-              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-            ) : (
-              managedFarms.map((farm: any) => (
-                <div key={farm.id} className="border rounded-lg p-4 space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.farmName")}</Label>
-                    <Input
-                      value={farm.name}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.capacity")}</Label>
-                    <Input
-                      value={farm.capacity || t("common.notSet")}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  {farm.description && (
-                    <div>
-                      <Label className="text-sm font-medium">{t("settings.description")}</Label>
-                      <Input
-                        value={farm.description}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Show message if no farms */}
-      {!ownedFarmsLoading && !managedFarmsLoading && ownedFarms.length === 0 && managedFarms.length === 0 && (
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-muted-foreground text-center">
-              {t("settings.noFarms")}
-            </p>
           </CardContent>
         </Card>
       )}

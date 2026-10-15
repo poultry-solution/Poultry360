@@ -15,9 +15,17 @@ import {
 import { DateInput } from "@/common/components/ui/date-input";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import { useCalendar } from "@/common/hooks/useCalendar";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
+import {
+  formatQuantity,
+  formatRatePerUnit,
+  formatRupeesExact,
+  getTodayLocalDate,
+} from "@/common/lib/utils";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import type { CreateMaterialProductionInput } from "@/fetchers/production/materialProductionTypes";
+import { useI18n } from "@/i18n/useI18n";
 
 export interface ProductionMaterialOption {
   id: string;
@@ -25,6 +33,9 @@ export interface ProductionMaterialOption {
   unit: string;
   currentStock: number;
   unitCost: number;
+  /** First day this lot was bought (AD ISO). Used to tell lots apart and to block too-early runs. */
+  firstPurchaseDate?: string | null;
+  supplierName?: string | null;
   subtitle?: string;
 }
 
@@ -43,6 +54,7 @@ interface InputLine {
   unit: string;
   stock: number;
   unitCost: number;
+  firstPurchaseDate: string | null;
 }
 
 interface OutputLine {
@@ -56,6 +68,8 @@ interface OutputLine {
 interface MaterialProductionFormProps {
   backHref: string;
   inventoryHref: string;
+  /** Where raw materials are bought (Supplier Ledger). */
+  purchaseHref?: string;
   materials: ProductionMaterialOption[];
   products: ProductionProductOption[];
   isLoadingMaterials?: boolean;
@@ -73,6 +87,7 @@ const emptyInput = (): InputLine => ({
   unit: "",
   stock: 0,
   unitCost: 0,
+  firstPurchaseDate: null,
 });
 const emptyOutput = (): OutputLine => ({
   productId: "",
@@ -99,15 +114,12 @@ const distributeCostAllocationEvenly = (
   }));
 };
 
-const money = (value: number) =>
-  `Rs. ${value.toLocaleString("en-NP", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+const money = formatRupeesExact;
 
 export function MaterialProductionForm({
   backHref,
   inventoryHref,
+  purchaseHref,
   materials,
   products,
   isLoadingMaterials = false,
@@ -117,18 +129,36 @@ export function MaterialProductionForm({
   onProductSearch,
   onSubmit,
 }: MaterialProductionFormProps) {
+  const { t } = useI18n();
+  const { toDisplayDate } = useCalendar();
   const [date, setDate] = useState(getTodayLocalDate);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [inputs, setInputs] = useState<InputLine[]>([emptyInput()]);
   const [outputs, setOutputs] = useState<OutputLine[]>([emptyOutput()]);
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+
+  const showDate = (value: string) => toDisplayDate(new Date(value));
 
   const materialOptions = materials.map((item) => ({
     value: item.id,
     label: item.name,
     subtitle:
       item.subtitle ??
-      `${item.currentStock} ${item.unit} available · ${money(item.unitCost)}/${item.unit}`,
+      [
+        item.firstPurchaseDate
+          ? t("production.form.boughtOn", { date: showDate(item.firstPurchaseDate) })
+          : null,
+        item.supplierName || null,
+        formatRatePerUnit(item.unitCost, item.unit),
+        t("production.form.left", {
+          qty: formatQuantity(item.currentStock),
+          unit: item.unit,
+        }),
+      ]
+        .filter(Boolean)
+        .join(" · "),
     data: item,
   }));
   const productOptions = products.map((product) => ({
@@ -136,7 +166,7 @@ export function MaterialProductionForm({
     label: product.name,
     subtitle:
       product.subtitle ??
-      `${product.unit}${product.currentStock === undefined ? "" : ` · ${product.currentStock} currently in stock`}`,
+      `${product.unit}${product.currentStock === undefined ? "" : ` · ${t("production.form.inStock", { qty: formatQuantity(product.currentStock) })}`}`,
     data: product,
   }));
 
@@ -152,6 +182,28 @@ export function MaterialProductionForm({
     (sum, line) => sum + Number(line.costAllocationPercent || 0),
     0
   );
+  const allocationOk = Math.abs(allocationTotal - 100) < 0.0001;
+  const multipleProducts = outputs.length > 1;
+
+  // Quantity asked per lot (the same lot can be picked on two rows).
+  const requiredByLot = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of inputs) {
+      if (!line.inventoryItemId) continue;
+      map.set(line.inventoryItemId, (map.get(line.inventoryItemId) ?? 0) + line.quantity);
+    }
+    return map;
+  }, [inputs]);
+
+  const runDay = date ? toNepalDayAd(date) : null;
+  const boughtTooLate = (line: InputLine) =>
+    !!(runDay && line.firstPurchaseDate && toNepalDayAd(line.firstPurchaseDate) > runDay);
+  const tooMuch = (line: InputLine) =>
+    !!line.inventoryItemId && (requiredByLot.get(line.inventoryItemId) ?? 0) > line.stock;
+
+  const noMaterials = !isLoadingMaterials && !materialSearch && materials.length === 0;
+  const noProducts = !isLoadingProducts && !productSearch && products.length === 0;
+
   const updateInput = (index: number, patch: Partial<InputLine>) =>
     setInputs((rows) =>
       rows.map((row, rowIndex) =>
@@ -174,29 +226,33 @@ export function MaterialProductionForm({
         line.productId && line.quantity > 0 && line.costAllocationPercent > 0
     );
     if (!validInputs.length || !validOutputs.length) {
-      toast.error("Add at least one valid raw material and product");
+      toast.error(t("production.form.errorNeedRows"));
       return;
     }
-    if (Math.abs(allocationTotal - 100) > 0.0001) {
-      toast.error("Output cost allocations must total 100%");
+    if (!allocationOk) {
+      toast.error(t("production.form.errorShareTotal", { total: allocationTotal }));
       return;
     }
-
-    const requiredByLot = new Map<string, number>();
-    for (const line of validInputs) {
-      requiredByLot.set(
-        line.inventoryItemId,
-        (requiredByLot.get(line.inventoryItemId) ?? 0) + line.quantity
+    const lateLine = validInputs.find(boughtTooLate);
+    if (lateLine) {
+      toast.error(
+        t("production.form.errorBoughtLater", {
+          name: lateLine.label,
+          date: showDate(lateLine.firstPurchaseDate!),
+        })
       );
+      return;
     }
-    for (const [id, required] of requiredByLot) {
-      const line = validInputs.find((input) => input.inventoryItemId === id)!;
-      if (required > line.stock) {
-        toast.error(
-          `Insufficient stock for ${line.label}. Available: ${line.stock}`
-        );
-        return;
-      }
+    const shortLine = validInputs.find(tooMuch);
+    if (shortLine) {
+      toast.error(
+        t("production.form.errorNotEnough", {
+          name: shortLine.label,
+          qty: formatQuantity(shortLine.stock),
+          unit: shortLine.unit,
+        })
+      );
+      return;
     }
 
     await onSubmit({
@@ -222,45 +278,42 @@ export function MaterialProductionForm({
       <Button variant="ghost" size="sm" asChild>
         <Link href={backHref}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back
+          {t("production.form.back")}
         </Link>
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle>Add Production Run</CardTitle>
-          <CardDescription>
-            Consume raw-material lots and add the produced items to inventory as
-            Self Feed.
-          </CardDescription>
+          <CardTitle>{t("production.form.title")}</CardTitle>
+          <CardDescription>{t("production.form.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid items-end gap-4 md:grid-cols-2">
-            <DateInput label="Date" value={date} onChange={setDate} />
+            <DateInput label={t("production.form.date")} value={date} onChange={setDate} />
             <div className="space-y-2">
-              <Label htmlFor="production-reference">Reference (optional)</Label>
+              <Label htmlFor="production-reference">{t("production.form.reference")}</Label>
               <Input
                 id="production-reference"
                 value={referenceNumber}
                 onChange={(event) => setReferenceNumber(event.target.value)}
-                placeholder="e.g. RUN-001"
+                placeholder={t("production.form.referencePlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="production-notes">Notes (optional)</Label>
+            <Label htmlFor="production-notes">{t("production.form.notes")}</Label>
             <Input
               id="production-notes"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="Notes about this production run"
+              placeholder={t("production.form.notesPlaceholder")}
             />
           </div>
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold">Raw Materials Used</h3>
+              <h3 className="font-semibold">{t("production.form.materialsTitle")}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -268,91 +321,132 @@ export function MaterialProductionForm({
                 onClick={() => setInputs((rows) => [...rows, emptyInput()])}
               >
                 <Plus className="mr-1 h-4 w-4" />
-                Add Material
+                {t("production.form.addMaterial")}
               </Button>
             </div>
 
+            {noMaterials && (
+              <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {t("production.form.noMaterials")}{" "}
+                {purchaseHref && (
+                  <Link href={purchaseHref} className="font-medium underline">
+                    {t("production.form.goToSupplierLedger")}
+                  </Link>
+                )}
+              </p>
+            )}
+
             <div className="space-y-3">
-              {inputs.map((line, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-1 items-start gap-3 rounded-lg border p-3 lg:grid-cols-12"
-                >
-                  <div className="min-w-0 space-y-2 lg:col-span-5">
-                    <Label className="block text-xs">Raw material lot</Label>
-                    <SearchableSelect<ProductionMaterialOption>
-                      value={line.inventoryItemId}
-                      displayValue={line.label}
-                      options={materialOptions}
-                      isLoading={isLoadingMaterials}
-                      onSearch={onMaterialSearch}
-                      placeholder="Search raw materials"
-                      searchPlaceholder="Name, supplier, or rate..."
-                      onValueChange={(id, option) =>
-                        option?.data
-                          ? updateInput(index, {
-                              inventoryItemId: id,
-                              label: option.data.name,
-                              unit: option.data.unit,
-                              stock: option.data.currentStock,
-                              unitCost: option.data.unitCost,
-                            })
-                          : updateInput(index, emptyInput())
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2 lg:col-span-3">
-                    <Label className="block text-xs">
-                      Quantity {line.unit && `(${line.unit})`}
-                    </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="0"
-                      value={line.quantity || ""}
-                      onChange={(event) =>
-                        updateInput(index, {
-                          quantity: Number(event.target.value) || 0,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2 lg:col-span-3">
-                    <Label className="block text-xs">Available stock</Label>
-                    <div className="flex min-h-10 items-center rounded-md bg-muted px-3 text-sm text-muted-foreground">
-                      {line.inventoryItemId
-                        ? `${line.stock.toLocaleString("en-IN")} ${line.unit}`
-                        : "Select a material"}
+              {inputs.map((line, index) => {
+                const late = boughtTooLate(line);
+                const short = tooMuch(line);
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 items-start gap-3 rounded-lg border p-3 lg:grid-cols-12"
+                  >
+                    <div className="min-w-0 space-y-2 lg:col-span-6">
+                      <Label className="block text-xs">{t("production.form.material")}</Label>
+                      <SearchableSelect<ProductionMaterialOption>
+                        value={line.inventoryItemId}
+                        displayValue={line.label}
+                        options={materialOptions}
+                        isLoading={isLoadingMaterials}
+                        onSearch={(query) => {
+                          setMaterialSearch(query);
+                          onMaterialSearch?.(query);
+                        }}
+                        placeholder={t("production.form.pickMaterial")}
+                        searchPlaceholder={t("production.form.searchByName")}
+                        onValueChange={(id, option) =>
+                          option?.data
+                            ? updateInput(index, {
+                                inventoryItemId: id,
+                                label: option.data.name,
+                                unit: option.data.unit,
+                                stock: option.data.currentStock,
+                                unitCost: option.data.unitCost,
+                                firstPurchaseDate: option.data.firstPurchaseDate ?? null,
+                              })
+                            : updateInput(index, emptyInput())
+                        }
+                      />
+                      {line.inventoryItemId && (
+                        <p className="text-xs text-muted-foreground">
+                          {[
+                            line.firstPurchaseDate
+                              ? t("production.form.boughtOn", { date: showDate(line.firstPurchaseDate) })
+                              : null,
+                            formatRatePerUnit(line.unitCost, line.unit),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="flex justify-end lg:col-span-1 lg:pt-5">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Remove raw material ${index + 1}`}
-                      disabled={inputs.length === 1}
-                      onClick={() =>
-                        setInputs((rows) =>
-                          rows.filter((_, rowIndex) => rowIndex !== index)
-                        )
-                      }
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="space-y-2 lg:col-span-3">
+                      <Label className="block text-xs">
+                        {t("production.form.quantity")} {line.unit && `(${line.unit})`}
+                      </Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="0"
+                        value={line.quantity || ""}
+                        aria-invalid={short || undefined}
+                        onChange={(event) =>
+                          updateInput(index, {
+                            quantity: Number(event.target.value) || 0,
+                          })
+                        }
+                      />
+                      {line.inventoryItemId && (
+                        <p className={`text-xs ${short ? "text-red-600" : "text-muted-foreground"}`}>
+                          {short
+                            ? t("production.form.onlyLeft", { qty: formatQuantity(line.stock), unit: line.unit })
+                            : t("production.form.left", { qty: formatQuantity(line.stock), unit: line.unit })}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-start justify-between gap-2 lg:col-span-3 lg:pt-6">
+                      <span className="pt-2 text-sm font-medium">
+                        {line.inventoryItemId && line.quantity > 0
+                          ? money(line.quantity * line.unitCost)
+                          : ""}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("production.form.removeMaterial", { n: index + 1 })}
+                        disabled={inputs.length === 1}
+                        onClick={() =>
+                          setInputs((rows) =>
+                            rows.filter((_, rowIndex) => rowIndex !== index)
+                          )
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {late && (
+                      <p className="text-sm text-red-600 lg:col-span-12">
+                        {t("production.form.boughtLaterHint", { date: showDate(line.firstPurchaseDate!) })}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
           <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold">Products Made</h3>
+              <h3 className="font-semibold">{t("production.form.productsTitle")}</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -364,16 +458,16 @@ export function MaterialProductionForm({
                 }
               >
                 <Plus className="mr-1 h-4 w-4" />
-                Add Product
+                {t("production.form.addProduct")}
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
-              Products must first be created under{" "}
+              {noProducts ? t("production.form.noProducts") : t("production.form.productsHint")}{" "}
               <Link href={inventoryHref} className="font-medium text-primary hover:underline">
-                Inventory → Self Feed
+                {t("production.form.inventorySelfFeed")}
               </Link>
-              . Cost allocation is divided equally when products are added or
-              removed, and can still be adjusted manually.
+              {t("production.form.sentenceEnd")}
+              {multipleProducts && <> {t("production.form.shareHint")}</>}
             </p>
 
             <div className="space-y-3">
@@ -386,15 +480,18 @@ export function MaterialProductionForm({
                     key={index}
                     className="grid grid-cols-1 items-start gap-3 rounded-lg border p-3 lg:grid-cols-12"
                   >
-                    <div className="min-w-0 space-y-2 lg:col-span-4">
-                      <Label className="block text-xs">Self Feed product</Label>
+                    <div className={`min-w-0 space-y-2 ${multipleProducts ? "lg:col-span-4" : "lg:col-span-6"}`}>
+                      <Label className="block text-xs">{t("production.form.product")}</Label>
                       <SearchableSelect<ProductionProductOption>
                         value={line.productId}
                         displayValue={line.label}
                         options={productOptions}
                         isLoading={isLoadingProducts}
-                        onSearch={onProductSearch}
-                        placeholder="Search products"
+                        onSearch={(query) => {
+                          setProductSearch(query);
+                          onProductSearch?.(query);
+                        }}
+                        placeholder={t("production.form.pickProduct")}
                         onValueChange={(id, option) =>
                           option?.data
                             ? updateOutput(index, {
@@ -411,9 +508,9 @@ export function MaterialProductionForm({
                       />
                     </div>
 
-                    <div className="space-y-2 lg:col-span-2">
+                    <div className="space-y-2 lg:col-span-3">
                       <Label className="block text-xs">
-                        Quantity {line.unit && `(${line.unit})`}
+                        {t("production.form.quantity")} {line.unit && `(${line.unit})`}
                       </Label>
                       <Input
                         type="number"
@@ -427,45 +524,47 @@ export function MaterialProductionForm({
                           })
                         }
                       />
+                      {line.quantity > 0 && totalInputCost > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {t("production.form.costPerUnit", {
+                            rate: formatRatePerUnit(
+                              Math.round((allocated / line.quantity) * 100) / 100,
+                              line.unit || t("production.form.unitFallback")
+                            ),
+                          })}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="space-y-2 lg:col-span-2">
-                      <Label className="block text-xs">Cost allocation %</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="any"
-                        placeholder="0"
-                        value={line.costAllocationPercent || ""}
-                        onChange={(event) =>
-                          updateOutput(index, {
-                            costAllocationPercent:
-                              Number(event.target.value) || 0,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2 lg:col-span-3">
-                      <Label className="block text-xs">Allocated cost</Label>
-                      <div className="flex min-h-10 flex-col justify-center rounded-md bg-muted px-3 text-sm text-muted-foreground">
-                        <span>{money(allocated)}</span>
-                        {line.quantity > 0 && (
-                          <span className="text-xs">
-                            {money(allocated / line.quantity)}/
-                            {line.unit || "unit"}
-                          </span>
-                        )}
+                    {multipleProducts && (
+                      <div className="space-y-2 lg:col-span-2">
+                        <Label className="block text-xs">{t("production.form.costShare")}</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="any"
+                          placeholder="0"
+                          value={line.costAllocationPercent || ""}
+                          onChange={(event) =>
+                            updateOutput(index, {
+                              costAllocationPercent:
+                                Number(event.target.value) || 0,
+                            })
+                          }
+                        />
                       </div>
-                    </div>
+                    )}
 
-                    <div className="flex justify-end lg:col-span-1 lg:pt-5">
+                    <div className="flex items-start justify-between gap-2 lg:col-span-3 lg:pt-6">
+                      <span className="pt-2 text-sm font-medium">
+                        {totalInputCost > 0 ? money(allocated) : ""}
+                      </span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        aria-label={`Remove product ${index + 1}`}
+                        aria-label={t("production.form.removeProduct", { n: index + 1 })}
                         disabled={outputs.length === 1}
                         onClick={() =>
                           setOutputs((rows) =>
@@ -484,34 +583,39 @@ export function MaterialProductionForm({
                 );
               })}
             </div>
+
+            {multipleProducts && !allocationOk && (
+              <p className="text-sm text-red-600">
+                {t("production.form.errorShareTotal", { total: allocationTotal })}
+              </p>
+            )}
           </section>
 
-          <div className="grid gap-2 rounded-lg bg-muted p-3 text-sm sm:grid-cols-2 sm:gap-6">
-            <div className="flex justify-between gap-4">
-              <span>Total input cost</span>
-              <strong>{money(totalInputCost)}</strong>
+          <div className="sticky bottom-0 z-10 -mx-6 border-t bg-background px-6 py-3 md:static md:mx-0 md:rounded-lg md:border-0 md:bg-muted md:px-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                <span>
+                  {t("production.form.totalCost")}{" "}
+                  <strong>{money(totalInputCost)}</strong>
+                </span>
+                {multipleProducts && (
+                  <span>
+                    {t("production.form.costShare")}{" "}
+                    <strong className={allocationOk ? "text-emerald-600" : "text-red-600"}>
+                      {allocationTotal}%
+                    </strong>
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" asChild>
+                  <Link href={backHref}>{t("production.form.cancel")}</Link>
+                </Button>
+                <Button type="button" onClick={submit} disabled={isSubmitting}>
+                  {isSubmitting ? t("production.form.saving") : t("production.form.save")}
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-between gap-4">
-              <span>Allocated</span>
-              <strong
-                className={
-                  Math.abs(allocationTotal - 100) < 0.0001
-                    ? "text-emerald-600"
-                    : "text-red-600"
-                }
-              >
-                {allocationTotal}%
-              </strong>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button type="button" onClick={submit} disabled={isSubmitting}>
-              {isSubmitting ? "Recording..." : "Record Production"}
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href={backHref}>Cancel</Link>
-            </Button>
           </div>
         </CardContent>
       </Card>

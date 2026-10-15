@@ -58,3 +58,14 @@ export function formatBillMoney(value: unknown): string {
   const text = Math.abs(safe).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${safe < 0 ? "-" : ""}रू ${text}`
 }
+
+/** Rate per unit: "रू 3,900 / Bag" (lakh commas, up to 4 decimals, none when whole). */
+export function formatRatePerUnit(rate: unknown, unit?: string | null): string {
+  const value = Number(rate || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 4 })
+  return `रू ${value}${unit ? ` / ${unit}` : ""}`
+}
+
+/** Plain amount with lakh commas: 1250.5 → "1,250.5". */
+export function formatQuantity(value: unknown): string {
+  return Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 })
+}

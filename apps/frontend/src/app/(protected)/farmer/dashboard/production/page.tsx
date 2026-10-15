@@ -9,6 +9,7 @@ import {
 } from "@/fetchers/farmer/farmerProductionQueries";
 import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
 import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function FarmerProductionPage() {
   return (
@@ -22,6 +23,7 @@ export default function FarmerProductionPage() {
 }
 
 function FarmerProductionContent() {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const { data, isLoading } = useGetFarmerProduction({
     limit: 100,
@@ -33,6 +35,8 @@ function FarmerProductionContent() {
     <MaterialProductionList
       runs={data?.data ?? []}
       newHref="/farmer/dashboard/production/new"
+      purchaseHref="/farmer/dashboard/supplier-ledger"
+      inventoryHref="/farmer/dashboard/inventory"
       isLoading={isLoading}
       isRemoving={remove.isPending}
       search={search}
@@ -40,10 +44,10 @@ function FarmerProductionContent() {
       onRemove={async (run) => {
         try {
           await remove.mutateAsync(run.id);
-          toast.success("Production reversed");
+          toast.success(t("production.toast.undone"));
         } catch (error: any) {
           toast.error(
-            error?.response?.data?.message || "Could not reverse production"
+            error?.response?.data?.message || t("production.toast.undoFailed")
           );
           throw error;
         }

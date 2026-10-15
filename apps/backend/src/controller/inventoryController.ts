@@ -14,6 +14,7 @@ import {
 import { InventoryService } from "../services/inventoryService";
 import {
   ensureFarmerInventoryCategory,
+  getFarmerFirstPurchaseDates,
   getFarmerInventoryUnitCosts,
 } from "../services/farmerInventoryDomain";
 import {
@@ -93,15 +94,17 @@ export const getAllInventoryItems = async (
       }),
       prisma.inventoryItem.count({ where }),
     ]);
-    const effectiveCosts = await getFarmerInventoryUnitCosts(
-      prisma,
-      items.map((item) => item.id)
-    );
+    const itemIds = items.map((item) => item.id);
+    const [effectiveCosts, firstPurchases] = await Promise.all([
+      getFarmerInventoryUnitCosts(prisma, itemIds),
+      getFarmerFirstPurchaseDates(prisma, itemIds),
+    ]);
     const data = items.map((item) => ({
       ...item,
       effectiveUnitCost: Number(
         effectiveCosts.get(item.id) ?? item.unitPrice ?? 0
       ),
+      firstPurchaseDate: firstPurchases.get(item.id) ?? null,
     }));
 
     return res.json({
@@ -911,7 +914,10 @@ export const getInventoryTableData = async (
     const itemIds = items.map((i) => i.id);
 
     // Effective rate per item: total cost / total quantity (handles paid + free; same for all categories)
-    const effectiveCosts = await getFarmerInventoryUnitCosts(prisma, itemIds);
+    const [effectiveCosts, firstPurchases] = await Promise.all([
+      getFarmerInventoryUnitCosts(prisma, itemIds),
+      getFarmerFirstPurchaseDates(prisma, itemIds),
+    ]);
 
     // Latest purchase per item (for supplier, dealerId, unit, purchaseCategory - display only)
     const purchases = await prisma.entityTransaction.findMany({
@@ -987,6 +993,7 @@ export const getInventoryTableData = async (
         category: item.category.name,
         expiryDate: item.expiryDate,
         lastPurchaseDate: latest?.date ?? null,
+        firstPurchaseDate: firstPurchases.get(item.id) ?? null,
         dealerId: latest?.dealerId ?? null,
         entityType:
           latest?.entityType ??

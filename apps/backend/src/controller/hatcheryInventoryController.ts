@@ -68,8 +68,17 @@ export const listHatcheryInventory = async (
       ? await prisma.hatcherySupplier.findMany({ where: { id: { in: supplierIds }, hatcheryOwnerId: userId }, select: { id: true, name: true } })
       : [];
     const supplierMap = new Map(suppliers.map((supplier) => [supplier.id, supplier]));
+    const firstPurchases = items.length
+      ? await prisma.hatcheryInventoryTxn.groupBy({
+          by: ["itemId"],
+          where: { itemId: { in: items.map((item) => item.id) }, type: "PURCHASE" },
+          _min: { date: true },
+        })
+      : [];
+    const firstPurchaseByItem = new Map(firstPurchases.map((row) => [row.itemId, row._min.date]));
     const data = items.map((item) => ({
       ...item,
+      firstPurchaseDate: firstPurchaseByItem.get(item.id) ?? null,
       supplier: item.supplierKey.startsWith("HATCHERY_SUPPLIER:")
         ? supplierMap.get(item.supplierKey.replace("HATCHERY_SUPPLIER:", "")) ?? null
         : null,

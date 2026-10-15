@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { toNepalBsDayString, toNepalDayKey } from "../utils/nepalBsDate";
 
 export class ProductionValidationError extends Error {
   constructor(message: string) {
@@ -94,6 +95,26 @@ export const normalizeProductionDate = (value: unknown) => {
     throw new ProductionValidationError("Invalid production date");
   }
   return date;
+};
+
+/**
+ * A raw-material lot can't be used on a day before it was first bought.
+ * Days are compared in Nepal time, so a lot bought at 2:30 pm can still be
+ * used for production dated the same day. Lots with no known date pass.
+ */
+export const assertLotsBoughtByDate = (
+  runDate: Date,
+  lots: Array<{ name: string; firstPurchaseDate: Date | null | undefined }>
+) => {
+  const runDay = toNepalDayKey(runDate);
+  for (const lot of lots) {
+    if (!lot.firstPurchaseDate) continue;
+    if (runDay < toNepalDayKey(lot.firstPurchaseDate)) {
+      throw new ProductionValidationError(
+        `${lot.name} was bought on ${toNepalBsDayString(lot.firstPurchaseDate)}. Production date can't be before that.`
+      );
+    }
+  }
 };
 
 export const calculateCurrentUnitCost = (
