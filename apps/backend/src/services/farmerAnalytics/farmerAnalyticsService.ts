@@ -1,13 +1,12 @@
 import { BatchStatus, Prisma, SalesItemType } from "@prisma/client";
 import prisma from "../../utils/prisma";
 import { getMoneyToGiveForUser } from "../../controller/dashboardController";
-import { aggregateCurrentFcr } from "../farmerFcrService";
 import { batchDayOf } from "../batchShareService";
 import { toNepalDayKey } from "../../utils/nepalBsDate";
 import { autoGroupBy, bucketize, periodStartOf, round, type AnalyticsRange } from "./period";
 import { parseNepalBoundary } from "../../utils/dealerSaleDateRange";
 import { naturalDeathWhere, type AnalyticsScope, type ScopeBatch } from "./scope";
-import { getActiveFcrResults, getBatchStats, usableFcr } from "./batchStats";
+import { currentFcrTile, getActiveFcrResults, getBatchStats } from "./batchStats";
 import { hensByDay, layingPercent } from "./layerStats";
 
 /**
@@ -110,12 +109,7 @@ export async function getOverview(userId: string, scope: AnalyticsScope, range: 
     getBatchStats(active, now),
     getActiveFcrResults(active, now),
   ]);
-  const fcrRows = activeFcr.filter((row): row is NonNullable<typeof row> => !!row);
-  const freshFcr = aggregateCurrentFcr(fcrRows);
-  // No up-to-date weight: still show the last FCR, marked as from an old weight.
-  const oldRows = fcrRows.filter((row) => row.displayStatus === "STALE" && row.fcr != null);
-  const oldFcr = freshFcr == null ? aggregateCurrentFcr(oldRows.map((row) => ({ ...row, displayStatus: "FRESH" as const }))) : null;
-  const fcr = freshFcr ?? oldFcr;
+  const fcrTile = currentFcrTile(activeFcr);
 
   return {
     filters: filterOptions(scope),
@@ -130,9 +124,7 @@ export async function getOverview(userId: string, scope: AnalyticsScope, range: 
       activeBatches: active.length,
       deaths: deaths.deaths,
       deathRate: deaths.rate,
-      fcr: fcr != null ? round(fcr, 2) : null,
-      fcrIsOld: freshFcr == null && oldFcr != null,
-      fcrBatches: freshFcr != null ? fcrRows.filter((row) => usableFcr(row) != null).length : oldRows.length,
+      ...fcrTile,
     },
     running: runningStats.map((row) => ({
       id: row.id,

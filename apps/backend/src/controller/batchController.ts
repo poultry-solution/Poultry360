@@ -512,17 +512,13 @@ export const createBatch = async (
       include: { managers: true },
     });
 
-    if (!farm) {
+    // The farm must belong to this account (for every role, not only MANAGER).
+    const hasFarmAccess =
+      !!farm &&
+      (farm.ownerId === currentUserId ||
+        farm.managers.some((manager) => manager.id === currentUserId));
+    if (!farm || !hasFarmAccess) {
       return res.status(404).json({ message: "Farm not found" });
-    }
-
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Check if batch number already exists for this farm

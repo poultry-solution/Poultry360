@@ -242,6 +242,16 @@ export default function BatchesPage() {
 
   const router = useRouter();
 
+  // Opened from a farm page ("Add batch"): open the form with that farm already picked.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") return;
+    const farmId = params.get("farmId");
+    if (farmId) setFormData((prev) => ({ ...prev, farmId }));
+    setIsModalOpen(true);
+    router.replace("/farmer/dashboard/batches");
+  }, [router]);
+
   const mainBatchQueryParams: {
     page: number;
     limit: number;

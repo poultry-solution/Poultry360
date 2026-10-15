@@ -1,6 +1,6 @@
 import { BatchStatus, WeightSource } from "@prisma/client";
 import prisma from "../../utils/prisma";
-import { calculateFarmerBatchFcr, type FarmerFcrResult } from "../farmerFcrService";
+import { aggregateCurrentFcr, calculateFarmerBatchFcr, type FarmerFcrResult } from "../farmerFcrService";
 import { batchDayOf } from "../batchShareService";
 import { round } from "./period";
 import { naturalDeathWhere, type ScopeBatch } from "./scope";
@@ -123,4 +123,21 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
 export async function getActiveFcrResults(batches: ScopeBatch[], now = new Date()) {
   const broilers = batches.filter((batch) => batch.batchType === "BROILER" && batch.status === BatchStatus.ACTIVE);
   return mapLimited(broilers, (batch) => calculateFarmerBatchFcr(batch.id, now));
+}
+
+/**
+ * FCR tile for running broilers: up-to-date weights only (Home's rule); when none
+ * are up to date, the last FCR from old weights, marked as old.
+ */
+export function currentFcrTile(results: Array<FarmerFcrResult | null>) {
+  const rows = results.filter((row): row is FarmerFcrResult => !!row);
+  const fresh = aggregateCurrentFcr(rows);
+  const oldRows = rows.filter((row) => row.displayStatus === "STALE" && row.fcr != null);
+  const old = fresh == null ? aggregateCurrentFcr(oldRows.map((row) => ({ ...row, displayStatus: "FRESH" as const }))) : null;
+  const value = fresh ?? old;
+  return {
+    fcr: value != null ? round(value, 2) : null,
+    fcrIsOld: fresh == null && old != null,
+    fcrBatches: fresh != null ? rows.filter((row) => usableFcr(row) != null).length : oldRows.length,
+  };
 }

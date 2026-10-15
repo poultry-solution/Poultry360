@@ -293,9 +293,6 @@ export function MaterialProductionList({
             <Undo2 className="mr-1 h-4 w-4" />
             {t("production.details.undo")}
           </Button>
-          <Button variant="outline" onClick={() => setSelected(null)}>
-            {t("production.details.close")}
-          </Button>
         </ModalFooter>
       </Modal>
 
