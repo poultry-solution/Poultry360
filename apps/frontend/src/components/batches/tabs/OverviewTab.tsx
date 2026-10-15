@@ -305,7 +305,7 @@ export function OverviewTab({
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-green-900">
-                  {analytics?.daysActive || currentAge} days
+                  {currentAge} days
                 </div>
                 <div className="text-sm text-green-700">Total Duration</div>
               </div>

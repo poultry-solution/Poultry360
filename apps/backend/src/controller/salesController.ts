@@ -724,7 +724,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: "categoryId is required" });
     }
 
-
     // Validate farm access if provided
     if (farmId) {
       const farm = await prisma.farm.findUnique({
@@ -2151,121 +2150,6 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
     });
   } catch (error) {
     console.error("Soft delete customer payment error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==================== GET SALE STATISTICS ====================
-export const getSaleStatistics = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const { farmId, batchId, startDate, endDate } = req.query;
-    const currentUserId = req.userId;
-    const currentUserRole = req.role;
-
-    // Build where clause
-    const where: any = {};
-
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.farmId = { in: userFarms.map((farm) => farm.id) };
-    }
-
-    if (farmId) {
-      where.farmId = farmId as string;
-    }
-
-    if (batchId) {
-      where.batchId = batchId as string;
-    }
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
-    }
-
-    const [
-      totalSales,
-      totalAmount,
-      creditSales,
-      creditAmount,
-      paidAmount,
-      dueAmount,
-      currentMonthSales,
-      currentMonthAmount,
-    ] = await Promise.all([
-      prisma.sale.count({ where }),
-      prisma.sale.aggregate({
-        where,
-        _sum: { amount: true },
-      }),
-      prisma.sale.count({ where: { ...where, isCredit: true } }),
-      prisma.sale.aggregate({
-        where: { ...where, isCredit: true },
-        _sum: { amount: true },
-      }),
-      prisma.sale.aggregate({
-        where: { ...where, isCredit: true },
-        _sum: { paidAmount: true },
-      }),
-      prisma.sale.aggregate({
-        where: { ...where, isCredit: true },
-        _sum: { dueAmount: true },
-      }),
-      prisma.sale.count({
-        where: {
-          ...where,
-          date: {
-            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-          },
-        },
-      }),
-      prisma.sale.aggregate({
-        where: {
-          ...where,
-          date: {
-            gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-          },
-        },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    return res.json({
-      success: true,
-      data: {
-        totalSales,
-        totalAmount: Number(totalAmount._sum.amount || 0),
-        creditSales,
-        creditAmount: Number(creditAmount._sum.amount || 0),
-        paidAmount: Number(paidAmount._sum.paidAmount || 0),
-        dueAmount: Number(dueAmount._sum.dueAmount || 0),
-        currentMonthSales,
-        currentMonthAmount: Number(currentMonthAmount._sum.amount || 0),
-        cashSales: totalSales - creditSales,
-        cashAmount:
-          Number(totalAmount._sum.amount || 0) -
-          Number(creditAmount._sum.amount || 0),
-      },
-    });
-  } catch (error) {
-    console.error("Get sale statistics error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

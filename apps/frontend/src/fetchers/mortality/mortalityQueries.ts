@@ -81,35 +81,9 @@ export const mortalityKeys = {
   detail: (id: string) => [...mortalityKeys.details(), id] as const,
   batchMortalities: (batchId: string) =>
     [...mortalityKeys.all, "batch", batchId] as const,
-  statistics: (filters?: Record<string, any>) =>
-    [...mortalityKeys.all, "statistics", filters || {}] as const,
 };
 
 // ==================== QUERY HOOKS ====================
-
-// Get all mortalities
-export const useGetAllMortalities = (
-  params?: {
-    page?: number;
-    limit?: number;
-    batchId?: string;
-    farmId?: string;
-    startDate?: string;
-    endDate?: string;
-    reason?: string;
-  },
-  options?: { enabled?: boolean }
-) => {
-  return useQuery<MortalityListResponse>({
-    queryKey: mortalityKeys.list(params || {}),
-    queryFn: async () => {
-      const response = await axiosInstance.get("/mortalities", { params });
-      console.log("Get All Mortalities", response.data);
-      return response.data;
-    },
-    enabled: options?.enabled !== false,
-  });
-};
 
 // Get mortality by ID
 export const useGetMortalityById = (
@@ -143,29 +117,6 @@ export const useGetBatchMortalities = (
   });
 };
 
-// Get mortality statistics
-export const useGetMortalityStatistics = (
-  params?: {
-    farmId?: string;
-    batchId?: string;
-    startDate?: string;
-    endDate?: string;
-  },
-  options?: { enabled?: boolean }
-) => {
-  return useQuery<MortalityStatisticsResponse>({
-    queryKey: mortalityKeys.statistics(params),
-    queryFn: async () => {
-      const response = await axiosInstance.get("/mortalities/statistics", {
-        params,
-      });
-      console.log("Get Mortality Statistics", response.data);
-      return response.data;
-    },
-    enabled: options?.enabled !== false,
-  });
-};
-
 // ==================== MUTATION HOOKS ====================
 
 // Create mortality
@@ -182,7 +133,6 @@ export const useCreateMortality = () => {
     onSuccess: (data) => {
       // Invalidate mortality queries
       queryClient.invalidateQueries({ queryKey: mortalityKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: mortalityKeys.statistics() });
 
       // Invalidate batch mortalities if batchId exists
       if (data.data?.batchId) {
@@ -216,7 +166,6 @@ export const useUpdateMortality = () => {
         queryKey: mortalityKeys.detail(variables.id),
       });
       queryClient.invalidateQueries({ queryKey: mortalityKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: mortalityKeys.statistics() });
 
       // Invalidate batch mortalities if batchId exists
       if (data.data?.batchId) {
@@ -248,7 +197,6 @@ export const useDeleteMortality = () => {
       // Remove from cache and invalidate lists
       queryClient.removeQueries({ queryKey: mortalityKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mortalityKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: mortalityKeys.statistics() });
 
       // Invalidate batch mortalities
       queryClient.invalidateQueries({

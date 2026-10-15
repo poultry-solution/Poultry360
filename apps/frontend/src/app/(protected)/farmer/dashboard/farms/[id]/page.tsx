@@ -1,5 +1,6 @@
 "use client";
 
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -171,13 +172,7 @@ export default function FarmDetailPage() {
     }
   };
 
-  const calculateBatchAge = (startDate: string | Date) => {
-    const start = new Date(startDate);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+  const calculateBatchAge = (startDate: string | Date) => nepalBatchAge(startDate);
 
   // --- Create Batch (local modal) ---
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);

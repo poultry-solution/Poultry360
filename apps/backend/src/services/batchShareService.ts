@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { BatchStatus, BatchType, SalesItemType, WeightSource } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { toNepalDayKey } from "../utils/nepalBsDate";
+import { nepalBatchDay, toNepalDayKey } from "../utils/nepalBsDate";
 import { calculateFarmerBatchFcr, type FarmerFcrResult } from "./farmerFcrService";
 
 /**
@@ -157,9 +157,7 @@ const round = (value: number, places = 2) => {
 };
 
 /** "Day 1" is the day the chicks arrived (Nepal calendar day). */
-export function batchDayOf(startDate: Date, date: Date) {
-  return dayNumber(toNepalDayKey(date)) - dayNumber(toNepalDayKey(startDate)) + 1;
-}
+export const batchDayOf = nepalBatchDay;
 
 const isNaturalDeath = (row: { reason: string | null; saleId: string | null }) =>
   !row.saleId && !SYSTEM_DEATH_REASONS.has(row.reason ?? "");

@@ -164,3 +164,12 @@ export function bsMonthStartDayKey(year: number, month: number): string {
   const { y, m, d } = adFromBs(year, month, 1);
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
+
+/**
+ * Batch day number in Nepal calendar days: the arrival day is Day 1 and the day
+ * changes at Nepal midnight (not 5:45 am, which UTC-based counting gives).
+ */
+export function nepalBatchDay(startDate: Date, date: Date): number {
+  const day = (d: Date) => Math.floor(Date.parse(`${toNepalDayKey(d)}T00:00:00Z`) / DAY_MS);
+  return Math.max(1, day(date) - day(startDate) + 1);
+}

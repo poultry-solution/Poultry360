@@ -7,7 +7,6 @@ import {
   updateSale,
   deleteSale,
   addSalePayment,
-  getSaleStatistics,
   getSalesCategories,
   createSalesCategory,
   getCustomersForSales,
@@ -54,9 +53,6 @@ router.get("/customers", getCustomersForSales);
 
 // GET /api/sales/customers/:id - Get one customer account
 router.get("/customers/:id", getCustomerById);
-
-// GET /api/sales/statistics - Get sales statistics
-router.get("/statistics", getSaleStatistics);
 
 // ==================== CUSTOMER MANAGEMENT ROUTES ====================
 

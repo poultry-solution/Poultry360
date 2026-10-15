@@ -64,23 +64,6 @@ export const useGetBatchExpenses = (
   });
 };
 
-export const useGetExpenseStatistics = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  return useQuery({
-    queryKey: ["expenses", "statistics", params],
-    queryFn: async () => {
-      const response = await axiosInstance.get("/expenses/statistics", {
-        params,
-      });
-      return response.data;
-    },
-  });
-};
-
 export const useGetExpenseCategories = (type?: CategoryType) => {
   return useQuery({
     queryKey: ["expenses", "categories", type],
@@ -173,28 +156,6 @@ export const useDeleteExpense = () => {
 };
 
 // ==================== CONVENIENCE HOOKS ====================
-
-export const useExpenseDashboard = (farmId?: string, batchId?: string) => {
-  const expensesQuery = useGetExpenses({
-    farmId,
-    batchId,
-    limit: 10,
-  });
-  const statisticsQuery = useGetExpenseStatistics({ farmId, batchId });
-  const categoriesQuery = useGetExpenseCategories();
-
-  return {
-    expenses: expensesQuery.data?.data || [],
-    statistics: statisticsQuery.data?.data,
-    categories: categoriesQuery.data?.data || [],
-    isLoading:
-      expensesQuery.isLoading ||
-      statisticsQuery.isLoading ||
-      categoriesQuery.isLoading,
-    error:
-      expensesQuery.error || statisticsQuery.error || categoriesQuery.error,
-  };
-};
 
 export const useBatchExpenseManagement = (batchId: string) => {
   const batchExpensesQuery = useGetBatchExpenses(batchId);

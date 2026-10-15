@@ -1,3 +1,4 @@
+import { refreshFarmerData } from "@/fetchers/farmer/refreshFarmerData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
@@ -15,8 +16,6 @@ export const saleQueryKeys = {
     [...saleQueryKeys.all, "batch", batchId] as const,
   batchSalesPage: (batchId: string, params: { page?: number; limit?: number }) =>
     [...saleQueryKeys.batchSales(batchId), "page", params] as const,
-  statistics: (params?: any) =>
-    [...saleQueryKeys.all, "statistics", params] as const,
   categories: (type?: CategoryType) =>
     [...saleQueryKeys.all, "categories", type] as const,
   eggInventory: (batchId?: string | null) =>
@@ -155,27 +154,6 @@ export const useGetBatchSalesPage = (
   });
 };
 
-// Get sales statistics
-export const useGetSalesStatistics = (
-  params?: {
-    farmId?: string;
-    batchId?: string;
-    startDate?: string;
-    endDate?: string;
-  },
-  options?: { enabled?: boolean }
-) => {
-  return useQuery({
-    queryKey: saleQueryKeys.statistics(params),
-    queryFn: async () => {
-      const response = await axiosInstance.get("/sales/statistics", { params });
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: options?.enabled !== false,
-  });
-};
-
 // Get sales categories
 export const useGetSalesCategories = (options?: { enabled?: boolean }) => {
   return useQuery({
@@ -203,14 +181,13 @@ export const useCreateSale = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // If batchId is provided, invalidate batch sales
       if (variables.batchId) {
@@ -255,6 +232,7 @@ export const useUpdateSale = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch the specific sale
@@ -266,8 +244,6 @@ export const useUpdateSale = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Refresh both the old and new batch when a sale was moved. The API also
       // returns batches cleaned up from older stale linked rows.
@@ -312,6 +288,7 @@ export const useDeleteSale = () => {
       return response.data;
     },
     onSuccess: (data, id) => {
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Remove the sale from cache
@@ -321,8 +298,6 @@ export const useDeleteSale = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Invalidate batch sales (we don't know which batch, so invalidate all)
       queryClient.invalidateQueries({
@@ -373,8 +348,6 @@ export const useAddSalePayment = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Invalidate customers for sales (to refresh customer balances after payment)
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
@@ -451,7 +424,6 @@ export const useAddCustomerPayment = () => {
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
       queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
       queryClient.invalidateQueries({
@@ -480,34 +452,6 @@ export const useCreateSalesCategory = () => {
 };
 
 // ==================== COMBINED HOOKS ====================
-
-// Sales dashboard hook
-export const useSalesDashboard = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const salesQuery = useGetSales(params);
-  const statisticsQuery = useGetSalesStatistics(params);
-  const categoriesQuery = useGetSalesCategories();
-
-  return {
-    sales: salesQuery.data?.data || [],
-    statistics: statisticsQuery.data?.data,
-    categories: categoriesQuery.data?.data || [],
-    isLoading:
-      salesQuery.isLoading ||
-      statisticsQuery.isLoading ||
-      categoriesQuery.isLoading,
-    error: salesQuery.error || statisticsQuery.error || categoriesQuery.error,
-    refetch: () => {
-      salesQuery.refetch();
-      statisticsQuery.refetch();
-      categoriesQuery.refetch();
-    },
-  };
-};
 
 // Batch sales management hook
 export const useBatchSalesManagement = (
@@ -643,28 +587,6 @@ export const useCashSales = (params?: {
   endDate?: string;
 }) => {
   return useGetSales({ ...params, isCredit: false });
-};
-
-// Sales analytics hook
-export const useSalesAnalytics = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const statisticsQuery = useGetSalesStatistics(params);
-  const salesQuery = useGetSales({ ...params, limit: 100 }); // Get more data for analytics
-
-  return {
-    statistics: statisticsQuery.data?.data,
-    recentSales: salesQuery.data?.data || [],
-    isLoading: statisticsQuery.isLoading || salesQuery.isLoading,
-    error: statisticsQuery.error || salesQuery.error,
-    refetch: () => {
-      statisticsQuery.refetch();
-      salesQuery.refetch();
-    },
-  };
 };
 
 // ==================== CUSTOMER QUERIES ====================

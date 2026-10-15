@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
-import { getNepalBsMonthWindow } from "../utils/nepalBsDate";
+import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
 import {
   aggregateCurrentCfcr,
   aggregateCurrentFcr,
@@ -584,12 +584,7 @@ export const getDashboardPerformanceMetrics = async (
         const totalSales = Number(sales._sum.amount || 0);
         const totalMortality = fcrResult?.currentDeaths || 0;
         const profit = totalSales - totalExpenses;
-        const duration = batch.endDate
-          ? Math.ceil(
-              (batch.endDate.getTime() - batch.startDate.getTime()) /
-                (1000 * 60 * 60 * 24)
-            )
-          : 0;
+        const duration = batch.endDate ? nepalBatchDay(batch.startDate, batch.endDate) : 0;
 
         const includeInCurrentFcr =
           fcrResult?.displayStatus === "FRESH" ||
@@ -1094,10 +1089,7 @@ export const getBatchPerformanceList = async (
         ]);
 
         // Calculate days (age of batch)
-        const endDate = batch.endDate || new Date();
-        const days = Math.ceil(
-          (endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
+        const days = nepalBatchDay(batch.startDate, batch.endDate || new Date());
 
         // Natural deaths only. currentDeaths also holds the birds written off when a
         // batch is closed (closureBirdCount); those are not deaths.

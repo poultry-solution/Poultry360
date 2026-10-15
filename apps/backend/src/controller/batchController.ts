@@ -1,3 +1,4 @@
+import { nepalBatchDay } from "../utils/nepalBsDate";
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import {
@@ -1174,10 +1175,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
             Number(totalExpenses._sum.amount || 0),
           totalSalesQuantity: Number(totalSales._sum.quantity || 0),
           totalSalesWeight: Number(totalSales._sum.weight || 0),
-          daysActive: Math.ceil(
-            (batchEndDate.getTime() - existingBatch.startDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-          ),
+          daysActive: nepalBatchDay(existingBatch.startDate, batchEndDate),
         },
       };
     });
@@ -1384,7 +1382,7 @@ export const getBatchClosureSummary = async (
     const profit = revenue - expenses;
 
     const daysActive = batch.endDate && batch.startDate
-      ? Math.ceil((batch.endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? nepalBatchDay(batch.startDate, batch.endDate)
       : 0;
 
     // Calculate efficiency metrics
@@ -1583,14 +1581,9 @@ export const getBatchAnalytics = async (
           message: "Use the final FCR value",
         };
 
-    // Calculate days active and batch age
-    const daysActive = Math.ceil(
-      ((batch.endDate || new Date()).getTime() - batch.startDate.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-
-    // Calculate batch age
-    const batchAge = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24));
+    // Batch age in Nepal days (arrival day = Day 1), same as Analytics and share links.
+    const daysActive = nepalBatchDay(batch.startDate, batch.endDate || new Date());
+    const batchAge = daysActive;
 
     // also include total sales quantity
     const totalSalesQuantity = fcrResult.currentSoldBirds;

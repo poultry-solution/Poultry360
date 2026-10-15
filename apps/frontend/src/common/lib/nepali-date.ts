@@ -206,3 +206,13 @@ export function nepalInclusiveRangeToIsoParams(
     endDate: `${end}T23:59:59.999+05:45`,
   };
 }
+
+/**
+ * Batch age in Nepal calendar days: the arrival day is Day 1 and the day changes
+ * at Nepal midnight. Pass the end date for a closed batch.
+ */
+export function nepalBatchAge(startDate: Date | string, endDate?: Date | string | null): number {
+  const dayNum = (ad: string) => Math.floor(Date.parse(`${ad}T00:00:00Z`) / 86_400_000);
+  const end = endDate ? toNepalDayAd(endDate) : getNepalTodayAd();
+  return Math.max(1, dayNum(end) - dayNum(toNepalDayAd(startDate)) + 1);
+}

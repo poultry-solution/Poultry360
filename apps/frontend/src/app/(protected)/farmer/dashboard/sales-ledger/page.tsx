@@ -2,7 +2,7 @@
 
 import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
 import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -290,11 +290,9 @@ export default function SalesLedgerPage() {
     createSale,
     updateSale,
     deleteSale,
-    addPayment,
     isCreating,
     isUpdating,
     isDeleting,
-    isAddingPayment,
   } = useSalesManagement({
     ...salesFilters,
     isCredit: salesFilters.isCredit
@@ -344,6 +342,7 @@ export default function SalesLedgerPage() {
   const updateCustomerMutation = useUpdateCustomer();
   const deleteCustomerMutation = useDeleteCustomer();
   const addCustomerPayment = useAddCustomerPayment();
+  const paymentSubmittingRef = useRef(false);
 
   const selectedPartyId = selectedParty?.id as string | undefined;
 
@@ -1006,7 +1005,9 @@ export default function SalesLedgerPage() {
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validatePayment() || !selectedParty) return;
+    // Block a second click (or Enter) while the first payment is still saving.
+    if (paymentSubmittingRef.current || !validatePayment() || !selectedParty) return;
+    paymentSubmittingRef.current = true;
 
     try {
       await addCustomerPayment.mutateAsync({
@@ -1034,6 +1035,8 @@ export default function SalesLedgerPage() {
     } catch (error) {
       console.error("Failed to record payment:", error);
       toast.error(t("farmer.salesLedger.toast.paymentFailed"));
+    } finally {
+      paymentSubmittingRef.current = false;
     }
   };
 
@@ -3020,9 +3023,9 @@ export default function SalesLedgerPage() {
             <Button
               type="submit"
               className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={isAddingPayment}
+              disabled={addCustomerPayment.isPending}
             >
-              {isAddingPayment ? (
+              {addCustomerPayment.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {t("farmer.salesLedger.paymentModal.recording")}

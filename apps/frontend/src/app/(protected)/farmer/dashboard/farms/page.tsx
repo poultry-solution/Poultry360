@@ -1,5 +1,6 @@
 "use client";
 
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import Link from "next/link";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
@@ -80,11 +81,7 @@ export default function FarmsPage() {
 
 
   function calculateBatchAge(startDate: string | Date) {
-    const start = new Date(startDate);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    return nepalBatchAge(startDate);
   }
 
   const handleInputChange = (

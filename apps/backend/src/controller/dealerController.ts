@@ -955,6 +955,34 @@ export const addDealerTransaction = async (
   }
 };
 
+/**
+ * Supplier totals rebuilt from its transactions. An opening-balance edit saves a new
+ * OPENING_BALANCE row with the full new amount, so only the latest one counts.
+ * Rows must be sorted newest first. Same rules as addDealerTransaction.
+ */
+export function recomputeSupplierTotals(
+  txnsNewestFirst: Array<{ type: string; amount: unknown }>
+): { balance: number; totalPurchases: number; totalPayments: number } {
+  let balance = 0;
+  let totalPurchases = 0;
+  let totalPayments = 0;
+  let openingCounted = false;
+  for (const t of txnsNewestFirst) {
+    const amount = Number(t.amount);
+    if (t.type === "PURCHASE" || t.type === "ADJUSTMENT") {
+      balance += amount;
+      totalPurchases += amount;
+    } else if (t.type === "OPENING_BALANCE") {
+      if (!openingCounted) balance += amount;
+      openingCounted = true;
+    } else if (t.type === "PAYMENT" || t.type === "RECEIPT") {
+      balance -= amount;
+      totalPayments += amount;
+    }
+  }
+  return { balance, totalPurchases, totalPayments };
+}
+
 // ==================== SET DEALER OPENING BALANCE (MANUAL ONLY) ====================
 export const setDealerOpeningBalance = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -1033,7 +1061,7 @@ export const deleteDealerTransaction = async (
 ): Promise<any> => {
   try {
     const { id, transactionId } = req.params;
-    const { password } = req.body;
+    const { password } = req.body ?? {};
     const currentUserId = req.userId;
 
     // Verify password is provided
@@ -1262,18 +1290,10 @@ export const deleteDealerTransaction = async (
         // Recalculate from remaining transactions for accuracy
         const remainingTxns = await prisma.entityTransaction.findMany({
           where: { dealerId: id },
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         });
-        const newBalance = remainingTxns.reduce((sum, t) => {
-          if (t.type === "PURCHASE" || t.type === "ADJUSTMENT" || t.type === "OPENING_BALANCE") return sum + Number(t.amount);
-          if (t.type === "PAYMENT" || t.type === "RECEIPT") return sum - Number(t.amount);
-          return sum;
-        }, 0);
-        const newTotalPurchases = remainingTxns
-          .filter((t) => t.type === "PURCHASE")
-          .reduce((sum, t) => sum + Number(t.amount), 0);
-        const newTotalPayments = remainingTxns
-          .filter((t) => t.type === "PAYMENT")
-          .reduce((sum, t) => sum + Number(t.amount), 0);
+        const { balance: newBalance, totalPurchases: newTotalPurchases, totalPayments: newTotalPayments } =
+          recomputeSupplierTotals(remainingTxns);
 
         await prisma.dealer.update({
           where: { id },

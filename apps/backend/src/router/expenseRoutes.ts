@@ -6,7 +6,6 @@ import {
   createExpense,
   updateExpense,
   deleteExpense,
-  getExpenseStatistics,
   getExpenseCategories,
   createExpenseCategory,
 } from "../controller/expenseController";
@@ -30,9 +29,6 @@ router.get("/categories", getExpenseCategories);
 
 // POST /api/expenses/categories - Create expense category
 router.post("/categories", createExpenseCategory);
-
-// GET /api/expenses/statistics - Get expense statistics
-router.get("/statistics", getExpenseStatistics);
 
 // GET /api/expenses/batch/:batchId - Get expenses for a specific batch
 router.get("/batch/:batchId", getBatchExpenses);

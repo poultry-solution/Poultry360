@@ -94,6 +94,7 @@ import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
 import { useI18n } from "@/i18n/useI18n";
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
@@ -1689,11 +1690,9 @@ export default function BatchDetailPage() {
     ? expensesTotal / batch.initialChicks
     : 0;
 
-  // Calculate current age in days
-  const currentAge = Math.ceil(
-    (new Date().getTime() - new Date(batch.startDate).getTime()) /
-    (1000 * 60 * 60 * 24)
-  );
+  // Age in Nepal days: the arrival day is Day 1 and the day changes at Nepal midnight
+  // (same as Analytics and share links).
+  const currentAge = nepalBatchAge(batch.startDate, isBatchClosed ? batch.endDate : null);
 
   // Column configurations for DataTable
   const expenseColumns = createExpenseColumns({
@@ -1823,7 +1822,7 @@ export default function BatchDetailPage() {
           tile={{
             label: "Age",
             icon: CalendarDays,
-            value: `${isBatchClosed ? analytics?.daysActive ?? currentAge : currentAge} days`,
+            value: `${currentAge} days`,
             sub: isBatchClosed
               ? "Closed batch"
               : `Started ${toDisplayDate(batch.startDate, "long")}`,

@@ -1,5 +1,6 @@
 "use client";
 
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -392,10 +393,7 @@ export default function BatchesPage() {
       label: "Age",
       width: "110px",
       render: (_value, batch) => {
-        const age = Math.floor(
-          (new Date().getTime() - new Date(batch.startDate).getTime()) /
-          (1000 * 60 * 60 * 24)
-        );
+        const age = nepalBatchAge(batch.startDate, batch.status === "COMPLETED" ? batch.endDate : null);
 
         return <span className="font-medium">{age} days</span>;
       },

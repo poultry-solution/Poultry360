@@ -1,5 +1,6 @@
 "use client";
 
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import { Building2, Layers } from "lucide-react";
 import { useAuth } from "@/common/store/store";
 import { useState } from "react";
@@ -159,10 +160,7 @@ export default function DashboardPage() {
                       {t("farmer.dashboard.batchInfo", {
                         farm: batch.farm.name,
                         count: batch.initialChicks.toLocaleString(),
-                        days: Math.floor(
-                          (new Date().getTime() - new Date(batch.startDate).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        ),
+                        days: nepalBatchAge(batch.startDate),
                       })}
                     </div>
                   </div>
