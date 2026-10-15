@@ -96,7 +96,6 @@
       "purchases": "Purchases",
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
-      "saleRequests": "Sale Requests",
       "cashInHand": "Cash In Hand",
       "hatcheryOverview": "Overview",
       "hatcherySupplierLedger": "Supplier Ledger",
@@ -861,63 +860,11 @@
       "pay": "Pay",
       "requestPayment": "Request Payment"
     },
-    "saleRequests": {
-      "title": "Sale Requests",
-      "subtitle": "Review and approve sale requests from your connected dealers",
-      "stats": {
-        "pending": "Pending Review",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "total": "Total"
-      },
-      "loading": "Loading...",
-      "emptyTitle": "No sale requests",
-      "emptyHelp": "When dealers send you sale requests, they'll appear here",
-      "from": "From",
-      "paid": "Paid",
-      "itemsTitle": "Items:",
-      "table": {
-        "product": "Product",
-        "quantity": "Quantity",
-        "unitPrice": "Unit Price",
-        "total": "Total"
-      },
-      "notes": "Notes:",
-      "rejectionReason": "Rejection Reason:",
-      "approve": "Approve",
-      "approving": "Approving...",
-      "reject": "Reject",
-      "rejecting": "Rejecting...",
-      "approveDialogTitle": "Approve Sale Request",
-      "approveDialogBody": "Are you sure you want to approve this sale request? This will add the items to your inventory and create a purchase entry.",
-      "rejectDialogTitle": "Reject Sale Request",
-      "rejectDialogBody": "Please provide a reason for rejecting this sale request.",
-      "requestLabel": "Request:",
-      "dealerLabel": "Dealer:",
-      "totalAmountLabel": "Total Amount:",
-      "itemsCountLabel": "Items:",
-      "itemsCountValue": "{count} items",
-      "cancel": "Cancel",
-      "reasonLabel": "Reason (optional)",
-      "reasonPlaceholder": "e.g., Price too high, don't need these items right now...",
-      "toast": {
-        "approved": "Sale request approved successfully!",
-        "rejected": "Sale request rejected",
-        "approveFailed": "Failed to approve request",
-        "rejectFailed": "Failed to reject request"
-      },
-      "status": {
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      }
-    },
     "dealers": {
       "title": "My Dealers",
       "subtitle": "Manage your dealer connections and verification requests",
       "buttons": {
         "feedLedger": "Feed Ledger",
-        "saleRequests": "Sale Requests",
         "paymentRequests": "Payment Requests",
         "apply": "Apply to Dealer",
         "viewDetails": "View Details",
@@ -1920,6 +1867,161 @@
     "listForSale": {
       "turnedOff": "List for sale is turned off. Turn it on in Settings to post birds or eggs for sale.",
       "openSettings": "Open Settings"
+    },
+    "analytics": {
+      "title": "Analytics",
+      "subtitle": "How your farm is doing",
+      "loadFailed": "Could not load analytics. Please try again.",
+      "noAccessTitle": "No access to analytics",
+      "noAccessBody": "Your owner has not given this staff account access to analytics.",
+      "sales": "Sales",
+      "costs": "Costs",
+      "profit": "Profit",
+      "loss": "Loss",
+      "total": "Total",
+      "period": "Period",
+      "batch": "Batch",
+      "birdsAlive": "Birds alive",
+      "alive": "Alive",
+      "deaths": "Deaths",
+      "weight": "Weight",
+      "feed": "Feed",
+      "toReceive": "To receive",
+      "toPay": "To pay",
+      "broiler": "Broiler",
+      "layers": "Layers",
+      "running": "running",
+      "closed": "closed",
+      "dayN": "Day {n}",
+      "weekOf": "Week of {date}",
+      "fcrNeedsWeight": "Needs weight",
+      "oldWeight": "old weight",
+      "tabs": {
+        "overview": "Overview",
+        "money": "Money",
+        "batches": "Batches",
+        "health": "Health & Feed",
+        "eggs": "Eggs"
+      },
+      "filters": {
+        "allTime": "All time",
+        "customDates": "Custom dates",
+        "allFarms": "All farms",
+        "allTypes": "All types",
+        "allBatches": "All batches",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear",
+        "badDates": "The start date must be before the end date.",
+        "allTimeSince": "All time · since {date}"
+      },
+      "overview": {
+        "allTime": "All time",
+        "inDates": "In these dates",
+        "bills": "{n} bills",
+        "entries": "{n} entries",
+        "salesMinusCosts": "Sales minus costs",
+        "fcrRunning": "Running broilers ({n})",
+        "fcrNeedsWeights": "Needs new weights",
+        "inRunning": "In {n} running batches",
+        "todayAllFarms": "Today · all farms",
+        "runningTitle": "Batches running now",
+        "noRunning": "No batches running right now.",
+        "fcrOldWeight": "From an old weight"
+      },
+      "money": {
+        "chartTitle": "Sales and costs",
+        "noMoney": "No sales or costs in these dates.",
+        "costsByType": "Costs by type",
+        "noCosts": "No costs in these dates.",
+        "salesByItem": "Sales by item",
+        "noSales": "No sales in these dates.",
+        "tableTitle": "Money by period"
+      },
+      "items": {
+        "EGGS": "Eggs",
+        "Chicken_Meat": "Chicken",
+        "CHICKS": "Chicks",
+        "FEED": "Feed",
+        "MEDICINE": "Medicine",
+        "EQUIPMENT": "Equipment",
+        "OTHER": "Other"
+      },
+      "batches": {
+        "title": "Batches",
+        "wholeLife": "Whole batch life",
+        "none": "No batches in these dates.",
+        "age": "Age",
+        "birds": "Birds",
+        "costPerBird": "Cost / bird",
+        "profitPerBird": "Profit / bird",
+        "perBird": "per bird",
+        "closedAfter": "Closed · {n} days",
+        "aliveN": "{n} alive",
+        "soldN": "{n} sold",
+        "soFar": "so far",
+        "best": "Best",
+        "worst": "Worst"
+      },
+      "health": {
+        "naturalOnly": "Natural deaths",
+        "deathRate": "Death rate",
+        "ofBirds": "of {n} birds",
+        "feedCost": "Cost {amount}",
+        "feedPerBird": "Feed per bird",
+        "feedPerBirdHint": "Feed ÷ birds",
+        "deathsTitle": "Deaths",
+        "noDeaths": "No deaths in these dates.",
+        "noReason": "No reason",
+        "feedTitle": "Feed given (kg)",
+        "noFeed": "No feed recorded in these dates.",
+        "medicineTitle": "Medicine and vaccines",
+        "noMedicine": "No medicine in these dates.",
+        "medicine": "Medicine",
+        "amount": "Amount",
+        "batches": "Batches"
+      },
+      "eggs": {
+        "noLayers": "No layer batches here.",
+        "laid": "Eggs laid",
+        "sold": "Eggs sold",
+        "inStock": "{n} in stock now",
+        "layingPercent": "Laying %",
+        "layingHint": "Eggs ÷ hens each day",
+        "costPerEgg": "Cost per egg",
+        "costPerEggHint": "Layer costs ÷ eggs laid",
+        "chartTitle": "Eggs",
+        "noEggs": "No eggs recorded in these dates.",
+        "byType": "By egg type",
+        "batchesTitle": "Layer batches",
+        "hens": "{n} hens",
+        "laidN": "{n} eggs",
+        "profitHint": "Profit is for the whole batch life."
+      },
+      "download": {
+        "button": "Download",
+        "title": "Download a report",
+        "hint": "Pick a report. It uses the filters and dates you chose.",
+        "cancel": "Cancel",
+        "failed": "Could not download the report",
+        "truncated": "Only the first {n} rows were saved. Pick shorter dates for the rest.",
+        "types": {
+          "money": "Money by period",
+          "batches": "Batch summary",
+          "sales": "Sales list",
+          "costs": "Costs list",
+          "deaths": "Deaths list",
+          "eggs": "Eggs by day"
+        },
+        "typeHints": {
+          "money": "Sales, costs and profit",
+          "batches": "Birds, deaths, feed, FCR, profit",
+          "sales": "Every bill with discount",
+          "costs": "Every cost entry",
+          "deaths": "Each death entry and reason",
+          "eggs": "Eggs laid and sold, laying %"
+        }
+      }
     }
   },
   "dealer": {
@@ -1961,7 +2063,6 @@
       "subtitle": "Manage your inventory, customers, and sales.",
       "buttons": {
         "addSale": "Add Sale",
-        "saleRequests": "Sale Requests",
         "consignments": "Consignments"
       },
       "stats": {
@@ -2494,41 +2595,6 @@
         "credit": "Credit",
         "cash": "Cash",
         "partlyPaid": "Partly paid"
-      }
-    },
-    "saleRequests": {
-      "title": "Sale Requests",
-      "subtitle": "Track sale requests to farmers",
-      "back": "Back to Sales",
-      "backMobile": "Back",
-      "stats": {
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "total": "Total"
-      },
-      "filters": {
-        "searchPlaceholder": "Search...",
-        "statusPlaceholder": "Status",
-        "all": "All",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      },
-      "table": {
-        "request": "Request",
-        "farmer": "Farmer",
-        "date": "Date",
-        "items": "Items",
-        "amount": "Amount",
-        "status": "Status",
-        "view": "View",
-        "empty": "No sale requests. Requests will appear when you create sales.",
-        "paid": "Paid: {amount}"
-      },
-      "pagination": {
-        "prev": "Prev",
-        "next": "Next"
       }
     },
     "newSale": {
@@ -3437,7 +3503,7 @@
       "medicineTitle": "Medicine and vaccines",
       "noMedicine": "No medicine or vaccine recorded.",
       "notesTitle": "Farmer's notes",
-      "footer": "Shared by the farmer from Poultry360. No money details are shown.",
+      "footer": "Shared by the farmer from Poultry360.",
       "weightChartHint": "Average weight (kg) by batch day"
     }
   }

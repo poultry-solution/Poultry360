@@ -3,7 +3,7 @@ import { SharedBatchReport } from "@/components/share/SharedBatchReport";
 
 export const metadata: Metadata = {
   title: "Batch health report · Poultry360",
-  description: "A farmer shared this batch's health and growth with you. No money details are shown.",
+  description: "A farmer shared this batch's health and growth with you.",
   robots: { index: false, follow: false },
 };
 

@@ -149,3 +149,18 @@ export function getNepalBsMonthWindow(now: Date = new Date()): NepalBsMonthWindo
     monthLabel: `${BS_MONTH_NAMES[today.month - 1]} ${today.year}`,
   };
 }
+
+// ── BS months for an AD Nepal day (analytics grouping) ──────────────────────
+
+/** BS year and month of an AD Nepal calendar day "YYYY-MM-DD". */
+export function bsMonthOfDayKey(dayKey: string): { year: number; month: number } {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const bs = bsFromAd({ y, m, d });
+  return { year: bs.year, month: bs.month };
+}
+
+/** AD Nepal day "YYYY-MM-DD" of day 1 of a BS month. */
+export function bsMonthStartDayKey(year: number, month: number): string {
+  const { y, m, d } = adFromBs(year, month, 1);
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
