@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/i18n/useI18n";
+import { DealerSaleBill } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -13,7 +15,7 @@ import {
   Eye,
   MapPin,
   Phone,
-  Printer,
+  ReceiptText,
   User,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
@@ -60,6 +62,8 @@ export default function CustomerAccountPage() {
   const [activeTab, setActiveTab] = useState<"sales" | "payments">("sales");
   // Sale shown in the details popup.
   const [detailsSale, setDetailsSale] = useState<any | null>(null);
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
+  const { t } = useI18n();
   const [salesPage, setSalesPage] = useState(1);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -580,10 +584,14 @@ export default function CustomerAccountPage() {
               <DialogFooter>
                 <Button
                   variant="outline"
-                  onClick={() => router.push(`/dealer/dashboard/sales/print/${detailsSale.id}`)}
+                  onClick={() => {
+                    // Close the details first so the bill pop-up can take focus.
+                    setBillSaleId(detailsSale.id);
+                    setDetailsSale(null);
+                  }}
                 >
-                  <Printer className="mr-2 h-4 w-4" />
-                  Print bill
+                  <ReceiptText className="mr-2 h-4 w-4" />
+                  {t("bills.openBill")}
                 </Button>
               </DialogFooter>
             </>
@@ -729,6 +737,7 @@ export default function CustomerAccountPage() {
         </DialogContent>
       </Dialog>
 
+      <DealerSaleBill saleId={billSaleId} onClose={() => setBillSaleId(null)} />
     </div>
   );
 }

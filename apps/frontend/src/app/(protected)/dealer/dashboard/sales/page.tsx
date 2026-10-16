@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2 } from "lucide-react";
+import { Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -31,6 +31,7 @@ import {
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DealerSaleBill } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { useAuthStore } from "@/common/store/store";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
@@ -40,6 +41,7 @@ import { NewSaleMenuButton } from "@/components/dealer/sales/NewSaleMenuButton";
 export default function DealerSalesPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
   const user = useAuthStore((state) => state.user);
   const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
   const [page, setPage] = useState(1);
@@ -264,7 +266,7 @@ export default function DealerSalesPage() {
                 key: 'actions',
                 label: t("dealer.sales.table.actions"),
                 align: 'right',
-                width: '80px',
+                width: '110px',
                 render: (_, row) => (
                   <div className="flex justify-end gap-1">
                     <Button
@@ -275,6 +277,19 @@ export default function DealerSalesPage() {
                       title="View details"
                     >
                       <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBillSaleId(row.id);
+                      }}
+                      title={t("bills.openBill")}
+                      aria-label={t("bills.openBill")}
+                    >
+                      <ReceiptText className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -570,6 +585,7 @@ export default function DealerSalesPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      <DealerSaleBill saleId={billSaleId} onClose={() => setBillSaleId(null)} />
     </div>
   );
 }

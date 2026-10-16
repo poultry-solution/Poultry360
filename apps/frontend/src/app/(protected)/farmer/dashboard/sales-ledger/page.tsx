@@ -46,6 +46,8 @@ import {
   Eye,
   Edit,
   Printer,
+  ReceiptText,
+  Share2,
   Trash2,
   UserPlus,
   Receipt,
@@ -71,6 +73,7 @@ import {
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
+import { FarmerSaleBill, farmerBillPrintHref } from "./_components/FarmerSaleBill";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
@@ -139,6 +142,7 @@ export default function SalesLedgerPage() {
   const [paymentDeletePasswordForm, setPaymentDeletePasswordForm] = useState({ password: "" });
   const [paymentDeleteError, setPaymentDeleteError] = useState<{ message: string } | null>(null);
   const [savedSaleForPrint, setSavedSaleForPrint] = useState<any>(null);
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
   const softDeletePayment = useSoftDeleteCustomerPayment();
 
   // Filters
@@ -1331,10 +1335,11 @@ export default function SalesLedgerPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() => router.push(`/farmer/dashboard/sales-ledger/print/${row.id}`)}
-            title="Print bill"
+            onClick={() => setBillSaleId(row.id)}
+            title={t("bills.openBill")}
+            aria-label={t("bills.openBill")}
           >
-            <Printer className="h-4 w-4" />
+            <ReceiptText className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
@@ -2683,19 +2688,13 @@ export default function SalesLedgerPage() {
           setIsPrintPromptOpen(false);
           setSavedSaleForPrint(null);
         }}
-        title="Sale saved"
+        title={t("bills.savedTitle")}
       >
         <ModalContent>
-          <div className="space-y-3">
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="text-sm text-muted-foreground">Invoice</div>
-              <div className="text-lg font-semibold">
-                {savedSaleForPrint?.invoiceNumber || "—"}
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                The sale is saved. You can print the bill now or continue later.
-              </div>
-            </div>
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <div className="text-sm text-muted-foreground">{t("bills.invoice")}</div>
+            <div className="text-lg font-semibold">{savedSaleForPrint?.invoiceNumber || "—"}</div>
+            <div className="mt-2 text-sm text-muted-foreground">{t("bills.savedBody")}</div>
           </div>
         </ModalContent>
         <ModalFooter>
@@ -2706,23 +2705,37 @@ export default function SalesLedgerPage() {
               setSavedSaleForPrint(null);
             }}
           >
-            Later
+            {t("bills.later")}
           </Button>
           <Button
+            variant="outline"
+            disabled={!savedSaleForPrint?.id}
             onClick={() => {
               const saleId = savedSaleForPrint?.id;
               setIsPrintPromptOpen(false);
-              if (saleId) {
-                router.push(`/farmer/dashboard/sales-ledger/print/${saleId}`);
-              }
               setSavedSaleForPrint(null);
+              if (saleId) router.push(`${farmerBillPrintHref(saleId)}?print=1`);
             }}
-            disabled={!savedSaleForPrint?.id}
           >
-            Print now
+            <Printer className="mr-1.5 h-4 w-4" />
+            {t("bills.print")}
+          </Button>
+          <Button
+            disabled={!savedSaleForPrint?.id}
+            onClick={() => {
+              const saleId = savedSaleForPrint?.id;
+              setIsPrintPromptOpen(false);
+              setSavedSaleForPrint(null);
+              if (saleId) setBillSaleId(saleId);
+            }}
+          >
+            <Share2 className="mr-1.5 h-4 w-4" />
+            {t("bills.shareBill")}
           </Button>
         </ModalFooter>
       </Modal>
+
+      <FarmerSaleBill saleId={billSaleId} onClose={() => setBillSaleId(null)} />
 
       {/* Party Modal */}
       <Modal

@@ -1381,8 +1381,9 @@ exports.BillSettingsInputSchema = zod_1.z.object({
         .nullable()
         .optional()
         .transform((value) => (value ? value : null))
-        .refine((value) => value === null || /^\+?\d{7,15}$/.test(value), {
-        message: "Phone must be 7 to 15 digits",
+        // Nepal number: fixed +977 then exactly 10 digits.
+        .refine((value) => value === null || /^\+977\d{10}$/.test(value), {
+        message: "Phone must be 10 digits after +977",
     }),
     footerNote: optionalBillText(200, "Footer note must be 200 characters or less"),
 });

@@ -8,6 +8,7 @@ import {
   Bird,
   Package,
   Printer,
+  Share2,
   XCircle,
   UserPlus,
 } from "lucide-react";
@@ -46,6 +47,7 @@ import {
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
@@ -67,6 +69,7 @@ interface SaleItem {
 export default function NewSalePage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
 
   // Form state
   const [saleDateAd, setSaleDateAd] = useState(getTodayLocalDate());
@@ -1065,14 +1068,9 @@ export default function NewSalePage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sale saved</DialogTitle>
-            <DialogDescription>
-              Do you want to print the bill now or continue later?
-            </DialogDescription>
+            <DialogTitle>{t("bills.savedTitle")}</DialogTitle>
+            <DialogDescription>{t("bills.savedBody")}</DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-            The bill will open in a clean preview with standard and compact print options.
-          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -1082,27 +1080,44 @@ export default function NewSalePage() {
                 router.push("/dealer/dashboard/sales");
               }}
             >
-              Later
+              {t("bills.later")}
             </Button>
             <Button
+              variant="outline"
+              disabled={!savedSaleForPrint?.id}
               onClick={() => {
                 const saleId = savedSaleForPrint?.id;
                 setIsPrintPromptOpen(false);
-                if (saleId) {
-                  router.push(`/dealer/dashboard/sales/print/${saleId}`);
-                } else {
-                  router.push("/dealer/dashboard/sales");
-                }
                 setSavedSaleForPrint(null);
+                router.push(saleId ? `${dealerBillPrintHref(saleId)}?print=1` : "/dealer/dashboard/sales");
               }}
-              disabled={!savedSaleForPrint?.id}
             >
               <Printer className="mr-2 h-4 w-4" />
-              Print now
+              {t("bills.print")}
+            </Button>
+            <Button
+              disabled={!savedSaleForPrint?.id}
+              onClick={() => {
+                const saleId = savedSaleForPrint?.id;
+                setIsPrintPromptOpen(false);
+                setSavedSaleForPrint(null);
+                if (saleId) setBillSaleId(saleId);
+              }}
+            >
+              <Share2 className="mr-2 h-4 w-4" />
+              {t("bills.shareBill")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DealerSaleBill
+        saleId={billSaleId}
+        onClose={() => {
+          setBillSaleId(null);
+          router.push("/dealer/dashboard/sales");
+        }}
+      />
     </div>
   );
 }

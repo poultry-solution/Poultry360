@@ -118,10 +118,23 @@ describe("PUT /bill-settings", () => {
     });
   });
 
+  it("saves a +977 phone with 10 digits", async () => {
+    const res = makeResponse();
+    await updateBillSettings(request({ panNumber: "123456789", phone: "+9779812345678" }), res);
+    expect(db.billSettings.upsert.mock.calls[0][0].update.phone).toBe("+9779812345678");
+  });
+
   it.each([
     [{ panNumber: "12345678" }],
     [{ panNumber: "ABC123456" }],
+    [{ panNumber: "1234567890" }],
+    [{ panNumber: "787657897567890" }],
     [{ phone: "12ab" }],
+    [{ phone: "9812345678" }],
+    [{ phone: "+97798123" }],
+    [{ phone: "+97798123456789" }],
+    [{ phone: "+977981234567a" }],
+    [{ phone: "21e4314398476314984083174" }],
     [{ businessName: "x".repeat(121) }],
     [{ footerNote: "x".repeat(201) }],
   ])("refuses %j", async (body) => {

@@ -1,16 +1,6 @@
-"use client";
-
-import { BillDocument, type BillLine } from "@/components/bills/BillDocument";
+import type { BillBusiness, BillData, BillLine } from "@/components/bills/BillDocument";
 import { computeBroilerSaleAmount } from "@/fetchers/sale/broilerSaleAmount";
-import { useGetBillSettings } from "@/fetchers/billSettings/billSettingsQueries";
-
-type SaleBillDocumentProps = {
-  sale: any;
-  mode?: "standard" | "compact";
-  onPrint?: () => void;
-  onBack?: () => void;
-  showActions?: boolean;
-};
+import { billFileName } from "./billFileName";
 
 const formatKg = (value: number) => `${value.toFixed(2)} kg`;
 
@@ -27,12 +17,12 @@ function broilerWeightNote(sale: any): string | undefined {
   return `Weighed ${formatKg(weight)} − ${percent}% weight discount (${formatKg(weight - billedWeight)}) = ${formatKg(billedWeight)} billed`;
 }
 
-/** Farmer sale bill: maps the farmer sale into the shared BillDocument. */
-export function SaleBillDocument({ sale, mode = "standard", onPrint, onBack, showActions = true }: SaleBillDocumentProps) {
-  const { data: billSettings } = useGetBillSettings();
-  const details = billSettings?.effective;
-  const fallbackName = sale?.farm?.owner?.companyName || sale?.farm?.owner?.name || "Poultry360";
+/** Name used until Bill details load (or if they fail). */
+export const farmerBillFallbackName = (sale: any) =>
+  sale?.farm?.owner?.companyName || sale?.farm?.owner?.name || "Poultry360";
 
+/** Farmer sale → printed bill. `business` comes from Settings → Bill details. */
+export function farmerSaleToBill(sale: any, business: BillBusiness): BillData {
   const eggLines = Array.isArray(sale?.eggLines) ? sale.eggLines : [];
   const lines: BillLine[] =
     eggLines.length > 0
@@ -63,46 +53,33 @@ export function SaleBillDocument({ sale, mode = "standard", onPrint, onBack, sho
   const paidAmount = Number(sale?.paidAmount ?? 0);
   const dueAmount = Number(sale?.dueAmount ?? Math.max(0, totalAmount - paidAmount));
   const hasBillDiscount = sale?.discount != null && sale?.subtotalAmount != null;
-  const subtotal = hasBillDiscount ? Number(sale.subtotalAmount) : undefined;
 
   const customer = sale?.customer;
+  const partyName = customer?.name || "Cash customer";
   const partyRows = [
     customer?.phone ? { label: "Phone", value: String(customer.phone) } : null,
     customer?.address ? { label: "Address", value: String(customer.address) } : null,
     { label: "Category", value: String(customer?.category || sale?.category?.name || "—") },
   ].filter(Boolean) as { label: string; value: string }[];
 
-  return (
-    <BillDocument
-      business={{
-        name: details?.businessName || fallbackName,
-        address: details?.address,
-        phone: details?.phone,
-        panNumber: details?.panNumber,
-        footerNote: details?.footerNote,
-      }}
-      title="Sales bill"
-      invoiceNumber={sale?.invoiceNumber || ""}
-      date={sale?.date}
-      partyLabel="Bill to"
-      partyName={customer?.name || "Cash customer"}
-      partyRows={partyRows}
-      lines={lines}
-      totals={{
-        subtotal,
-        discountLabel:
-          hasBillDiscount && sale.discount.type === "PERCENT"
-            ? `Discount (${Number(sale.discount.value)}%)`
-            : "Discount",
-        discountAmount: hasBillDiscount ? Number(sale.subtotalAmount) - totalAmount : undefined,
-        total: totalAmount,
-        paid: paidAmount,
-        due: dueAmount,
-      }}
-      mode={mode}
-      onPrint={onPrint}
-      onBack={onBack}
-      showActions={showActions}
-    />
-  );
+  return {
+    business,
+    title: "Sales bill",
+    invoiceNumber: sale?.invoiceNumber || "",
+    date: sale?.date,
+    partyLabel: "Bill to",
+    partyName,
+    partyRows,
+    lines,
+    totals: {
+      subtotal: hasBillDiscount ? Number(sale.subtotalAmount) : undefined,
+      discountLabel:
+        hasBillDiscount && sale.discount.type === "PERCENT" ? `Discount (${Number(sale.discount.value)}%)` : "Discount",
+      discountAmount: hasBillDiscount ? Number(sale.subtotalAmount) - totalAmount : undefined,
+      total: totalAmount,
+      paid: paidAmount,
+      due: dueAmount,
+    },
+    fileName: billFileName(sale?.invoiceNumber || "", partyName),
+  };
 }

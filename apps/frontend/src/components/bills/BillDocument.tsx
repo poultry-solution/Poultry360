@@ -1,9 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Button } from "@/common/components/ui/button";
+import { forwardRef } from "react";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import { formatBillMoney } from "@/common/lib/utils";
+import { formatBillMoney, formatNepalPhone } from "@/common/lib/utils";
 
 export type BillBusiness = {
   name: string;
@@ -36,7 +35,8 @@ export type BillTotals = {
   note?: string;
 };
 
-export type BillDocumentProps = {
+/** Everything one printed bill needs. Each module maps its sale into this (lib/bills). */
+export type BillData = {
   business: BillBusiness;
   title: string;
   invoiceNumber: string;
@@ -45,21 +45,23 @@ export type BillDocumentProps = {
   partyLabel: string;
   partyName: string;
   partyRows?: { label: string; value: string }[];
-  notice?: ReactNode;
+  /** Small highlighted line under the party, e.g. a dealer chicken sale's source farmer. */
+  notice?: { label: string; text: string };
   extraColumns?: { key: string; label: string }[];
   lines: BillLine[];
   totals: BillTotals;
-  mode?: "standard" | "compact";
-  onPrint?: () => void;
-  onBack?: () => void;
-  showActions?: boolean;
+  /** File name for shared image/PDF, without extension. */
+  fileName: string;
 };
+
+/** A4 page width at 96 dpi. The bill always renders at this width, so images and PDFs match. */
+export const BILL_WIDTH_PX = 794;
 
 /** Business header used on the bill and in the Settings preview. */
 export function BillBusinessHeader({ business, compact = false }: { business: BillBusiness; compact?: boolean }) {
   const lines = [
     business.address,
-    business.phone ? `Phone: ${business.phone}` : null,
+    business.phone ? `Phone: ${formatNepalPhone(business.phone)}` : null,
     business.panNumber ? `PAN: ${business.panNumber}` : null,
   ].filter(Boolean) as string[];
   return (
@@ -77,166 +79,139 @@ export function BillBusinessHeader({ business, compact = false }: { business: Bi
 }
 
 /**
- * One printed sale bill for every module. Pure layout: callers map their sale
- * into these props. Prints on A4 (see the @media print rules in globals.css).
+ * One A4 sale bill for every module. Pure layout: modules map their sale into
+ * `BillData`. Text stays English. Print rules live in globals.css.
  */
-export function BillDocument({
-  business,
-  title,
-  invoiceNumber,
-  date,
-  partyLabel,
-  partyName,
-  partyRows = [],
-  notice,
-  extraColumns = [],
-  lines,
-  totals,
-  mode = "standard",
-  onPrint,
-  onBack,
-  showActions = true,
-}: BillDocumentProps) {
-  const compact = mode === "compact";
-  const text = compact ? "text-xs" : "text-sm";
-  const cell = compact ? "px-2 py-1.5" : "px-3 py-2";
+export const BillDocument = forwardRef<HTMLDivElement, { bill: BillData }>(function BillDocument({ bill }, ref) {
+  const { business, totals, partyRows = [], extraColumns = [] } = bill;
+  const cell = "px-3 py-2";
   const hasDiscount = totals.subtotal != null && (totals.discountAmount ?? 0) > 0;
   const due = totals.due ?? 0;
 
   return (
-    <div className="bill-document bg-white text-slate-900">
-      <div className={["mx-auto w-full", compact ? "max-w-xl" : "max-w-3xl"].join(" ")}>
-        {/* Header: business on the left, bill details on the right */}
-        <div className={["flex items-start justify-between gap-4 border-b-2 border-slate-800", compact ? "px-4 py-3" : "px-6 py-5"].join(" ")}>
-          <BillBusinessHeader business={business} compact={compact} />
-          <div className={["shrink-0 text-right", text].join(" ")}>
-            <div className={compact ? "text-sm font-semibold uppercase tracking-wide" : "text-base font-semibold uppercase tracking-wide"}>
-              {title}
-            </div>
-            <div className="mt-1 font-medium">Invoice #{invoiceNumber || "—"}</div>
-            <div className="text-slate-600">
-              <DateDisplay date={date as any} format="short" />
-            </div>
+    <div ref={ref} className="bill-document bg-white text-slate-900" style={{ width: BILL_WIDTH_PX }}>
+      {/* Header: business on the left, bill details on the right */}
+      <div className="flex items-start justify-between gap-4 border-b-2 border-slate-800 px-6 py-5">
+        <BillBusinessHeader business={business} />
+        <div className="shrink-0 text-right text-sm">
+          <div className="text-base font-semibold uppercase tracking-wide">{bill.title}</div>
+          <div className="mt-1 font-medium">Invoice #{bill.invoiceNumber || "—"}</div>
+          <div className="text-slate-600">
+            <DateDisplay date={bill.date as any} format="short" />
           </div>
         </div>
+      </div>
 
-        {/* Bill to */}
-        <div className={[compact ? "px-4 py-3" : "px-6 py-4", text].join(" ")}>
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{partyLabel}</div>
-          <div className={compact ? "text-sm font-semibold" : "text-base font-semibold"}>{partyName}</div>
-          {partyRows.length > 0 && (
-            <div className="mt-1 grid gap-x-6 gap-y-0.5 text-slate-700 sm:grid-cols-2">
-              {partyRows.map((row) => (
-                <div key={row.label}>
-                  <span className="text-slate-500">{row.label}: </span>
-                  {row.value}
-                </div>
+      {/* Bill to */}
+      <div className="px-6 py-4 text-sm">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{bill.partyLabel}</div>
+        <div className="text-base font-semibold">{bill.partyName}</div>
+        {partyRows.length > 0 && (
+          <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-0.5 text-slate-700">
+            {partyRows.map((row) => (
+              <div key={row.label}>
+                <span className="text-slate-500">{row.label}: </span>
+                {row.value}
+              </div>
+            ))}
+          </div>
+        )}
+        {bill.notice && (
+          <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+            <span className="font-medium">{bill.notice.label}: </span>
+            {bill.notice.text}
+          </div>
+        )}
+      </div>
+
+      {/* Items */}
+      <div className="px-6">
+        <table className="bill-table w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-y border-slate-300 bg-slate-50 text-slate-700">
+              <th className={`text-left font-semibold ${cell}`}>Item</th>
+              <th className={`text-right font-semibold ${cell}`}>Qty</th>
+              {extraColumns.map((column) => (
+                <th key={column.key} className={`text-right font-semibold ${cell}`}>
+                  {column.label}
+                </th>
               ))}
-            </div>
-          )}
-          {notice ? <div className="mt-2">{notice}</div> : null}
-        </div>
-
-        {/* Items */}
-        <div className={compact ? "px-4" : "px-6"}>
-          <table className={["bill-table w-full border-collapse", text].join(" ")}>
-            <thead>
-              <tr className="border-y border-slate-300 bg-slate-50 text-slate-700">
-                <th className={["text-left font-semibold", cell].join(" ")}>Item</th>
-                <th className={["text-right font-semibold", cell].join(" ")}>Qty</th>
+              <th className={`text-right font-semibold ${cell}`}>Rate</th>
+              <th className={`text-right font-semibold ${cell}`}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bill.lines.map((line, index) => (
+              <tr key={line.id || `${line.name}-${index}`} className="border-b border-slate-200">
+                <td className={`align-top ${cell}`}>
+                  <div className="font-medium">{line.name}</div>
+                  {line.note ? <div className="text-[11px] text-slate-500">{line.note}</div> : null}
+                </td>
+                <td className={`text-right align-top ${cell}`}>
+                  {Number.isFinite(line.quantity) ? line.quantity.toLocaleString("en-IN") : "0"}
+                </td>
                 {extraColumns.map((column) => (
-                  <th key={column.key} className={["text-right font-semibold", cell].join(" ")}>{column.label}</th>
+                  <td key={column.key} className={`text-right align-top ${cell}`}>
+                    {line.extra?.[column.key] ?? "—"}
+                  </td>
                 ))}
-                <th className={["text-right font-semibold", cell].join(" ")}>Rate</th>
-                <th className={["text-right font-semibold", cell].join(" ")}>Amount</th>
+                <td className={`whitespace-nowrap text-right align-top ${cell}`}>{formatBillMoney(line.rate)}</td>
+                <td className={`whitespace-nowrap text-right align-top font-medium ${cell}`}>
+                  {formatBillMoney(line.total)}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {lines.map((line, index) => (
-                <tr key={line.id || `${line.name}-${index}`} className="border-b border-slate-200">
-                  <td className={["align-top", cell].join(" ")}>
-                    <div className="font-medium">{line.name}</div>
-                    {line.note ? <div className="text-[11px] text-slate-500">{line.note}</div> : null}
-                  </td>
-                  <td className={["text-right align-top", cell].join(" ")}>
-                    {Number.isFinite(line.quantity) ? line.quantity.toLocaleString("en-IN") : "0"}
-                  </td>
-                  {extraColumns.map((column) => (
-                    <td key={column.key} className={["text-right align-top", cell].join(" ")}>
-                      {line.extra?.[column.key] ?? "—"}
-                    </td>
-                  ))}
-                  <td className={["text-right align-top whitespace-nowrap", cell].join(" ")}>{formatBillMoney(line.rate)}</td>
-                  <td className={["text-right align-top whitespace-nowrap font-medium", cell].join(" ")}>{formatBillMoney(line.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-        {/* Totals */}
-        <div className={["flex", compact ? "px-4 py-3" : "px-6 py-4", compact ? "" : "justify-end"].join(" ")}>
-          <div className={["w-full space-y-1", compact ? "" : "max-w-xs", text].join(" ")}>
-            {hasDiscount && (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Subtotal</span>
-                  <span className="whitespace-nowrap">{formatBillMoney(totals.subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">{totals.discountLabel || "Discount"}</span>
-                  <span className="whitespace-nowrap">− {formatBillMoney(totals.discountAmount)}</span>
-                </div>
-              </>
-            )}
-            <div className="flex justify-between border-t border-slate-800 pt-1.5 font-bold">
-              <span>Total</span>
-              <span className="whitespace-nowrap">{formatBillMoney(totals.total)}</span>
-            </div>
-            {totals.note ? (
-              <div className="pt-1 text-xs text-slate-600">{totals.note}</div>
-            ) : (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-slate-600">Paid</span>
-                  <span className="whitespace-nowrap">{formatBillMoney(totals.paid)}</span>
-                </div>
-                <div className={["flex justify-between", due > 0 ? "font-semibold" : ""].join(" ")}>
-                  <span className={due > 0 ? "" : "text-slate-600"}>Due</span>
-                  <span className="whitespace-nowrap">{formatBillMoney(due)}</span>
-                </div>
-              </>
-            )}
+      {/* Totals */}
+      <div className="flex justify-end px-6 py-4">
+        <div className="w-full max-w-xs space-y-1 text-sm">
+          {hasDiscount && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Subtotal</span>
+                <span className="whitespace-nowrap">{formatBillMoney(totals.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600">{totals.discountLabel || "Discount"}</span>
+                <span className="whitespace-nowrap">− {formatBillMoney(totals.discountAmount)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between border-t border-slate-800 pt-1.5 font-bold">
+            <span>Total</span>
+            <span className="whitespace-nowrap">{formatBillMoney(totals.total)}</span>
+          </div>
+          {totals.note ? (
+            <div className="pt-1 text-xs text-slate-600">{totals.note}</div>
+          ) : (
+            <>
+              <div className="flex justify-between">
+                <span className="text-slate-600">Paid</span>
+                <span className="whitespace-nowrap">{formatBillMoney(totals.paid)}</span>
+              </div>
+              <div className={`flex justify-between ${due > 0 ? "font-semibold" : ""}`}>
+                <span className={due > 0 ? "" : "text-slate-600"}>Due</span>
+                <span className="whitespace-nowrap">{formatBillMoney(due)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Footer: note, signatures */}
+      <div className="px-6 pb-6 text-sm">
+        {business.footerNote ? <div className="mb-4 text-center text-slate-600">{business.footerNote}</div> : null}
+        <div className="mt-12 flex justify-between gap-6">
+          <div className="w-40 border-t border-slate-400 pt-1 text-center text-slate-600">Received by</div>
+          <div className="min-w-48 max-w-[60%] border-t border-slate-400 px-2 pt-1 text-center text-slate-600">
+            For {business.name}
           </div>
         </div>
-
-        {/* Footer: note, signatures */}
-        <div className={[compact ? "px-4 pb-4" : "px-6 pb-6", text].join(" ")}>
-          {business.footerNote ? (
-            <div className="mb-4 text-center text-slate-600">{business.footerNote}</div>
-          ) : null}
-          <div className={["flex justify-between gap-6", compact ? "mt-6" : "mt-12"].join(" ")}>
-            <div className="w-40 border-t border-slate-400 pt-1 text-center text-slate-600">Received by</div>
-            <div className="min-w-48 max-w-[60%] border-t border-slate-400 px-2 pt-1 text-center text-slate-600">For {business.name}</div>
-          </div>
-          <div className="mt-4 text-center text-[10px] text-slate-400">Printed from Poultry360</div>
-        </div>
-
-        {showActions && (onPrint || onBack) ? (
-          <div className={["no-print flex items-center justify-end gap-2 print:hidden", compact ? "px-4 pb-4" : "px-6 pb-6"].join(" ")}>
-            {onBack ? (
-              <Button variant="outline" size="sm" onClick={onBack}>
-                Back
-              </Button>
-            ) : null}
-            {onPrint ? (
-              <Button size="sm" onClick={onPrint}>
-                Print
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="mt-4 text-center text-[10px] text-slate-400">Printed from Poultry360</div>
       </div>
     </div>
   );
-}
+});

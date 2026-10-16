@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { useI18n } from "@/i18n/useI18n";
+import { DealerSaleBill } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,7 +14,7 @@ import {
   FileText,
   Check,
   X,
-  Printer,
+  ReceiptText,
 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -28,6 +31,8 @@ import { useGetDealerSaleById } from "@/fetchers/dealer/dealerSaleQueries";
 
 export default function SaleDetailPage() {
   const router = useRouter();
+  const { t } = useI18n();
+  const [billOpen, setBillOpen] = useState(false);
   const params = useParams();
   const saleId = params?.id as string;
 
@@ -87,12 +92,9 @@ export default function SaleDetailPage() {
           </p>
         </div>
       </div>
-        <Button
-          variant="outline"
-          onClick={() => router.push(`/dealer/dashboard/sales/print/${sale.id}`)}
-        >
-          <Printer className="mr-2 h-4 w-4" />
-          Print bill
+        <Button variant="outline" onClick={() => setBillOpen(true)}>
+          <ReceiptText className="mr-2 h-4 w-4" />
+          {t("bills.openBill")}
         </Button>
       </div>
 
@@ -405,6 +407,7 @@ export default function SaleDetailPage() {
         </CardContent>
       </Card>
 
+      <DealerSaleBill saleId={billOpen ? sale.id : null} onClose={() => setBillOpen(false)} />
     </div>
   );
 }

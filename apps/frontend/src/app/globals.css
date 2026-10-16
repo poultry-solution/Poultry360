@@ -117,7 +117,17 @@
     break-inside: avoid;
   }
   .bill-document {
+    width: auto !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* The on-screen preview shrinks the bill; paper uses the full A4 width. */
+  .bill-scale-box {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .bill-scale-inner {
+    width: auto !important;
+    transform: none !important;
   }
 }

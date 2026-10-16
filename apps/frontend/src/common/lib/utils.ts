@@ -69,3 +69,20 @@ export function formatRatePerUnit(rate: unknown, unit?: string | null): string {
 export function formatQuantity(value: unknown): string {
   return Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 3 })
 }
+
+/** Up to 10 local digits of a Nepal phone ("+977 98…", "977…", "98…") for the +977 box. */
+export function nepalPhoneDigits(raw: unknown): string {
+  let digits = String(raw ?? "").replace(/\D/g, "")
+  if (digits.length === 13 && digits.startsWith("977")) digits = digits.slice(3)
+  return digits.slice(-10)
+}
+
+/** "+977 9812345678" for a +977 / 977 / 10-digit number; anything else as it is. */
+export function formatNepalPhone(raw: unknown): string {
+  const text = String(raw ?? "").trim()
+  const digits = text.replace(/\D/g, "")
+  if (/^(977)?\d{10}$/.test(digits) && (digits.length === 10 || digits.startsWith("977"))) {
+    return `+977 ${digits.slice(-10)}`
+  }
+  return text
+}

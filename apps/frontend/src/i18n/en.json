@@ -154,17 +154,22 @@
     "paymentDirectionUpdateFailed": "Failed to update payment options",
     "bill": {
       "title": "Bill details",
-      "description": "Shown on your printed bills. Leave a field empty to use your business details.",
+      "description": "Shown on your printed bills.",
       "businessName": "Business name on bill",
       "address": "Bill address",
       "panNumber": "PAN number",
       "phone": "Phone on bill",
       "footerNote": "Footer note",
-      "footerNotePlaceholder": "e.g. Thank you for your business",
       "preview": "Bill header preview",
       "save": "Save bill details",
       "saved": "Bill details saved",
-      "saveFailed": "Could not save bill details"
+      "saveFailed": "Could not save bill details",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "fromBusiness": "from your business details",
+      "emptyHint": "Leave a box empty to use your business details.",
+      "panInvalid": "PAN must be 9 digits",
+      "phoneInvalid": "Phone must be 10 digits"
     },
     "listForSale": "List for sale",
     "listForSaleDescription": "Post birds or eggs for sale on the public marketplace. When off, your listings are hidden.",
@@ -3549,5 +3554,26 @@
       "footer": "Shared by the farmer from Poultry360.",
       "weightChartHint": "Average weight (kg) by batch day"
     }
+  },
+  "bills": {
+    "title": "Bill",
+    "titleWithNumber": "Bill {n}",
+    "openBill": "Bill",
+    "loading": "Loading bill...",
+    "notFound": "This bill could not be loaded.",
+    "back": "Back",
+    "preparing": "Preparing...",
+    "shareImage": "Share image",
+    "sharePdf": "Share PDF",
+    "downloadImage": "Download image",
+    "downloadPdf": "Download PDF",
+    "downloaded": "Bill saved to your downloads",
+    "prepareFailed": "Could not make the bill file. You can still print it.",
+    "print": "Print",
+    "savedTitle": "Sale saved",
+    "savedBody": "Share the bill with your customer now, print it, or do it later from the sales list.",
+    "invoice": "Invoice",
+    "later": "Later",
+    "shareBill": "Share bill"
   }
 }

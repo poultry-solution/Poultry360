@@ -1,29 +1,8 @@
-"use client";
+import type { BillBusiness, BillData, BillLine } from "@/components/bills/BillDocument";
+import { billFileName } from "./billFileName";
 
-import { BillDocument, type BillLine } from "@/components/bills/BillDocument";
-import { useGetBillSettings } from "@/fetchers/billSettings/billSettingsQueries";
-
-type DealerSaleBillDocumentProps = {
-  sale: any;
-  /** Used only until bill settings load (or if they fail). */
-  companyName?: string;
-  mode?: "standard" | "compact";
-  onPrint?: () => void;
-  onBack?: () => void;
-  showActions?: boolean;
-};
-
-/** Dealer sale bill: maps the dealer sale into the shared BillDocument. */
-export function DealerSaleBillDocument({
-  sale,
-  companyName,
-  mode = "standard",
-  onPrint,
-  onBack,
-  showActions = true,
-}: DealerSaleBillDocumentProps) {
-  const { data: billSettings } = useGetBillSettings();
-  const details = billSettings?.effective;
+/** Dealer sale → printed bill. `business` comes from Settings → Bill details. */
+export function dealerSaleToBill(sale: any, business: BillBusiness): BillData {
   const isSettlement = Boolean(sale?.isSupplierSettlementSale);
   const isChicken = Boolean(sale?.isChickenSale);
 
@@ -79,50 +58,33 @@ export function DealerSaleBillDocument({
     { label: "Payment", value: String(paymentLabel) },
   ].filter(Boolean) as { label: string; value: string }[];
 
-  return (
-    <BillDocument
-      business={{
-        name: details?.businessName || companyName || "Dealer",
-        address: details?.address,
-        phone: details?.phone,
-        panNumber: details?.panNumber,
-        footerNote: details?.footerNote,
-      }}
-      title={isSettlement ? "Supplier settlement sale" : "Sales bill"}
-      invoiceNumber={sale?.invoiceNumber || sale?.id?.slice(0, 8) || ""}
-      date={sale?.date}
-      partyLabel={isSettlement ? "Supplier" : isChicken ? "Buyer" : "Bill to"}
-      partyName={partyName}
-      partyRows={partyRows}
-      notice={
-        isChicken ? (
-          <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
-            <span className="font-medium">Source farmer (tentative, not settled): </span>
-            {sale?.sourceFarmer?.name || "—"}
-          </div>
-        ) : undefined
-      }
-      extraColumns={
-        isChicken
-          ? [
-              { key: "broilers", label: "Broilers" },
-              { key: "avgWeight", label: "Avg. Wt." },
-            ]
-          : []
-      }
-      lines={lines}
-      totals={{
-        subtotal: hasDiscount ? subtotalAmount : undefined,
-        discountAmount: hasDiscount ? discountAmount : undefined,
-        total: totalAmount,
-        paid: paidAmount,
-        due: dueAmount,
-        note: isSettlement ? "Applied to the supplier balance; no cash was received." : undefined,
-      }}
-      mode={mode}
-      onPrint={onPrint}
-      onBack={onBack}
-      showActions={showActions}
-    />
-  );
+  const invoiceNumber = sale?.invoiceNumber || sale?.id?.slice(0, 8) || "";
+  return {
+    business,
+    title: isSettlement ? "Supplier settlement sale" : "Sales bill",
+    invoiceNumber,
+    date: sale?.date,
+    partyLabel: isSettlement ? "Supplier" : isChicken ? "Buyer" : "Bill to",
+    partyName,
+    partyRows,
+    notice: isChicken
+      ? { label: "Source farmer (tentative, not settled)", text: sale?.sourceFarmer?.name || "—" }
+      : undefined,
+    extraColumns: isChicken
+      ? [
+          { key: "broilers", label: "Broilers" },
+          { key: "avgWeight", label: "Avg. Wt." },
+        ]
+      : [],
+    lines,
+    totals: {
+      subtotal: hasDiscount ? subtotalAmount : undefined,
+      discountAmount: hasDiscount ? discountAmount : undefined,
+      total: totalAmount,
+      paid: paidAmount,
+      due: dueAmount,
+      note: isSettlement ? "Applied to the supplier balance; no cash was received." : undefined,
+    },
+    fileName: billFileName(invoiceNumber, partyName),
+  };
 }
