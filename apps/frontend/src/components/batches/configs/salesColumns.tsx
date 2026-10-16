@@ -1,25 +1,20 @@
 import React from "react";
 import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { createColumn, Column } from "@/common/components/ui/data-table";
 
 interface SalesColumnsProps {
   isBatchClosed: boolean;
-  isUpdating: boolean;
-  isDeleting: boolean;
-  openEditSale: (row: any) => void;
-  handleDeleteSale: (id: string) => Promise<void>;
+  /** Opens the "Delete this sale?" dialog. */
+  onDeleteSale: (row: any) => void;
   openTransactionsModal: (row: any) => void;
 }
 
 export function createSalesColumns({
   isBatchClosed,
-  isUpdating,
-  isDeleting,
-  openEditSale,
-  handleDeleteSale,
+  onDeleteSale,
   openTransactionsModal,
 }: SalesColumnsProps): Column<any>[] {
   return [
@@ -181,26 +176,16 @@ export function createSalesColumns({
       render: (_, row) => (
         <div className="flex items-center justify-end gap-2">
           {!isBatchClosed ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-blue-50 hover:border-blue-300"
-                onClick={() => openEditSale(row)}
-                disabled={isUpdating}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-                onClick={() => handleDeleteSale(row.id)}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+              onClick={() => onDeleteSale(row)}
+              title="Delete sale"
+              aria-label="Delete sale"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           ) : (
             <Badge
               variant="secondary"

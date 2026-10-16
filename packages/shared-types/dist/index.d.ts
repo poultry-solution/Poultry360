@@ -717,39 +717,6 @@ export declare const CreateSaleSchema: z.ZodObject<{
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
-export declare const UpdateSaleSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
-    amount: z.ZodOptional<z.ZodNumber>;
-    quantity: z.ZodOptional<z.ZodNumber>;
-    weight: z.ZodOptional<z.ZodNumber>;
-    weightDiscountPercent: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
-    discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
-        type: z.ZodEnum<{
-            PERCENT: "PERCENT";
-            FLAT: "FLAT";
-        }>;
-        value: z.ZodNumber;
-    }, z.core.$strip>>>;
-    unitPrice: z.ZodOptional<z.ZodNumber>;
-    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    isCredit: z.ZodOptional<z.ZodBoolean>;
-    paidAmount: z.ZodOptional<z.ZodNumber>;
-    farmId: z.ZodOptional<z.ZodString>;
-    batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-        FEED: "FEED";
-        MEDICINE: "MEDICINE";
-        CHICKS: "CHICKS";
-        EQUIPMENT: "EQUIPMENT";
-        OTHER: "OTHER";
-        Chicken_Meat: "Chicken_Meat";
-        EGGS: "EGGS";
-    }>>>;
-    eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    categoryId: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
-export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
 export declare const SalePaymentSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -2955,38 +2922,6 @@ export declare const schemas: {
             category: z.ZodOptional<z.ZodString>;
             address: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
-    }, z.core.$strip>;
-    readonly UpdateSale: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
-        amount: z.ZodOptional<z.ZodNumber>;
-        quantity: z.ZodOptional<z.ZodNumber>;
-        weight: z.ZodOptional<z.ZodNumber>;
-        weightDiscountPercent: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
-        discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
-            type: z.ZodEnum<{
-                PERCENT: "PERCENT";
-                FLAT: "FLAT";
-            }>;
-            value: z.ZodNumber;
-        }, z.core.$strip>>>;
-        unitPrice: z.ZodOptional<z.ZodNumber>;
-        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        isCredit: z.ZodOptional<z.ZodBoolean>;
-        paidAmount: z.ZodOptional<z.ZodNumber>;
-        farmId: z.ZodOptional<z.ZodString>;
-        batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-            FEED: "FEED";
-            MEDICINE: "MEDICINE";
-            CHICKS: "CHICKS";
-            EQUIPMENT: "EQUIPMENT";
-            OTHER: "OTHER";
-            Chicken_Meat: "Chicken_Meat";
-            EGGS: "EGGS";
-        }>>>;
-        eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        categoryId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly SalePayment: z.ZodObject<{
         id: z.ZodString;

@@ -1,12 +1,10 @@
 import { Request, Response } from "express";
 import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
 import { applyBillDiscount, BillDiscountError, type BillDiscountResult } from "../utils/discountHelpers";
-import { laterPaymentsTotal, syncInitialPayment } from "../services/salePaymentSync";
 import prisma from "../utils/prisma";
 import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
 import {
   CreateSaleSchema,
-  UpdateSaleSchema,
   SaleSchema,
 } from "@myapp/shared-types";
 import {
@@ -14,7 +12,13 @@ import {
   generateNextFarmerInvoiceNumber,
 } from "../utils/invoiceNumber";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
-import { syncFarmerSaleBatchRecords } from "../services/farmerSaleBatchSyncService";
+
+/**
+ * A farmer can only open, pay or delete their own sales. Every sale has the
+ * farmer's own sales category (createSale only accepts those). Staff act as
+ * the owner (middleware sets req.userId to the owner).
+ */
+const ownSaleWhere = (id: string, userId?: string) => ({ id, category: { userId: userId ?? "" } });
 
 // ==================== GET ALL SALE PAYMENTS ====================
 export const getAllSalePayments = async (
@@ -455,10 +459,9 @@ export const getSaleById = async (
   try {
     const { id } = req.params;
     const currentUserId = req.userId;
-    const currentUserRole = req.role;
 
-    const sale = await prisma.sale.findUnique({
-      where: { id },
+    const sale = await prisma.sale.findFirst({
+      where: ownSaleWhere(id, currentUserId),
       include: {
         customer: {
           select: {
@@ -520,23 +523,6 @@ export const getSaleById = async (
 
     if (!sale) {
       return res.status(404).json({ message: "Sale not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        sale.farm?.owner.id === currentUserId ||
-        (sale.farmId &&
-          (await prisma.farm.findFirst({
-            where: {
-              id: sale.farmId,
-              managers: { some: { id: currentUserId } },
-            },
-          })));
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     return res.json({
@@ -1221,496 +1207,20 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-// ==================== UPDATE SALE ====================
-export const updateSale = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params;
-    const currentUserId = req.userId;
-    const currentUserRole = req.role;
-
-    // Validate request body
-    const { success, data, error } = UpdateSaleSchema.safeParse(req.body);
-    if (!success) {
-      const invalidFields = new Set(
-        error.issues.map((issue) => String(issue.path[0] || ""))
-      );
-      const message = invalidFields.has("unitPrice")
-        ? "Enter a valid sale price"
-        : invalidFields.has("quantity")
-          ? "Enter a valid quantity"
-          : invalidFields.has("weight")
-            ? "Enter a valid total weight"
-            : invalidFields.has("paidAmount")
-              ? "Enter a valid paid amount"
-              : invalidFields.has("amount")
-                ? "Enter a valid sale amount"
-                : "Check the sale details and try again";
-      return res.status(400).json({ message });
-    }
-
-    // Check if sale exists and user has access
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
-      include: {
-        farm: {
-          include: {
-            owner: true,
-            managers: true,
-          },
-        },
-        customer: true,
-        payments: true,
-        discount: true,
-      },
-    });
-
-    if (!existingSale) {
-      return res.status(404).json({ message: "Sale not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingSale.farm?.ownerId === currentUserId ||
-        existingSale.farm?.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
-    const itemTypeWasProvided = Object.prototype.hasOwnProperty.call(
-      req.body || {},
-      "itemType",
-    );
-    const finalItemType = (
-      itemTypeWasProvided ? data.itemType : existingSale.itemType
-    ) as SalesItemType;
-    if (finalItemType !== existingSale.itemType) {
-      return res.status(400).json({
-        message: "Sale type cannot be changed. Delete this sale and record a new one.",
-      });
-    }
-
-    if (data.weightDiscountPercent != null && finalItemType !== SalesItemType.Chicken_Meat) {
-      return res.status(400).json({ message: "Weight discount is only for chicken meat sales" });
-    }
-
-    const finalDate = data.date !== undefined ? new Date(data.date) : existingSale.date;
-    let finalAmount = data.amount !== undefined
-      ? Number(data.amount)
-      : Number(existingSale.amount);
-    const finalQuantity = data.quantity !== undefined
-      ? Number(data.quantity)
-      : Number(existingSale.quantity);
-    const finalWeight = data.weight !== undefined
-      ? Number(data.weight)
-      : existingSale.weight == null ? null : Number(existingSale.weight);
-    let finalPaidAmount = data.paidAmount !== undefined
-      ? Number(data.paidAmount)
-      : Number(existingSale.paidAmount);
-    const finalIsCredit = data.isCredit !== undefined
-      ? data.isCredit
-      : existingSale.isCredit;
-    const finalWeightDiscountPercent = data.weightDiscountPercent !== undefined
-      ? data.weightDiscountPercent
-      : existingSale.weightDiscountPercent == null ? null : Number(existingSale.weightDiscountPercent);
-    const finalUnitPrice = data.unitPrice !== undefined
-      ? Number(data.unitPrice)
-      : Number(existingSale.unitPrice);
-
-    // Any change to weight, rate or discount re-works the broiler bill on the
-    // server, the same way as createSale.
-    const broilerAmountChanged =
-      finalItemType === SalesItemType.Chicken_Meat &&
-      (data.amount !== undefined ||
-        data.weight !== undefined ||
-        data.unitPrice !== undefined ||
-        data.weightDiscountPercent !== undefined);
-    if (broilerAmountChanged && finalWeight != null && finalWeight > 0) {
-      finalAmount = computeBroilerSaleAmount(finalWeight, finalUnitPrice, finalWeightDiscountPercent).amount;
-      if (!finalIsCredit) finalPaidAmount = finalAmount;
-    }
-
-    // Bill discount. The stored amount is after the discount, so the bill before
-    // it comes from: the broiler re-work, the sent amount, or the saved subtotal.
-    // `discount` sent → use it (null removes it); not sent → keep the saved one.
-    const discountWasProvided = Object.prototype.hasOwnProperty.call(req.body || {}, "discount");
-    const existingDiscount = existingSale.discount
-      ? { type: existingSale.discount.type, value: Number(existingSale.discount.value) }
-      : null;
-    const discountToApply = discountWasProvided ? data.discount ?? null : existingDiscount;
-    const billAmountTouched =
-      broilerAmountChanged || data.amount !== undefined || discountWasProvided;
-    const discountInvolved = Boolean(existingDiscount || discountToApply);
-    let finalSubtotalAmount: number | null | undefined = undefined; // undefined = leave as saved
-    if (billAmountTouched && discountInvolved) {
-      const billBeforeDiscount =
-        broilerAmountChanged || data.amount !== undefined
-          ? finalAmount
-          : Number(existingSale.subtotalAmount ?? existingSale.amount);
-      let applied: BillDiscountResult;
-      try {
-        applied = applyBillDiscount(billBeforeDiscount, discountToApply);
-      } catch (err) {
-        if (err instanceof BillDiscountError) {
-          return res.status(400).json({ message: err.message });
-        }
-        throw err;
-      }
-      finalAmount = applied.amount;
-      finalSubtotalAmount = applied.discount ? applied.subtotal : null;
-      if (!finalIsCredit) finalPaidAmount = finalAmount;
-    }
-    const billDiscountChanged = billAmountTouched && discountInvolved;
-    const finalCustomerId = data.customerId !== undefined
-      ? data.customerId
-      : existingSale.customerId;
-    const finalBatchId = data.batchId !== undefined
-      ? data.batchId
-      : existingSale.batchId;
-
-    if (finalPaidAmount > finalAmount) {
-      return res.status(400).json({ message: "Paid amount cannot exceed the sale amount" });
-    }
-
-    // Payment rows must always add up to paidAmount. Only the initial payment
-    // can move; later payments are real receipts and stay as they are.
-    const paidAmountWillChange =
-      data.paidAmount !== undefined ||
-      (broilerAmountChanged && !finalIsCredit) ||
-      (billDiscountChanged && !finalIsCredit);
-    const laterPaid = laterPaymentsTotal(existingSale.payments);
-    if (paidAmountWillChange && finalPaidAmount < laterPaid) {
-      return res.status(400).json({
-        message: `Paid amount cannot be less than Rs ${laterPaid} already received in later payments. Delete those payments first.`,
-      });
-    }
-    if (finalItemType === SalesItemType.Chicken_Meat) {
-      if (!Number.isInteger(finalQuantity) || finalQuantity <= 0) {
-        return res.status(400).json({
-          message: "Chicken quantity must be a positive whole number",
-        });
-      }
-      if (finalWeight == null || !Number.isFinite(finalWeight) || finalWeight <= 0) {
-        return res.status(400).json({
-          message: "Weight is required and must be greater than zero for chicken sales",
-        });
-      }
-    }
-
-    // Validate category if being updated
-    if (data.categoryId) {
-      const category = await prisma.category.findFirst({
-        where: {
-          id: data.categoryId,
-          userId: currentUserId,
-          type: "SALES",
-        },
-      });
-
-      if (!category) {
-        return res.status(404).json({ message: "Sales category not found" });
-      }
-    }
-
-    // Validate customer if being updated
-    if (data.customerId !== undefined && data.customerId !== null) {
-      const customer = await prisma.customer.findFirst({
-        where: {
-          id: data.customerId,
-          userId: currentUserId,
-        },
-      });
-
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-    }
-
-    if (data.farmId) {
-      const farm = await prisma.farm.findUnique({
-        where: { id: data.farmId },
-        include: { managers: true },
-      });
-      if (!farm) return res.status(404).json({ message: "Farm not found" });
-      if (
-        currentUserRole === UserRole.MANAGER &&
-        farm.ownerId !== currentUserId &&
-        !farm.managers.some((manager) => manager.id === currentUserId)
-      ) {
-        return res.status(403).json({ message: "Access denied to farm" });
-      }
-    }
-
-    if (finalBatchId) {
-      const targetBatch = await prisma.batch.findUnique({
-        where: { id: finalBatchId },
-        include: {
-          farm: { include: { managers: true } },
-          mortalities: true,
-          sales: {
-            select: { id: true, itemType: true, quantity: true },
-          },
-        },
-      });
-      if (!targetBatch) return res.status(404).json({ message: "Batch not found" });
-      if (
-        currentUserRole === UserRole.MANAGER &&
-        targetBatch.farm.ownerId !== currentUserId &&
-        !targetBatch.farm.managers.some((manager) => manager.id === currentUserId)
-      ) {
-        return res.status(403).json({ message: "Access denied to batch" });
-      }
-
-      if (finalItemType === SalesItemType.Chicken_Meat) {
-        const otherSoldBirds = targetBatch.sales
-          .filter(
-            (sale) =>
-              sale.id !== id && sale.itemType === SalesItemType.Chicken_Meat,
-          )
-          .reduce((sum, sale) => sum + Number(sale.quantity), 0);
-        const confirmedDeaths = targetBatch.mortalities
-          .filter(
-            (mortality) =>
-              !mortality.saleId && mortality.reason !== "SLAUGHTERED_FOR_SALE",
-          )
-          .reduce((sum, mortality) => sum + mortality.count, 0);
-        const availableBirds = Math.max(
-          0,
-          targetBatch.initialChicks - otherSoldBirds - confirmedDeaths,
-        );
-        if (finalQuantity > availableBirds) {
-          return res.status(400).json({
-            message: `Cannot sell ${finalQuantity} birds. Only ${availableBirds} birds are available in this batch`,
-          });
-        }
-      }
-    }
-
-    const creditDetailsWereProvided =
-      broilerAmountChanged ||
-      billDiscountChanged ||
-      data.amount !== undefined ||
-      data.paidAmount !== undefined ||
-      data.isCredit !== undefined ||
-      data.customerId !== undefined;
-    const newDueAmount = creditDetailsWereProvided
-      ? finalIsCredit ? Math.max(0, finalAmount - finalPaidAmount) : 0
-      : Number(existingSale.dueAmount || 0);
-
-    const result = await prisma.$transaction(async (tx) => {
-      // Update the sale
-      await tx.sale.update({
-        where: { id },
-        data: {
-          date: data.date !== undefined ? finalDate : undefined,
-          amount: data.amount !== undefined || broilerAmountChanged || billDiscountChanged ? finalAmount : undefined,
-          subtotalAmount: finalSubtotalAmount,
-          ...(billDiscountChanged
-            ? discountToApply && finalSubtotalAmount != null
-              ? {
-                  discount: {
-                    upsert: {
-                      create: { type: discountToApply.type, value: discountToApply.value, scope: "SALE" as const },
-                      update: { type: discountToApply.type, value: discountToApply.value },
-                    },
-                  },
-                }
-              : existingDiscount
-                ? { discount: { delete: true } }
-                : {}
-            : {}),
-          quantity: data.quantity !== undefined ? finalQuantity : undefined,
-          weight: data.weight !== undefined ? finalWeight : undefined,
-          weightDiscountPercent: data.weightDiscountPercent !== undefined ? data.weightDiscountPercent : undefined,
-          unitPrice: data.unitPrice !== undefined ? Number(data.unitPrice) : undefined,
-          paidAmount: paidAmountWillChange ? finalPaidAmount : undefined,
-          description: data.description,
-          isCredit: data.isCredit,
-          farmId: data.farmId,
-          batchId: data.batchId,
-          customerId: data.customerId,
-          itemType: itemTypeWasProvided ? finalItemType : undefined,
-          eggTypeId: data.eggTypeId,
-          categoryId: data.categoryId,
-          dueAmount: creditDetailsWereProvided
-            ? newDueAmount > 0 ? newDueAmount : null
-            : undefined,
-        },
-      });
-
-      if (paidAmountWillChange || data.date !== undefined) {
-        await syncInitialPayment(
-          tx,
-          id,
-          paidAmountWillChange ? finalPaidAmount : Number(existingSale.paidAmount),
-          finalDate
-        );
-      }
-
-      // Reverse the old credit effect and apply the new one. Combining the
-      // values by customer also handles changing the customer safely.
-      const customerBalanceChanges = new Map<string, number>();
-      const addCustomerBalanceChange = (customerId: string, amount: number) => {
-        customerBalanceChanges.set(
-          customerId,
-          (customerBalanceChanges.get(customerId) || 0) + amount,
-        );
-      };
-      if (
-        creditDetailsWereProvided &&
-        existingSale.isCredit &&
-        existingSale.customerId
-      ) {
-        addCustomerBalanceChange(
-          existingSale.customerId,
-          -Number(existingSale.dueAmount || 0),
-        );
-      }
-      if (
-        creditDetailsWereProvided &&
-        finalIsCredit &&
-        finalCustomerId &&
-        newDueAmount > 0
-      ) {
-        addCustomerBalanceChange(finalCustomerId, newDueAmount);
-      }
-
-      for (const [customerId, balanceChange] of customerBalanceChanges) {
-        if (balanceChange !== 0) {
-          await tx.customer.update({
-            where: { id: customerId },
-            data: { balance: { increment: balanceChange } },
-          });
-          await tx.customerTransaction.create({
-            data: {
-              type: TransactionType.ADJUSTMENT,
-              amount: Math.abs(balanceChange),
-              date: finalDate,
-              description: `Sale update: ${balanceChange > 0 ? "Increased" : "Decreased"} due amount`,
-              reference: id,
-              customerId,
-            },
-          });
-        }
-      }
-
-      const affectedBatchIds = await syncFarmerSaleBatchRecords(tx, {
-        saleId: id,
-        oldBatchId: existingSale.batchId,
-        newBatchId: finalBatchId,
-        itemType: finalItemType,
-        date: finalDate,
-        quantity: finalQuantity,
-        weight: finalWeight,
-      });
-
-      // Fetch the complete updated sale
-      const completeSale = await tx.sale.findUnique({
-        where: { id },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              category: true,
-              balance: true,
-            },
-          },
-          farm: {
-            select: {
-              id: true,
-              name: true,
-              owner: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          batch: {
-            select: {
-              id: true,
-              batchNumber: true,
-              status: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
-          discount: { select: { type: true, value: true } },
-          payments: {
-            orderBy: { date: "desc" },
-          },
-        },
-      });
-
-      return { completeSale, affectedBatchIds };
-    });
-
-    await Promise.all(
-      result.affectedBatchIds.map((batchId) => refreshFarmerFcrHistorySafely(batchId)),
-    );
-
-    return res.json({
-      success: true,
-      data: result.completeSale,
-      meta: { affectedBatchIds: result.affectedBatchIds },
-      message: "Sale updated successfully",
-    });
-  } catch (error) {
-    console.error("Update sale error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
 // ==================== DELETE SALE ====================
 export const deleteSale = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
     const currentUserId = req.userId;
-    const currentUserRole = req.role;
 
-    // Check if sale exists and user has access
-    const existingSale = await prisma.sale.findUnique({
-      where: { id },
-      include: {
-        farm: {
-          include: {
-            owner: true,
-            managers: true,
-          },
-        },
-        customer: true,
-        payments: true,
-        eggLines: true,
-      },
+    // Only the farmer's own sale; anyone else gets "not found".
+    const existingSale = await prisma.sale.findFirst({
+      where: ownSaleWhere(id, currentUserId),
+      include: { eggLines: true },
     });
 
     if (!existingSale) {
       return res.status(404).json({ message: "Sale not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingSale.farm?.ownerId === currentUserId ||
-        existingSale.farm?.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     const saleBatchId = existingSale.batchId;
@@ -1829,7 +1339,6 @@ export const addSalePayment = async (
     const { id } = req.params;
     const { amount, date, description, receiptUrl } = req.body;
     const currentUserId = req.userId;
-    const currentUserRole = req.role;
 
     // Validate required fields
     if (!amount || amount <= 0) {
@@ -1838,34 +1347,14 @@ export const addSalePayment = async (
         .json({ message: "Valid payment amount is required" });
     }
 
-    // Check if sale exists and user has access
-    const sale = await prisma.sale.findUnique({
-      where: { id },
-      include: {
-        farm: {
-          include: {
-            owner: true,
-            managers: true,
-          },
-        },
-        customer: true,
-        payments: true,
-      },
+    // Only the farmer's own sale; anyone else gets "not found".
+    const sale = await prisma.sale.findFirst({
+      where: ownSaleWhere(id, currentUserId),
+      include: { customer: true, payments: true },
     });
 
     if (!sale) {
       return res.status(404).json({ message: "Sale not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        sale.farm?.ownerId === currentUserId ||
-        sale.farm?.managers.some((manager) => manager.id === currentUserId);
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Calculate current due amount

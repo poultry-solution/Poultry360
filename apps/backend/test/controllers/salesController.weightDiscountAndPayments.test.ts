@@ -34,10 +34,6 @@ jest.mock("../../src/services/farmerFcrService", () => ({
   refreshFarmerFcrHistorySafely: jest.fn(),
 }));
 
-jest.mock("../../src/services/farmerSaleBatchSyncService", () => ({
-  syncFarmerSaleBatchRecords: jest.fn().mockResolvedValue([]),
-}));
-
 jest.mock("bcrypt", () => ({ compare: jest.fn().mockResolvedValue(true) }));
 
 import prisma from "../../src/utils/prisma";
@@ -45,7 +41,6 @@ import {
   createSale,
   getAllSalePayments,
   softDeleteCustomerPayment,
-  updateSale,
 } from "../../src/controller/salesController";
 import { computeBroilerSaleAmount } from "../../src/utils/broilerSaleAmount";
 
@@ -158,120 +153,7 @@ describe("createSale with weight discount", () => {
   });
 });
 
-describe("updateSale with weight discount", () => {
-  const existing = {
-    id: "sale-1",
-    itemType: "Chicken_Meat",
-    date: new Date("2026-10-12T00:00:00.000Z"),
-    amount: 60000,
-    quantity: 100,
-    weight: 200,
-    weightDiscountPercent: null,
-    unitPrice: 300,
-    paidAmount: 60000,
-    dueAmount: null,
-    isCredit: false,
-    customerId: null,
-    batchId: null,
-    farm: null,
-    customer: null,
-    payments: [{ id: "pay-1", amount: 60000, description: "Initial payment", createdAt: new Date("2026-10-12") }],
-  };
-
-  it("adds a discount to an old sale and re-works the bill", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(existing);
-    const res = makeResponse();
-    await updateSale(makeRequest({ weightDiscountPercent: 1 }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.weightDiscountPercent).toBe(1);
-    expect(update.amount).toBe(59400);
-    expect(update.paidAmount).toBe(59400);
-  });
-
-  it("removes a discount when sent as null", async () => {
-    db.sale.findUnique.mockResolvedValueOnce({ ...existing, weightDiscountPercent: 1, amount: 59400, paidAmount: 59400 });
-    const res = makeResponse();
-    await updateSale(makeRequest({ weightDiscountPercent: null }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.weightDiscountPercent).toBeNull();
-    expect(update.amount).toBe(60000);
-  });
-
-  it("keeps the saved discount when only the rate changes", async () => {
-    db.sale.findUnique.mockResolvedValueOnce({ ...existing, weightDiscountPercent: 1, amount: 59400, paidAmount: 59400 });
-    const res = makeResponse();
-    await updateSale(makeRequest({ unitPrice: 310 }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.weightDiscountPercent).toBeUndefined();
-    expect(update.amount).toBe(61380);
-  });
-});
-
-describe("Payments stay in step with the sale", () => {
-  const cashSale = {
-    id: "sale-1",
-    itemType: "Chicken_Meat",
-    date: new Date("2026-10-12T00:00:00.000Z"),
-    amount: 60000,
-    quantity: 100,
-    weight: 200,
-    weightDiscountPercent: null,
-    unitPrice: 300,
-    paidAmount: 60000,
-    dueAmount: null,
-    isCredit: false,
-    customerId: null,
-    batchId: null,
-    farm: null,
-    customer: null,
-    payments: [{ id: "pay-1", amount: 60000, description: "Initial payment", createdAt: new Date("2026-10-12") }],
-  };
-
-  it("lowers the cash sale's initial payment when a discount is added", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(cashSale);
-    db.salePayment.findMany.mockResolvedValueOnce(cashSale.payments);
-    await updateSale(makeRequest({ weightDiscountPercent: 1 }, { id: "sale-1" }), makeResponse());
-
-    expect(db.salePayment.update).toHaveBeenCalledWith({
-      where: { id: "pay-1" },
-      data: { amount: 59400, date: cashSale.date },
-    });
-  });
-
-  it("moves the initial payment date when the sale date changes", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(cashSale);
-    db.salePayment.findMany.mockResolvedValueOnce(cashSale.payments);
-    await updateSale(makeRequest({ date: "2026-10-10T00:00:00.000Z" }, { id: "sale-1" }), makeResponse());
-
-    expect(db.salePayment.update).toHaveBeenCalledWith({
-      where: { id: "pay-1" },
-      data: { date: new Date("2026-10-10T00:00:00.000Z") },
-    });
-  });
-
-  it("refuses a paid amount below payments already received later", async () => {
-    const creditSale = {
-      ...cashSale,
-      isCredit: true,
-      customerId: "cust-1",
-      paidAmount: 30000,
-      dueAmount: 30000,
-      payments: [
-        { id: "pay-1", amount: 10000, description: "Initial payment", createdAt: new Date("2026-10-12") },
-        { id: "pay-2", amount: 20000, description: "Payment received", createdAt: new Date("2026-10-13") },
-      ],
-    };
-    db.sale.findUnique.mockResolvedValueOnce(creditSale);
-    const res = makeResponse();
-    await updateSale(makeRequest({ paidAmount: 5000 }, { id: "sale-1" }), res);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(db.sale.update).not.toHaveBeenCalled();
-  });
-
+describe("Sale payments", () => {
   it("lists a credit sale payment once, not as both sale payment and receipt", async () => {
     db.salePayment.findMany.mockResolvedValueOnce([
       { id: "pay-2", amount: 20000, date: new Date(), description: "Payment received", receiptUrl: null, sale: { id: "sale-1" } },

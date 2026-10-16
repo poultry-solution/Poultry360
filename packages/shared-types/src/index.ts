@@ -640,30 +640,6 @@ export const CreateSaleSchema = z
 
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 
-export const UpdateSaleSchema = z.object({
-  date: z.string().datetime().optional(),
-  amount: z.number().positive().optional(),
-  quantity: z.number().positive().optional(),
-  weight: z.number().positive().optional(),
-  // null removes the discount; leaving it out keeps the saved one.
-  weightDiscountPercent: z.number().gt(0).lt(100).nullable().optional(),
-  // Bill discount: null removes it; leaving it out keeps the saved one.
-  // When sent with `amount`, `amount` is the bill before the discount.
-  discount: SaleDiscountInputSchema.nullable().optional(),
-  unitPrice: z.number().positive().optional(),
-  description: z.string().nullable().optional(),
-  isCredit: z.boolean().optional(),
-  paidAmount: z.number().nonnegative().optional(),
-  farmId: z.string().optional(),
-  batchId: z.string().nullable().optional(),
-  customerId: z.string().nullable().optional(),
-  itemType: SalesItemTypeSchema.optional().default("Chicken_Meat"),
-  eggTypeId: z.string().nullable().optional(),
-  categoryId: z.string().optional(),
-});
-
-export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
-
 // ==================== SALE PAYMENT SCHEMAS ====================
 
 export const SalePaymentSchema = BaseSchema.extend({
@@ -1662,7 +1638,6 @@ export const schemas = {
 
   Sale: SaleSchema,
   CreateSale: CreateSaleSchema,
-  UpdateSale: UpdateSaleSchema,
 
   SalePayment: SalePaymentSchema,
   CreateSalePayment: CreateSalePaymentSchema,

@@ -1,7 +1,7 @@
 import { refreshFarmerData } from "@/fetchers/farmer/refreshFarmerData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
-import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
+import { CreateSale, CategoryType } from "@myapp/shared-types";
 import { weightKeys } from "@/fetchers/weight/weightQueries";
 
 // ==================== QUERY KEYS ====================
@@ -216,68 +216,6 @@ export const useCreateSale = () => {
   });
 };
 
-// Update sale
-export const useUpdateSale = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: UpdateSale & { itemType?: string };
-    }) => {
-      const response = await axiosInstance.put(`/sales/${id}`, data);
-      return response.data;
-    },
-    onSuccess: (data, variables) => {
-      refreshFarmerData(queryClient);
-      // Home tiles and the profit-per-batch graph read from the dashboard.
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      // Invalidate and refetch the specific sale
-      queryClient.invalidateQueries({
-        queryKey: saleQueryKeys.detail(variables.id),
-      });
-
-      // Invalidate sales lists
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
-
-
-      // Refresh both the old and new batch when a sale was moved. The API also
-      // returns batches cleaned up from older stale linked rows.
-      const affectedBatchIds = new Set<string>(
-        data?.meta?.affectedBatchIds || [],
-      );
-      if (variables.data.batchId) affectedBatchIds.add(variables.data.batchId);
-      if (data?.data?.batch?.id) affectedBatchIds.add(data.data.batch.id);
-      for (const batchId of affectedBatchIds) {
-        queryClient.invalidateQueries({
-          queryKey: saleQueryKeys.batchSales(batchId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "detail", batchId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "analytics", batchId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "detail", batchId, "fcr-history"],
-        });
-        queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
-      }
-
-      // If farmId is provided, invalidate farm-related queries
-      if (variables.data.farmId) {
-        queryClient.invalidateQueries({
-          queryKey: ["farms", "detail", variables.data.farmId],
-        });
-      }
-    },
-  });
-};
-
 // Delete sale
 export const useDeleteSale = () => {
   const queryClient = useQueryClient();
@@ -462,7 +400,6 @@ export const useBatchSalesManagement = (
   const batchSalesQuery = useGetBatchSales(batchId, options);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
-  const updateSaleMutation = useUpdateSale();
   const deleteSaleMutation = useDeleteSale();
   const addPaymentMutation = useAddSalePayment();
 
@@ -486,11 +423,6 @@ export const useBatchSalesManagement = (
       invalidateWeights();
       return res;
     },
-    updateSale: async (vars: any) => {
-      const res = await updateSaleMutation.mutateAsync(vars);
-      invalidateWeights();
-      return res;
-    },
     deleteSale: async (id: string) => {
       const res = await deleteSaleMutation.mutateAsync(id);
       invalidateWeights();
@@ -500,7 +432,6 @@ export const useBatchSalesManagement = (
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
-    isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
 
@@ -527,7 +458,6 @@ export const useSalesManagement = (params?: {
   const salesQuery = useGetSales(params);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
-  const updateSaleMutation = useUpdateSale();
   const deleteSaleMutation = useDeleteSale();
   const addPaymentMutation = useAddSalePayment();
   const createCategoryMutation = useCreateSalesCategory();
@@ -542,14 +472,12 @@ export const useSalesManagement = (params?: {
 
     // Mutations
     createSale: createSaleMutation.mutateAsync,
-    updateSale: updateSaleMutation.mutateAsync,
     deleteSale: deleteSaleMutation.mutateAsync,
     addPayment: addPaymentMutation.mutateAsync,
     createCategory: createCategoryMutation.mutateAsync,
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
-    isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
     isCreatingCategory: createCategoryMutation.isPending,

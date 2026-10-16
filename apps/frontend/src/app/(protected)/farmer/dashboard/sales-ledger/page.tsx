@@ -73,6 +73,7 @@ import {
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
+import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { FarmerSaleBill, farmerBillPrintHref } from "./_components/FarmerSaleBill";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
 import { toast } from "sonner";
@@ -125,7 +126,7 @@ export default function SalesLedgerPage() {
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   // Party details is now a dedicated page (see /sales-ledger/party/[partyId])
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [partyToDelete, setPartyToDelete] = useState<string | null>(null);
   const [selectedParty, setSelectedParty] = useState<any>(null);
@@ -292,11 +293,8 @@ export default function SalesLedgerPage() {
     isLoading,
     error,
     createSale,
-    updateSale,
     deleteSale,
     isCreating,
-    isUpdating,
-    isDeleting,
   } = useSalesManagement({
     ...salesFilters,
     isCredit: salesFilters.isCredit
@@ -932,20 +930,12 @@ export default function SalesLedgerPage() {
 
       console.log("🚀 Sending sale data to API:", saleData);
 
-      if (editingSaleId) {
-        const updatedSale = await updateSale({ id: editingSaleId, data: saleData });
-        setSavedSaleForPrint(updatedSale?.data ?? updatedSale);
-        setIsPrintPromptOpen(true);
-        toast.success(t("farmer.salesLedger.toast.saleUpdated"));
-      } else {
-        const createdSale = await createSale(saleData);
-        setSavedSaleForPrint(createdSale?.data ?? createdSale);
-        setIsPrintPromptOpen(true);
-        toast.success(t("farmer.salesLedger.toast.saleCreated"));
-      }
+      const createdSale = await createSale(saleData);
+      setSavedSaleForPrint(createdSale?.data ?? createdSale);
+      setIsPrintPromptOpen(true);
+      toast.success(t("farmer.salesLedger.toast.saleCreated"));
 
       setIsSaleModalOpen(false);
-      setEditingSaleId(null);
       resetSaleForm();
       setCustomerSearch("");
       setErrors({});
@@ -1102,49 +1092,6 @@ export default function SalesLedgerPage() {
   };
 
   // Opening balance edit is handled on the party details page.
-
-  // Fill the form from the saved sale, so Edit never saves leftover values.
-  const openEditSale = (row: any) => {
-    const savedUnitPrice = row.unitPrice ?? row.rate;
-    const eggLines = row.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
-    setEditingSaleId(row.id);
-    setErrors({});
-    setSaleForm({
-      farmId: row.farmId || row.farm?.id || "",
-      batchId: row.batchId || row.batch?.id || "",
-      itemType: row.itemType || "Chicken_Meat",
-      eggTypeId: row.eggTypeId || "",
-      eggLineItems:
-        eggLines && eggLines.length > 0
-          ? eggLines.map((l) => ({
-              eggTypeId: l.eggTypeId,
-              quantity: String(l.quantity),
-              unitPrice: String(l.unitPrice),
-            }))
-          : row.eggTypeId
-            ? [{
-                eggTypeId: row.eggTypeId,
-                quantity: String(row.quantity),
-                unitPrice: savedUnitPrice == null ? "" : String(savedUnitPrice),
-              }]
-            : [{ eggTypeId: "", quantity: "", unitPrice: "" }],
-      rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
-      quantity: row.quantity == null ? "" : String(row.quantity),
-      weight: row.weight == null ? "" : String(row.weight),
-      weightDiscountEnabled: row.weightDiscountPercent != null,
-      weightDiscountPercent: row.weightDiscountPercent == null ? "" : String(Number(row.weightDiscountPercent)),
-      discountType: row.discount?.type === "PERCENT" ? "PERCENT" : "FLAT",
-      discountValue: row.discount?.value != null ? String(Number(row.discount.value)) : "",
-      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
-      remaining: Boolean(row.isCredit),
-      customerId: row.customerId || row.customer?.id || "",
-      customerName: row.customer?.name || "",
-      contact: row.customer?.phone || "",
-      customerCategory: row.customer?.category || "Chicken",
-      balance: row.paidAmount == null ? "" : String(row.paidAmount),
-    });
-    setIsSaleModalOpen(true);
-  };
 
   const resetSaleForm = () => {
     setSaleForm((prev) => ({
@@ -1327,14 +1274,6 @@ export default function SalesLedgerPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0"
-            onClick={() => openEditSale(row)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0"
             onClick={() => setBillSaleId(row.id)}
             title={t("bills.openBill")}
             aria-label={t("bills.openBill")}
@@ -1345,8 +1284,9 @@ export default function SalesLedgerPage() {
             variant="outline"
             size="sm"
             className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => deleteSale(row.id)}
-            disabled={isDeleting}
+            onClick={() => setSaleToDelete(row)}
+            title={t("saleDelete.delete")}
+            aria-label={t("saleDelete.delete")}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -2023,12 +1963,11 @@ export default function SalesLedgerPage() {
         isOpen={isSaleModalOpen}
         onClose={() => {
           setIsSaleModalOpen(false);
-          setEditingSaleId(null);
           resetSaleForm();
           setCustomerSearch("");
           setErrors({});
         }}
-        title={editingSaleId ? t("farmer.salesLedger.saleModal.editSale") : t("farmer.salesLedger.saleModal.addNewSale")}
+        title={t("farmer.salesLedger.saleModal.addNewSale")}
         className="max-w-xl"
       >
         <form onSubmit={handleSaleSubmit}>
@@ -2652,7 +2591,6 @@ export default function SalesLedgerPage() {
               variant="outline"
               onClick={() => {
                 setIsSaleModalOpen(false);
-                setEditingSaleId(null);
                 resetSaleForm();
                 setCustomerSearch("");
                 setErrors({});
@@ -2663,15 +2601,13 @@ export default function SalesLedgerPage() {
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={isCreating || isUpdating}
+              disabled={isCreating}
             >
-              {isCreating || isUpdating ? (
+              {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingSaleId ? t("farmer.salesLedger.saleModal.updating") : t("farmer.salesLedger.saleModal.creating")}
+                  {t("farmer.salesLedger.saleModal.creating")}
                 </>
-              ) : editingSaleId ? (
-                t("farmer.salesLedger.saleModal.updateSale")
               ) : (
                 t("farmer.salesLedger.saleModal.createSale")
               )}
@@ -2735,6 +2671,7 @@ export default function SalesLedgerPage() {
         </ModalFooter>
       </Modal>
 
+      <DeleteSaleDialog sale={saleToDelete} onClose={() => setSaleToDelete(null)} onDelete={deleteSale} />
       <FarmerSaleBill saleId={billSaleId} onClose={() => setBillSaleId(null)} />
 
       {/* Party Modal */}

@@ -34,12 +34,8 @@ jest.mock("../../src/services/farmerFcrService", () => ({
   refreshFarmerFcrHistorySafely: jest.fn(),
 }));
 
-jest.mock("../../src/services/farmerSaleBatchSyncService", () => ({
-  syncFarmerSaleBatchRecords: jest.fn().mockResolvedValue([]),
-}));
-
 import prisma from "../../src/utils/prisma";
-import { createSale, updateSale } from "../../src/controller/salesController";
+import { createSale } from "../../src/controller/salesController";
 import { applyBillDiscount, BillDiscountError } from "../../src/utils/discountHelpers";
 
 const db = prisma as any;
@@ -196,107 +192,5 @@ describe("createSale with a bill discount", () => {
     expect(saved.amount).toBe(10000);
     expect(saved.subtotalAmount).toBeNull();
     expect(saved.discount).toBeUndefined();
-  });
-});
-
-describe("updateSale with a bill discount", () => {
-  const existing = {
-    id: "sale-1",
-    itemType: "Chicken_Meat",
-    date: new Date("2026-10-12T00:00:00.000Z"),
-    amount: 57500,
-    subtotalAmount: null,
-    discount: null,
-    quantity: 100,
-    weight: 250,
-    weightDiscountPercent: null,
-    unitPrice: 230,
-    paidAmount: 57500,
-    dueAmount: null,
-    isCredit: false,
-    customerId: null,
-    batchId: null,
-    farm: null,
-    customer: null,
-    payments: [{ id: "pay-1", amount: 57500, description: "Initial payment", createdAt: new Date("2026-10-12") }],
-  };
-  const discounted = {
-    ...existing,
-    amount: 57000,
-    subtotalAmount: 57500,
-    discount: { type: "FLAT", value: 500 },
-    paidAmount: 57000,
-    payments: [{ id: "pay-1", amount: 57000, description: "Initial payment", createdAt: new Date("2026-10-12") }],
-  };
-
-  it("adds a discount to an old sale", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(existing);
-    const res = makeResponse();
-    await updateSale(makeRequest({ discount: { type: "FLAT", value: 500 } }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.amount).toBe(57000);
-    expect(update.subtotalAmount).toBe(57500);
-    expect(update.paidAmount).toBe(57000);
-    expect(update.discount.upsert.create).toEqual({ type: "FLAT", value: 500, scope: "SALE" });
-  });
-
-  it("changes a flat discount to a percent", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(discounted);
-    const res = makeResponse();
-    await updateSale(makeRequest({ discount: { type: "PERCENT", value: 2 } }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.amount).toBe(56350);
-    expect(update.discount.upsert.update).toEqual({ type: "PERCENT", value: 2 });
-  });
-
-  it("removes the discount when sent as null", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(discounted);
-    const res = makeResponse();
-    await updateSale(makeRequest({ discount: null }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.amount).toBe(57500);
-    expect(update.subtotalAmount).toBeNull();
-    expect(update.discount).toEqual({ delete: true });
-  });
-
-  it("keeps the saved discount when only the weight changes", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(discounted);
-    const res = makeResponse();
-    await updateSale(makeRequest({ weight: 260 }, { id: "sale-1" }), res);
-
-    // 260 kg × 230 = 59,800, less the saved रू 500
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.subtotalAmount).toBe(59800);
-    expect(update.amount).toBe(59300);
-    expect(update.discount.upsert.update).toEqual({ type: "FLAT", value: 500 });
-  });
-
-  it("leaves money alone when nothing about the bill changes", async () => {
-    db.sale.findUnique.mockResolvedValueOnce(discounted);
-    const res = makeResponse();
-    await updateSale(makeRequest({ description: "note" }, { id: "sale-1" }), res);
-
-    const update = db.sale.update.mock.calls[0][0].data;
-    expect(update.amount).toBeUndefined();
-    expect(update.subtotalAmount).toBeUndefined();
-    expect(update.discount).toBeUndefined();
-  });
-
-  it("refuses a discount that leaves less than already paid on credit", async () => {
-    db.sale.findUnique.mockResolvedValueOnce({
-      ...existing,
-      isCredit: true,
-      customerId: "cust-1",
-      paidAmount: 57000,
-      dueAmount: 500,
-    });
-    const res = makeResponse();
-    await updateSale(makeRequest({ discount: { type: "FLAT", value: 1000 } }, { id: "sale-1" }), res);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(db.sale.update).not.toHaveBeenCalled();
   });
 });

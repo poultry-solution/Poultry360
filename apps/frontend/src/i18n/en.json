@@ -433,7 +433,6 @@
       },
       "viewCount": "View ({count})",
       "saleModal": {
-        "editSale": "Edit Sale",
         "addNewSale": "Add New Sale",
         "selectFarm": "Select Farm *",
         "chooseFarm": "Choose a farm",
@@ -474,7 +473,6 @@
         "cancel": "Cancel",
         "updating": "Updating...",
         "creating": "Creating...",
-        "updateSale": "Update Sale",
         "createSale": "Create Sale",
         "chickenMeat": "Chicken (meat)",
         "ratePerEgg": "Rate per egg (रू)",
@@ -549,7 +547,6 @@
         "dateRequired": "Date is required"
       },
       "toast": {
-        "saleUpdated": "Sale updated successfully",
         "saleCreated": "Sale created successfully",
         "partyUpdated": "Party updated successfully",
         "partyCreated": "Party created successfully",
@@ -3575,5 +3572,15 @@
     "invoice": "Invoice",
     "later": "Later",
     "shareBill": "Share bill"
+  },
+  "saleDelete": {
+    "title": "Delete this sale?",
+    "body": "Bill {n} · {amount}. Birds, eggs and the customer balance will go back. This cannot be undone.",
+    "laterPayments": "{amount} received later on this sale will also be removed. Add it again after you add the sale again.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "deleted": "Sale deleted",
+    "failed": "Could not delete the sale."
   }
 }

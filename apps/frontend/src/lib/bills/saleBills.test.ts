@@ -25,10 +25,8 @@ describe("farmerSaleToBill", () => {
       ["Medium", 932, 13048],
     ]);
     expect(bill.totals).toMatchObject({ total: 44562, paid: 40000, due: 4562, subtotal: undefined });
-    expect(bill.partyRows).toEqual([
-      { label: "Phone", value: "9811111111" },
-      { label: "Category", value: "Retailer" },
-    ]);
+    // Customer type (category) is not printed on the bill.
+    expect(bill.partyRows).toEqual([{ label: "Phone", value: "9811111111" }]);
     expect(bill.fileName).toBe("Bill-INV-024-Hari-Kirana-Pasal");
   });
 

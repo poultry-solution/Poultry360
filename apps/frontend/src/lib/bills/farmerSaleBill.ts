@@ -59,7 +59,6 @@ export function farmerSaleToBill(sale: any, business: BillBusiness): BillData {
   const partyRows = [
     customer?.phone ? { label: "Phone", value: String(customer.phone) } : null,
     customer?.address ? { label: "Address", value: String(customer.address) } : null,
-    { label: "Category", value: String(customer?.category || sale?.category?.name || "—") },
   ].filter(Boolean) as { label: string; value: string }[];
 
   return {

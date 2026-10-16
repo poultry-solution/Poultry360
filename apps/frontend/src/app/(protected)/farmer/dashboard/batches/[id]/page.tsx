@@ -110,6 +110,7 @@ import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
 import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
+import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
@@ -137,22 +138,6 @@ type ExpenseRow = {
   otherName?: string;
   otherRate?: number;
   otherQuantity?: number;
-};
-
-type SaleRow = {
-  id: number;
-  item: string;
-  rate: number;
-  quantity: number;
-  remaining: boolean;
-  customer?: {
-    name: string;
-    phone: string;
-    category: "Chicken" | "Other";
-    balance: number;
-  } | null;
-  date: string; // yyyy-mm-dd
-  categoryId: string;
 };
 
 const EXPENSES_PAGE_LIMIT = 10;
@@ -294,12 +279,9 @@ export default function BatchDetailPage() {
     isLoading: salesLoading,
     error: salesError,
     createSale,
-    updateSale,
     deleteSale,
     addPayment,
     isCreating,
-    isUpdating,
-    isDeleting,
     isAddingPayment,
     refetch: refetchSales,
   } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
@@ -1055,7 +1037,7 @@ export default function BatchDetailPage() {
 
   // --- Sales Modal ---
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
-  const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
   type EggLineRow = { eggTypeId: string; quantity: string; unitPrice: string };
   const [saleForm, setSaleForm] = useState<{
     farmId: string;
@@ -1140,7 +1122,6 @@ export default function BatchDetailPage() {
     }));
   }
   function openNewSale() {
-    setEditingSaleId(null);
     setSaleForm({
       farmId: batch?.farmId ?? "",
       batchId: batchId ?? "",
@@ -1164,58 +1145,6 @@ export default function BatchDetailPage() {
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
-  }
-  function openEditSale(row: SaleRow) {
-    setEditingSaleId(row.id);
-    const r = row as any;
-    const savedUnitPrice = r.unitPrice ?? r.rate;
-    const eggLines = r.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
-    const eggLineItems: EggLineRow[] =
-      eggLines && eggLines.length > 0
-        ? eggLines.map((l: { eggTypeId: string; quantity: number; unitPrice: number }) => ({
-            eggTypeId: l.eggTypeId,
-            quantity: String(l.quantity),
-            unitPrice: String(l.unitPrice),
-          }))
-        : r.eggTypeId
-          ? [{
-              eggTypeId: r.eggTypeId,
-              quantity: String(row.quantity),
-              unitPrice: savedUnitPrice == null ? "" : String(savedUnitPrice),
-            }]
-          : [{ eggTypeId: "", quantity: "", unitPrice: "" }];
-    setSaleForm({
-      farmId: batch?.farmId ?? "",
-      batchId: batchId ?? "",
-      rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
-      quantity: String(row.quantity),
-      weight: String(r.weight || ""),
-      weightDiscountEnabled: r.weightDiscountPercent != null,
-      weightDiscountPercent: r.weightDiscountPercent == null ? "" : String(Number(r.weightDiscountPercent)),
-      discountType: r.discount?.type === "PERCENT" ? "PERCENT" : "FLAT",
-      discountValue: r.discount?.value != null ? String(Number(r.discount.value)) : "",
-      itemType: r.itemType || "Chicken_Meat",
-      eggTypeId: r.eggTypeId || "",
-      eggLineItems,
-      remaining: Boolean(r.isCredit ?? r.remaining),
-      customerId: r.customerId || r.customer?.id || "",
-      customerName: row.customer?.name || "",
-      contact: row.customer?.phone || "",
-      customerCategory: row.customer?.category || "Chicken",
-      balance: r.paidAmount == null ? "" : String(r.paidAmount),
-      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
-    });
-    setCustomerSearch("");
-    setIsSaleModalOpen(true);
-  }
-  async function handleDeleteSale(id: string) {
-    try {
-      await deleteSale(id);
-      flash("success", "Sale deleted successfully");
-    } catch (error) {
-      console.error("Failed to delete sale:", error);
-      flash("error", "Failed to delete sale");
-    }
   }
 
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
@@ -1400,16 +1329,10 @@ export default function BatchDetailPage() {
         }
       }
 
-      if (editingSaleId) {
-        await updateSale({ id: String(editingSaleId), data: saleData });
-        flash("success", "Sale updated successfully");
-      } else {
-        await createSale(saleData);
-        flash("success", "Sale added successfully");
-      }
+      await createSale(saleData);
+      flash("success", "Sale added successfully");
 
       setIsSaleModalOpen(false);
-      setEditingSaleId(null);
       setSaleErrors({});
     } catch (error) {
       console.error("Failed to save sale:", error);
@@ -1703,10 +1626,7 @@ export default function BatchDetailPage() {
 
   const salesColumns = createSalesColumns({
     isBatchClosed,
-    isUpdating,
-    isDeleting,
-    openEditSale,
-    handleDeleteSale,
+    onDeleteSale: setSaleToDelete,
     openTransactionsModal,
   });
 
@@ -2150,16 +2070,17 @@ export default function BatchDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <DeleteSaleDialog sale={saleToDelete} onClose={() => setSaleToDelete(null)} onDelete={deleteSale} />
+
       {/* Sale Modal — same as sales-ledger New Sale, with farm/batch fixed from current batch */}
       <Modal
         isOpen={isSaleModalOpen}
         onClose={() => {
           setIsSaleModalOpen(false);
-          setEditingSaleId(null);
           setSaleErrors({});
           setCustomerSearch("");
         }}
-        title={editingSaleId ? "Edit Sale" : "Add Sale"}
+        title="Add Sale"
       >
         <form onSubmit={submitSale}>
           <ModalContent>
@@ -2605,7 +2526,6 @@ export default function BatchDetailPage() {
               variant="outline"
               onClick={() => {
                 setIsSaleModalOpen(false);
-                setEditingSaleId(null);
                 setSaleErrors({});
                 setCustomerSearch("");
               }}
@@ -2615,15 +2535,13 @@ export default function BatchDetailPage() {
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={isCreating || isUpdating}
+              disabled={isCreating}
             >
-              {isCreating || isUpdating ? (
+              {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingSaleId ? "Updating..." : "Creating..."}
+                  Creating...
                 </>
-              ) : editingSaleId ? (
-                "Update Sale"
               ) : (
                 "Save"
               )}

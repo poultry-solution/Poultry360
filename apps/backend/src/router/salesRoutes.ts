@@ -4,7 +4,6 @@ import {
   getSaleById,
   getBatchSales,
   createSale,
-  updateSale,
   deleteSale,
   addSalePayment,
   getSalesCategories,
@@ -82,9 +81,6 @@ router.post("/", createSale);
 
 // GET /api/sales/:id - Get sale by ID
 router.get("/:id", getSaleById);
-
-// PUT /api/sales/:id - Update sale by ID
-router.put("/:id", updateSale);
 
 // DELETE /api/sales/:id - Delete sale by ID
 router.delete("/:id", deleteSale);
