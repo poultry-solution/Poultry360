@@ -9,13 +9,11 @@ interface SalesColumnsProps {
   isBatchClosed: boolean;
   /** Opens the "Delete this sale?" dialog. */
   onDeleteSale: (row: any) => void;
-  openTransactionsModal: (row: any) => void;
 }
 
 export function createSalesColumns({
   isBatchClosed,
   onDeleteSale,
-  openTransactionsModal,
 }: SalesColumnsProps): Column<any>[] {
   return [
     createColumn("date", "Date", {
@@ -138,35 +136,6 @@ export function createSalesColumns({
         </Badge>
       ),
     }),
-    createColumn("paidAmount", "Paid", {
-      type: "currency",
-      align: "right",
-      width: "100px",
-      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
-    }),
-    createColumn("dueAmount", "Due", {
-      type: "currency",
-      align: "right",
-      width: "100px",
-      render: (value) => (value ? `₹${Number(value).toLocaleString()}` : "—"),
-    }),
-    {
-      key: "transactions",
-      label: "Transactions",
-      type: "actions",
-      align: "center",
-      width: "120px",
-      render: (_, row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 px-3 text-xs hover:bg-blue-50 hover:border-blue-300"
-          onClick={() => openTransactionsModal(row)}
-        >
-          View ({row.payments?.length || 0})
-        </Button>
-      ),
-    },
     {
       key: "actions",
       label: "Actions",
