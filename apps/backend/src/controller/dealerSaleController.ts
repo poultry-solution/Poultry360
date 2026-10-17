@@ -1325,6 +1325,124 @@ export const settleBroilerSales = async (
   }
 };
 
+// ==================== REVERSE BROILER SETTLEMENT ====================
+export const reverseSettlement = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const { settlementId } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    await prisma.$transaction(async (tx) => {
+      const settlement = await tx.broilerSaleSettlement.findUnique({
+        where: { id: settlementId },
+        include: {
+          sales: { select: { id: true } },
+          farmer: { select: { id: true, name: true } },
+        },
+      });
+      if (!settlement) throw new Error("Settlement not found");
+      if (settlement.dealerId !== dealer.id) throw new Error("Settlement not found");
+
+      // The reference stored in ledger entries — mirrors what settleBroilerSales writes.
+      const settlementReference =
+        settlement.reference?.trim() ||
+        `BROILER-SETTLEMENT-${settlement.id.slice(-8).toUpperCase()}`;
+
+      // 1. Unlink all sales from this settlement.
+      await tx.dealerSale.updateMany({
+        where: { settlementId: settlement.id },
+        data: { settlementId: null },
+      });
+
+      // 2. Reverse customer balance changes from credit recovery.
+      //    recordAccountPayment(direction=RECEIVED) decremented balance and incremented totalPayments.
+      const creditRecovered = Number(settlement.creditRecovered);
+      if (creditRecovered > 0) {
+        await tx.customer.update({
+          where: { id: settlement.farmerId },
+          data: {
+            balance: { increment: new Prisma.Decimal(creditRecovered) },
+            totalPayments: { decrement: new Prisma.Decimal(creditRecovered) },
+          },
+        });
+      }
+
+      // 3. Remove ledger entries written by this settlement and repair running balances.
+      //    All settlement-related entries share the same settlementReference.
+      const settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
+        where: { dealerId: dealer.id, reference: settlementReference },
+        orderBy: { createdAt: "asc" },
+      });
+
+      // Net effect on the running balance: only PAYMENT_RECEIVED entries reduce it;
+      // PAYMENT_MADE (payout, no balance effect) and BROILER_SALE_MARGIN both leave
+      // the running balance unchanged (their balance column equals the previous balance).
+      let netLedgerEffect = 0;
+      for (const entry of settlementLedgerEntries) {
+        if (entry.type === "PAYMENT_RECEIVED") netLedgerEffect -= Number(entry.amount);
+      }
+
+      const oldestEntry = settlementLedgerEntries[0];
+      await tx.dealerLedgerEntry.deleteMany({
+        where: { dealerId: dealer.id, reference: settlementReference },
+      });
+
+      if (oldestEntry && netLedgerEffect !== 0) {
+        await tx.dealerLedgerEntry.updateMany({
+          where: {
+            dealerId: dealer.id,
+            OR: [
+              { createdAt: { gt: oldestEntry.createdAt } },
+              {
+                AND: [
+                  { createdAt: oldestEntry.createdAt },
+                  { id: { gt: oldestEntry.id } },
+                ],
+              },
+            ],
+          },
+          data: { balance: { decrement: new Prisma.Decimal(netLedgerEffect) } },
+        });
+      }
+
+      // 4. Delete the settlement record (sales are already unlinked above so Restrict constraint allows this).
+      await tx.broilerSaleSettlement.delete({ where: { id: settlement.id } });
+
+      await writeBusinessAudit(req, {
+        action: "dealer.broiler_settlement.reversed",
+        targetType: "BroilerSaleSettlement",
+        targetId: settlement.id,
+        description: `Reversed Broiler settlement for ${settlement.farmer.name}`,
+        businessType: "DEALER",
+        businessId: dealer.id,
+        metadata: {
+          totalProceeds: Number(settlement.totalProceeds),
+          marginAmount: Number(settlement.marginAmount),
+          creditRecovered,
+          farmerPayout: Number(settlement.farmerPayout),
+          saleCount: settlement.sales.length,
+        },
+      }, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return res.status(200).json({ success: true, message: "Settlement reversed successfully" });
+  } catch (error: any) {
+    if (error.message === "Settlement not found") {
+      return res.status(404).json({ message: "Settlement not found" });
+    }
+    console.error("Reverse settlement error:", error);
+    return res.status(400).json({ message: error.message || "Unable to reverse settlement" });
+  }
+};
+
 // ==================== CHICKEN SALES BY SOURCE FARMER ====================
 export const getChickenSalesByFarmer = async (
   req: Request,

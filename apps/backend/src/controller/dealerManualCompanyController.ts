@@ -368,23 +368,27 @@ export const setManualCompanyOpeningBalance = async (
             return res.status(404).json({ message: "Dealer not found" });
         }
 
-        const company = await prisma.dealerManualCompany.findUnique({ where: { id } });
-        if (!company || company.dealerId !== dealer.id) {
-            return res.status(404).json({ message: "Manual company not found" });
-        }
-
-        const latest = await prisma.dealerManualCompanyAdjustment.findFirst({
-            where: { manualCompanyId: id, type: "OPENING_BALANCE" },
-            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-            select: { amount: true },
-        });
-        const prevOpening = latest ? Number(latest.amount) : 0;
-        const delta = nextOpening - prevOpening;
-        const newBalance = Number(company.balance) + delta;
-
         const adjDate = date ? new Date(date) : new Date();
 
+        // Reads and writes happen inside a Serializable transaction so that two
+        // concurrent edits cannot both read the same stale balance and overwrite
+        // each other. One of them will get a serialization error and the client
+        // can retry.
         const updated = await prisma.$transaction(async (tx) => {
+            const company = await tx.dealerManualCompany.findUnique({ where: { id } });
+            if (!company || company.dealerId !== dealer.id) {
+                throw new Error("Manual company not found");
+            }
+
+            const latest = await tx.dealerManualCompanyAdjustment.findFirst({
+                where: { manualCompanyId: id, type: "OPENING_BALANCE" },
+                orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+                select: { amount: true },
+            });
+            const prevOpening = latest ? Number(latest.amount) : 0;
+            const delta = nextOpening - prevOpening;
+            const newBalance = Number(company.balance) + delta;
+
             await tx.dealerManualCompanyAdjustment.create({
                 data: {
                     manualCompanyId: id,
@@ -399,7 +403,7 @@ export const setManualCompanyOpeningBalance = async (
                 where: { id },
                 data: { balance: new Prisma.Decimal(newBalance) },
             });
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         return res.status(200).json({
             success: true,
@@ -417,6 +421,9 @@ export const setManualCompanyOpeningBalance = async (
             message: "Opening balance updated",
         });
     } catch (error: any) {
+        if (error.message === "Manual company not found") {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
         console.error("Set opening balance error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
@@ -795,7 +802,9 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
                 });
                 if (!product) continue;
                 const currentStock = Number(product.currentStock || 0);
-                const qty = Number(item.quantity || 0);
+                // Use baseQuantity (base unit) to mirror what the original purchase added.
+                // Fall back to quantity for older records that predate baseQuantity.
+                const qty = Number(item.baseQuantity ?? item.quantity ?? 0);
                 if (currentStock < qty) {
                     throw new Error(
                         `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}.`
@@ -806,7 +815,7 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
             // Reverse inventory + create reversal transactions
             for (const item of purchase.items) {
                 if (!item.dealerProductId) continue;
-                const qty = Number(item.quantity || 0);
+                const qty = Number(item.baseQuantity ?? item.quantity ?? 0);
                 const cost = Number(item.costPrice || 0);
                 const totalAmount = qty * cost;
 

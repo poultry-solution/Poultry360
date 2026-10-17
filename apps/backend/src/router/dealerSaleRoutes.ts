@@ -13,6 +13,7 @@ import {
   getChickenSalesByFarmer,
   getBroilerSaleSettlements,
   settleBroilerSales,
+  reverseSettlement,
   archiveDealerCustomer,
   unarchiveDealerCustomer,
   deleteDealerCustomer,
@@ -68,6 +69,11 @@ router.post(
   "/broiler-settlements",
   requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
   settleBroilerSales
+);
+router.delete(
+  "/broiler-settlements/:settlementId",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
+  reverseSettlement
 );
 
 // Get dealer customers

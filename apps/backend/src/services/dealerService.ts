@@ -95,13 +95,15 @@ export class DealerService {
         ? distributeDiscountToItems(subtotal, discountAmount, items)
         : items.map((item) => item.quantity * item.unitPrice);
 
-    // Use a single, optimized transaction for all side effects
+    // Serializable isolation prevents concurrent ledger-balance write-skew:
+    // two simultaneous sales could otherwise both read the same last-balance
+    // and produce stale running-totals.
     const saleId = await prisma.$transaction(async (tx) => {
-      // 1. Validate stock availability for all items in parallel
+      // 1. Fetch products — enforce dealer ownership so cross-dealer stock cannot be touched.
       const productChecks = await Promise.all(
         items.map((item) =>
           item.productId
-            ? tx.dealerProduct.findUnique({ where: { id: item.productId } })
+            ? tx.dealerProduct.findUnique({ where: { id: item.productId, dealerId } })
             : Promise.resolve(null)
         )
       );
@@ -112,12 +114,25 @@ export class DealerService {
         if (!product) {
           throw new Error(`Product ${items[i].productId} not found`);
         }
-        if (Number(product.currentStock) < items[i].quantity) {
-          throw new Error(
-            `Insufficient stock for product ${product.name}. Available: ${product.currentStock}, Requested: ${items[i].quantity}`
-          );
-        }
       }
+
+      // 1b. Pre-compute baseQuantity (base-unit quantity) for every item that uses a
+      // non-base unit. This must happen before stock deduction so the correct
+      // quantity is used for both the stock check and the decrement.
+      const baseQuantityByIndex = new Map<number, number | null>();
+      await Promise.all(items.map(async (item, i) => {
+        const product = productChecks[i];
+        if (!product || !item.productId || !item.unit || item.unit === product.unit) {
+          baseQuantityByIndex.set(i, null);
+          return;
+        }
+        const conversions = await tx.dealerProductUnitConversion.findMany({ where: { dealerProductId: item.productId } });
+        const companyConversions = product.companyProductId
+          ? await tx.productUnitConversion.findMany({ where: { productId: product.companyProductId } })
+          : [];
+        const conv = [...conversions, ...companyConversions].find(c => c.unitName === item.unit);
+        baseQuantityByIndex.set(i, conv ? item.quantity * Number(conv.conversionFactor) : null);
+      }));
 
       // 2. Generate invoice number (custom or auto-sequential)
       const invoiceNumber = customInvoiceNumber?.trim() || await generateNextInvoiceNumber(dealerId, tx);
@@ -154,23 +169,10 @@ export class DealerService {
         });
       }
 
-      // 3. Prepare bulk operations — compute baseQuantity for unit conversions
+      // 3. Prepare bulk operations — reuse pre-computed baseQuantity (no extra queries).
       const unitCosts = await getNetUnitCosts(tx, items.map((item) => item.productId));
-      const saleItemsData = await Promise.all(items.map(async (item, i) => {
-        let baseQuantity: number | null = null;
-        const product = productChecks[i];
-        if (product && item.productId && item.unit && item.unit !== product.unit) {
-          const conversions = await tx.dealerProductUnitConversion.findMany({ where: { dealerProductId: item.productId } });
-          const companyConversions = product.companyProductId
-            ? await tx.productUnitConversion.findMany({ where: { productId: product.companyProductId } })
-            : [];
-          const allConversions = [...conversions, ...companyConversions];
-          const conv = allConversions.find(c => c.unitName === item.unit);
-          if (conv) {
-            baseQuantity = item.quantity * Number(conv.conversionFactor);
-          }
-        }
-        // Cost uses the same quantity that is taken out of stock below.
+      const saleItemsData = items.map((item, i) => {
+        const baseQuantity = baseQuantityByIndex.get(i) ?? null;
         const unitCost = item.productId ? unitCosts.get(item.productId) ?? null : null;
         const costAmount = unitCost !== null ? computeLineCost(unitCost, baseQuantity ?? item.quantity) : null;
         return {
@@ -187,7 +189,7 @@ export class DealerService {
           unitCost: unitCost !== null ? new Prisma.Decimal(unitCost) : null,
           costAmount: costAmount !== null ? new Prisma.Decimal(costAmount) : null,
         };
-      }));
+      });
 
       const productTransactionsData = items.flatMap((item, i) =>
         item.productId
@@ -206,33 +208,34 @@ export class DealerService {
           : []
       );
 
-      // 4. Execute bulk operations in parallel
+      // 4. Atomically check-and-decrement stock for each product (guarded updateMany).
+      // This closes the TOCTOU race: the WHERE clause checks ownership, visibility, and
+      // sufficient stock in the same SQL statement that performs the decrement.
+      for (let i = 0; i < saleItemsData.length; i++) {
+        const saleItem = saleItemsData[i];
+        if (!saleItem.productId) continue;
+        const deductQty = saleItem.baseQuantity ?? new Prisma.Decimal(items[i].quantity);
+        const stockUpdate = await tx.dealerProduct.updateMany({
+          where: {
+            id: saleItem.productId,
+            dealerId,
+            hiddenAt: null,
+            currentStock: { gte: deductQty },
+          },
+          data: { currentStock: { decrement: deductQty } },
+        });
+        if (stockUpdate.count !== 1) {
+          const product = productChecks[i];
+          throw new Error(
+            `Insufficient stock for product ${product?.name ?? saleItem.productId}. Requested: ${deductQty}`
+          );
+        }
+      }
+
+      // Create sale items and product transactions in parallel (stock already deducted above).
       await Promise.all([
-        // Create all sale items
-        Promise.all(
-          saleItemsData.map((data) => tx.dealerSaleItem.create({ data }))
-        ),
-        // Update all product stocks — use baseQuantity (in base unit) when available
-        Promise.all(
-          saleItemsData.flatMap((saleItem, i) =>
-            saleItem.productId
-              ? [tx.dealerProduct.update({
-              where: { id: saleItem.productId },
-              data: {
-                currentStock: {
-                  decrement: saleItem.baseQuantity ?? new Prisma.Decimal(items[i].quantity),
-                },
-              },
-            })]
-              : []
-          )
-        ),
-        // Create all product transactions
-        Promise.all(
-          productTransactionsData.map((data) =>
-            tx.dealerProductTransaction.create({ data })
-          )
-        ),
+        Promise.all(saleItemsData.map((data) => tx.dealerSaleItem.create({ data }))),
+        Promise.all(productTransactionsData.map((data) => tx.dealerProductTransaction.create({ data }))),
       ]);
 
       // 5. Create payment record if paidAmount > 0
@@ -313,8 +316,7 @@ export class DealerService {
 
       // Return sale ID - fetch full details outside transaction
       return sale.id;
-    }
-    );
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     // Fetch complete sale details outside transaction to avoid timeout
     return await prisma.dealerSale.findUnique({
