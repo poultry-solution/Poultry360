@@ -1,3 +1,4 @@
+import { refreshFarmerData } from "@/fetchers/farmer/refreshFarmerData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Batch, 
@@ -262,6 +263,9 @@ export const useCreateBatch = () => {
       return response.data as BatchDetailResponse;
     },
     onSuccess: (data) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate batch queries
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       if (data.data?.farmId) {
@@ -287,6 +291,9 @@ export const useUpdateBatch = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate batch queries
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
@@ -311,6 +318,9 @@ export const useUpdateBatchStatus = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate batch queries
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
@@ -334,6 +344,9 @@ export const useCloseBatch = () => {
       };
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate batch queries
       queryClient.invalidateQueries({ queryKey: batchKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
@@ -358,9 +371,13 @@ export const useDeleteBatch = () => {
       return response.data;
     },
     onSuccess: (data, id) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Remove from cache and invalidate lists
       queryClient.removeQueries({ queryKey: batchKeys.detail(id) });
       queryClient.removeQueries({ queryKey: batchKeys.analytics(id) });
+      // Refresh after removing the deleted batch, so its page does not try to reload it.
+      refreshFarmerData(queryClient);
       queryClient.invalidateQueries({ queryKey: batchKeys.lists() });
       
       // Invalidate farm batches

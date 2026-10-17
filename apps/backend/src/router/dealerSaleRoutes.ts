@@ -9,6 +9,7 @@ import {
   createCustomer,
   getDealerCustomers,
   getSalesStatistics,
+  getSalesTrend,
   getChickenSalesByFarmer,
   getBroilerSaleSettlements,
   settleBroilerSales,
@@ -48,6 +49,9 @@ router.get("/", getDealerSales);
 
 // Get sales statistics
 router.get("/statistics", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getSalesStatistics);
+
+// Sales vs money collected per Nepal day (Home graph).
+router.get("/trend", requireStaffPermission(StaffPermission.DEALER_VIEW_FINANCIAL_SUMMARIES), getSalesTrend);
 
 // Tentative chicken-sale revenue grouped by the farmer that supplied the birds.
 router.get(

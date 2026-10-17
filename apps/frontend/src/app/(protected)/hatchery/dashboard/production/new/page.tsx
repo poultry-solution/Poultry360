@@ -15,6 +15,7 @@ import {
 import { useCreateHatcheryProduction } from "@/fetchers/hatchery/hatcheryProductionQueries";
 import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
 import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 export default function NewHatcheryProductionPage() {
   return (
@@ -28,6 +29,7 @@ export default function NewHatcheryProductionPage() {
 }
 
 function NewHatcheryProductionContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const createProduction = useCreateHatcheryProduction();
   const [materialSearch, setMaterialSearch] = useState("");
@@ -52,7 +54,8 @@ function NewHatcheryProductionContent() {
     unit: item.unit,
     currentStock: Number(item.currentStock),
     unitCost: Number(item.effectiveUnitCost ?? item.unitPrice),
-    subtitle: `${item.supplier?.name ?? "Supplier"} · ${Number(item.currentStock)} ${item.unit} available · Rs. ${Number(item.effectiveUnitCost ?? item.unitPrice).toFixed(2)}/${item.unit}`,
+    firstPurchaseDate: item.firstPurchaseDate ?? null,
+    supplierName: item.supplier?.name ?? null,
   }));
   const products = (
     (productsResponse?.data ?? []) as HatcheryManufacturedProduct[]
@@ -67,6 +70,7 @@ function NewHatcheryProductionContent() {
     <MaterialProductionForm
       backHref="/hatchery/dashboard/production"
       inventoryHref="/hatchery/dashboard/inventory"
+      purchaseHref="/hatchery/dashboard/supplier-ledger"
       materials={materials}
       products={products}
       isLoadingMaterials={inventoryLoading}
@@ -77,11 +81,11 @@ function NewHatcheryProductionContent() {
       onSubmit={async (input) => {
         try {
           await createProduction.mutateAsync(input);
-          toast.success("Production recorded and inventory updated");
+          toast.success(t("production.toast.saved"));
           router.push("/hatchery/dashboard/production");
         } catch (error: any) {
           toast.error(
-            error?.response?.data?.message || "Failed to record production"
+            error?.response?.data?.message || t("production.toast.saveFailed")
           );
         }
       }}

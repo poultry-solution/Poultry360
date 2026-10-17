@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { dealerSaleKeys } from "@/fetchers/dealer/dealerSaleQueries";
 
@@ -74,7 +74,7 @@ export const useGetLedgerEntries = (params?: {
   partyId?: string;
   startDate?: string;
   endDate?: string;
-}) => {
+}, options?: { keepPrevious?: boolean }) => {
   const queryString = new URLSearchParams(
     Object.entries(params || {})
       .filter(([_, v]) => v !== undefined)
@@ -87,6 +87,7 @@ export const useGetLedgerEntries = (params?: {
       const { data } = await axiosInstance.get(`/dealer/ledger?${queryString}`);
       return data;
     },
+    placeholderData: options?.keepPrevious ? keepPreviousData : undefined,
   });
 };
 
@@ -236,6 +237,8 @@ export const useAddDealerPayment = () => {
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.balance() });
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.summary() });
       queryClient.invalidateQueries({ queryKey: [...dealerLedgerKeys.all, "parties"] });
+      // Home "Sales vs collected" graph lives under the statistics key.
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
     },
   });
 };

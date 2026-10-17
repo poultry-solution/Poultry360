@@ -6,8 +6,8 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { Button } from "@/common/components/ui/button";
-import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,23 @@ import {
   DialogTitle,
 } from "@/common/components/ui/dialog";
 import { useAuthStore } from "@/common/store/store";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import {
+  convertADtoBS,
+  getBSYearMonthFromAD,
+  getFirstDayOfBSMonthAD,
+  getNepalTodayAd,
+  toNepalDayAd,
+} from "@/common/lib/nepali-date";
+
+/** BS label for an AD YYYY-MM-DD date (falls back to the AD text). */
+function bsLabel(adDate?: string) {
+  if (!adDate) return "";
+  try {
+    return convertADtoBS(adDate);
+  } catch {
+    return adDate;
+  }
+}
 
 export type DownloadDateRange = {
   startDate?: string;
@@ -168,7 +184,7 @@ function createTablePdf({
 
 function periodLabel(period: Period, range: DownloadDateRange) {
   if (period === "today") return "Today";
-  if (period === "dates") return `${range.startDate || "Start"} to ${range.endDate || "End"}`;
+  if (period === "dates") return `${bsLabel(range.startDate) || "Start"} to ${bsLabel(range.endDate) || "End"}`;
   return "All time";
 }
 
@@ -219,7 +235,8 @@ export function BusinessDownloadDialog({
 
   const getRange = (): DownloadDateRange => {
     if (period === "today") {
-      const today = getTodayLocalDate();
+      // Today in Nepal, not the device's own day.
+      const today = getNepalTodayAd();
       return { startDate: today, endDate: today };
     }
     if (period === "dates") return { startDate, endDate };
@@ -236,6 +253,10 @@ export function BusinessDownloadDialog({
       toast.error("End date must be after start date");
       return;
     }
+    if (range.endDate && range.endDate > getNepalTodayAd()) {
+      toast.error("Dates cannot be in the future");
+      return;
+    }
     try {
       setIsDownloading(true);
       const data = await getData(range);
@@ -243,7 +264,7 @@ export function BusinessDownloadDialog({
         toast.error("No records to download");
         return;
       }
-      const suffix = `${safeFileName(fileName)}-${period === "today" ? getTodayLocalDate() : period === "dates" ? `${range.startDate}-${range.endDate}` : "all-time"}`;
+      const suffix = `${safeFileName(fileName)}-${period === "today" ? bsLabel(range.startDate) : period === "dates" ? `${bsLabel(range.startDate)}-${bsLabel(range.endDate)}` : "all-time"}`;
       downloadBusinessData({ businessName, title, fileName: suffix, period: periodLabel(period, range), data, format });
       setOpen(false);
     } catch {
@@ -270,7 +291,22 @@ export function BusinessDownloadDialog({
               <Label>Time</Label>
               <div className="grid grid-cols-3 gap-2">
                 {(["today", "dates", "all"] as Period[]).map((value) => (
-                  <Button key={value} type="button" size="sm" variant={period === value ? "default" : "outline"} onClick={() => setPeriod(value)}>
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={period === value ? "default" : "outline"}
+                    onClick={() => {
+                      setPeriod(value);
+                      // Start "Choose dates" on a full range (1st of this Nepali month → today).
+                      if (value === "dates" && !startDate && !endDate) {
+                        const today = getNepalTodayAd();
+                        const { year, month } = getBSYearMonthFromAD(today);
+                        setStartDate(getFirstDayOfBSMonthAD(year, month));
+                        setEndDate(today);
+                      }
+                    }}
+                  >
                     {value === "today" ? "Today" : value === "dates" ? "Choose dates" : "All time"}
                   </Button>
                 ))}
@@ -278,9 +314,27 @@ export function BusinessDownloadDialog({
             </div>
           ) : null}
           {hasDateFilter && period === "dates" ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label htmlFor="download-start-date">Start date</Label><Input id="download-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></div>
-              <div className="space-y-1"><Label htmlFor="download-end-date">End date</Label><Input id="download-end-date" type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Start date</Label>
+                <NepaliDatePicker
+                  defaultDate={startDate ? bsLabel(startDate) : undefined}
+                  onChange={({ adDate }) => setStartDate(adDate.split("T")[0])}
+                  className="w-full rounded-md border border-input"
+                  theme="light"
+                  language="en"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>End date</Label>
+                <NepaliDatePicker
+                  defaultDate={endDate ? bsLabel(endDate) : undefined}
+                  onChange={({ adDate }) => setEndDate(adDate.split("T")[0])}
+                  className="w-full rounded-md border border-input"
+                  theme="light"
+                  language="en"
+                />
+              </div>
             </div>
           ) : null}
         </div>
@@ -322,12 +376,13 @@ export function filterRowsByDate<T>(
   getDate: (row: T) => string | Date | null | undefined
 ) {
   if (!range.startDate && !range.endDate) return rows;
-  const start = range.startDate ? new Date(`${range.startDate}T00:00:00`) : null;
-  const end = range.endDate ? new Date(`${range.endDate}T23:59:59.999`) : null;
+  // Compare Nepal calendar days, so the result is the same on any device time zone.
   return rows.filter((row) => {
     const value = getDate(row);
     if (!value) return false;
     const date = new Date(value);
-    return !Number.isNaN(date.getTime()) && (!start || date >= start) && (!end || date <= end);
+    if (Number.isNaN(date.getTime())) return false;
+    const day = toNepalDayAd(date);
+    return (!range.startDate || day >= range.startDate) && (!range.endDate || day <= range.endDate);
   });
 }

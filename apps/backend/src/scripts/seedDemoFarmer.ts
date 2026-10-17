@@ -1,2383 +1,625 @@
+/**
+ * Demo farmer seed: one realistic farmer, entered through the normal API so
+ * stock, expenses, deaths from sales, balances and FCR are created exactly as
+ * when a farmer uses the app.
+ *
+ * - Creates (or reuses) the reserved demo farmer login only. Never touches other users.
+ * - Refuses to run if that farmer already has farms (re-running would duplicate data).
+ * - Local database by default. Against any other database it needs
+ *   P360_DEMO_SEED_CONFIRMED=1 (set by scripts/seed-demo-prod.sh after its backup prompt).
+ * - The backend API must be running (P360_API_URL, default http://localhost:8081/api/v1).
+ *
+ * Data, all dated relative to today in Nepal:
+ *   Farm 1 (broilers): 2 closed batches + 1 active batch.
+ *   Farm 2 (layers):   1 active layer batch with daily eggs and egg sales.
+ *   3 suppliers (feed, chicks, medicine), 5 customers, cash and credit sales,
+ *   1% weight discount on some broiler sales, later payments both ways.
+ */
+
 import "dotenv/config";
-import {
-  BatchStatus,
-  BatchType,
-  CashDayCloseSource,
-  CashMovementDirection,
-  CategoryType,
-  InventoryItemType,
-  ListForSaleCategory,
-  ListForSaleStatus,
-  NotificationStatus,
-  SalesItemType,
-  StaffStatus,
-  TransactionType,
-  VaccinationStatus,
-  WeightSource,
-} from "@prisma/client";
+import bcrypt from "bcrypt";
+import NepaliDate from "nepali-date-converter";
 import prisma from "../utils/prisma";
-import {
-  bsDates,
-  daysAgo,
-  daysFromNow,
-  decimal,
-  DEMO_ACCOUNTS,
-  hashDemoPassword,
-  printDemoCredentials,
-  upsertById,
-  upsertDemoUser,
-} from "./demoSeedUtils";
+import { DEFAULT_DEMO_PASSWORD, DEMO_ACCOUNTS, isLocalDatabase, upsertDemoUser } from "./demoSeedUtils";
 
 const account = DEMO_ACCOUNTS.farmer;
-const id = (suffix: string) => `p360-demo-farmer-${suffix}-v1`;
+const API_URL = (process.env.P360_API_URL || `http://localhost:${process.env.PORT || 8081}/api/v1`).replace(/\/$/, "");
 
-async function seedDemoFarmer(): Promise<void> {
-  console.log("Seeding production-safe farmer demo data...");
-  const passwordHash = await hashDemoPassword(account);
-  const cashDates = bsDates(8);
+// ── Dates (Nepal days) ────────────────────────────────────────────────────────
 
-  await prisma.$transaction(
-    async (tx) => {
-      const user = await upsertDemoUser(tx, account, passwordHash);
+const NEPAL_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+const NEPAL_TODAY = new Date(Date.now() + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
 
-      const categorySeeds = [
-        [
-          "expense-feed",
-          "Feed",
-          CategoryType.EXPENSE,
-          "Feed consumed by farm batches",
-        ],
-        [
-          "expense-medicine",
-          "Medicine & Veterinary",
-          CategoryType.EXPENSE,
-          "Vaccines, medicine and veterinary services",
-        ],
-        [
-          "expense-labor",
-          "Labor",
-          CategoryType.EXPENSE,
-          "Farm labor and staff costs",
-        ],
-        [
-          "expense-utilities",
-          "Utilities",
-          CategoryType.EXPENSE,
-          "Electricity, litter, heating and water",
-        ],
-        [
-          "expense-chicks",
-          "Chicks Purchase",
-          CategoryType.EXPENSE,
-          "Day-old chick placement cost",
-        ],
-        [
-          "sales-broiler",
-          "Broiler Sales",
-          CategoryType.SALES,
-          "Live broiler bird sales",
-        ],
-        ["sales-eggs", "Egg Sales", CategoryType.SALES, "Layer egg sales"],
-        [
-          "inventory-feed",
-          "Feed Inventory",
-          CategoryType.INVENTORY,
-          "Starter, grower and finisher feed",
-        ],
-        [
-          "inventory-chicks",
-          "Chicks",
-          CategoryType.INVENTORY,
-          "Purchased chicks available for batch placement",
-        ],
-        [
-          "inventory-medicine",
-          "Medicine Inventory",
-          CategoryType.INVENTORY,
-          "Vaccines and farm medicine",
-        ],
-        [
-          "inventory-equipment",
-          "Farm Equipment",
-          CategoryType.INVENTORY,
-          "Reusable farm supplies and equipment",
-        ],
-      ] as const;
-
-      for (const [key, name, type, description] of categorySeeds) {
-        await upsertById(tx.category, id(`category-${key}`), {
-          name,
-          type,
-          description,
-          userId: user.id,
-        });
-      }
-
-      const broilerFarm = await upsertById<{ id: string }>(
-        tx.farm,
-        id("farm-broiler"),
-        {
-          name: "Green Valley Broiler Unit",
-          capacity: 8000,
-          description:
-            "Climate-controlled commercial broiler unit with two sheds.",
-          ownerId: user.id,
-        },
-      );
-      const layerFarm = await upsertById<{ id: string }>(
-        tx.farm,
-        id("farm-layer"),
-        {
-          name: "Sunrise Layer Unit",
-          capacity: 5000,
-          description: "Cage-free layer unit focused on graded table eggs.",
-          ownerId: user.id,
-        },
-      );
-
-      const activeBroiler = await upsertById<{ id: string }>(
-        tx.batch,
-        id("batch-broiler-active"),
-        {
-          batchNumber: "BRO-2083-04",
-          startDate: daysAgo(34),
-          endDate: null,
-          status: BatchStatus.ACTIVE,
-          batchType: BatchType.BROILER,
-          initialChicks: 3000,
-          initialChickWeightKg: decimal(0.045),
-          currentWeight: decimal(1.68),
-          notes: "Ross 308 flock; target market age 42 days.",
-          farmId: broilerFarm.id,
-        },
-      );
-      const completedBroiler = await upsertById<{ id: string }>(
-        tx.batch,
-        id("batch-broiler-completed"),
-        {
-          batchNumber: "BRO-2083-02",
-          startDate: daysAgo(118),
-          endDate: daysAgo(73),
-          status: BatchStatus.COMPLETED,
-          batchType: BatchType.BROILER,
-          initialChicks: 2800,
-          initialChickWeightKg: decimal(0.045),
-          closureBirdCount: 2141,
-          closureAverageWeightKg: decimal(2.31),
-          closureWeightSampleCount: 150,
-          currentWeight: decimal(2.31),
-          notes: "Completed flock with strong FCR and 96.8% livability.",
-          farmId: broilerFarm.id,
-        },
-      );
-      const activeLayer = await upsertById<{ id: string }>(
-        tx.batch,
-        id("batch-layer-active"),
-        {
-          batchNumber: "LAY-2082-11",
-          startDate: daysAgo(176),
-          endDate: null,
-          status: BatchStatus.ACTIVE,
-          batchType: BatchType.LAYERS,
-          initialChicks: 1800,
-          initialChickWeightKg: decimal(0.045),
-          currentWeight: decimal(1.86),
-          notes: "Hy-Line Brown flock currently at peak lay.",
-          farmId: layerFarm.id,
-        },
-      );
-
-      const batchNotes = [
-        [
-          "broiler-note-1",
-          activeBroiler.id,
-          daysAgo(5),
-          "Uniformity check completed; flock is active and feeding normally.",
-        ],
-        [
-          "broiler-note-2",
-          activeBroiler.id,
-          daysAgo(1),
-          "Ventilation increased for warmer afternoon temperature.",
-        ],
-        [
-          "layer-note-1",
-          activeLayer.id,
-          daysAgo(3),
-          "Egg shell quality improved after mineral mix adjustment.",
-        ],
-        [
-          "completed-note-1",
-          completedBroiler.id,
-          daysAgo(74),
-          "Final sale and shed clean-out completed.",
-        ],
-      ] as const;
-      for (const [key, batchId, date, description] of batchNotes) {
-        await upsertById(tx.batchNote, id(key), { batchId, date, description });
-      }
-
-      const mortalities = [
-        [
-          "mortality-ba-1",
-          activeBroiler.id,
-          daysAgo(30),
-          18,
-          "Early brooding stress",
-        ],
-        [
-          "mortality-ba-2",
-          activeBroiler.id,
-          daysAgo(20),
-          11,
-          "Normal flock mortality",
-        ],
-        [
-          "mortality-ba-3",
-          activeBroiler.id,
-          daysAgo(8),
-          7,
-          "Leg weakness and culls",
-        ],
-        [
-          "mortality-bc-1",
-          completedBroiler.id,
-          daysAgo(108),
-          28,
-          "Brooding mortality",
-        ],
-        [
-          "mortality-bc-2",
-          completedBroiler.id,
-          daysAgo(90),
-          34,
-          "Normal flock mortality",
-        ],
-        [
-          "mortality-bc-3",
-          completedBroiler.id,
-          daysAgo(77),
-          27,
-          "Final week culls",
-        ],
-        [
-          "mortality-la-1",
-          activeLayer.id,
-          daysAgo(140),
-          16,
-          "Growing-stage mortality",
-        ],
-        [
-          "mortality-la-2",
-          activeLayer.id,
-          daysAgo(42),
-          9,
-          "Normal layer mortality",
-        ],
-      ] as const;
-      for (const [key, batchId, date, count, reason] of mortalities) {
-        await upsertById(tx.mortality, id(key), {
-          batchId,
-          date,
-          count,
-          reason,
-        });
-      }
-
-      const weights = [
-        [
-          "weight-ba-1",
-          activeBroiler.id,
-          daysAgo(27),
-          0.42,
-          80,
-          "Week-one sample",
-        ],
-        [
-          "weight-ba-2",
-          activeBroiler.id,
-          daysAgo(20),
-          0.78,
-          100,
-          "Good flock uniformity",
-        ],
-        [
-          "weight-ba-3",
-          activeBroiler.id,
-          daysAgo(13),
-          1.21,
-          100,
-          "On target curve",
-        ],
-        [
-          "weight-ba-4",
-          activeBroiler.id,
-          daysAgo(6),
-          1.68,
-          120,
-          "Latest weekly sample",
-        ],
-        [
-          "weight-bc-1",
-          completedBroiler.id,
-          daysAgo(76),
-          2.31,
-          150,
-          "Final pre-sale weight",
-        ],
-        [
-          "weight-la-1",
-          activeLayer.id,
-          daysAgo(25),
-          1.83,
-          80,
-          "Layer body-weight check",
-        ],
-        [
-          "weight-la-2",
-          activeLayer.id,
-          daysAgo(4),
-          1.86,
-          80,
-          "Stable production weight",
-        ],
-      ] as const;
-      const entityPurchaseDetails: Record<
-        string,
-        { quantity: number; unit: string; unitPrice: number }
-      > = {
-        "entity-dealer-purchase": {
-          quantity: 90,
-          unit: "Bag",
-          unitPrice: 3325,
-        },
-        "entity-feed-grower-purchase": {
-          quantity: 120,
-          unit: "Bag",
-          unitPrice: 3475,
-        },
-        "entity-feed-finisher-purchase": {
-          quantity: 65,
-          unit: "Bag",
-          unitPrice: 3560,
-        },
-        "entity-feed-layer-purchase": {
-          quantity: 80,
-          unit: "Bag",
-          unitPrice: 3410,
-        },
-        "entity-hatchery-purchase": {
-          quantity: 3200,
-          unit: "Birds",
-          unitPrice: 85,
-        },
-        "entity-hatchery-completed-purchase": {
-          quantity: 2800,
-          unit: "Birds",
-          unitPrice: 80,
-        },
-        "entity-hatchery-layer-purchase": {
-          quantity: 1800,
-          unit: "Birds",
-          unitPrice: 115,
-        },
-        "entity-medicine-purchase": {
-          quantity: 24,
-          unit: "Vial",
-          unitPrice: 780,
-        },
-        "entity-electrolyte-purchase": {
-          quantity: 40,
-          unit: "Packet",
-          unitPrice: 265,
-        },
-        "entity-disinfectant-purchase": {
-          quantity: 15,
-          unit: "Bottle",
-          unitPrice: 640,
-        },
-        "entity-equipment-purchase": {
-          quantity: 6,
-          unit: "PCS",
-          unitPrice: 18500,
-        },
-      };
-      const paymentPurchaseKeys: Record<string, string> = {
-        "entity-hatchery-payment": "entity-hatchery-purchase",
-        "entity-hatchery-completed-payment":
-          "entity-hatchery-completed-purchase",
-        "entity-hatchery-layer-payment": "entity-hatchery-layer-purchase",
-      };
-      for (const [
-        key,
-        batchId,
-        date,
-        avgWeight,
-        sampleCount,
-        notes,
-      ] of weights) {
-        await upsertById(tx.birdWeight, id(key), {
-          batchId,
-          date,
-          avgWeight: decimal(avgWeight),
-          sampleCount,
-          source: WeightSource.MANUAL,
-          notes,
-        });
-      }
-
-      const feedConsumptions = [
-        ["feed-ba-1", activeBroiler.id, daysAgo(12), 2850, "Grower feed"],
-        ["feed-ba-2", activeBroiler.id, daysAgo(6), 3420, "Grower feed"],
-        ["feed-ba-3", activeBroiler.id, daysAgo(1), 2980, "Finisher feed"],
-        ["feed-bc-1", completedBroiler.id, daysAgo(82), 4100, "Finisher feed"],
-        ["feed-la-1", activeLayer.id, daysAgo(7), 1340, "Layer mash"],
-        ["feed-la-2", activeLayer.id, daysAgo(1), 1165, "Layer mash"],
-      ] as const;
-      for (const [key, batchId, date, quantity, feedType] of feedConsumptions) {
-        await upsertById(tx.feedConsumption, id(key), {
-          batchId,
-          date,
-          quantity: decimal(quantity),
-          feedType,
-          unit: "kg",
-          kgPerUnit: decimal(1),
-          quantityKg: decimal(quantity),
-        });
-      }
-
-      const dealer = await upsertById<{ id: string }>(
-        tx.dealer,
-        id("supplier-dealer"),
-        {
-          name: "Valley Feed Traders",
-          contact: "+9779855051001",
-          address: "Narayangarh, Chitwan",
-          classification: "SELF_CREATED",
-          balance: decimal(195450),
-          totalPurchases: decimal(1220450),
-          totalPayments: decimal(1050000),
-          userId: user.id,
-          ownerId: null,
-        },
-      );
-      const chicksSupplier = await upsertById<{ id: string }>(
-        tx.dealer,
-        id("supplier-chicks"),
-        {
-          name: "Narayani Chicks Hatchery",
-          contact: "+9779855051002",
-          address: "Ratnanagar, Chitwan",
-          classification: "SELF_CREATED",
-          balance: decimal(17000),
-          totalPurchases: decimal(703000),
-          totalPayments: decimal(686000),
-          userId: user.id,
-          ownerId: null,
-        },
-      );
-      const medicineSupplier = await upsertById<{ id: string }>(
-        tx.dealer,
-        id("supplier-medicine"),
-        {
-          name: "AgroVet Health Centre",
-          contact: "+9779855051003",
-          address: "Bharatpur-10, Chitwan",
-          classification: "SELF_CREATED",
-          balance: decimal(8920),
-          totalPurchases: decimal(38920),
-          totalPayments: decimal(30000),
-          userId: user.id,
-          ownerId: null,
-        },
-      );
-      const equipmentSupplier = await upsertById<{ id: string }>(
-        tx.dealer,
-        id("supplier-equipment"),
-        {
-          name: "Bharatpur Farm Equipment",
-          contact: "+9779855051004",
-          address: "Bharatpur-9, Chitwan",
-          classification: "SELF_CREATED",
-          balance: decimal(31000),
-          totalPurchases: decimal(111000),
-          totalPayments: decimal(80000),
-          userId: user.id,
-          ownerId: null,
-        },
-      );
-
-      const inventorySeeds = [
-        [
-          "inventory-chicks-active",
-          "Ross 308 Day-old Broiler Chicks",
-          "Current-cycle chicks purchased from Narayani Chicks Hatchery",
-          200,
-          "Birds",
-          100,
-          InventoryItemType.CHICKS,
-          85,
-          id("category-inventory-chicks"),
-          `DEALER:${chicksSupplier.id}`,
-        ],
-        [
-          "inventory-chicks-completed",
-          "Cobb 500 Day-old Broiler Chicks",
-          "Historical chicks used for completed batch BRO-2083-02",
-          0,
-          "Birds",
-          100,
-          InventoryItemType.CHICKS,
-          80,
-          id("category-inventory-chicks"),
-          `DEALER:${chicksSupplier.id}`,
-        ],
-        [
-          "inventory-chicks-layer",
-          "Hy-Line Brown Layer Chicks",
-          "Layer chicks used to establish batch LAY-2082-11",
-          0,
-          "Birds",
-          100,
-          InventoryItemType.CHICKS,
-          115,
-          id("category-inventory-chicks"),
-          `DEALER:${chicksSupplier.id}`,
-        ],
-        [
-          "inventory-starter",
-          "Broiler Starter Crumble",
-          "Starter feed for day 0-14",
-          90,
-          "Bag",
-          15,
-          InventoryItemType.FEED,
-          3325,
-          id("category-inventory-feed"),
-          `DEALER:${dealer.id}`,
-        ],
-        [
-          "inventory-grower",
-          "Broiler Grower Pellet",
-          "Grower feed for day 15-28",
-          64,
-          "Bag",
-          20,
-          InventoryItemType.FEED,
-          3475,
-          id("category-inventory-feed"),
-          `DEALER:${dealer.id}`,
-        ],
-        [
-          "inventory-finisher",
-          "Broiler Finisher Pellet",
-          "Finisher feed for day 29 onward",
-          35,
-          "Bag",
-          40,
-          InventoryItemType.FEED,
-          3560,
-          id("category-inventory-feed"),
-          `DEALER:${dealer.id}`,
-        ],
-        [
-          "inventory-layer",
-          "Layer Mash Premium",
-          "Balanced layer ration",
-          40,
-          "Bag",
-          18,
-          InventoryItemType.FEED,
-          3410,
-          id("category-inventory-feed"),
-          `DEALER:${dealer.id}`,
-        ],
-        [
-          "inventory-vaccine",
-          "Newcastle Vaccine",
-          "Lasota strain, 1000-dose vial",
-          20,
-          "Vial",
-          8,
-          InventoryItemType.MEDICINE,
-          780,
-          id("category-inventory-medicine"),
-          `DEALER:${medicineSupplier.id}`,
-        ],
-        [
-          "inventory-electrolyte",
-          "Electrolyte Plus",
-          "Heat-stress electrolyte powder",
-          40,
-          "Packet",
-          10,
-          InventoryItemType.MEDICINE,
-          265,
-          id("category-inventory-medicine"),
-          `DEALER:${medicineSupplier.id}`,
-        ],
-        [
-          "inventory-disinfectant",
-          "Farm Disinfectant",
-          "Broad-spectrum shed disinfectant",
-          15,
-          "Bottle",
-          10,
-          InventoryItemType.MEDICINE,
-          640,
-          id("category-inventory-medicine"),
-          `DEALER:${medicineSupplier.id}`,
-        ],
-        [
-          "inventory-brooder",
-          "Gas Brooder",
-          "Automatic gas brooder",
-          6,
-          "PCS",
-          2,
-          InventoryItemType.EQUIPMENT,
-          18500,
-          id("category-inventory-equipment"),
-          `DEALER:${equipmentSupplier.id}`,
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        description,
-        currentStock,
-        unit,
-        minStock,
-        itemType,
-        unitPrice,
-        categoryId,
-        supplierKey,
-      ] of inventorySeeds) {
-        await upsertById(tx.inventoryItem, id(key), {
-          name,
-          description,
-          currentStock: decimal(currentStock),
-          unit,
-          kgPerUnit:
-            itemType === InventoryItemType.FEED ? decimal(50) : null,
-          minStock: decimal(minStock),
-          itemType,
-          unitPrice: decimal(unitPrice),
-          supplierKey,
-          expiryDate: null,
-          expiryDateKey: "NO_EXPIRY",
-          userId: user.id,
-          categoryId,
-          deletedAt: null,
-        });
-      }
-
-      const inventoryTxns = [
-        [
-          "inventory-txn-chicks-active-purchase",
-          id("inventory-chicks-active"),
-          TransactionType.PURCHASE,
-          3200,
-          85,
-          daysAgo(36),
-          "3,200 Ross 308 chicks purchased from Narayani Chicks Hatchery",
-          "Birds",
-        ],
-        [
-          "inventory-txn-chicks-active-usage",
-          id("inventory-chicks-active"),
-          TransactionType.USAGE,
-          3000,
-          85,
-          daysAgo(34),
-          "Chicks allocated to batch BRO-2083-04",
-          "Birds",
-        ],
-        [
-          "inventory-txn-chicks-completed-purchase",
-          id("inventory-chicks-completed"),
-          TransactionType.PURCHASE,
-          2800,
-          80,
-          daysAgo(120),
-          "2,800 Cobb 500 chicks purchased from Narayani Chicks Hatchery",
-          "Birds",
-        ],
-        [
-          "inventory-txn-chicks-completed-usage",
-          id("inventory-chicks-completed"),
-          TransactionType.USAGE,
-          2800,
-          80,
-          daysAgo(118),
-          "Chicks allocated to batch BRO-2083-02",
-          "Birds",
-        ],
-        [
-          "inventory-txn-chicks-layer-purchase",
-          id("inventory-chicks-layer"),
-          TransactionType.PURCHASE,
-          1800,
-          115,
-          daysAgo(178),
-          "1,800 Hy-Line Brown chicks purchased from Narayani Chicks Hatchery",
-          "Birds",
-        ],
-        [
-          "inventory-txn-chicks-layer-usage",
-          id("inventory-chicks-layer"),
-          TransactionType.USAGE,
-          1800,
-          115,
-          daysAgo(176),
-          "Chicks allocated to batch LAY-2082-11",
-          "Birds",
-        ],
-        [
-          "inventory-txn-starter",
-          id("inventory-starter"),
-          TransactionType.PURCHASE,
-          90,
-          3325,
-          daysAgo(28),
-          "Starter feed delivery",
-          "Bag",
-        ],
-        [
-          "inventory-txn-grower",
-          id("inventory-grower"),
-          TransactionType.PURCHASE,
-          120,
-          3475,
-          daysAgo(18),
-          "Grower feed delivery",
-          "Bag",
-        ],
-        [
-          "inventory-txn-grower-usage",
-          id("inventory-grower"),
-          TransactionType.USAGE,
-          56,
-          3475,
-          daysAgo(18),
-          "Grower feed issued to batch BRO-2083-04",
-          "Bag",
-        ],
-        [
-          "inventory-txn-finisher",
-          id("inventory-finisher"),
-          TransactionType.PURCHASE,
-          65,
-          3560,
-          daysAgo(7),
-          "Finisher feed delivery",
-          "Bag",
-        ],
-        [
-          "inventory-txn-finisher-usage",
-          id("inventory-finisher"),
-          TransactionType.USAGE,
-          30,
-          3560,
-          daysAgo(6),
-          "Finisher feed issued to batch BRO-2083-04",
-          "Bag",
-        ],
-        [
-          "inventory-txn-layer",
-          id("inventory-layer"),
-          TransactionType.PURCHASE,
-          80,
-          3410,
-          daysAgo(14),
-          "Layer mash delivery",
-          "Bag",
-        ],
-        [
-          "inventory-txn-layer-usage",
-          id("inventory-layer"),
-          TransactionType.USAGE,
-          40,
-          3410,
-          daysAgo(12),
-          "Layer mash issued to batch LAY-2082-11",
-          "Bag",
-        ],
-        [
-          "inventory-txn-vaccine",
-          id("inventory-vaccine"),
-          TransactionType.PURCHASE,
-          24,
-          780,
-          daysAgo(25),
-          "Vaccination stock",
-          "Vial",
-        ],
-        [
-          "inventory-txn-vaccine-usage",
-          id("inventory-vaccine"),
-          TransactionType.USAGE,
-          4,
-          780,
-          daysAgo(22),
-          "Newcastle vaccine issued to batch BRO-2083-04",
-          "Vial",
-        ],
-        [
-          "inventory-txn-electrolyte",
-          id("inventory-electrolyte"),
-          TransactionType.PURCHASE,
-          40,
-          265,
-          daysAgo(20),
-          "Electrolyte stock",
-          "Packet",
-        ],
-        [
-          "inventory-txn-disinfectant",
-          id("inventory-disinfectant"),
-          TransactionType.PURCHASE,
-          15,
-          640,
-          daysAgo(31),
-          "Biosecurity supplies",
-          "Bottle",
-        ],
-        [
-          "inventory-txn-brooder",
-          id("inventory-brooder"),
-          TransactionType.PURCHASE,
-          6,
-          18500,
-          daysAgo(160),
-          "Brooder equipment purchase",
-          "PCS",
-        ],
-      ] as const;
-      for (const [
-        key,
-        itemId,
-        type,
-        quantity,
-        unitPrice,
-        date,
-        description,
-        unit,
-      ] of inventoryTxns) {
-        await upsertById(tx.inventoryTransaction, id(key), {
-          itemId,
-          type,
-          quantity: decimal(quantity),
-          unitPrice: decimal(unitPrice),
-          totalAmount: decimal(quantity * unitPrice),
-          date,
-          description,
-          unit,
-          expiryDate: null,
-        });
-      }
-
-      const customers = [
-        [
-          "customer-everest",
-          "Everest Fresh House",
-          "+9779845102001",
-          "Wholesale",
-          "Kalanki, Kathmandu",
-          48225,
-          218225,
-          170000,
-        ],
-        [
-          "customer-narayani",
-          "Narayani Meat Centre",
-          "+9779845102002",
-          "Retail",
-          "Bharatpur-11, Chitwan",
-          0,
-          318840,
-          318840,
-        ],
-        [
-          "customer-sunrise",
-          "Sunrise Egg Mart",
-          "+9779845102003",
-          "Egg wholesaler",
-          "Tandi, Chitwan",
-          17850,
-          98550,
-          80700,
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        phone,
-        category,
-        address,
-        balance,
-        totalSales,
-        totalPayments,
-      ] of customers) {
-        await upsertById(tx.customer, id(key), {
-          name,
-          phone,
-          category,
-          address,
-          balance: decimal(balance),
-          totalSales: decimal(totalSales),
-          totalPayments: decimal(totalPayments),
-          source: "MANUAL",
-          farmerId: null,
-          userId: user.id,
-          archivedAt: null,
-          archivedById: null,
-        });
-      }
-
-      const expenses = [
-        [
-          "expense-chicks-active-purchase",
-          daysAgo(36),
-          272000,
-          "Purchase of 3,200 Ross 308 day-old chicks into inventory",
-          3200,
-          null,
-          85,
-          null,
-          null,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-chicks-active",
-          daysAgo(34),
-          255000,
-          "3,000 Ross 308 chicks allocated from inventory to BRO-2083-04",
-          3000,
-          null,
-          85,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-chicks-completed-purchase",
-          daysAgo(120),
-          224000,
-          "Purchase of 2,800 Cobb 500 day-old chicks into inventory",
-          2800,
-          null,
-          80,
-          null,
-          null,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-chicks-completed-allocation",
-          daysAgo(118),
-          224000,
-          "2,800 Cobb 500 chicks allocated from inventory to BRO-2083-02",
-          2800,
-          null,
-          80,
-          broilerFarm.id,
-          completedBroiler.id,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-chicks-layer-purchase",
-          daysAgo(178),
-          207000,
-          "Purchase of 1,800 Hy-Line Brown layer chicks into inventory",
-          1800,
-          null,
-          115,
-          null,
-          null,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-chicks-layer-allocation",
-          daysAgo(176),
-          207000,
-          "1,800 Hy-Line Brown chicks allocated from inventory to LAY-2082-11",
-          1800,
-          null,
-          115,
-          layerFarm.id,
-          activeLayer.id,
-          id("category-inventory-chicks"),
-        ],
-        [
-          "expense-inventory-starter-purchase",
-          daysAgo(28),
-          299250,
-          "Purchase of 90 bags of broiler starter feed into inventory",
-          90,
-          null,
-          3325,
-          null,
-          null,
-          id("category-inventory-feed"),
-        ],
-        [
-          "expense-inventory-grower-purchase",
-          daysAgo(18),
-          417000,
-          "Purchase of 120 bags of broiler grower feed into inventory",
-          120,
-          null,
-          3475,
-          null,
-          null,
-          id("category-inventory-feed"),
-        ],
-        [
-          "expense-inventory-finisher-purchase",
-          daysAgo(7),
-          231400,
-          "Purchase of 65 bags of broiler finisher feed into inventory",
-          65,
-          null,
-          3560,
-          null,
-          null,
-          id("category-inventory-feed"),
-        ],
-        [
-          "expense-inventory-layer-purchase",
-          daysAgo(14),
-          272800,
-          "Purchase of 80 bags of layer mash into inventory",
-          80,
-          null,
-          3410,
-          null,
-          null,
-          id("category-inventory-feed"),
-        ],
-        [
-          "expense-inventory-vaccine-purchase",
-          daysAgo(25),
-          18720,
-          "Purchase of 24 Newcastle vaccine vials into inventory",
-          24,
-          null,
-          780,
-          null,
-          null,
-          id("category-inventory-medicine"),
-        ],
-        [
-          "expense-inventory-electrolyte-purchase",
-          daysAgo(20),
-          10600,
-          "Purchase of 40 electrolyte packets into inventory",
-          40,
-          null,
-          265,
-          null,
-          null,
-          id("category-inventory-medicine"),
-        ],
-        [
-          "expense-inventory-disinfectant-purchase",
-          daysAgo(31),
-          9600,
-          "Purchase of 15 disinfectant bottles into inventory",
-          15,
-          null,
-          640,
-          null,
-          null,
-          id("category-inventory-medicine"),
-        ],
-        [
-          "expense-inventory-brooder-purchase",
-          daysAgo(160),
-          111000,
-          "Purchase of 6 gas brooders into inventory",
-          6,
-          null,
-          18500,
-          null,
-          null,
-          id("category-inventory-equipment"),
-        ],
-        [
-          "expense-feed-active-1",
-          daysAgo(18),
-          194600,
-          "Grower feed consumed by current broiler flock",
-          56,
-          null,
-          3475,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-expense-feed"),
-        ],
-        [
-          "expense-feed-active-2",
-          daysAgo(6),
-          106800,
-          "Finisher feed issued to current broiler flock",
-          30,
-          null,
-          3560,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-expense-feed"),
-        ],
-        [
-          "expense-medicine-active",
-          daysAgo(22),
-          3120,
-          "Four Newcastle vaccine vials issued to current broiler flock",
-          4,
-          null,
-          780,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-expense-medicine"),
-        ],
-        [
-          "expense-utilities-active",
-          daysAgo(3),
-          28500,
-          "Electricity, heating and litter",
-          1,
-          null,
-          28500,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-expense-utilities"),
-        ],
-        [
-          "expense-feed-layer",
-          daysAgo(12),
-          136400,
-          "Layer mash consumption",
-          40,
-          null,
-          3410,
-          layerFarm.id,
-          activeLayer.id,
-          id("category-expense-feed"),
-        ],
-        [
-          "expense-labor-layer",
-          daysAgo(7),
-          42000,
-          "Monthly shed labor allocation",
-          1,
-          null,
-          42000,
-          layerFarm.id,
-          activeLayer.id,
-          id("category-expense-labor"),
-        ],
-        [
-          "expense-completed-feed",
-          daysAgo(88),
-          248500,
-          "Feed cost for completed broiler flock",
-          70,
-          null,
-          3550,
-          broilerFarm.id,
-          completedBroiler.id,
-          id("category-expense-feed"),
-        ],
-      ] as const;
-      for (const [
-        key,
-        date,
-        amount,
-        description,
-        quantity,
-        weight,
-        unitPrice,
-        farmId,
-        batchId,
-        categoryId,
-      ] of expenses) {
-        await upsertById(tx.expense, id(key), {
-          date,
-          amount: decimal(amount),
-          description,
-          quantity: decimal(quantity),
-          weight: weight === null ? null : decimal(weight),
-          unitPrice: decimal(unitPrice),
-          farmId,
-          batchId,
-          categoryId,
-        });
-      }
-
-      const usages = [
-        [
-          "usage-chicks-active",
-          id("inventory-chicks-active"),
-          daysAgo(34),
-          3000,
-          85,
-          null,
-          activeBroiler.id,
-          broilerFarm.id,
-          "Initial chick placement for BRO-2083-04",
-        ],
-        [
-          "usage-chicks-completed",
-          id("inventory-chicks-completed"),
-          daysAgo(118),
-          2800,
-          80,
-          null,
-          completedBroiler.id,
-          broilerFarm.id,
-          "Initial chick placement for BRO-2083-02",
-        ],
-        [
-          "usage-chicks-layer",
-          id("inventory-chicks-layer"),
-          daysAgo(176),
-          1800,
-          115,
-          null,
-          activeLayer.id,
-          layerFarm.id,
-          "Initial chick placement for LAY-2082-11",
-        ],
-        [
-          "usage-grower",
-          id("inventory-grower"),
-          daysAgo(18),
-          56,
-          3475,
-          id("expense-feed-active-1"),
-          activeBroiler.id,
-          broilerFarm.id,
-          "Issued for grower phase",
-        ],
-        [
-          "usage-finisher",
-          id("inventory-finisher"),
-          daysAgo(6),
-          30,
-          3560,
-          id("expense-feed-active-2"),
-          activeBroiler.id,
-          broilerFarm.id,
-          "Issued for finisher phase",
-        ],
-        [
-          "usage-layer",
-          id("inventory-layer"),
-          daysAgo(12),
-          40,
-          3410,
-          id("expense-feed-layer"),
-          activeLayer.id,
-          layerFarm.id,
-          "Layer ration issue",
-        ],
-        [
-          "usage-vaccine",
-          id("inventory-vaccine"),
-          daysAgo(22),
-          4,
-          780,
-          id("expense-medicine-active"),
-          activeBroiler.id,
-          broilerFarm.id,
-          "Newcastle vaccination",
-        ],
-      ] as const;
-      for (const [
-        key,
-        itemId,
-        date,
-        quantity,
-        unitPrice,
-        expenseId,
-        batchId,
-        farmId,
-        notes,
-      ] of usages) {
-        await upsertById(tx.inventoryUsage, id(key), {
-          itemId,
-          date,
-          quantity: decimal(quantity),
-          unitPrice: decimal(unitPrice),
-          totalAmount: decimal(quantity * unitPrice),
-          expenseId,
-          batchId,
-          farmId,
-          notes,
-        });
-      }
-
-      const sales = [
-        [
-          "sale-broiler-credit",
-          "DEMO-F-1003",
-          daysAgo(12),
-          218225,
-          350,
-          752.5,
-          290,
-          "Partial-credit broiler dispatch",
-          SalesItemType.Chicken_Meat,
-          true,
-          170000,
-          48225,
-          broilerFarm.id,
-          activeBroiler.id,
-          id("category-sales-broiler"),
-          id("customer-everest"),
-        ],
-        [
-          "sale-broiler-cash",
-          "DEMO-F-1002",
-          daysAgo(76),
-          176640,
-          320,
-          662.4,
-          266.67,
-          "Final cash sale from completed flock",
-          SalesItemType.Chicken_Meat,
-          false,
-          176640,
-          0,
-          broilerFarm.id,
-          completedBroiler.id,
-          id("category-sales-broiler"),
-          id("customer-narayani"),
-        ],
-        [
-          "sale-eggs-credit",
-          "DEMO-F-1004",
-          daysAgo(5),
-          98550,
-          17100,
-          null,
-          5.76,
-          "Weekly graded egg supply",
-          SalesItemType.EGGS,
-          true,
-          80700,
-          17850,
-          layerFarm.id,
-          activeLayer.id,
-          id("category-sales-eggs"),
-          id("customer-sunrise"),
-        ],
-        [
-          "sale-broiler-last-month",
-          "DEMO-F-1001",
-          daysAgo(90),
-          142200,
-          250,
-          562.5,
-          252.8,
-          "Advance thinning sale",
-          SalesItemType.Chicken_Meat,
-          false,
-          142200,
-          0,
-          broilerFarm.id,
-          completedBroiler.id,
-          id("category-sales-broiler"),
-          id("customer-narayani"),
-        ],
-      ] as const;
-      for (const [
-        key,
-        invoiceNumber,
-        date,
-        amount,
-        quantity,
-        weight,
-        unitPrice,
-        description,
-        itemType,
-        isCredit,
-        paidAmount,
-        dueAmount,
-        farmId,
-        batchId,
-        categoryId,
-        customerId,
-      ] of sales) {
-        await upsertById(tx.sale, id(key), {
-          invoiceNumber,
-          date,
-          amount: decimal(amount),
-          quantity: decimal(quantity),
-          weight: weight === null ? null : decimal(weight),
-          unitPrice: decimal(unitPrice),
-          description,
-          itemType,
-          eggTypeId: null,
-          isCredit,
-          paidAmount: decimal(paidAmount),
-          dueAmount: decimal(dueAmount),
-          farmId,
-          batchId,
-          categoryId,
-          customerId,
-          mortalityId: null,
-        });
-      }
-
-      const salePayments = [
-        [
-          "sale-payment-credit",
-          id("sale-broiler-credit"),
-          170000,
-          daysAgo(12),
-          "Bank transfer received at dispatch",
-        ],
-        [
-          "sale-payment-cash",
-          id("sale-broiler-cash"),
-          176640,
-          daysAgo(76),
-          "Cash received in full",
-        ],
-        [
-          "sale-payment-eggs",
-          id("sale-eggs-credit"),
-          80700,
-          daysAgo(5),
-          "Partial payment received",
-        ],
-        [
-          "sale-payment-last-month",
-          id("sale-broiler-last-month"),
-          142200,
-          daysAgo(45),
-          "Advance thinning sale paid in full",
-        ],
-      ] as const;
-      for (const [key, saleId, amount, date, description] of salePayments) {
-        await upsertById(tx.salePayment, id(key), {
-          saleId,
-          amount: decimal(amount),
-          date,
-          description,
-          receiptUrl: null,
-        });
-      }
-
-      const customerTransactions = [
-        [
-          "customer-txn-everest-sale",
-          id("customer-everest"),
-          TransactionType.SALE,
-          218225,
-          daysAgo(12),
-          "Invoice DEMO-F-1003",
-          "DEMO-F-1003",
-        ],
-        [
-          "customer-txn-everest-payment",
-          id("customer-everest"),
-          TransactionType.PAYMENT,
-          170000,
-          daysAgo(12),
-          "Initial bank payment",
-          "DEMO-F-1003",
-        ],
-        [
-          "customer-txn-sunrise-sale",
-          id("customer-sunrise"),
-          TransactionType.SALE,
-          98550,
-          daysAgo(5),
-          "Invoice DEMO-F-1004",
-          "DEMO-F-1004",
-        ],
-        [
-          "customer-txn-sunrise-payment",
-          id("customer-sunrise"),
-          TransactionType.PAYMENT,
-          80700,
-          daysAgo(5),
-          "Partial payment",
-          "DEMO-F-1004",
-        ],
-        [
-          "customer-txn-narayani-sale-1",
-          id("customer-narayani"),
-          TransactionType.SALE,
-          176640,
-          daysAgo(76),
-          "Invoice DEMO-F-1002",
-          "DEMO-F-1002",
-        ],
-        [
-          "customer-txn-narayani-payment-1",
-          id("customer-narayani"),
-          TransactionType.PAYMENT,
-          176640,
-          daysAgo(76),
-          "Full cash payment",
-          "DEMO-F-1002",
-        ],
-        [
-          "customer-txn-narayani-sale-2",
-          id("customer-narayani"),
-          TransactionType.SALE,
-          142200,
-          daysAgo(45),
-          "Invoice DEMO-F-1001",
-          "DEMO-F-1001",
-        ],
-        [
-          "customer-txn-narayani-payment-2",
-          id("customer-narayani"),
-          TransactionType.PAYMENT,
-          142200,
-          daysAgo(45),
-          "Paid in full",
-          "DEMO-F-1001",
-        ],
-      ] as const;
-      for (const [
-        key,
-        customerId,
-        type,
-        amount,
-        date,
-        description,
-        reference,
-      ] of customerTransactions) {
-        await upsertById(tx.customerTransaction, id(key), {
-          customerId,
-          type,
-          amount: decimal(amount),
-          date,
-          description,
-          reference,
-          imageUrl: null,
-          deletedAt: null,
-        });
-      }
-
-      const eggTypes = [
-        ["egg-type-large", "Large", "LARGE", 1],
-        ["egg-type-medium", "Medium", "MEDIUM", 2],
-        ["egg-type-small", "Small", "SMALL", 3],
-        ["egg-type-cracked", "Cracked", "CRACKED", 4],
-      ] as const;
-      for (const [key, name, code, displayOrder] of eggTypes) {
-        await upsertById(tx.eggType, id(key), {
-          userId: user.id,
-          name,
-          code,
-          displayOrder,
-        });
-      }
-
-      const eggDaily = [
-        ["egg-prod-1", 6, 980, 610, 145, 22],
-        ["egg-prod-2", 5, 1010, 625, 138, 19],
-        ["egg-prod-3", 4, 995, 640, 142, 17],
-        ["egg-prod-4", 3, 1025, 618, 150, 20],
-        ["egg-prod-5", 2, 1038, 632, 141, 16],
-        ["egg-prod-6", 1, 1045, 629, 146, 18],
-        ["egg-prod-7", 0, 1052, 636, 139, 15],
-      ] as const;
-      for (const [key, ago, large, medium, small, cracked] of eggDaily) {
-        const productionId = id(key);
-        await upsertById(tx.eggProduction, productionId, {
-          batchId: activeLayer.id,
-          date: daysAgo(ago, 7),
-        });
-        const lines = [
-          ["large", id("egg-type-large"), large],
-          ["medium", id("egg-type-medium"), medium],
-          ["small", id("egg-type-small"), small],
-          ["cracked", id("egg-type-cracked"), cracked],
-        ] as const;
-        for (const [lineKey, eggTypeId, count] of lines) {
-          await upsertById(tx.eggProductionEntry, id(`${key}-${lineKey}`), {
-            eggProductionId: productionId,
-            eggTypeId,
-            count,
-          });
-        }
-      }
-
-      const eggInventory = [
-        ["egg-stock-large", id("egg-type-large"), 2250],
-        ["egg-stock-medium", id("egg-type-medium"), 1480],
-        ["egg-stock-small", id("egg-type-small"), 620],
-        ["egg-stock-cracked", id("egg-type-cracked"), 95],
-      ] as const;
-      for (const [key, eggTypeId, quantity] of eggInventory) {
-        await upsertById(tx.batchEggInventory, id(key), {
-          batchId: activeLayer.id,
-          eggTypeId,
-          quantity,
-        });
-      }
-
-      const eggSaleLines = [
-        ["egg-sale-line-large", id("egg-type-large"), 9000, 6.25],
-        ["egg-sale-line-medium", id("egg-type-medium"), 6000, 5.65],
-        ["egg-sale-line-small", id("egg-type-small"), 2100, 4.0],
-      ] as const;
-      for (const [key, eggTypeId, quantity, unitPrice] of eggSaleLines) {
-        await upsertById(tx.saleEggLine, id(key), {
-          saleId: id("sale-eggs-credit"),
-          eggTypeId,
-          quantity,
-          unitPrice: decimal(unitPrice),
-        });
-      }
-
-      const entityTxns = [
-        [
-          "entity-dealer-opening",
-          TransactionType.OPENING_BALANCE,
-          25000,
-          daysAgo(90),
-          "Opening supplier balance",
-          "OPENING-DEMO",
-          dealer.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-dealer-purchase",
-          TransactionType.PURCHASE,
-          299250,
-          daysAgo(28),
-          "90 bags of broiler starter feed",
-          "VFT-2083-041",
-          dealer.id,
-          null,
-          null,
-          id("inventory-starter"),
-          id("expense-inventory-starter-purchase"),
-          "FEED",
-        ],
-        [
-          "entity-feed-grower-purchase",
-          TransactionType.PURCHASE,
-          417000,
-          daysAgo(18),
-          "120 bags of broiler grower feed",
-          "VFT-2083-044",
-          dealer.id,
-          null,
-          null,
-          id("inventory-grower"),
-          id("expense-inventory-grower-purchase"),
-          "FEED",
-        ],
-        [
-          "entity-feed-finisher-purchase",
-          TransactionType.PURCHASE,
-          231400,
-          daysAgo(7),
-          "65 bags of broiler finisher feed",
-          "VFT-2083-052",
-          dealer.id,
-          null,
-          null,
-          id("inventory-finisher"),
-          id("expense-inventory-finisher-purchase"),
-          "FEED",
-        ],
-        [
-          "entity-feed-layer-purchase",
-          TransactionType.PURCHASE,
-          272800,
-          daysAgo(14),
-          "80 bags of premium layer mash",
-          "VFT-2083-047",
-          dealer.id,
-          null,
-          null,
-          id("inventory-layer"),
-          id("expense-inventory-layer-purchase"),
-          "FEED",
-        ],
-        [
-          "entity-dealer-payment",
-          TransactionType.PAYMENT,
-          1050000,
-          daysAgo(10),
-          "Consolidated payment against feed invoices",
-          "BANK-9831",
-          dealer.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-hatchery-purchase",
-          TransactionType.PURCHASE,
-          272000,
-          daysAgo(36),
-          "3,200 Ross 308 day-old broiler chicks",
-          "NCH-2083-118",
-          chicksSupplier.id,
-          null,
-          null,
-          id("inventory-chicks-active"),
-          id("expense-chicks-active-purchase"),
-          "CHICKS",
-        ],
-        [
-          "entity-hatchery-payment",
-          TransactionType.PAYMENT,
-          255000,
-          daysAgo(35),
-          "Part payment against current broiler chick invoice",
-          "BANK-9712",
-          chicksSupplier.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-hatchery-completed-purchase",
-          TransactionType.PURCHASE,
-          224000,
-          daysAgo(120),
-          "2,800 Cobb 500 day-old broiler chicks",
-          "NCH-2082-804",
-          chicksSupplier.id,
-          null,
-          null,
-          id("inventory-chicks-completed"),
-          id("expense-chicks-completed-purchase"),
-          "CHICKS",
-        ],
-        [
-          "entity-hatchery-completed-payment",
-          TransactionType.PAYMENT,
-          224000,
-          daysAgo(119),
-          "Completed-batch chick invoice settled",
-          "BANK-8244",
-          chicksSupplier.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-hatchery-layer-purchase",
-          TransactionType.PURCHASE,
-          207000,
-          daysAgo(178),
-          "1,800 Hy-Line Brown layer chicks",
-          "NCH-2082-511",
-          chicksSupplier.id,
-          null,
-          null,
-          id("inventory-chicks-layer"),
-          id("expense-chicks-layer-purchase"),
-          "CHICKS",
-        ],
-        [
-          "entity-hatchery-layer-payment",
-          TransactionType.PAYMENT,
-          207000,
-          daysAgo(177),
-          "Layer chick invoice settled",
-          "BANK-7651",
-          chicksSupplier.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-medicine-purchase",
-          TransactionType.PURCHASE,
-          18720,
-          daysAgo(25),
-          "24 Newcastle vaccine vials",
-          "AHC-2083-087",
-          medicineSupplier.id,
-          null,
-          null,
-          id("inventory-vaccine"),
-          id("expense-inventory-vaccine-purchase"),
-          "MEDICINE",
-        ],
-        [
-          "entity-electrolyte-purchase",
-          TransactionType.PURCHASE,
-          10600,
-          daysAgo(20),
-          "40 packets of Electrolyte Plus",
-          "AHC-2083-091",
-          medicineSupplier.id,
-          null,
-          null,
-          id("inventory-electrolyte"),
-          id("expense-inventory-electrolyte-purchase"),
-          "MEDICINE",
-        ],
-        [
-          "entity-disinfectant-purchase",
-          TransactionType.PURCHASE,
-          9600,
-          daysAgo(31),
-          "15 bottles of broad-spectrum disinfectant",
-          "AHC-2083-078",
-          medicineSupplier.id,
-          null,
-          null,
-          id("inventory-disinfectant"),
-          id("expense-inventory-disinfectant-purchase"),
-          "MEDICINE",
-        ],
-        [
-          "entity-medicine-payment",
-          TransactionType.PAYMENT,
-          30000,
-          daysAgo(15),
-          "Part payment against medicine invoices",
-          "CASH-2083-15",
-          medicineSupplier.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-        [
-          "entity-equipment-purchase",
-          TransactionType.PURCHASE,
-          111000,
-          daysAgo(160),
-          "6 automatic gas brooders",
-          "BFE-2082-212",
-          equipmentSupplier.id,
-          null,
-          null,
-          id("inventory-brooder"),
-          id("expense-inventory-brooder-purchase"),
-          "OTHER",
-        ],
-        [
-          "entity-equipment-payment",
-          TransactionType.PAYMENT,
-          80000,
-          daysAgo(155),
-          "Part payment against brooder invoice",
-          "BANK-7314",
-          equipmentSupplier.id,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ],
-      ] as const;
-      for (const [
-        key,
-        type,
-        amount,
-        date,
-        description,
-        reference,
-        dealerId,
-        hatcheryId,
-        medicineSupplierId,
-        inventoryItemId,
-        expenseId,
-        purchaseCategory,
-      ] of entityTxns) {
-        const purchaseDetails = entityPurchaseDetails[key];
-        const paymentPurchaseKey = paymentPurchaseKeys[key];
-        await upsertById(tx.entityTransaction, id(key), {
-          type,
-          amount: decimal(amount),
-          quantity: purchaseDetails?.quantity ?? null,
-          freeQuantity: purchaseDetails ? 0 : null,
-          itemName: type === TransactionType.PURCHASE ? description : null,
-          date,
-          description,
-          reference,
-          dealerId,
-          hatcheryId,
-          medicineSupplierId,
-          customerId: null,
-          inventoryItemId,
-          expenseId,
-          paymentToPurchaseId: paymentPurchaseKey
-            ? id(paymentPurchaseKey)
-            : null,
-          entityType: dealerId
-            ? "DEALER"
-            : hatcheryId
-              ? "HATCHERY"
-              : "MEDICINE_SUPPLIER",
-          entityId: dealerId || hatcheryId || medicineSupplierId,
-          purchaseCategory,
-          unit: purchaseDetails?.unit ?? null,
-          unitPrice: purchaseDetails
-            ? decimal(purchaseDetails.unitPrice)
-            : null,
-          expiryDate: null,
-        });
-      }
-
-      const vaccinations = [
-        [
-          "vaccination-ib",
-          "Infectious Bronchitis",
-          daysAgo(30),
-          daysAgo(30),
-          VaccinationStatus.COMPLETED,
-          activeBroiler.id,
-          broilerFarm.id,
-          1,
-          "Completed through drinking water",
-        ],
-        [
-          "vaccination-newcastle",
-          "Newcastle Disease (Lasota)",
-          daysAgo(22),
-          daysAgo(22),
-          VaccinationStatus.COMPLETED,
-          activeBroiler.id,
-          broilerFarm.id,
-          1,
-          "Good post-vaccination response",
-        ],
-        [
-          "vaccination-ibd",
-          "Infectious Bursal Disease booster",
-          daysFromNow(2),
-          null,
-          VaccinationStatus.PENDING,
-          activeBroiler.id,
-          broilerFarm.id,
-          2,
-          "Prepare cool drinking water before administration",
-        ],
-        [
-          "vaccination-layer",
-          "Newcastle Disease booster",
-          daysFromNow(8),
-          null,
-          VaccinationStatus.PENDING,
-          activeLayer.id,
-          layerFarm.id,
-          3,
-          "Routine layer booster",
-        ],
-      ] as const;
-      for (const [
-        key,
-        vaccineName,
-        scheduledDate,
-        completedDate,
-        status,
-        batchId,
-        farmId,
-        doseNumber,
-        notes,
-      ] of vaccinations) {
-        await upsertById(tx.vaccination, id(key), {
-          vaccineName,
-          scheduledDate,
-          completedDate,
-          status,
-          notes,
-          doseNumber,
-          totalDoses: doseNumber,
-          daysBetweenDoses: 7,
-          standardScheduleId: null,
-          batchAge: null,
-          retryCount: 0,
-          batchId,
-          farmId,
-          userId: user.id,
-        });
-      }
-
-      const reminders = [
-        [
-          "reminder-feed",
-          "Order finisher feed before stock reaches minimum",
-          daysFromNow(1),
-          false,
-          broilerFarm.id,
-          activeBroiler.id,
-        ],
-        [
-          "reminder-vaccine",
-          "IBD booster for BRO-2083-04",
-          daysFromNow(2),
-          false,
-          broilerFarm.id,
-          activeBroiler.id,
-        ],
-        [
-          "reminder-eggs",
-          "Collect Sunrise Egg Mart payment",
-          daysFromNow(3),
-          false,
-          layerFarm.id,
-          activeLayer.id,
-        ],
-        [
-          "reminder-cleaning",
-          "Completed shed cleaning inspection",
-          daysAgo(4),
-          true,
-          broilerFarm.id,
-          completedBroiler.id,
-        ],
-      ] as const;
-      for (const [
-        key,
-        title,
-        reminderDate,
-        isNoticed,
-        farmId,
-        batchId,
-      ] of reminders) {
-        await upsertById(tx.reminder, id(key), {
-          userId: user.id,
-          title,
-          reminderDate,
-          isNoticed,
-          farmId,
-          batchId,
-        });
-      }
-
-      const listings = [
-        [
-          "listing-broiler",
-          "Green Valley Poultry Farm",
-          ListForSaleCategory.CHICKEN,
-          292,
-          2600,
-          "Birds",
-          daysFromNow(5),
-          daysFromNow(12),
-          "Bagmati",
-          "Bharatpur-16, Chitwan",
-          2.15,
-          null,
-          { breed: "Ross 308", saleType: "Live" },
-          ListForSaleStatus.ACTIVE,
-        ],
-        [
-          "listing-eggs",
-          "Sunrise Layer Unit",
-          ListForSaleCategory.EGGS,
-          6.25,
-          12000,
-          "Eggs",
-          daysAgo(1),
-          daysFromNow(14),
-          "Bagmati",
-          "Bharatpur-16, Chitwan",
-          null,
-          { LARGE: 7000, MEDIUM: 4000, SMALL: 1000 },
-          null,
-          ListForSaleStatus.ACTIVE,
-        ],
-        [
-          "listing-old",
-          "Green Valley Poultry Farm",
-          ListForSaleCategory.CHICKEN,
-          275,
-          1200,
-          "Birds",
-          daysAgo(82),
-          daysAgo(74),
-          "Bagmati",
-          "Bharatpur-16, Chitwan",
-          2.3,
-          null,
-          { breed: "Cobb 500" },
-          ListForSaleStatus.ARCHIVED,
-        ],
-      ] as const;
-      for (const [
-        key,
-        companyName,
-        category,
-        rate,
-        quantity,
-        unit,
-        availabilityFrom,
-        availabilityTo,
-        province,
-        address,
-        avgWeightKg,
-        eggVariants,
-        typeVariants,
-        status,
-      ] of listings) {
-        await upsertById(tx.listForSale, id(key), {
-          userId: user.id,
-          companyName,
-          category,
-          phone: account.phone,
-          rate: decimal(rate),
-          quantity: decimal(quantity),
-          unit,
-          availabilityFrom,
-          availabilityTo,
-          province,
-          address,
-          latitude: 27.5291,
-          longitude: 84.3542,
-          avgWeightKg: avgWeightKg === null ? null : decimal(avgWeightKg),
-          eggVariants,
-          typeVariants,
-          status,
-        });
-      }
-
-      const staff = [
-        [
-          "staff-ramesh",
-          "Ramesh Chaudhary",
-          daysAgo(420),
-          null,
-          StaffStatus.ACTIVE,
-          28000,
-          56000,
-          daysAgo(12),
-          "Two months salary",
-        ],
-        [
-          "staff-sita",
-          "Sita Gurung",
-          daysAgo(300),
-          null,
-          StaffStatus.ACTIVE,
-          26000,
-          26000,
-          daysAgo(18),
-          "Monthly salary",
-        ],
-        [
-          "staff-bikash",
-          "Bikash Tamang",
-          daysAgo(210),
-          daysAgo(35),
-          StaffStatus.STOPPED,
-          24000,
-          18000,
-          daysAgo(40),
-          "Final partial settlement",
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        startDate,
-        endDate,
-        status,
-        monthlyAmount,
-        paymentAmount,
-        paidAt,
-        note,
-      ] of staff) {
-        const staffId = id(key);
-        await upsertById(tx.staff, staffId, {
-          ownerId: user.id,
-          name,
-          startDate,
-          endDate,
-          status,
-        });
-        await upsertById(tx.staffSalary, id(`${key}-salary`), {
-          staffId,
-          monthlyAmount: decimal(monthlyAmount),
-          effectiveFrom: startDate,
-        });
-        await upsertById(tx.staffPayment, id(`${key}-payment`), {
-          staffId,
-          amount: decimal(paymentAmount),
-          paidAt,
-          note,
-          receiptImageUrl: null,
-        });
-      }
-
-      await upsertById(tx.farmerCashSettings, id("cash-settings"), {
-        userId: user.id,
-        initialOpening: decimal(75000),
-        startBsDate: cashDates[7],
-      });
-      const cashMovements = [
-        [
-          "cash-today-in",
-          cashDates[0],
-          CashMovementDirection.IN,
-          42000,
-          "Sunrise Egg Mart",
-          "Part payment against egg invoice",
-        ],
-        [
-          "cash-today-out",
-          cashDates[0],
-          CashMovementDirection.OUT,
-          18500,
-          "AgroVet Health Centre",
-          "Medicine supplier payment",
-        ],
-        [
-          "cash-yesterday-in",
-          cashDates[1],
-          CashMovementDirection.IN,
-          28000,
-          "Farm-gate egg sales",
-          "Daily retail egg collection",
-        ],
-        [
-          "cash-yesterday-out",
-          cashDates[1],
-          CashMovementDirection.OUT,
-          12400,
-          "Farm operating expenses",
-          "Fuel, litter and small supplies",
-        ],
-        [
-          "cash-2day-in",
-          cashDates[2],
-          CashMovementDirection.IN,
-          35000,
-          "Narayani Meat Centre",
-          "Customer receipt",
-        ],
-        [
-          "cash-2day-out",
-          cashDates[2],
-          CashMovementDirection.OUT,
-          22000,
-          "Valley Feed Traders",
-          "Supplier cash payment",
-        ],
-      ] as const;
-      for (const [
-        key,
-        bsDate,
-        direction,
-        amount,
-        partyName,
-        notes,
-      ] of cashMovements) {
-        await upsertById(tx.farmerCashMovement, id(key), {
-          userId: user.id,
-          bsDate,
-          direction,
-          amount: decimal(amount),
-          partyName,
-          notes,
-          recordedById: user.id,
-        });
-      }
-      const dayCloses = [
-        ["cash-close-1", cashDates[1], 81600, 97200, daysAgo(1, 20)],
-        ["cash-close-2", cashDates[2], 68600, 81600, daysAgo(2, 20)],
-        ["cash-close-3", cashDates[3], 74300, 68600, daysAgo(3, 20)],
-        ["cash-close-4", cashDates[4], 70100, 74300, daysAgo(4, 20)],
-      ] as const;
-      for (const [
-        key,
-        bsDate,
-        openingSnapshot,
-        closingSnapshot,
-        closedAt,
-      ] of dayCloses) {
-        await upsertById(tx.farmerCashDayClose, id(key), {
-          userId: user.id,
-          bsDate,
-          openingSnapshot: decimal(openingSnapshot),
-          closingSnapshot: decimal(closingSnapshot),
-          source: CashDayCloseSource.USER,
-          closedAt,
-        });
-      }
-
-      const notifications = [
-        [
-          "notification-stock",
-          "LOW_INVENTORY",
-          "Finisher feed nearing minimum stock",
-          "Only 35 bags remain, below the 40-bag minimum. Plan the next feed order.",
-          NotificationStatus.UNREAD,
-          daysAgo(1),
-          { url: "/farmer/dashboard/inventory" },
-        ],
-        [
-          "notification-vaccine",
-          "VACCINATION_DUE",
-          "IBD booster due soon",
-          "BRO-2083-04 vaccination is scheduled in two days.",
-          NotificationStatus.UNREAD,
-          daysAgo(0),
-          { url: "/farmer/dashboard/batches" },
-        ],
-        [
-          "notification-payment",
-          "PAYMENT_DUE",
-          "Customer balance pending",
-          "Sunrise Egg Mart has NPR 17,850 outstanding.",
-          NotificationStatus.READ,
-          daysAgo(3),
-          { url: "/farmer/dashboard/sales-ledger" },
-        ],
-      ] as const;
-      for (const [
-        key,
-        type,
-        title,
-        body,
-        status,
-        createdAt,
-        data,
-      ] of notifications) {
-        await upsertById(tx.notification, id(key), {
-          userId: user.id,
-          type,
-          title,
-          body,
-          data,
-          status,
-          createdAt,
-          readAt: status === NotificationStatus.READ ? daysAgo(2) : null,
-        });
-      }
-    },
-    { maxWait: 10_000, timeout: 120_000 },
-  );
-
-  printDemoCredentials("Farmer", account);
+/** AD YYYY-MM-DD of the Nepal day `ago` days before today. */
+function dayAgo(ago: number): string {
+  const [y, m, d] = NEPAL_TODAY.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - ago)).toISOString().slice(0, 10);
 }
 
-seedDemoFarmer()
+/** Same format the farmer screens send: midnight UTC of that day (05:45 in Nepal). */
+const isoAgo = (ago: number) => `${dayAgo(ago)}T00:00:00.000Z`;
+
+const BS_MONTHS = ["Baisakh", "Jestha", "Ashadh", "Shrawan", "Bhadra", "Ashwin", "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra"];
+function bsMonthDay(ago: number): string {
+  const nd = new NepaliDate(new Date(`${dayAgo(ago)}T06:00:00.000Z`));
+  return `${BS_MONTHS[nd.getMonth()]}-${nd.getDate()}`;
+}
+
+// ── Small helpers ─────────────────────────────────────────────────────────────
+
+/** Deterministic random numbers so every run builds the same data. */
+function makeRandom(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = makeRandom(360);
+const between = (min: number, max: number) => min + Math.floor(rnd() * (max - min + 1));
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+let token = "";
+let callCount = 0;
+
+async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
+  callCount += 1;
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(`${method} ${path} failed (${res.status}): ${json?.message || text}\nBody: ${JSON.stringify(body)}`);
+  }
+  return json as T;
+}
+
+// ── Event queue (everything is entered in date order, like real life) ─────────
+
+type Event = { ago: number; order: number; label: string; run: () => Promise<void> };
+const events: Event[] = [];
+const on = (ago: number, order: number, label: string, run: () => Promise<void>) =>
+  events.push({ ago, order, label, run });
+
+// Order inside one day: purchases → batch start → usage/expenses → deaths → weights → eggs → sales → payments → close.
+const O = { purchase: 1, batch: 2, usage: 3, expense: 4, death: 5, weight: 6, eggs: 7, sale: 8, payment: 9, close: 10 };
+
+// ── Shared ids filled while the seed runs ─────────────────────────────────────
+
+const ids = {
+  farm1: "",
+  farm2: "",
+  feedSupplier: "",
+  chickSupplier: "",
+  vetSupplier: "",
+  catFeed: "",
+  catMedicine: "",
+  catLabour: "",
+  catElectricity: "",
+  catBedding: "",
+  customers: {} as Record<string, string>,
+  items: {} as Record<string, string>,
+  eggTypes: {} as Record<"LARGE" | "MEDIUM" | "CRACKED", string>,
+};
+
+const supplierDue: Record<string, number> = {};
+const customerDue: Record<string, number> = {};
+
+async function purchase(supplierKey: "feedSupplier" | "chickSupplier" | "vetSupplier", item: {
+  key: string;
+  name: string;
+  category: "CHICKS" | "FEED" | "MEDICINE";
+  unit: string;
+  quantity: number;
+  freeQuantity?: number;
+  rate: number;
+}, ago: number) {
+  const amount = round2(item.quantity * item.rate);
+  const res = await api("POST", `/dealers/${ids[supplierKey]}/transactions`, {
+    type: "PURCHASE",
+    amount,
+    quantity: item.quantity,
+    ...(item.freeQuantity ? { freeQuantity: item.freeQuantity } : {}),
+    itemName: item.name,
+    purchaseCategory: item.category,
+    date: isoAgo(ago),
+    description: `Purchase of ${item.name}`,
+    unitPrice: item.rate,
+    unit: item.unit,
+  });
+  const txn = Array.isArray(res.data) ? res.data[0] : res.data;
+  if (txn?.inventoryItemId) ids.items[item.key] = txn.inventoryItemId;
+  supplierDue[supplierKey] = round2((supplierDue[supplierKey] || 0) + amount);
+}
+
+async function paySupplier(supplierKey: "feedSupplier" | "chickSupplier" | "vetSupplier", amount: number, ago: number) {
+  if (amount <= 0) return;
+  await api("POST", `/dealers/${ids[supplierKey]}/transactions`, {
+    type: "PAYMENT",
+    amount,
+    date: isoAgo(ago),
+    description: "Payment",
+  });
+  supplierDue[supplierKey] = round2(supplierDue[supplierKey] - amount);
+}
+
+async function useInventory(batch: { id: string; farmId: string }, item: { key: string; categoryId: string; rate: number; label: string }, quantity: number, ago: number) {
+  await api("POST", "/expenses", {
+    date: isoAgo(ago),
+    amount: round2(quantity * item.rate),
+    quantity,
+    unitPrice: item.rate,
+    farmId: batch.farmId,
+    batchId: batch.id,
+    categoryId: item.categoryId,
+    inventoryItems: [{ itemId: ids.items[item.key], quantity, notes: item.label }],
+  });
+}
+
+async function plainExpense(batch: { id: string; farmId: string }, categoryId: string, amount: number, description: string, ago: number) {
+  await api("POST", "/expenses", {
+    date: isoAgo(ago),
+    amount,
+    quantity: 1,
+    unitPrice: amount,
+    farmId: batch.farmId,
+    batchId: batch.id,
+    categoryId,
+    description,
+  });
+}
+
+// ── Broiler batch plan ────────────────────────────────────────────────────────
+
+const WEIGHT_CURVE: Array<[number, number]> = [[0, 0.045], [7, 0.17], [14, 0.45], [21, 0.85], [28, 1.35], [35, 1.85], [42, 2.35]];
+function targetWeight(day: number): number {
+  for (let i = 1; i < WEIGHT_CURVE.length; i += 1) {
+    const [d1, w1] = WEIGHT_CURVE[i - 1];
+    const [d2, w2] = WEIGHT_CURVE[i];
+    if (day <= d2) return w1 + ((w2 - w1) * (day - d1)) / (d2 - d1);
+  }
+  return WEIGHT_CURVE[WEIGHT_CURVE.length - 1][1];
+}
+/** Grams of feed per bird per day. Totals about 3.7 kg per bird over 42 days. */
+const feedGrams = (day: number) => 3.6 * day + 10;
+
+const FEEDS = {
+  // Per 50 kg bag, about रू 77–80 per kg (Nepal 2083).
+  starter: { key: "feed-starter", name: "B0 Starter Feed", rate: 4000 },
+  grower: { key: "feed-grower", name: "B1 Grower Feed", rate: 3900 },
+  finisher: { key: "feed-finisher", name: "B2 Finisher Feed", rate: 3850 },
+} as const;
+const CHICK_RATE = 90;
+const LAYER_MASH_RATE = 3700;
+const phaseOf = (day: number) => (day <= 14 ? "starter" : day <= 28 ? "grower" : "finisher");
+
+type SaleLot = { day: number; customer: string; share: number; rate: number; discount: number | null; paid: "cash" | "half" | "none" };
+
+function planBroiler(cfg: {
+  key: string;
+  startAgo: number;
+  chicks: number;
+  closeDay: number | null;
+  sales: SaleLot[];
+}) {
+  const lastDay = cfg.closeDay ?? cfg.startAgo; // active batches run until today
+  // Deaths: higher in week 1, then a few every other day (~4% total).
+  const deaths: Record<number, number> = {};
+  for (let d = 1; d <= lastDay; d += 1) {
+    if (d <= 7) deaths[d] = between(2, Math.max(3, Math.round(cfg.chicks * 0.004)));
+    else if (d % 2 === 0) deaths[d] = between(0, Math.max(2, Math.round(cfg.chicks * 0.0015)));
+  }
+  // Sales: share of the birds alive on that day.
+  let live = cfg.chicks;
+  const soldOn: Record<number, { qty: number; weight: number; lot: SaleLot }> = {};
+  const sortedSales = [...cfg.sales].sort((a, b) => a.day - b.day);
+  const liveOn: Record<number, number> = {};
+  for (let d = 1; d <= lastDay; d += 1) {
+    live -= deaths[d] || 0;
+    const lot = sortedSales.find((s) => s.day === d);
+    if (lot) {
+      const isLast = lot === sortedSales[sortedSales.length - 1] && cfg.closeDay !== null;
+      const qty = isLast ? live : Math.min(live, Math.round(live * lot.share));
+      const avg = targetWeight(d) * (0.97 + rnd() * 0.06);
+      soldOn[d] = { qty, weight: round2(qty * avg), lot };
+      live -= qty;
+    }
+    liveOn[d] = live;
+  }
+  // Feed: one entry every 3 days, rounded to whole bags, carrying the remainder.
+  const feed: Array<{ day: number; phase: keyof typeof FEEDS; bags: number }> = [];
+  let carryKg = 0;
+  let kgSinceLast = 0;
+  let aliveForFeed = cfg.chicks;
+  for (let d = 1; d <= lastDay; d += 1) {
+    aliveForFeed -= deaths[d] || 0;
+    kgSinceLast += (feedGrams(d) * aliveForFeed) / 1000;
+    if (soldOn[d]) aliveForFeed -= soldOn[d].qty;
+    if (d % 3 === 0 || d === lastDay) {
+      const totalKg = kgSinceLast + carryKg;
+      const bags = Math.floor(totalKg / 50);
+      carryKg = totalKg - bags * 50;
+      kgSinceLast = 0;
+      if (bags > 0) feed.push({ day: d, phase: phaseOf(d), bags });
+    }
+  }
+  return { ...cfg, lastDay, deaths, soldOn, liveOn, feed };
+}
+
+function scheduleBroiler(plan: ReturnType<typeof planBroiler>, farmName: string) {
+  const batch = { id: "", farmId: "" };
+  const at = (day: number) => plan.startAgo - day; // "ago" of batch day N
+
+  // Chicks: bought the day before, 2% free from the hatchery.
+  const free = Math.round(plan.chicks * 0.02);
+  on(at(-1), O.purchase, `${plan.key}: chicks`, () =>
+    purchase("chickSupplier", { key: `chicks-${plan.key}`, name: "Broiler chicks (Cobb 500)", category: "CHICKS", unit: "Birds", quantity: plan.chicks - free, freeQuantity: free, rate: CHICK_RATE }, at(-1)),
+  );
+  on(at(2), O.payment, `${plan.key}: pay hatchery`, () => paySupplier("chickSupplier", round2((plan.chicks - free) * CHICK_RATE), at(2)));
+
+  // Feed bought per phase, a little before it is needed.
+  for (const phase of Object.keys(FEEDS) as Array<keyof typeof FEEDS>) {
+    const bags = plan.feed.filter((f) => f.phase === phase).reduce((s, f) => s + f.bags, 0);
+    if (bags === 0) continue;
+    const firstDay = Math.min(...plan.feed.filter((f) => f.phase === phase).map((f) => f.day));
+    const buyAgo = at(Math.max(-1, firstDay - 3));
+    on(buyAgo, O.purchase, `${plan.key}: buy ${phase}`, () =>
+      purchase("feedSupplier", { key: FEEDS[phase].key, name: FEEDS[phase].name, category: "FEED", unit: "Bag", quantity: Math.ceil(bags * 1.05), rate: FEEDS[phase].rate }, buyAgo),
+    );
+  }
+  // Medicine kit before the batch starts.
+  on(at(-1), O.purchase, `${plan.key}: medicine`, async () => {
+    await purchase("vetSupplier", { key: "med-vitamin", name: "Vitamin AD3E", category: "MEDICINE", unit: "Bottle", quantity: 3, rate: 480 }, at(-1));
+    await purchase("vetSupplier", { key: "med-enro", name: "Enrofloxacin 10%", category: "MEDICINE", unit: "Bottle", quantity: 2, rate: 950 }, at(-1));
+  });
+
+  on(at(0), O.batch, `${plan.key}: start batch`, async () => {
+    const res = await api("POST", "/batches", {
+      batchNumber: `${bsMonthDay(at(0))}-${farmName}`,
+      batchType: "BROILER",
+      farmId: ids.farm1,
+      startDate: isoAgo(at(0)),
+      initialChickWeight: 0.045,
+      status: "ACTIVE",
+      chicksInventory: [{ itemId: ids.items[`chicks-${plan.key}`], quantity: plan.chicks, notes: "From Kalika Hatchery" }],
+    });
+    batch.id = res.data.id;
+    batch.farmId = ids.farm1;
+  });
+  on(at(0), O.expense, `${plan.key}: bedding`, () => plainExpense(batch, ids.catBedding, 3000, "Rice husk bedding", at(0)));
+
+  for (const f of plan.feed) {
+    const feedItem = FEEDS[f.phase];
+    on(at(f.day), O.usage, `${plan.key}: feed d${f.day}`, () =>
+      useInventory(batch, { key: feedItem.key, categoryId: ids.catFeed, rate: feedItem.rate, label: `Feed: ${feedItem.name}` }, f.bags, at(f.day)),
+    );
+  }
+  const medicineDays: Array<[number, string, number, string]> = [[3, "med-vitamin", 480, "Vitamin AD3E"], [10, "med-enro", 950, "Enrofloxacin 10%"], [18, "med-vitamin", 480, "Vitamin AD3E"]];
+  for (const [day, key, rate, name] of medicineDays) {
+    if (day > plan.lastDay) continue;
+    on(at(day), O.usage, `${plan.key}: medicine d${day}`, () =>
+      useInventory(batch, { key, categoryId: ids.catMedicine, rate, label: `Medicine: ${name}` }, 1, at(day)),
+    );
+  }
+  for (const day of [15, 30]) {
+    if (day <= plan.lastDay) on(at(day), O.expense, `${plan.key}: labour d${day}`, () => plainExpense(batch, ids.catLabour, 7500, "Farm worker wage", at(day)));
+  }
+  if (25 <= plan.lastDay) on(at(25), O.expense, `${plan.key}: electricity`, () => plainExpense(batch, ids.catElectricity, 2400, "Electricity bill", at(25)));
+
+  for (const [dayText, count] of Object.entries(plan.deaths)) {
+    const day = Number(dayText);
+    if (count > 0) {
+      on(at(day), O.death, `${plan.key}: deaths d${day}`, async () => {
+        await api("POST", "/mortalities", { date: isoAgo(at(day)), count, reason: "Natural Death", batchId: batch.id });
+      });
+    }
+  }
+  for (const day of [7, 14, 21, 28, 35]) {
+    if (day > plan.lastDay || at(day) < 0) continue;
+    on(at(day), O.weight, `${plan.key}: weight d${day}`, async () => {
+      await api("POST", `/batches/${batch.id}/weights`, {
+        date: isoAgo(at(day)),
+        avgWeight: round2(targetWeight(day) * (0.97 + rnd() * 0.06)),
+        sampleCount: 20,
+        notes: "Weekly weighing",
+      });
+    });
+  }
+  for (const [dayText, sale] of Object.entries(plan.soldOn)) {
+    const day = Number(dayText);
+    if (sale.qty <= 0) continue;
+    on(at(day), O.sale, `${plan.key}: sale d${day}`, async () => {
+      const discount = sale.lot.discount;
+      const billed = round2(sale.weight * (1 - (discount || 0) / 100));
+      const amount = round2(billed * sale.lot.rate);
+      const paidAmount = sale.lot.paid === "cash" ? amount : sale.lot.paid === "half" ? round2(Math.floor(amount / 2 / 100) * 100) : 0;
+      const isCredit = sale.lot.paid !== "cash";
+      await api("POST", "/sales", {
+        date: isoAgo(at(day)),
+        amount,
+        quantity: sale.qty,
+        weight: sale.weight,
+        weightDiscountPercent: discount,
+        unitPrice: sale.lot.rate,
+        isCredit,
+        paidAmount,
+        farmId: ids.farm1,
+        batchId: batch.id,
+        itemType: "Chicken_Meat",
+        customerId: ids.customers[sale.lot.customer],
+      });
+      if (isCredit) customerDue[sale.lot.customer] = round2((customerDue[sale.lot.customer] || 0) + amount - paidAmount);
+    });
+  }
+  if (plan.closeDay !== null) {
+    const closeAgo = at(plan.closeDay);
+    on(closeAgo, O.close, `${plan.key}: close`, async () => {
+      await api("POST", `/batches/${batch.id}/close`, {
+        endDate: isoAgo(closeAgo),
+        finalNotes: "All birds sold",
+        confirmRemainingAsDead: true,
+      });
+    });
+  }
+}
+
+// ── Layer batch ───────────────────────────────────────────────────────────────
+
+function scheduleLayers(cfg: { startAgo: number; birds: number }, farmName: string) {
+  const batch = { id: "", farmId: "" };
+  const at = (day: number) => cfg.startAgo - day;
+  const lastDay = cfg.startAgo;
+  const stock = { LARGE: 0, MEDIUM: 0, CRACKED: 0 };
+  let live = cfg.birds;
+
+  on(at(-1), O.purchase, "layers: pullets", () =>
+    purchase("chickSupplier", { key: "pullets", name: "Layer pullets (18 weeks)", category: "CHICKS", unit: "Birds", quantity: cfg.birds, rate: 650 }, at(-1)),
+  );
+  on(at(5), O.payment, "layers: pay pullets", () => paySupplier("chickSupplier", cfg.birds * 650, at(5)));
+  for (let day = -1; day <= lastDay; day += 15) {
+    on(at(day), O.purchase, `layers: buy mash d${day}`, () =>
+      purchase("feedSupplier", { key: "layer-mash", name: "Layer Mash", category: "FEED", unit: "Bag", quantity: 30, rate: LAYER_MASH_RATE }, at(day)),
+    );
+  }
+  on(at(0), O.batch, "layers: start batch", async () => {
+    const res = await api("POST", "/batches", {
+      batchNumber: `${bsMonthDay(at(0))}-${farmName}`,
+      batchType: "LAYERS",
+      farmId: ids.farm2,
+      startDate: isoAgo(at(0)),
+      initialChickWeight: 1.4,
+      status: "ACTIVE",
+      chicksInventory: [{ itemId: ids.items.pullets, quantity: cfg.birds, notes: "Point-of-lay pullets" }],
+    });
+    batch.id = res.data.id;
+    batch.farmId = ids.farm2;
+  });
+
+  for (let day = 1; day <= lastDay; day += 1) {
+    const deaths = day % 5 === 0 ? between(0, 2) : 0;
+    if (deaths > 0) {
+      live -= deaths;
+      on(at(day), O.death, `layers: deaths d${day}`, async () => {
+        await api("POST", "/mortalities", { date: isoAgo(at(day)), count: deaths, reason: "Natural Death", batchId: batch.id });
+      });
+    }
+    if (day % 3 === 0) {
+      const bags = day % 6 === 0 ? 6 : 5;
+      on(at(day), O.usage, `layers: mash d${day}`, () =>
+        useInventory(batch, { key: "layer-mash", categoryId: ids.catFeed, rate: LAYER_MASH_RATE, label: "Feed: Layer Mash" }, bags, at(day)),
+      );
+    }
+    if (day >= 8) {
+      const henDay = Math.min(0.9, 0.35 + 0.012 * (day - 8));
+      const eggs = Math.round(live * henDay);
+      const counts = { LARGE: Math.round(eggs * 0.62), MEDIUM: Math.round(eggs * 0.33), CRACKED: 0 };
+      counts.CRACKED = Math.max(0, eggs - counts.LARGE - counts.MEDIUM);
+      stock.LARGE += counts.LARGE;
+      stock.MEDIUM += counts.MEDIUM;
+      stock.CRACKED += counts.CRACKED;
+      on(at(day), O.eggs, `layers: eggs d${day}`, async () => {
+        await api("POST", `/batches/${batch.id}/egg-production`, {
+          date: isoAgo(at(day)),
+          countByType: { [ids.eggTypes.LARGE]: counts.LARGE, [ids.eggTypes.MEDIUM]: counts.MEDIUM, [ids.eggTypes.CRACKED]: counts.CRACKED },
+        });
+      });
+    }
+    if (day >= 12 && day % 4 === 0) {
+      const large = Math.floor(stock.LARGE * 0.95);
+      const medium = Math.floor(stock.MEDIUM * 0.95);
+      const cracked = day % 12 === 0 ? stock.CRACKED : 0;
+      stock.LARGE -= large;
+      stock.MEDIUM -= medium;
+      stock.CRACKED -= cracked;
+      const customer = (day / 4) % 2 === 0 ? "Hari Kirana Pasal" : "Bharatpur Egg Traders";
+      const lines = [
+        { type: "LARGE" as const, quantity: large, unitPrice: 16 },
+        { type: "MEDIUM" as const, quantity: medium, unitPrice: 14 },
+        { type: "CRACKED" as const, quantity: cracked, unitPrice: 8 },
+      ].filter((l) => l.quantity > 0);
+      if (lines.length === 0) continue;
+      on(at(day), O.sale, `layers: egg sale d${day}`, async () => {
+        const amount = lines.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
+        const isCredit = customer === "Bharatpur Egg Traders";
+        const paidAmount = isCredit ? Math.floor(amount * 0.6 / 100) * 100 : amount;
+        await api("POST", "/sales", {
+          date: isoAgo(at(day)),
+          amount,
+          quantity: lines.reduce((s, l) => s + l.quantity, 0),
+          unitPrice: lines[0].unitPrice,
+          isCredit,
+          paidAmount,
+          farmId: ids.farm2,
+          batchId: batch.id,
+          itemType: "EGGS",
+          customerId: ids.customers[customer],
+          eggLineItems: lines.map((l) => ({ eggTypeId: ids.eggTypes[l.type], quantity: l.quantity, unitPrice: l.unitPrice })),
+        });
+        if (isCredit) customerDue[customer] = round2((customerDue[customer] || 0) + amount - paidAmount);
+      });
+    }
+  }
+  on(at(20), O.usage, "layers: vaccine", () =>
+    useInventory(batch, { key: "med-vitamin", categoryId: ids.catMedicine, rate: 480, label: "Medicine: Vitamin AD3E" }, 1, at(20)),
+  );
+  for (const day of [30, 60]) {
+    if (day <= lastDay) on(at(day), O.expense, `layers: labour d${day}`, () => plainExpense(batch, ids.catLabour, 8000, "Farm worker wage", at(day)));
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+async function ensureDemoFarmerLogin(): Promise<string> {
+  const existing = await prisma.user.findUnique({ where: { id: account.id }, select: { id: true } });
+  const explicitPassword = process.env[account.passwordEnv];
+  const password = explicitPassword || process.env.P360_DEMO_PASSWORD || DEFAULT_DEMO_PASSWORD;
+  if (existing) {
+    const farms = await prisma.farm.count({ where: { ownerId: account.id } });
+    if (farms > 0) {
+      throw new Error(
+        `Demo farmer ${account.phone} already has data (${farms} farm(s)). Delete that demo account's data first; re-running would duplicate it.`,
+      );
+    }
+    // Login exists but has no data yet (e.g. an earlier run stopped early): reuse it.
+    await prisma.user.update({ where: { id: account.id }, data: { password: await bcrypt.hash(password, 12) } });
+    return password;
+  }
+  const hash = await bcrypt.hash(password, 12);
+  await prisma.$transaction((tx) => upsertDemoUser(tx, account, hash));
+  return password;
+}
+
+async function main() {
+  if (!isLocalDatabase() && process.env.P360_DEMO_SEED_CONFIRMED !== "1") {
+    throw new Error(
+      "Not a local database. To seed production, run scripts/seed-demo-prod.sh (it asks for a backup check first).",
+    );
+  }
+  console.log(`Seeding demo farmer through ${API_URL} (Nepal today ${NEPAL_TODAY})...`);
+
+  const password = await ensureDemoFarmerLogin();
+  const login = await api("POST", "/auth/login", { emailOrPhone: account.phone, password });
+  token = login.accessToken;
+
+  // Setup: farms, suppliers, customers, categories, egg types.
+  ids.farm1 = (await api("POST", "/farms", { name: "Green Valley Farm 1", capacity: 5000, description: "Broiler sheds" })).data.id;
+  ids.farm2 = (await api("POST", "/farms", { name: "Hilltop Layer Farm", capacity: 3000, description: "Layer shed" })).data.id;
+
+  ids.feedSupplier = (await api("POST", "/dealers", { name: "Shree Krishna Feed Udhyog", contact: "9855000001", address: "Narayangadh, Chitwan" })).data.id;
+  ids.chickSupplier = (await api("POST", "/dealers", { name: "Kalika Hatchery", contact: "9855000002", address: "Ratnanagar, Chitwan" })).data.id;
+  ids.vetSupplier = (await api("POST", "/dealers", { name: "Nepal Vet Pharma", contact: "9855000003", address: "Bharatpur-10, Chitwan" })).data.id;
+  await api("POST", `/dealers/${ids.feedSupplier}/opening-balance`, { openingBalance: 25000, notes: "Opening balance" });
+  supplierDue.feedSupplier = 25000;
+
+  const customers: Array<[string, string, string, number]> = [
+    ["Ram Bahadur Chicken Center", "9845000001", "Chicken", 12000],
+    ["Sita Meat Shop", "9845000002", "Chicken", 0],
+    ["Laxmi Hotel", "9845000003", "Chicken", 0],
+    ["Hari Kirana Pasal", "9845000004", "Eggs", 0],
+    ["Bharatpur Egg Traders", "9845000005", "Eggs", 0],
+  ];
+  for (const [name, phone, category, opening] of customers) {
+    const res = await api("POST", "/sales/customers", {
+      name,
+      phone,
+      category,
+      address: "Chitwan",
+      ...(opening ? { openingBalance: opening, openingBalanceNotes: "Opening balance" } : {}),
+    });
+    ids.customers[name] = res.data.id;
+    customerDue[name] = opening;
+  }
+
+  const categories = (await api("GET", "/expenses/categories?type=EXPENSE")).data as Array<{ id: string; name: string }>;
+  const byName = (name: string) => categories.find((c) => c.name.toLowerCase() === name)?.id || "";
+  ids.catFeed = byName("feed");
+  ids.catMedicine = byName("medicine");
+  if (!ids.catFeed || !ids.catMedicine) throw new Error("Feed/Medicine expense categories were not created");
+  ids.catLabour = (await api("POST", "/expenses/categories", { name: "Labour", description: "Saved Other expense name" })).data.id;
+  ids.catElectricity = (await api("POST", "/expenses/categories", { name: "Electricity", description: "Saved Other expense name" })).data.id;
+  ids.catBedding = (await api("POST", "/expenses/categories", { name: "Bedding", description: "Saved Other expense name" })).data.id;
+
+  const eggTypes: Array<[keyof typeof ids.eggTypes, string, number]> = [["LARGE", "Large", 1], ["MEDIUM", "Medium", 2], ["CRACKED", "Cracked", 3]];
+  for (const [code, name, displayOrder] of eggTypes) {
+    ids.eggTypes[code] = (await api("POST", "/egg-types", { name, code, displayOrder })).data.id;
+  }
+
+  // Batches.
+  scheduleBroiler(planBroiler({
+    key: "B1", startAgo: 118, chicks: 1000, closeDay: 42,
+    sales: [
+      { day: 37, customer: "Ram Bahadur Chicken Center", share: 0.35, rate: 232, discount: 1, paid: "half" },
+      { day: 39, customer: "Sita Meat Shop", share: 0.4, rate: 236, discount: null, paid: "cash" },
+      { day: 41, customer: "Laxmi Hotel", share: 0.5, rate: 234, discount: 1, paid: "none" },
+      { day: 42, customer: "Ram Bahadur Chicken Center", share: 1, rate: 228, discount: 1, paid: "cash" },
+    ],
+  }), "Farm 1");
+  scheduleBroiler(planBroiler({
+    key: "B2", startAgo: 70, chicks: 1200, closeDay: 41,
+    sales: [
+      { day: 36, customer: "Sita Meat Shop", share: 0.3, rate: 240, discount: null, paid: "cash" },
+      { day: 38, customer: "Ram Bahadur Chicken Center", share: 0.45, rate: 238, discount: 1, paid: "half" },
+      { day: 40, customer: "Laxmi Hotel", share: 0.6, rate: 239, discount: 1, paid: "none" },
+      { day: 41, customer: "Sita Meat Shop", share: 1, rate: 235, discount: null, paid: "cash" },
+    ],
+  }), "Farm 1");
+  scheduleBroiler(planBroiler({ key: "B3", startAgo: 24, chicks: 1500, closeDay: null, sales: [] }), "Farm 1");
+  scheduleLayers({ startAgo: 72, birds: 800 }, "Hilltop");
+
+  // Payments spread over time (feed supplier, medicine supplier, customers).
+  for (const ago of [100, 80, 58, 38, 18, 4]) {
+    on(ago, O.payment, `pay feed supplier ${ago}`, () => paySupplier("feedSupplier", Math.floor((supplierDue.feedSupplier * 0.7) / 1000) * 1000, ago));
+  }
+  for (const ago of [90, 45, 10]) {
+    on(ago, O.payment, `pay vet ${ago}`, () => paySupplier("vetSupplier", Math.floor(supplierDue.vetSupplier / 100) * 100, ago));
+  }
+  const customerPayments: Array<[number, string, number]> = [
+    [72, "Ram Bahadur Chicken Center", 0.8],
+    [65, "Laxmi Hotel", 1],
+    [22, "Ram Bahadur Chicken Center", 0.7],
+    [20, "Laxmi Hotel", 0.5],
+    [15, "Bharatpur Egg Traders", 1],
+    [3, "Bharatpur Egg Traders", 0.8],
+  ];
+  for (const [ago, name, share] of customerPayments) {
+    on(ago, O.payment, `receive ${name} ${ago}`, async () => {
+      const amount = Math.floor(((customerDue[name] || 0) * share) / 100) * 100;
+      if (amount <= 0) return;
+      await api("POST", `/sales/customers/${ids.customers[name]}/payments`, {
+        amount,
+        date: dayAgo(ago),
+        description: "Payment received",
+      });
+      customerDue[name] = round2(customerDue[name] - amount);
+    });
+  }
+
+  // Run everything in date order.
+  events.sort((a, b) => b.ago - a.ago || a.order - b.order);
+  for (const event of events) {
+    if (event.ago < 0) continue; // never enter future dates
+    await event.run();
+  }
+
+  console.log(`\nDemo farmer ready (${callCount} API calls).`);
+  console.log(`Phone: ${account.phone} (log in with ${account.phone.replace("+977", "")})`);
+  console.log(`Password: ${process.env[account.passwordEnv] ? "(the one you set)" : password}`);
+}
+
+main()
   .catch((error) => {
-    console.error("Farmer demo seed failed:", error);
+    console.error("\nDemo farmer seed failed:", error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

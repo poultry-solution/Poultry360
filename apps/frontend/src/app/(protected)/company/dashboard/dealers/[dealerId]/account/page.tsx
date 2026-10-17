@@ -529,7 +529,7 @@ export default function DealerAccountPage() {
                         <p className="text-lg font-bold text-green-600">
                           -{formatCurrency(payment.amount)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-700">
                           Balance: {formatCurrency(payment.balanceAfter)}
                         </p>
                       </div>

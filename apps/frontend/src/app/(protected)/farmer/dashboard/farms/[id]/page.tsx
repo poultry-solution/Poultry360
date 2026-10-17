@@ -1,1027 +1,578 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/common/components/ui/card";
-import { Button } from "@/common/components/ui/button";
+  ArrowLeft,
+  ChevronRight,
+  Layers,
+  Loader2,
+  Pencil,
+  Plus,
+  Receipt,
+  Search,
+  Trash2,
+  TrendingUp,
+  Wallet,
+  Wheat,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/common/components/ui/badge";
+import { Button } from "@/common/components/ui/button";
+import { Card, CardContent } from "@/common/components/ui/card";
+import { DateDisplay } from "@/common/components/ui/date-display";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
-import { DateInput } from "@/common/components/ui/date-input";
-import { DateDisplay } from "@/common/components/ui/date-display";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
+  FcrText,
+  count,
+  moneyClass,
+  percent,
+  signedRupees,
+} from "@/components/analytics/farmer/shared";
+import { FarmFormModal } from "@/components/farms/FarmFormModal";
 import {
-  Building2,
-  Users,
-  Calendar,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Activity,
-  Plus,
-  Search,
-  Filter,
-  Eye,
-  Edit,
-  Trash2,
-  Loader2,
-  ArrowLeft,
-  BarChart3,
-  Package,
-  AlertCircle,
-} from "lucide-react";
-import { useGetFarmById, useGetFarmAnalytics, useDeleteFarm } from "@/fetchers/farms/farmQueries";
-import { getTodayLocalDate } from "@/common/lib/utils";
-import { getBSMonthDayForDisplay } from "@/common/lib/nepali-date";
-import { useGetAllBatches, useCreateBatch, useDeleteBatch } from "@/fetchers/batches/batchQueries";
-import { useInventoryByType } from "@/fetchers/inventory/inventoryQueries";
-import { toast } from "sonner";
-import { FarmResponse, BatchResponse, BatchStatus } from "@myapp/shared-types";
-import {
-  ACCOUNT_FEATURE_KEYS,
-  useAccountFeature,
-} from "@/fetchers/accountFeatureQueries";
+  useDeleteFarm,
+  useGetFarmSummary,
+  type FarmSummary,
+} from "@/fetchers/farms/farmQueries";
+import { useI18n } from "@/i18n/useI18n";
+
+type Filter = "all" | "running" | "closed";
+const DESKTOP_COLS: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+  5: "md:grid-cols-5",
+};
+type BatchRow = FarmSummary["batches"][number];
 
 export default function FarmDetailPage() {
-  const params = useParams();
+  const { t } = useI18n();
   const router = useRouter();
-  const farmId = params.id as string;
-  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
+  const params = useParams<{ id: string }>();
+  const farmId = String(params?.id ?? "");
+  const { data, isLoading, isError } = useGetFarmSummary(farmId);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
+  const rows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (data?.batches ?? []).filter(
+      (row) =>
+        (filter === "all" ||
+          (filter === "running"
+            ? row.status === "ACTIVE"
+            : row.status === "COMPLETED")) &&
+        (!query || row.batchNumber.toLowerCase().includes(query)),
+    );
+  }, [data, filter, search]);
 
-
-  // State for modals and filters
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [batchFilter, setBatchFilter] = useState<"all" | "active" | "completed">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isFarmDeleted, setIsFarmDeleted] = useState(false);
-
-  // Fetch farm data
-  const {
-    data: farmResponse,
-    isLoading: farmLoading,
-    error: farmError,
-  } = useGetFarmById(farmId, { enabled: !isFarmDeleted });
-
-  // Fetch farm analytics
-  const {
-    data: analyticsResponse,
-    isLoading: analyticsLoading,
-    error: analyticsError,
-  } = useGetFarmAnalytics(farmId, { enabled: !isFarmDeleted });
-
-  // Fetch batches for this farm
-  const {
-    data: batchesResponse,
-    isLoading: batchesLoading,
-    error: batchesError,
-  } = useGetAllBatches({ farmId }, { enabled: !isFarmDeleted });
-
-  // Delete farm mutation
-  const deleteFarmMutation = useDeleteFarm();
-  const createBatchMutation = useCreateBatch();
-  const deleteBatchMutation = useDeleteBatch();
-
-  const farm = farmResponse?.data;
-  const analytics = analyticsResponse?.data;
-  const batches = batchesResponse?.data || [];
-
-  // Filter batches based on status and search
-  const filteredBatches = batches.filter((batch: BatchResponse) => {
-    const matchesStatus = batchFilter === "all" || batch.status === batchFilter.toUpperCase();
-    const matchesSearch = batch.batchNumber.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-
-  // Calculate batch statistics
-  const batchStats = {
-    total: batches.length,
-    active: batches.filter((b: BatchResponse) => b.status === "ACTIVE").length,
-    completed: batches.filter((b: BatchResponse) => b.status === "COMPLETED").length,
-  };
-
-  const handleDeleteFarm = async () => {
-    try {
-      // Set deleted state to disable queries immediately
-      setIsFarmDeleted(true);
-
-      await deleteFarmMutation.mutateAsync(farmId);
-      toast.success("Farm deleted successfully!");
-
-      // Navigate immediately to prevent further queries
-      router.replace("/farmer/dashboard/farms");
-    } catch (error) {
-      console.error("Failed to delete farm:", error);
-      // Reset deleted state on error
-      setIsFarmDeleted(false);
-      // Error toast is handled by axios interceptor
-    }
-  };
-
-
-  const calculateBatchAge = (startDate: string | Date) => {
-    const start = new Date(startDate);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // --- Create Batch (local modal) ---
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-  const [isDeleteBatchModalOpen, setIsDeleteBatchModalOpen] = useState(false);
-  const [batchToDelete, setBatchToDelete] = useState<{ id: string; name: string } | null>(null);
-
-  // Batch form data
-  const [batchForm, setBatchForm] = useState({
-    batchNumber: "",
-    batchType: "BROILER" as "BROILER" | "LAYERS",
-    startDate: getTodayLocalDate(),
-    initialChickWeight: "0.045",
-    cfcrTargetWeightKg: "2.00",
-    cfcrCorrectionFactorPerKg: "0.40",
-    notes: "",
-  });
-
-  // Chicks inventory selections
-  const [multiSource, setMultiSource] = useState(false);
-  const [singleAlloc, setSingleAlloc] = useState<{ itemId: string; quantity: string; notes?: string }>({
-    itemId: "",
-    quantity: "",
-  });
-  const [allocations, setAllocations] = useState<Array<{ itemId: string; quantity: string; notes?: string }>>([
-    { itemId: "", quantity: "" },
-  ]);
-
-  // Fetch chicks inventory items
-  const chicksInventory = useInventoryByType("CHICKS" as any);
-
-  // Reset to current date when modal opens and precompute batch name
-  useEffect(() => {
-    if (isBatchModalOpen) {
-      const today = getTodayLocalDate();
-      setBatchForm(prev => ({
-        ...prev,
-        startDate: today,
-      }));
-    }
-  }, [isBatchModalOpen]);
-
-  // Precompute batch name when startDate or farm changes (Nepali date for display)
-  useEffect(() => {
-    if (!isBatchModalOpen) return;
-    if (!farm?.name) return;
-    if (!batchForm.startDate) return;
-    const bsPart = getBSMonthDayForDisplay(batchForm.startDate);
-    if (!bsPart) return;
-    const suggested = `${bsPart}-${farm.name}`;
-    if (batchForm.batchNumber !== suggested) {
-      setBatchForm((p) => ({ ...p, batchNumber: suggested }));
-    }
-  }, [isBatchModalOpen, batchForm.startDate, farm?.name]);
-
-  function handleBatchChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) {
-    const { name, value } = e.target;
-    setBatchForm((p) => {
-      const next = { ...p, [name]: value };
-      if (name === "startDate") {
-        // Suggest: BS MonthName-Day-Farm Name
-        if (value && farm?.name) {
-          const bsPart = getBSMonthDayForDisplay(value);
-          if (bsPart) next.batchNumber = `${bsPart}-${farm.name}`;
-        }
-      }
-      return next;
-    });
-  }
-
-  const submitCreateBatch = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const startDateIso = batchForm.startDate
-      ? new Date(batchForm.startDate).toISOString()
-      : new Date().toISOString();
-
-    // Build chicksInventory payload
-    const builtAllocations = multiSource
-      ? allocations
-        .filter((a) => a.itemId && Number(a.quantity) > 0)
-        .map((a) => ({ itemId: a.itemId, quantity: parseInt(a.quantity, 10), notes: a.notes }))
-      : singleAlloc.itemId && Number(singleAlloc.quantity) > 0
-        ? [{ itemId: singleAlloc.itemId, quantity: parseInt(singleAlloc.quantity, 10), notes: singleAlloc.notes }]
-        : [];
-
-    if (builtAllocations.length === 0) {
-      toast.error("Please select chicks inventory and quantity");
-      return;
-    }
-
-    try {
-      await createBatchMutation.mutateAsync({
-        batchNumber:
-          batchForm.batchNumber ||
-          `B-${new Date().getFullYear()}-${String(batches.length + 1).padStart(3, "0")}`,
-        batchType: batchForm.batchType,
-        farmId,
-        startDate: startDateIso,
-        initialChickWeight: parseFloat(batchForm.initialChickWeight),
-        ...(cfcrFeature.isEnabled && batchForm.batchType === "BROILER"
-          ? {
-              cfcrTargetWeightKg: Number(batchForm.cfcrTargetWeightKg),
-              cfcrCorrectionFactorPerKg: Number(
-                batchForm.cfcrCorrectionFactorPerKg
-              ),
-            }
-          : {}),
-        status: "ACTIVE" as BatchStatus,
-        chicksInventory: builtAllocations,
-      });
-
-      toast.success("Batch created successfully!");
-      setIsBatchModalOpen(false);
-      setBatchForm({
-        batchNumber: "",
-        batchType: "BROILER",
-        startDate: getTodayLocalDate(),
-        initialChickWeight: "0.045",
-        cfcrTargetWeightKg: "2.00",
-        cfcrCorrectionFactorPerKg: "0.40",
-        notes: "",
-      });
-      setSingleAlloc({ itemId: "", quantity: "" });
-      setAllocations([{ itemId: "", quantity: "" }]);
-      setMultiSource(false);
-    } catch (error) {
-      console.error("Failed to create batch:", error);
-    }
-  };
-
-  if (farmLoading || isFarmDeleted) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>{isFarmDeleted ? "Deleting farm..." : "Loading farm details..."}</p>
+      <div className="space-y-3">
+        <div className="h-10 w-64 animate-pulse rounded bg-gray-100" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-[74px] animate-pulse rounded-lg border bg-gray-50"
+            />
+          ))}
         </div>
       </div>
     );
   }
 
-  if (farmError || !farm) {
+  if (isError || !data) {
     return (
-      <div className="text-center py-8">
-        <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Farm not found</h3>
-        <p className="text-muted-foreground mb-4">
-          The farm you&#39;re looking for doesn&#39;t exist or you don&#39;t have access to it.
-        </p>
-        <Button onClick={() => router.push("/farmer/dashboard/farms")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Farms
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header: stacked on mobile, row on desktop; icon-only actions on mobile to prevent overflow */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+      <Card className="mx-auto mt-10 max-w-md">
+        <CardContent className="space-y-3 py-10 text-center">
+          <p className="font-medium">{t("farmer.farms.detail.notFound")}</p>
           <Button
             variant="outline"
-            size="sm"
-            className="shrink-0"
             onClick={() => router.push("/farmer/dashboard/farms")}
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            {t("farmer.farms.detail.backToFarms")}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const { farm, tiles } = data;
+  const running = data.batches.filter((row) => row.status === "ACTIVE").length;
+  const closed = data.batches.length - running;
+  // FCR only matters on farms with broilers; an odd tile count puts Batches full width on phones.
+  const hasBroilers = data.batches.some((row) => row.batchType === "BROILER");
+  const tileCount = 1 + (hasBroilers ? 1 : 0) + (data.showMoney ? 3 : 0);
+  const addBatch = () =>
+    router.push(`/farmer/dashboard/batches?new=1&farmId=${farm.id}`);
+
+  const ageText = (row: BatchRow) =>
+    row.status === "COMPLETED"
+      ? t("farmer.farms.detail.closedAfter", { n: row.day })
+      : t("farmer.farms.detail.dayN", { n: row.day });
+  const birdsText = (row: BatchRow) =>
+    row.status === "ACTIVE"
+      ? t("farmer.farms.detail.aliveOf", {
+          alive: count(row.alive),
+          started: count(row.started),
+        })
+      : t("farmer.farms.detail.soldOf", {
+          sold: count(row.sold),
+          started: count(row.started),
+        });
+  const typeLabel = (row: BatchRow) =>
+    row.batchType === "LAYERS"
+      ? t("farmer.farms.detail.layers")
+      : t("farmer.farms.detail.broiler");
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-0.5 shrink-0"
+            asChild
+          >
+            <Link
+              href="/farmer/dashboard/farms"
+              aria-label={t("farmer.farms.detail.backToFarms")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight flex items-center gap-2 sm:text-3xl">
-              <Building2 className="h-6 w-6 shrink-0 text-primary sm:h-8 sm:w-8" />
-              <span className="truncate">{farm.name}</span>
-            </h1>
+            <h1 className="truncate text-2xl font-bold">{farm.name}</h1>
             <p className="text-sm text-muted-foreground">
-              Capacity: {farm.capacity.toLocaleString()} birds
+              {t("farmer.farms.detail.capacityLine", {
+                n: count(farm.capacity),
+              })}
+              {farm.description && ` · ${farm.description}`}
             </p>
           </div>
         </div>
-        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-full p-0 md:h-9 md:w-[112px] md:justify-center md:px-4"
-            title="Edit Farm"
-            aria-label="Edit Farm"
-          >
-            <Edit className="h-4 w-4 md:mr-2" />
-            <span className="hidden md:inline">Edit Farm</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1.5 h-4 w-4" />
+            {t("farmer.farms.detail.edit")}
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="h-9 w-full p-0 text-red-600 hover:bg-red-50 hover:text-red-700 md:h-9 md:w-[112px] md:justify-center md:px-4"
-            title="Delete"
-            aria-label="Delete farm"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => setDeleteOpen(true)}
           >
-            <Trash2 className="h-4 w-4 md:mr-2" />
-            <span className="hidden md:inline">Delete</span>
+            <Trash2 className="mr-1.5 h-4 w-4" />
+            {t("farmer.farms.detail.delete")}
           </Button>
         </div>
       </div>
 
-      {/* Farm Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Batches</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{batchStats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              {batchStats.active} active, {batchStats.completed} completed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Farm Capacity</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{farm.capacity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Maximum birds</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {analyticsLoading ? (
-                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
-              ) : (
-                `₹${Number(analytics?.totalSales || 0).toLocaleString()}`
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Lifetime revenue</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {analyticsLoading ? (
-                <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
-              ) : (
-                `₹${Number(analytics?.totalExpenses || 0).toLocaleString()}`
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Lifetime costs</p>
-          </CardContent>
-        </Card>
+      {/* Tiles */}
+      <div className={`grid grid-cols-2 gap-3 ${DESKTOP_COLS[tileCount]}`}>
+        <div className={tileCount % 2 === 1 ? "col-span-2 md:col-span-1" : ""}>
+          <StatTile
+            tile={{
+              label: t("farmer.farms.detail.batches"),
+              icon: Layers,
+              value: t("farmer.farms.detail.runningN", {
+                n: tiles.runningBatches,
+              }),
+              sub: t("farmer.farms.detail.batchesSub", {
+                alive: count(tiles.birdsAlive),
+                total: tiles.totalBatches,
+              }),
+            }}
+          />
+        </div>
+        {hasBroilers && (
+          <StatTile
+            tile={{
+              label: "FCR",
+              icon: Wheat,
+              value: tiles.fcr != null ? tiles.fcr.toFixed(2) : "—",
+              valueClass: tiles.fcrIsOld ? "text-amber-600" : "",
+              sub:
+                tiles.fcr == null
+                  ? t("farmer.farms.detail.fcrNone")
+                  : tiles.fcrIsOld
+                    ? t("farmer.farms.detail.fcrOld")
+                    : t("farmer.farms.detail.fcrNow"),
+            }}
+          />
+        )}
+        {data.showMoney && (
+          <>
+            <StatTile
+              tile={{
+                label: t("farmer.farms.detail.sales"),
+                icon: TrendingUp,
+                value: rupees(tiles.sales ?? 0),
+                sub: t("farmer.farms.detail.allTime"),
+              }}
+            />
+            <StatTile
+              tile={{
+                label: t("farmer.farms.detail.costs"),
+                icon: Receipt,
+                value: rupees(tiles.costs ?? 0),
+                sub: t("farmer.farms.detail.allTime"),
+              }}
+            />
+            <StatTile
+              tile={{
+                label:
+                  (tiles.profit ?? 0) < 0
+                    ? t("farmer.farms.detail.loss")
+                    : t("farmer.farms.detail.profit"),
+                icon: Wallet,
+                value: signedRupees(tiles.profit ?? 0),
+                valueClass: moneyClass(tiles.profit ?? 0),
+                sub: t("farmer.farms.detail.allTime"),
+              }}
+            />
+          </>
+        )}
       </div>
 
-      {/* Farm Details */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Farm Information</CardTitle>
-            <CardDescription>Basic details about this farm</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Owner:</span>
-              <span className="font-medium">{farm.owner.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Capacity:</span>
-              <span className="font-medium">{farm.capacity.toLocaleString()} birds</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Created:</span>
-              <span className="font-medium"><DateDisplay date={farm.createdAt} format="short" /></span>
-            </div>
-            {farm.description && (
-              <div>
-                <span className="text-muted-foreground">Description:</span>
-                <p className="mt-1 text-sm">{farm.description}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Farm Analytics</CardTitle>
-            <CardDescription>Performance metrics for this farm</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {analyticsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex justify-between">
-                    <div className="h-4 w-20 bg-gray-200 animate-pulse rounded"></div>
-                    <div className="h-4 w-16 bg-gray-200 animate-pulse rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Profit:</span>
-                  <span className={`font-medium ${(analytics?.profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ₹{Number(analytics?.profit || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Profit Margin:</span>
-                  <span className={`font-medium ${(analytics?.profitMargin || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(analytics?.profitMargin || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Utilization:</span>
-                  <span className="font-medium">
-                    {(analytics?.utilization || 0).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">This Month Sales:</span>
-                  <span className="font-medium">
-                    ₹{Number(analytics?.currentMonthSales || 0).toLocaleString()}
-                  </span>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Batches Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Batches</CardTitle>
-              <CardDescription>
-                Manage and monitor all batches in this farm
-              </CardDescription>
-            </div>
-            <Button onClick={() => setIsBatchModalOpen(true)} className="w-full sm:w-auto shrink-0">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Batch
+      {/* Batches */}
+      <Card className="gap-3 py-0">
+        <div className="space-y-3 px-3 pt-3 md:px-5 md:pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold">
+              {t("farmer.farms.detail.batchesTitle")}
+            </h2>
+            <Button size="sm" onClick={addBatch}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              {t("farmer.farms.detail.addBatch")}
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Filters and Search */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1 min-w-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search batches..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                [
+                  "all",
+                  t("farmer.farms.detail.filterAll", {
+                    n: data.batches.length,
+                  }),
+                ],
+                [
+                  "running",
+                  t("farmer.farms.detail.filterRunning", { n: running }),
+                ],
+                [
+                  "closed",
+                  t("farmer.farms.detail.filterClosed", { n: closed }),
+                ],
+              ] as Array<[Filter, string]>
+            ).map(([key, label]) => (
               <Button
-                variant={batchFilter === "all" ? "default" : "outline"}
+                key={key}
                 size="sm"
-                onClick={() => setBatchFilter("all")}
+                variant={filter === key ? "default" : "outline"}
+                className="h-8"
+                onClick={() => setFilter(key)}
               >
-                All ({batchStats.total})
+                {label}
               </Button>
-              <Button
-                variant={batchFilter === "active" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setBatchFilter("active")}
-              >
-                Active ({batchStats.active})
-              </Button>
-              <Button
-                variant={batchFilter === "completed" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setBatchFilter("completed")}
-              >
-                Completed ({batchStats.completed})
-              </Button>
+            ))}
+            <div className="relative w-full sm:ml-auto sm:w-56">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t("farmer.farms.detail.searchBatches")}
+                className="h-9 pl-8"
+              />
             </div>
           </div>
+        </div>
 
-          {/* Batches List */}
-          {batchesLoading ? (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p>Loading batches...</p>
-            </div>
-          ) : filteredBatches.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No batches found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery || batchFilter !== "all"
-                  ? "No batches match your current filters."
-                  : "Get started by creating your first batch for this farm from the Add Batch button above."}
+        <CardContent className="px-0 pb-2">
+          {data.batches.length === 0 ? (
+            <div className="space-y-3 px-4 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t("farmer.farms.detail.noBatches")}
               </p>
+              <Button size="sm" onClick={addBatch}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                {t("farmer.farms.detail.addBatch")}
+              </Button>
             </div>
+          ) : rows.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              {t("farmer.farms.detail.noMatch")}
+            </p>
           ) : (
-            <div className="space-y-4">
-              {filteredBatches.map((batch: BatchResponse) => (
-                <Card key={batch.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <h3 className="text-base font-semibold sm:text-lg">{batch.batchNumber}</h3>
-                          <Badge variant="outline" className="font-normal">
-                            {(batch as any).batchType === "LAYERS" ? "Layers" : "Broiler"}
-                          </Badge>
-                          <Badge
-                            variant={batch.status === "ACTIVE" ? "default" : "secondary"}
-                            className={
-                              batch.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }
-                          >
-                            {batch.status}
-                          </Badge>
+            <>
+              {/* Desktop */}
+              <table className="hidden w-full text-sm md:table">
+                <thead className="text-xs text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="px-5 py-2 text-left font-normal">
+                      {t("farmer.farms.detail.batch")}
+                    </th>
+                    <th className="px-3 py-2 text-left font-normal">
+                      {t("farmer.farms.detail.started")}
+                    </th>
+                    <th className="px-3 py-2 text-right font-normal">
+                      {t("farmer.farms.detail.age")}
+                    </th>
+                    <th className="px-3 py-2 text-right font-normal">
+                      {t("farmer.farms.detail.birds")}
+                    </th>
+                    <th className="px-3 py-2 text-right font-normal">
+                      {t("farmer.farms.detail.deaths")}
+                    </th>
+                    {hasBroilers && (
+                      <th className="px-3 py-2 text-right font-normal">FCR</th>
+                    )}
+                    {data.showMoney && (
+                      <th className="px-3 py-2 text-right font-normal">
+                        {t("farmer.farms.detail.profit")}
+                      </th>
+                    )}
+                    <th className="w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      onClick={() =>
+                        router.push(`/farmer/dashboard/batches/${row.id}`)
+                      }
+                      className="cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                    >
+                      <td className="px-5 py-2.5">
+                        <p className="font-medium">{row.batchNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {typeLabel(row)}
+                          {row.status === "ACTIVE" && (
+                            <Badge
+                              variant="outline"
+                              className="ml-1.5 border-green-600/30 px-1.5 py-0 text-[10px] text-green-700"
+                            >
+                              {t("farmer.farms.detail.running")}
+                            </Badge>
+                          )}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5">
+                        <DateDisplay date={row.startDate} />
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                        {ageText(row)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                        {birdsText(row)}
+                      </td>
+                      <td
+                        className={`whitespace-nowrap px-3 py-2.5 text-right ${row.deathPercent >= 5 ? "text-red-600" : ""}`}
+                      >
+                        {percent(row.deathPercent, 2)}
+                      </td>
+                      {hasBroilers && (
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          {row.batchType === "BROILER" ? (
+                            <FcrText
+                              value={row.fcr}
+                              status={row.fcrStatus}
+                              t={t}
+                            />
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      )}
+                      {data.showMoney && (
+                        <td
+                          className={`whitespace-nowrap px-3 py-2.5 text-right font-medium ${moneyClass(row.profit ?? 0)}`}
+                        >
+                          {signedRupees(row.profit ?? 0)}
+                          {row.status === "ACTIVE" && (
+                            <span className="block text-[11px] font-normal text-muted-foreground">
+                              {t("farmer.farms.detail.soFar")}
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      <td className="pr-3 text-muted-foreground">
+                        <ChevronRight className="h-4 w-4" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Phone */}
+              <ul className="divide-y md:hidden">
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <Link
+                      href={`/farmer/dashboard/batches/${row.id}`}
+                      className="flex items-center gap-3 px-3 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate font-medium">
+                            {row.batchNumber}
+                          </p>
+                          {data.showMoney && (
+                            <p
+                              className={`shrink-0 whitespace-nowrap text-sm font-semibold ${moneyClass(row.profit ?? 0)}`}
+                            >
+                              {signedRupees(row.profit ?? 0)}
+                            </p>
+                          )}
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Initial Chicks:</span>
-                            <p className="font-medium">{batch.initialChicks.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Current Chicks:</span>
-                            <p className="font-medium">{batch.currentChicks?.toLocaleString() || "N/A"}</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Age:</span>
-                            <p className="font-medium">{calculateBatchAge(batch.startDate)} days</p>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Started:</span>
-                            <p className="font-medium"><DateDisplay date={batch.startDate} format="short" /></p>
-                          </div>
-                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {typeLabel(row)} · {ageText(row)} ·{" "}
+                          <DateDisplay date={row.startDate} />
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {birdsText(row)} · {t("farmer.farms.detail.deaths")}{" "}
+                          {percent(row.deathPercent, 2)}
+                          {row.batchType === "BROILER" && row.fcr != null && (
+                            <> · FCR {row.fcr.toFixed(2)}</>
+                          )}
+                        </p>
                       </div>
-                      <div className="grid w-full grid-cols-3 items-center gap-2 sm:flex sm:w-auto sm:shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 w-full shrink-0 p-0 sm:w-9 sm:flex-none lg:w-[76px] lg:px-3"
-                          title="View batch"
-                          aria-label="View batch"
-                          asChild
-                        >
-                          <Link href={`/farmer/dashboard/batches/${batch.id}`}>
-                            <Eye className="h-4 w-4 lg:mr-2" />
-                            <span className="hidden lg:inline">View</span>
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 w-full shrink-0 p-0 sm:w-9 sm:flex-none lg:w-[70px] lg:px-3"
-                          title="Edit"
-                          aria-label="Edit batch"
-                        >
-                          <Edit className="h-4 w-4 lg:mr-2" />
-                          <span className="hidden lg:inline">Edit</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 w-full shrink-0 p-0 text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-9 sm:flex-none lg:w-[86px] lg:px-3"
-                          title="Delete"
-                          aria-label="Delete batch"
-                          onClick={() => {
-                            setBatchToDelete({ id: batch.id, name: batch.batchNumber });
-                            setIsDeleteBatchModalOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 lg:mr-2" />
-                          <span className="hidden lg:inline">Delete</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Delete Farm Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Delete Farm"
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <AlertCircle className="h-6 w-6 text-red-500" />
-              <div>
-                <h3 className="text-lg font-semibold">Are you sure?</h3>
-                <p className="text-muted-foreground">
-                  This action cannot be undone. This will permanently delete the farm
-                  &quot;{farm.name}&quot; and all associated data.
-                </p>
-              </div>
-            </div>
-            {batchStats.total > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
-                  <strong>Warning:</strong> This farm has {batchStats.total} batches.
-                  You may want to complete or transfer these batches before deleting the farm.
-                </p>
-              </div>
-            )}
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsDeleteModalOpen(false)}
-            disabled={deleteFarmMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-            onClick={handleDeleteFarm}
-            disabled={deleteFarmMutation.isPending}
-          >
-            {deleteFarmMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
-              </>
-            ) : (
-              "Delete Farm"
-            )}
-          </Button>
-        </ModalFooter>
-      </Modal>
+      <FarmFormModal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        farm={farm}
+      />
+      <DeleteFarmModal
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        farmId={farm.id}
+        farmName={farm.name}
+        canDelete={data.canDelete}
+        onDeleted={() => router.push("/farmer/dashboard/farms")}
+      />
+    </div>
+  );
+}
 
-      {/* Delete Batch Modal */}
-      <Modal
-        isOpen={isDeleteBatchModalOpen}
-        onClose={() => setIsDeleteBatchModalOpen(false)}
-        title="Delete Batch"
-      >
-        <ModalContent>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <AlertCircle className="h-6 w-6 text-red-500" />
-              <div>
-                <h3 className="text-lg font-semibold">Are you sure?</h3>
-                <p className="text-muted-foreground">
-                  This action cannot be undone. This will permanently delete batch
-                  {" "}
-                  <span className="font-medium">&quot;{batchToDelete?.name}&quot;</span>.
-                </p>
-              </div>
-            </div>
-          </div>
-        </ModalContent>
-        <ModalFooter>
-          <Button
-            variant="outline"
-            onClick={() => setIsDeleteBatchModalOpen(false)}
-            disabled={deleteBatchMutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="default"
-            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-            onClick={async () => {
-              if (!batchToDelete) return;
-              try {
-                await deleteBatchMutation.mutateAsync(batchToDelete.id);
-                toast.success("Batch deleted successfully!");
-                setIsDeleteBatchModalOpen(false);
-                setBatchToDelete(null);
-              } catch (error) {
-                console.error("Failed to delete batch:", error);
-              }
-            }}
-            disabled={deleteBatchMutation.isPending}
-          >
-            {deleteBatchMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
-              </>
-            ) : (
-              "Delete Batch"
-            )}
-          </Button>
-        </ModalFooter>
-      </Modal>
+function DeleteFarmModal({
+  isOpen,
+  onClose,
+  farmId,
+  farmName,
+  canDelete,
+  onDeleted,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  farmId: string;
+  farmName: string;
+  canDelete: boolean;
+  onDeleted: () => void;
+}) {
+  const { t } = useI18n();
+  const deleteFarm = useDeleteFarm();
+  const [password, setPassword] = useState("");
 
-      {/* Create Batch Modal */}
-      <Modal
-        isOpen={isBatchModalOpen}
-        onClose={() => setIsBatchModalOpen(false)}
-        title="Create New Batch"
-      >
-        <form onSubmit={submitCreateBatch}>
+  const close = () => {
+    setPassword("");
+    onClose();
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!password || deleteFarm.isPending) return;
+    try {
+      await deleteFarm.mutateAsync({ id: farmId, password });
+      toast.success(t("farmer.farms.delete.deleted"));
+      close();
+      onDeleted();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || t("farmer.farms.delete.failed"),
+      );
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={close}
+      title={t("farmer.farms.delete.title", { name: farmName })}
+    >
+      {canDelete ? (
+        <form onSubmit={submit}>
           <ModalContent>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="batchNumber">Batch Name</Label>
-                <div className="relative">
-                  <Input
-                    id="batchNumber"
-                    name="batchNumber"
-                    value={batchForm.batchNumber}
-                    readOnly
-                    aria-readonly
-                    title="Auto-generated from Start Date"
-                    className="bg-muted cursor-not-allowed"
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">
-                    Auto
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Auto-generated from Start Date and Farm
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="batchType">Batch Type</Label>
-                <Select
-                  value={batchForm.batchType}
-                  onValueChange={(value) => {
-                    const event = { target: { name: 'batchType', value } } as any;
-                    handleBatchChange(event);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select batch type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="BROILER">Broiler</SelectItem>
-                    <SelectItem value="LAYERS">Layers</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <DateInput
-                  label="Start Date"
-                  value={batchForm.startDate}
-                  onChange={(value) => setBatchForm(prev => ({ ...prev, startDate: value }))}
-                />
-              </div>
-
-              {/* Chicks Inventory Selection */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Chicks Inventory</Label>
-                  <label className="flex items-center space-x-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={multiSource}
-                      onChange={(e) => setMultiSource(e.target.checked)}
-                    />
-                    <span>Allocate from multiple items</span>
-                  </label>
-                </div>
-
-                {/* Single source allocation */}
-                {!multiSource && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="singleItem">Select Chicks Item</Label>
-                      <Select
-                        value={singleAlloc.itemId}
-                        onValueChange={(value) => setSingleAlloc((p) => ({ ...p, itemId: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select an item" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(chicksInventory.items || []).map((it: any) => (
-                            <SelectItem key={it.id} value={it.id}>
-                              {it.name} (Stock: {Number(it.currentStock)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="singleQty">Quantity</Label>
-                      <Input
-                        id="singleQty"
-                        type="number"
-                        min={1}
-                        value={singleAlloc.quantity}
-                        onChange={(e) => setSingleAlloc((p) => ({ ...p, quantity: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Multiple allocations */}
-                {multiSource && (
-                  <div className="space-y-2">
-                    {allocations.map((row, idx) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                        <div className="md:col-span-6">
-                          <Label>Select Chicks Item</Label>
-                          <Select
-                            value={row.itemId}
-                            onValueChange={(value) => {
-                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, itemId: value } : r)));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select an item" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(chicksInventory.items || []).map((it: any) => (
-                                <SelectItem key={it.id} value={it.id}>
-                                  {it.name} (Stock: {Number(it.currentStock)})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="md:col-span-3">
-                          <Label>Quantity</Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={row.quantity}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, quantity: v } : r)));
-                            }}
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label>Notes</Label>
-                          <Input
-                            placeholder="Optional"
-                            value={row.notes || ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setAllocations((prev) => prev.map((r, i) => (i === idx ? { ...r, notes: v } : r)));
-                            }}
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setAllocations((prev) => prev.filter((_, i) => i !== idx))}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setAllocations((prev) => [...prev, { itemId: "", quantity: "" }])}
-                      >
-                        Add Item
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Computed total chicks */}
-              <div>
-                <Label>Total Chicks</Label>
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                {t("farmer.farms.delete.body")}
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="delete-farm-password">
+                  {t("farmer.farms.delete.password")}
+                </Label>
                 <Input
-                  readOnly
-                  value={(() => {
-                    const total = multiSource
-                      ? allocations.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)
-                      : Number(singleAlloc.quantity) || 0;
-                    return String(total || 0);
-                  })()}
-                  className="bg-muted cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <Label htmlFor="initialChickWeight">Initial Chick Weight (kg)</Label>
-                <Input
-                  id="initialChickWeight"
-                  name="initialChickWeight"
-                  type="number"
-                  step="0.001"
-                  value={batchForm.initialChickWeight}
-                  onChange={handleBatchChange}
-                  required
-                />
-              </div>
-              {cfcrFeature.isEnabled && batchForm.batchType === "BROILER" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="cfcrTargetWeightKg">cFCR target weight (kg)</Label>
-                    <Input
-                      id="cfcrTargetWeightKg"
-                      name="cfcrTargetWeightKg"
-                      type="number"
-                      min="0.001"
-                      step="0.01"
-                      value={batchForm.cfcrTargetWeightKg}
-                      onChange={handleBatchChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cfcrCorrectionFactorPerKg">Correction per kg</Label>
-                    <Input
-                      id="cfcrCorrectionFactorPerKg"
-                      name="cfcrCorrectionFactorPerKg"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={batchForm.cfcrCorrectionFactorPerKg}
-                      onChange={handleBatchChange}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-              <div>
-                <Label htmlFor="notes">Notes (optional)</Label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={batchForm.notes}
-                  onChange={handleBatchChange}
-                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  rows={3}
+                  id="delete-farm-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                 />
               </div>
             </div>
           </ModalContent>
           <ModalFooter>
-            <Button type="button" variant="outline" onClick={() => setIsBatchModalOpen(false)}>
-              Cancel
+            <Button type="button" variant="outline" onClick={close}>
+              {t("farmer.farms.delete.cancel")}
             </Button>
             <Button
               type="submit"
-              className="bg-primary hover:bg-primary/90"
-              disabled={createBatchMutation.isPending}
+              variant="destructive"
+              disabled={!password || deleteFarm.isPending}
             >
-              {createBatchMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Batch"
+              {deleteFarm.isPending && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               )}
+              {t("farmer.farms.delete.confirm")}
             </Button>
           </ModalFooter>
         </form>
-      </Modal>
-    </div>
+      ) : (
+        <>
+          <ModalContent>
+            <p className="text-sm text-muted-foreground">
+              {t("farmer.farms.delete.hasRecords")}
+            </p>
+          </ModalContent>
+          <ModalFooter>
+            <Button variant="outline" onClick={close}>
+              {t("farmer.farms.delete.ok")}
+            </Button>
+          </ModalFooter>
+        </>
+      )}
+    </Modal>
   );
 }

@@ -1,2122 +1,784 @@
+/**
+ * Demo hatchery seed: one realistic breeder farm + hatchery, entered through the
+ * normal API so stock, balances, ledger rows and audit history are created
+ * exactly as when a hatchery uses the app.
+ *
+ * - LOCAL ONLY. Refuses to run unless DATABASE_URL and the API URL are localhost.
+ * - Creates (or reuses) the reserved demo hatchery login only. Never touches other users.
+ * - Refuses to run if that hatchery already has suppliers (re-running would duplicate data).
+ *   `--reset` first deletes ONLY the demo hatchery account's data, then seeds again.
+ * - The backend API must be running (P360_API_URL, default http://localhost:8081/api/v1).
+ *
+ * Data, all dated relative to today in Nepal (about the last 240 days):
+ *   4 suppliers (parent chicks, feed with opening balance + one adjustment, vet, grain)
+ *   with purchases (free chicks on one) and payments.
+ *   Self-made feed: raw materials → "Self-made Breeder Feed" production runs.
+ *   3 parent flocks: PF-001 laying, PF-002 young (not laying yet), PF-003 sold out and closed.
+ *   Weekly mortality, feed (male/female split), medicine and manual expenses.
+ *   Daily egg collection (hatchable / table / cracked) and egg sales.
+ *   Weekly incubations: setter → candling → hatcher → hatch result, the last ones still in progress.
+ *   Chick sales (A / B / cull) to farmer parties and walk-in buyers, parent bird sales.
+ *   7 parties (2 with opening balances) with regular payments.
+ *   Staff: 2 monthly + 1 daily worker with salary payments and absences, one staff login.
+ *   Bill details (Settings).
+ */
+
 import "dotenv/config";
-import {
-  HatcheryBatchExpenseType,
-  HatcheryBatchStatus,
-  HatcheryBatchType,
-  HatcheryChickGrade,
-  HatcheryChickTxnType,
-  HatcheryEggTxnType,
-  HatcheryIncubationLossType,
-  HatcheryIncubationStage,
-  HatcheryInventoryItemType,
-  HatcheryInventoryTxnType,
-  HatcheryPartyTxnType,
-  HatcheryFeedTarget,
-  HatcheryPurchaseCategory,
-  HatcherySex,
-  HatcherySupplierTxnType,
-  NotificationStatus,
-  StaffStatus,
-} from "@prisma/client";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import {
-  daysAgo,
-  decimal,
-  DEMO_ACCOUNTS,
-  hashDemoPassword,
-  printDemoCredentials,
-  upsertById,
-  upsertDemoUser,
-} from "./demoSeedUtils";
+import { DEFAULT_DEMO_PASSWORD, DEMO_ACCOUNTS, isLocalDatabase, upsertDemoUser } from "./demoSeedUtils";
+import { setAccountFeature, ACCOUNT_FEATURE_KEYS } from "../services/accountFeatureService";
 
 const account = DEMO_ACCOUNTS.hatchery;
-const id = (suffix: string) => `p360-demo-hatchery-${suffix}-v1`;
-const round2 = (value: number) => Math.round(value * 100) / 100;
-const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
-
-type InventoryKey =
-  | "cobb-parents-female"
-  | "cobb-parents-male"
-  | "ross-parents-female"
-  | "ross-parents-male"
-  | "grower-feed"
-  | "layer-feed"
-  | "vaccine"
-  | "supplement"
-  | "disinfectant"
-  | "egg-trays"
-  | "setter-trays";
-
-type SupplierKey = "parent" | "feed" | "health" | "equipment";
-
-type SupplierPurchaseItemSeed = {
-  inventoryKey: InventoryKey;
-  itemName: string;
-  quantity: number;
-  freeQuantity: number;
-  unit: string;
-  unitPrice: number;
-  totalAmount: number;
-  /** Only set for CHICKS lines; defaults to NA like the API does. */
-  sex?: HatcherySex;
-};
-
-type SupplierEventSeed = {
-  key: string;
-  supplierKey: SupplierKey;
-  type: HatcherySupplierTxnType;
-  date: Date;
-  note: string;
-  reference?: string;
-  amount?: number;
-  category?: HatcheryPurchaseCategory;
-  items?: SupplierPurchaseItemSeed[];
-};
-
-type PartyKey = "metro" | "sunrise" | "egg-center" | "meat-house";
-
-type PartySaleEvent = {
-  key: string;
-  partyKey: PartyKey;
-  date: Date;
-  amount: number;
-  sourceType: "egg_sale" | "chick_sale" | "parent_sale";
-  sourceId: string;
-  note: string;
-};
-
-async function seedDemoHatchery(): Promise<void> {
-  console.log("Seeding production-safe hatchery demo data...");
-  const passwordHash = await hashDemoPassword(account);
-
-  await prisma.$transaction(
-    async (tx) => {
-      const user = await upsertDemoUser(tx, account, passwordHash);
-
-      await upsertById(tx.hatcheryBusiness, id("business"), {
-        name: account.businessName,
-        contact: account.phone,
-        address: account.location,
-        ownerId: user.id,
-      });
-
-      const supplierSeeds = [
-        {
-          key: "parent" as const,
-          name: "Himalayan Parent Stock Farm",
-          contact: "+9779855081001",
-          address: "Kawasoti-8, Nawalpur",
-        },
-        {
-          key: "feed" as const,
-          name: "Narayani Feed Industries",
-          contact: "+9779855081002",
-          address: "Bharatpur-14, Chitwan",
-        },
-        {
-          key: "health" as const,
-          name: "Avian Health Nepal",
-          contact: "+9779855081003",
-          address: "Ratnanagar-2, Chitwan",
-        },
-        {
-          key: "equipment" as const,
-          name: "Precision Hatch Systems",
-          contact: "+9779855081004",
-          address: "Hetauda Industrial Area, Makwanpur",
-        },
-      ];
-
-      const supplierIds: Record<SupplierKey, string> = {
-        parent: id("supplier-parent"),
-        feed: id("supplier-feed"),
-        health: id("supplier-health"),
-        equipment: id("supplier-equipment"),
-      };
-
-      for (const supplier of supplierSeeds) {
-        await upsertById(tx.hatcherySupplier, supplierIds[supplier.key], {
-          hatcheryOwnerId: user.id,
-          name: supplier.name,
-          contact: supplier.contact,
-          address: supplier.address,
-          openingBalance: decimal(0),
-          balance: decimal(0),
-        });
-      }
-
-      // Male and female chicks are separate lots at different prices, which is
-      // how hatcheries actually buy them. Free birds land on the female lot.
-      const cobbFemaleEffectiveCost = round4(494_000 / 3_850);
-      const inventorySeeds: Array<{
-        key: InventoryKey;
-        supplierKey: SupplierKey;
-        itemType: HatcheryInventoryItemType;
-        sex: HatcherySex;
-        name: string;
-        unit: string;
-        unitPrice: number;
-        effectiveUnitCost: number;
-        currentStock: number;
-        minStock: number;
-      }> = [
-        {
-          key: "cobb-parents-female",
-          supplierKey: "parent",
-          itemType: HatcheryInventoryItemType.CHICKS,
-          sex: HatcherySex.FEMALE,
-          name: "Cobb 500 Parent Stock Chicks",
-          unit: "Birds",
-          unitPrice: 130,
-          effectiveUnitCost: cobbFemaleEffectiveCost,
-          currentStock: 250, // 3800 paid + 50 free - 3600 placed
-          minStock: 200,
-        },
-        {
-          key: "cobb-parents-male",
-          supplierKey: "parent",
-          itemType: HatcheryInventoryItemType.CHICKS,
-          sex: HatcherySex.MALE,
-          name: "Cobb 500 Parent Stock Chicks",
-          unit: "Birds",
-          unitPrice: 60,
-          effectiveUnitCost: 60,
-          currentStock: 0, // 400 paid - 400 placed
-          // No reorder threshold: males are bought once per flock cycle, not
-          // restocked continuously, so a standing low-stock alert at 0 would
-          // be permanent noise.
-          minStock: 0,
-        },
-        {
-          key: "ross-parents-female",
-          supplierKey: "parent",
-          itemType: HatcheryInventoryItemType.CHICKS,
-          sex: HatcherySex.FEMALE,
-          name: "Ross 308 Parent Stock Chicks",
-          unit: "Birds",
-          unitPrice: 125,
-          effectiveUnitCost: 125,
-          currentStock: 100, // 1000 paid - 900 placed
-          minStock: 150,
-        },
-        {
-          key: "ross-parents-male",
-          supplierKey: "parent",
-          itemType: HatcheryInventoryItemType.CHICKS,
-          sex: HatcherySex.MALE,
-          name: "Ross 308 Parent Stock Chicks",
-          unit: "Birds",
-          unitPrice: 58,
-          effectiveUnitCost: 58,
-          currentStock: 0, // 100 paid - 100 placed
-          minStock: 0, // see note on the Cobb male lot above
-
-        },
-        {
-          key: "grower-feed",
-          supplierKey: "feed",
-          itemType: HatcheryInventoryItemType.FEED,
-          sex: HatcherySex.NA,
-          name: "Parent Breeder Grower Feed",
-          unit: "Bag",
-          unitPrice: 3450,
-          effectiveUnitCost: 3450,
-          currentStock: 80,
-          minStock: 60,
-        },
-        {
-          key: "layer-feed",
-          supplierKey: "feed",
-          itemType: HatcheryInventoryItemType.FEED,
-          sex: HatcherySex.NA,
-          name: "Parent Breeder Layer Feed",
-          unit: "Bag",
-          unitPrice: 3580,
-          effectiveUnitCost: 3580,
-          currentStock: 70,
-          minStock: 50,
-        },
-        {
-          key: "vaccine",
-          supplierKey: "health",
-          itemType: HatcheryInventoryItemType.MEDICINE,
-          sex: HatcherySex.NA,
-          name: "ND + IB Parent Flock Vaccine",
-          unit: "Vial",
-          unitPrice: 950,
-          effectiveUnitCost: 950,
-          currentStock: 18,
-          minStock: 10,
-        },
-        {
-          key: "supplement",
-          supplierKey: "health",
-          itemType: HatcheryInventoryItemType.MEDICINE,
-          sex: HatcherySex.NA,
-          name: "Breeder Vitamin Mineral Supplement",
-          unit: "Packet",
-          unitPrice: 480,
-          effectiveUnitCost: 480,
-          currentStock: 35,
-          minStock: 15,
-        },
-        {
-          key: "disinfectant",
-          supplierKey: "health",
-          itemType: HatcheryInventoryItemType.MEDICINE,
-          sex: HatcherySex.NA,
-          name: "Hatchery Biosecurity Disinfectant",
-          unit: "Bottle",
-          unitPrice: 720,
-          effectiveUnitCost: 720,
-          currentStock: 10,
-          minStock: 12,
-        },
-        {
-          key: "egg-trays",
-          supplierKey: "equipment",
-          itemType: HatcheryInventoryItemType.OTHER,
-          sex: HatcherySex.NA,
-          name: "Reusable Hatching Egg Trays",
-          unit: "PCS",
-          unitPrice: 55,
-          effectiveUnitCost: 55,
-          currentStock: 480,
-          minStock: 200,
-        },
-        {
-          key: "setter-trays",
-          supplierKey: "equipment",
-          itemType: HatcheryInventoryItemType.OTHER,
-          sex: HatcherySex.NA,
-          name: "Setter Machine Trays",
-          unit: "PCS",
-          unitPrice: 1250,
-          effectiveUnitCost: 1250,
-          currentStock: 80,
-          minStock: 20,
-        },
-      ];
-
-      const inventoryByKey = new Map(
-        inventorySeeds.map((item) => [item.key, item]),
-      );
-
-      for (const item of inventorySeeds) {
-        await upsertById(tx.hatcheryInventoryItem, id(`inventory-${item.key}`), {
-          hatcheryOwnerId: user.id,
-          itemType: item.itemType,
-          sex: item.sex,
-          name: item.name,
-          unit: item.unit,
-          unitPrice: decimal(item.unitPrice),
-          effectiveUnitCost: decimal(item.effectiveUnitCost),
-          supplierKey: `HATCHERY_SUPPLIER:${supplierIds[item.supplierKey]}`,
-          currentStock: decimal(item.currentStock),
-          minStock: decimal(item.minStock),
-          deletedAt: null,
-        });
-      }
-
-      const supplierEvents: SupplierEventSeed[] = [
-        {
-          key: "parent-opening",
-          supplierKey: "parent",
-          type: HatcherySupplierTxnType.OPENING_BALANCE,
-          amount: 40_000,
-          date: daysAgo(450),
-          note: "Opening balance carried into Poultry360",
-        },
-        {
-          key: "parent-ross-purchase",
-          supplierKey: "parent",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.CHICKS,
-          date: daysAgo(425),
-          note: "Ross parent-stock chicks received for historical flock PF-002",
-          reference: "HPSF-2081-640",
-          items: [
-            {
-              inventoryKey: "ross-parents-female",
-              itemName: "Ross 308 Parent Stock Chicks",
-              quantity: 1000,
-              freeQuantity: 0,
-              unit: "Birds",
-              unitPrice: 125,
-              totalAmount: 125_000,
-              sex: HatcherySex.FEMALE,
-            },
-            {
-              inventoryKey: "ross-parents-male",
-              itemName: "Ross 308 Parent Stock Chicks",
-              quantity: 100,
-              freeQuantity: 0,
-              unit: "Birds",
-              unitPrice: 58,
-              totalAmount: 5_800,
-              sex: HatcherySex.MALE,
-            },
-          ],
-        },
-        {
-          key: "parent-historical-payment",
-          supplierKey: "parent",
-          type: HatcherySupplierTxnType.PAYMENT,
-          amount: 150_000,
-          date: daysAgo(423),
-          note: "Payment against historical Ross parent-stock invoice",
-          reference: "BANK-HPSF-6401",
-        },
-        {
-          key: "parent-cobb-purchase",
-          supplierKey: "parent",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.CHICKS,
-          date: daysAgo(220),
-          note: "Cobb parent-stock chicks received for active flock PF-001",
-          reference: "HPSF-2082-118",
-          items: [
-            {
-              inventoryKey: "cobb-parents-female",
-              itemName: "Cobb 500 Parent Stock Chicks",
-              quantity: 3800,
-              freeQuantity: 50,
-              unit: "Birds",
-              unitPrice: 130,
-              totalAmount: 494_000,
-              sex: HatcherySex.FEMALE,
-            },
-            {
-              inventoryKey: "cobb-parents-male",
-              itemName: "Cobb 500 Parent Stock Chicks",
-              quantity: 400,
-              freeQuantity: 0,
-              unit: "Birds",
-              unitPrice: 60,
-              totalAmount: 24_000,
-              sex: HatcherySex.MALE,
-            },
-          ],
-        },
-        {
-          key: "parent-payment",
-          supplierKey: "parent",
-          type: HatcherySupplierTxnType.PAYMENT,
-          amount: 500_000,
-          date: daysAgo(215),
-          note: "Bank payment against parent-stock chick invoice",
-          reference: "BANK-HPSF-7712",
-        },
-        {
-          key: "feed-opening",
-          supplierKey: "feed",
-          type: HatcherySupplierTxnType.OPENING_BALANCE,
-          amount: 25_000,
-          date: daysAgo(400),
-          note: "Opening feed supplier balance",
-        },
-        {
-          key: "feed-grower-purchase",
-          supplierKey: "feed",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.FEED,
-          date: daysAgo(370),
-          note: "Grower feed delivery for parent flocks",
-          reference: "NFI-2082-344",
-          items: [
-            {
-              inventoryKey: "grower-feed",
-              itemName: "Parent Breeder Grower Feed",
-              quantity: 220,
-              freeQuantity: 0,
-              unit: "Bag",
-              unitPrice: 3450,
-              totalAmount: 759_000,
-            },
-          ],
-        },
-        {
-          key: "feed-layer-purchase",
-          supplierKey: "feed",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.FEED,
-          date: daysAgo(290),
-          note: "Layer ration for parent flocks in production",
-          reference: "NFI-2083-091",
-          items: [
-            {
-              inventoryKey: "layer-feed",
-              itemName: "Parent Breeder Layer Feed",
-              quantity: 260,
-              freeQuantity: 0,
-              unit: "Bag",
-              unitPrice: 3580,
-              totalAmount: 930_800,
-            },
-          ],
-        },
-        {
-          key: "feed-payment",
-          supplierKey: "feed",
-          type: HatcherySupplierTxnType.PAYMENT,
-          amount: 1_500_000,
-          date: daysAgo(60),
-          note: "Consolidated payment against breeder feed invoices",
-          reference: "BANK-NFI-8820",
-        },
-        {
-          key: "health-vaccine-purchase",
-          supplierKey: "health",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.MEDICINE,
-          date: daysAgo(70),
-          note: "Parent flock vaccination stock",
-          reference: "AHN-2083-144",
-          items: [
-            {
-              inventoryKey: "vaccine",
-              itemName: "ND + IB Parent Flock Vaccine",
-              quantity: 30,
-              freeQuantity: 0,
-              unit: "Vial",
-              unitPrice: 950,
-              totalAmount: 28_500,
-            },
-          ],
-        },
-        {
-          key: "health-supplement-purchase",
-          supplierKey: "health",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.MEDICINE,
-          date: daysAgo(50),
-          note: "Vitamin and mineral supplement delivery",
-          reference: "AHN-2083-162",
-          items: [
-            {
-              inventoryKey: "supplement",
-              itemName: "Breeder Vitamin Mineral Supplement",
-              quantity: 60,
-              freeQuantity: 0,
-              unit: "Packet",
-              unitPrice: 480,
-              totalAmount: 28_800,
-            },
-          ],
-        },
-        {
-          key: "health-disinfectant-purchase",
-          supplierKey: "health",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.MEDICINE,
-          date: daysAgo(30),
-          note: "Biosecurity disinfectant replenishment",
-          reference: "AHN-2083-177",
-          items: [
-            {
-              inventoryKey: "disinfectant",
-              itemName: "Hatchery Biosecurity Disinfectant",
-              quantity: 24,
-              freeQuantity: 0,
-              unit: "Bottle",
-              unitPrice: 720,
-              totalAmount: 17_280,
-            },
-          ],
-        },
-        {
-          key: "health-payment",
-          supplierKey: "health",
-          type: HatcherySupplierTxnType.PAYMENT,
-          amount: 60_000,
-          date: daysAgo(20),
-          note: "Part payment against veterinary supply invoices",
-          reference: "CASH-AHN-2083-20",
-        },
-        {
-          key: "equipment-purchase",
-          supplierKey: "equipment",
-          type: HatcherySupplierTxnType.PURCHASE,
-          category: HatcheryPurchaseCategory.OTHER,
-          date: daysAgo(100),
-          note: "Reusable egg handling and setter equipment",
-          reference: "PHS-2082-511",
-          items: [
-            {
-              inventoryKey: "egg-trays",
-              itemName: "Reusable Hatching Egg Trays",
-              quantity: 600,
-              freeQuantity: 0,
-              unit: "PCS",
-              unitPrice: 55,
-              totalAmount: 33_000,
-            },
-            {
-              inventoryKey: "setter-trays",
-              itemName: "Setter Machine Trays",
-              quantity: 80,
-              freeQuantity: 0,
-              unit: "PCS",
-              unitPrice: 1250,
-              totalAmount: 100_000,
-            },
-          ],
-        },
-        {
-          key: "equipment-payment",
-          supplierKey: "equipment",
-          type: HatcherySupplierTxnType.PAYMENT,
-          amount: 100_000,
-          date: daysAgo(90),
-          note: "Bank payment against equipment invoice",
-          reference: "BANK-PHS-7341",
-        },
-      ];
-
-      for (const supplier of supplierSeeds) {
-        const events = supplierEvents
-          .filter((event) => event.supplierKey === supplier.key)
-          .sort((a, b) => a.date.getTime() - b.date.getTime());
-        let runningBalance = 0;
-        let openingBalance = 0;
-
-        for (const event of events) {
-          const amount =
-            event.type === HatcherySupplierTxnType.PURCHASE
-              ? (event.items ?? []).reduce(
-                  (sum, item) => sum + item.totalAmount,
-                  0,
-                )
-              : (event.amount ?? 0);
-
-          if (event.type === HatcherySupplierTxnType.PAYMENT) {
-            runningBalance -= amount;
-          } else {
-            runningBalance += amount;
-          }
-          if (event.type === HatcherySupplierTxnType.OPENING_BALANCE) {
-            openingBalance = amount;
-          }
-
-          await upsertById(tx.hatcherySupplierTxn, id(`supplier-${event.key}`), {
-            supplierId: supplierIds[event.supplierKey],
-            type: event.type,
-            amount: decimal(amount),
-            balanceAfter: decimal(runningBalance),
-            date: event.date,
-            note: event.note,
-            purchaseCategory: event.category ?? null,
-            receiptImageUrl: null,
-            reference: event.reference ?? null,
-          });
-
-          if (event.type !== HatcherySupplierTxnType.PURCHASE) continue;
-
-          for (const item of event.items ?? []) {
-            const inventory = inventoryByKey.get(item.inventoryKey);
-            if (!inventory) {
-              throw new Error(`Missing hatchery inventory seed: ${item.inventoryKey}`);
-            }
-
-            await upsertById(
-              tx.hatcherySupplierPurchaseItem,
-              id(`supplier-${event.key}-item-${item.inventoryKey}`),
-              {
-                txnId: id(`supplier-${event.key}`),
-                itemName: item.itemName,
-                sex: item.sex ?? HatcherySex.NA,
-                quantity: decimal(item.quantity),
-                freeQuantity: decimal(item.freeQuantity),
-                unit: item.unit,
-                unitPrice: decimal(item.unitPrice),
-                totalAmount: decimal(item.totalAmount),
-              },
-            );
-
-            await upsertById(
-              tx.hatcheryInventoryTxn,
-              id(`supplier-${event.key}-inventory-${item.inventoryKey}-paid`),
-              {
-                itemId: id(`inventory-${item.inventoryKey}`),
-                type: HatcheryInventoryTxnType.PURCHASE,
-                quantity: decimal(item.quantity),
-                unitPrice: decimal(item.unitPrice),
-                amount: decimal(item.totalAmount),
-                date: event.date,
-                note: `${item.itemName} purchased from ${supplier.name}`,
-                sourceSupplierTxnId: id(`supplier-${event.key}`),
-              },
-            );
-
-            if (item.freeQuantity > 0) {
-              await upsertById(
-                tx.hatcheryInventoryTxn,
-                id(`supplier-${event.key}-inventory-${item.inventoryKey}-free`),
-                {
-                  itemId: id(`inventory-${item.inventoryKey}`),
-                  type: HatcheryInventoryTxnType.PURCHASE,
-                  quantity: decimal(item.freeQuantity),
-                  unitPrice: decimal(0),
-                  amount: decimal(0),
-                  date: event.date,
-                  note: "Free units received with purchase",
-                  sourceSupplierTxnId: id(`supplier-${event.key}`),
-                },
-              );
-            }
-          }
-        }
-
-        await upsertById(tx.hatcherySupplier, supplierIds[supplier.key], {
-          hatcheryOwnerId: user.id,
-          name: supplier.name,
-          contact: supplier.contact,
-          address: supplier.address,
-          openingBalance: decimal(openingBalance),
-          balance: decimal(runningBalance),
-        });
-      }
-
-      const activeBatchId = id("batch-active-cobb");
-      const closedBatchId = id("batch-closed-ross");
-
-      await upsertById(tx.hatcheryBatch, activeBatchId, {
-        hatcheryOwnerId: user.id,
-        type: HatcheryBatchType.PARENT_FLOCK,
-        status: HatcheryBatchStatus.ACTIVE,
-        code: "PF-001",
-        name: "Cobb 500 Parent Flock – House A",
-        startDate: daysAgo(210),
-        endDate: null,
-        notes: "Commercial parent flock supplying the current incubation cycle.",
-        // 3600F + 400M placed; 58F/12M died; 30F/70M sold.
-        initialParents: 4000,
-        initialMaleParents: 400,
-        initialFemaleParents: 3600,
-        currentParents: 3830,
-        currentMaleParents: 318,
-        currentFemaleParents: 3512,
-        placedAt: daysAgo(210),
-      });
-
-      await upsertById(tx.hatcheryBatch, closedBatchId, {
-        hatcheryOwnerId: user.id,
-        type: HatcheryBatchType.PARENT_FLOCK,
-        status: HatcheryBatchStatus.CLOSED,
-        code: "PF-002",
-        name: "Ross 308 Parent Flock – Completed Cycle",
-        startDate: daysAgo(420),
-        endDate: daysAgo(110),
-        notes: "Completed parent flock retained for historical analytics.",
-        // 900F + 100M placed; 36F/4M died; 864F/96M sold at depopulation.
-        initialParents: 1000,
-        initialMaleParents: 100,
-        initialFemaleParents: 900,
-        currentParents: 0,
-        currentMaleParents: 0,
-        currentFemaleParents: 0,
-        placedAt: daysAgo(420),
-      });
-
-      // Sex is carried by the inventory lot, so a mixed flock is simply two
-      // placement rows rather than extra columns on the placement.
-      const placementSeeds = [
-        {
-          key: "active-female",
-          batchId: activeBatchId,
-          inventoryKey: "cobb-parents-female" as const,
-          quantity: 3600,
-          date: daysAgo(210),
-        },
-        {
-          key: "active-male",
-          batchId: activeBatchId,
-          inventoryKey: "cobb-parents-male" as const,
-          quantity: 400,
-          date: daysAgo(210),
-        },
-        {
-          key: "closed-female",
-          batchId: closedBatchId,
-          inventoryKey: "ross-parents-female" as const,
-          quantity: 900,
-          date: daysAgo(420),
-        },
-        {
-          key: "closed-male",
-          batchId: closedBatchId,
-          inventoryKey: "ross-parents-male" as const,
-          quantity: 100,
-          date: daysAgo(420),
-        },
-      ];
-
-      for (const placement of placementSeeds) {
-        const item = inventoryByKey.get(placement.inventoryKey)!;
-        const amount = round2(item.effectiveUnitCost * placement.quantity);
-        const inventoryTxnId = id(`inventory-usage-placement-${placement.key}`);
-
-        await upsertById(tx.hatcheryBatchPlacement, id(`placement-${placement.key}`), {
-          batchId: placement.batchId,
-          inventoryItemId: id(`inventory-${placement.inventoryKey}`),
-          quantity: placement.quantity,
-        });
-        await upsertById(tx.hatcheryInventoryTxn, inventoryTxnId, {
-          itemId: id(`inventory-${placement.inventoryKey}`),
-          type: HatcheryInventoryTxnType.USAGE,
-          quantity: decimal(placement.quantity),
-          unitPrice: decimal(item.effectiveUnitCost),
-          amount: decimal(amount),
-          date: placement.date,
-          note: `Initial placement into ${placement.key.startsWith("active") ? "PF-001" : "PF-002"}`,
-          sourceSupplierTxnId: null,
-        });
-        await upsertById(
-          tx.hatcheryBatchExpense,
-          id(`expense-placement-${placement.key}`),
-          {
-            batchId: placement.batchId,
-            date: placement.date,
-            type: HatcheryBatchExpenseType.INVENTORY,
-            category: "CHICKS",
-            itemName: item.name,
-            quantity: decimal(placement.quantity),
-            unit: item.unit,
-            unitPrice: decimal(item.effectiveUnitCost),
-            amount: decimal(amount),
-            note: "Initial parent-flock placement",
-            inventoryItemId: id(`inventory-${placement.inventoryKey}`),
-            inventoryTxnId,
-          },
-        );
-      }
-
-      const inventoryExpenseSeeds = [
-        {
-          key: "active-grower-feed",
-          batchId: activeBatchId,
-          inventoryKey: "grower-feed" as const,
-          quantity: 40,
-          date: daysAgo(170),
-          category: "FEED",
-          // Fed to both groups with the optional split recorded.
-          feedTarget: HatcheryFeedTarget.BOTH,
-          femaleFeedQuantity: 32,
-          maleFeedQuantity: 8,
-          note: "Grower ration used before the flock entered lay",
-        },
-        {
-          key: "active-layer-feed",
-          batchId: activeBatchId,
-          inventoryKey: "layer-feed" as const,
-          quantity: 140,
-          date: daysAgo(42),
-          category: "FEED",
-          // Layer ration goes to the hens only; males stay on a separate ration.
-          feedTarget: HatcheryFeedTarget.FEMALE,
-          note: "Layer ration issued for the current production cycle",
-        },
-        {
-          key: "active-vaccine",
-          batchId: activeBatchId,
-          inventoryKey: "vaccine" as const,
-          quantity: 12,
-          date: daysAgo(68),
-          category: "MEDICINE",
-          note: "ND and IB vaccination programme",
-        },
-        {
-          key: "active-supplement",
-          batchId: activeBatchId,
-          inventoryKey: "supplement" as const,
-          quantity: 25,
-          date: daysAgo(45),
-          category: "MEDICINE",
-          note: "Breeder vitamin and mineral supplementation",
-        },
-        {
-          key: "active-disinfectant",
-          batchId: activeBatchId,
-          inventoryKey: "disinfectant" as const,
-          quantity: 14,
-          date: daysAgo(12),
-          category: "BIOSECURITY",
-          note: "Routine hatchery and parent-house disinfection",
-        },
-        {
-          key: "active-egg-trays",
-          batchId: activeBatchId,
-          inventoryKey: "egg-trays" as const,
-          quantity: 120,
-          date: daysAgo(55),
-          category: "SUPPLIES",
-          note: "Egg trays assigned to House A collection points",
-        },
-        {
-          feedTarget: HatcheryFeedTarget.BOTH,
-          key: "closed-grower-feed",
-          batchId: closedBatchId,
-          inventoryKey: "grower-feed" as const,
-          quantity: 100,
-          date: daysAgo(360),
-          category: "FEED",
-          note: "Grower feed used by the completed Ross parent flock",
-        },
-        {
-          feedTarget: HatcheryFeedTarget.FEMALE,
-          key: "closed-layer-feed",
-          batchId: closedBatchId,
-          inventoryKey: "layer-feed" as const,
-          quantity: 50,
-          date: daysAgo(280),
-          category: "FEED",
-          note: "Layer feed used during the historical laying cycle",
-        },
-      ];
-
-      for (const expense of inventoryExpenseSeeds) {
-        const item = inventoryByKey.get(expense.inventoryKey)!;
-        const amount = round2(item.effectiveUnitCost * expense.quantity);
-        const inventoryTxnId = id(`inventory-usage-${expense.key}`);
-
-        await upsertById(tx.hatcheryInventoryTxn, inventoryTxnId, {
-          itemId: id(`inventory-${expense.inventoryKey}`),
-          type: HatcheryInventoryTxnType.USAGE,
-          quantity: decimal(expense.quantity),
-          unitPrice: decimal(item.effectiveUnitCost),
-          amount: decimal(amount),
-          date: expense.date,
-          note: `Batch expense: ${expense.category}`,
-          sourceSupplierTxnId: null,
-        });
-        await upsertById(tx.hatcheryBatchExpense, id(`expense-${expense.key}`), {
-          batchId: expense.batchId,
-          date: expense.date,
-          type: HatcheryBatchExpenseType.INVENTORY,
-          category: expense.category,
-          itemName: item.name,
-          quantity: decimal(expense.quantity),
-          unit: item.unit,
-          unitPrice: decimal(item.effectiveUnitCost),
-          amount: decimal(amount),
-          note: expense.note,
-          feedTarget: "feedTarget" in expense ? expense.feedTarget : null,
-          femaleFeedQuantity:
-            "femaleFeedQuantity" in expense && expense.femaleFeedQuantity !== undefined
-              ? decimal(expense.femaleFeedQuantity)
-              : null,
-          maleFeedQuantity:
-            "maleFeedQuantity" in expense && expense.maleFeedQuantity !== undefined
-              ? decimal(expense.maleFeedQuantity)
-              : null,
-          inventoryItemId: id(`inventory-${expense.inventoryKey}`),
-          inventoryTxnId,
-        });
-      }
-
-      const manualExpenseSeeds = [
-        [
-          "active-electricity",
-          activeBatchId,
-          daysAgo(8),
-          "UTILITIES",
-          "Setter, hatcher and ventilation electricity",
-          86_500,
-          "Current monthly electricity allocation",
-        ],
-        [
-          "active-labor",
-          activeBatchId,
-          daysAgo(15),
-          "LABOR",
-          "Parent-house and incubation labour",
-          124_000,
-          "Monthly labour allocation",
-        ],
-        [
-          "active-maintenance",
-          activeBatchId,
-          daysAgo(25),
-          "MAINTENANCE",
-          "Setter calibration and ventilation service",
-          46_500,
-          "Preventive maintenance completed",
-        ],
-        [
-          "closed-electricity",
-          closedBatchId,
-          daysAgo(180),
-          "UTILITIES",
-          "Historical incubation electricity allocation",
-          72_000,
-          "Completed-cycle utility cost",
-        ],
-        [
-          "closed-labor",
-          closedBatchId,
-          daysAgo(170),
-          "LABOR",
-          "Historical parent-flock labour",
-          98_000,
-          "Completed-cycle labour cost",
-        ],
-      ] as const;
-
-      for (const [key, batchId, date, category, itemName, amount, note] of
-        manualExpenseSeeds) {
-        await upsertById(tx.hatcheryBatchExpense, id(`expense-${key}`), {
-          batchId,
-          date,
-          type: HatcheryBatchExpenseType.MANUAL,
-          category,
-          itemName,
-          quantity: null,
-          unit: null,
-          unitPrice: null,
-          amount: decimal(amount),
-          note,
-          inventoryItemId: null,
-          inventoryTxnId: null,
-        });
-      }
-
-      // count is always female + male, exactly as the API derives it.
-      const mortalitySeeds = [
-        ["active-1", activeBatchId, daysAgo(175), 20, 5, "Early adaptation loss"],
-        ["active-2", activeBatchId, daysAgo(90), 17, 3, "Routine flock mortality"],
-        ["active-3", activeBatchId, daysAgo(18), 21, 4, "Late-cycle mortality"],
-        ["closed-1", closedBatchId, daysAgo(350), 18, 2, "Early flock loss"],
-        ["closed-2", closedBatchId, daysAgo(190), 18, 2, "Production-cycle loss"],
-      ] as const;
-      for (const [key, batchId, date, femaleCount, maleCount, note] of mortalitySeeds) {
-        await upsertById(tx.hatcheryBatchMortality, id(`mortality-${key}`), {
-          batchId,
-          date,
-          count: femaleCount + maleCount,
-          femaleCount,
-          maleCount,
-          note,
-        });
-      }
-
-      const eggTypeSeeds = [
-        ["hatchable", "Hatchable Egg", true],
-        ["table", "Table Egg", false],
-        ["cracked", "Cracked Egg", false],
-        ["reject", "Reject Egg", false],
-      ] as const;
-      for (const [key, name, isHatchable] of eggTypeSeeds) {
-        await upsertById(tx.hatcheryEggType, id(`egg-type-${key}`), {
-          hatcheryOwnerId: user.id,
-          name,
-          isHatchable,
-        });
-      }
-
-      const partySeeds = [
-        {
-          key: "metro" as const,
-          name: "Metro Poultry Farms",
-          phone: "+9779845082001",
-          address: "Pokhara-17, Kaski",
-          openingBalance: 20_000,
-          targetBalance: 145_000,
-        },
-        {
-          key: "sunrise" as const,
-          name: "Sunrise Chick Distributors",
-          phone: "+9779845082002",
-          address: "Butwal-10, Rupandehi",
-          openingBalance: 0,
-          targetBalance: 68_500,
-        },
-        {
-          key: "egg-center" as const,
-          name: "Bharatpur Hatching Egg Centre",
-          phone: "+9779845082003",
-          address: "Bharatpur-11, Chitwan",
-          openingBalance: 0,
-          targetBalance: 34_700,
-        },
-        {
-          key: "meat-house" as const,
-          name: "Annapurna Meat House",
-          phone: "+9779845082004",
-          address: "Narayangarh, Chitwan",
-          openingBalance: 0,
-          targetBalance: 19_400,
-        },
-      ];
-
-      const partyIds: Record<PartyKey, string> = {
-        metro: id("party-metro"),
-        sunrise: id("party-sunrise"),
-        "egg-center": id("party-egg-center"),
-        "meat-house": id("party-meat-house"),
-      };
-
-      for (const party of partySeeds) {
-        await upsertById(tx.hatcheryParty, partyIds[party.key], {
-          hatcheryOwnerId: user.id,
-          name: party.name,
-          phone: party.phone,
-          address: party.address,
-          openingBalance: decimal(party.openingBalance),
-          balance: decimal(0),
-        });
-      }
-
-      const eggTotals = {
-        active: { hatchable: 0, table: 0, cracked: 0 },
-        closed: { hatchable: 0, table: 0, cracked: 0 },
-      };
-
-      const seedEggProduction = async (
-        scope: "active" | "closed",
-        batchId: string,
-        key: string,
-        date: Date,
-        hatchable: number,
-        table: number,
-        cracked: number,
-      ) => {
-        const productionId = id(`egg-production-${key}`);
-        await upsertById(tx.hatcheryEggProduction, productionId, {
-          batchId,
-          date,
-          note:
-            scope === "active"
-              ? "Daily grading from Cobb 500 parent flock"
-              : "Historical daily grading from completed Ross flock",
-        });
-
-        const lines = [
-          ["hatchable", hatchable],
-          ["table", table],
-          ["cracked", cracked],
-        ] as const;
-        for (const [eggTypeKey, count] of lines) {
-          await upsertById(
-            tx.hatcheryEggProductionLine,
-            id(`egg-production-${key}-${eggTypeKey}-line`),
-            {
-              productionId,
-              eggTypeId: id(`egg-type-${eggTypeKey}`),
-              count,
-            },
-          );
-          await upsertById(
-            tx.hatcheryEggTxn,
-            id(`egg-production-${key}-${eggTypeKey}-txn`),
-            {
-              batchId,
-              eggTypeId: id(`egg-type-${eggTypeKey}`),
-              type: HatcheryEggTxnType.PRODUCTION,
-              count,
-              date,
-              sourceId: productionId,
-              note: "Egg production recorded after grading",
-            },
-          );
-          eggTotals[scope][eggTypeKey] += count;
-        }
-      };
-
-      for (let index = 0; index < 45; index += 1) {
-        const ago = 44 - index;
-        await seedEggProduction(
-          "active",
-          activeBatchId,
-          `active-${String(ago).padStart(2, "0")}`,
-          daysAgo(ago, 7),
-          2780 + ((index * 37) % 221),
-          145 + ((index * 11) % 61),
-          12 + ((index * 5) % 17),
-        );
-      }
-
-      for (let index = 0; index < 31; index += 1) {
-        const ago = 300 - index;
-        await seedEggProduction(
-          "closed",
-          closedBatchId,
-          `closed-${ago}`,
-          daysAgo(ago, 7),
-          580 + ((index * 17) % 101),
-          42 + ((index * 7) % 19),
-          4 + ((index * 3) % 7),
-        );
-      }
-
-      type HatchResultSeed = {
-        hatchedAgo: number;
-        hatchedA: number;
-        hatchedB: number;
-        cull: number;
-        lateDead: number;
-        unhatched: number;
-        soldA: number;
-        soldB: number;
-        soldCull: number;
-        priceA: number;
-        priceB: number;
-        priceCull: number;
-        historical: boolean;
-      };
-
-      type IncubationSeed = {
-        key: string;
-        code: string;
-        name: string;
-        parentBatchId: string;
-        startAgo: number;
-        eggsSet: number;
-        stage: HatcheryIncubationStage;
-        candledAgo?: number;
-        transferredAgo?: number;
-        infertile?: number;
-        earlyDead?: number;
-        result?: HatchResultSeed;
-      };
-
-      const incubationSeeds: IncubationSeed[] = [
-        {
-          key: "in-001",
-          code: "IN-001",
-          name: "Cobb Cycle 01",
-          parentBatchId: activeBatchId,
-          startAgo: 40,
-          eggsSet: 8000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 33,
-          transferredAgo: 22,
-          infertile: 600,
-          earlyDead: 180,
-          result: {
-            hatchedAgo: 19,
-            hatchedA: 6600,
-            hatchedB: 300,
-            cull: 80,
-            lateDead: 140,
-            unhatched: 100,
-            soldA: 6200,
-            soldB: 250,
-            soldCull: 50,
-            priceA: 95,
-            priceB: 75,
-            priceCull: 25,
-            historical: false,
-          },
-        },
-        {
-          key: "in-002",
-          code: "IN-002",
-          name: "Cobb Cycle 02",
-          parentBatchId: activeBatchId,
-          startAgo: 34,
-          eggsSet: 9000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 27,
-          transferredAgo: 16,
-          infertile: 650,
-          earlyDead: 200,
-          result: {
-            hatchedAgo: 13,
-            hatchedA: 7500,
-            hatchedB: 350,
-            cull: 80,
-            lateDead: 120,
-            unhatched: 100,
-            soldA: 7200,
-            soldB: 300,
-            soldCull: 80,
-            priceA: 98,
-            priceB: 78,
-            priceCull: 25,
-            historical: false,
-          },
-        },
-        {
-          key: "in-003",
-          code: "IN-003",
-          name: "Cobb Cycle 03",
-          parentBatchId: activeBatchId,
-          startAgo: 28,
-          eggsSet: 9500,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 21,
-          transferredAgo: 10,
-          infertile: 700,
-          earlyDead: 220,
-          result: {
-            hatchedAgo: 7,
-            hatchedA: 7900,
-            hatchedB: 380,
-            cull: 80,
-            lateDead: 120,
-            unhatched: 100,
-            soldA: 7600,
-            soldB: 330,
-            soldCull: 50,
-            priceA: 97,
-            priceB: 77,
-            priceCull: 25,
-            historical: false,
-          },
-        },
-        {
-          key: "in-004",
-          code: "IN-004",
-          name: "Cobb Cycle 04",
-          parentBatchId: activeBatchId,
-          startAgo: 22,
-          eggsSet: 9000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 15,
-          transferredAgo: 4,
-          infertile: 620,
-          earlyDead: 180,
-          result: {
-            hatchedAgo: 1,
-            hatchedA: 7550,
-            hatchedB: 350,
-            cull: 80,
-            lateDead: 120,
-            unhatched: 100,
-            soldA: 7200,
-            soldB: 300,
-            soldCull: 50,
-            priceA: 99,
-            priceB: 79,
-            priceCull: 25,
-            historical: false,
-          },
-        },
-        {
-          key: "in-005",
-          code: "IN-005",
-          name: "Cobb Cycle 05 – In Hatcher",
-          parentBatchId: activeBatchId,
-          startAgo: 18,
-          eggsSet: 9000,
-          stage: HatcheryIncubationStage.HATCHER,
-          candledAgo: 11,
-          transferredAgo: 0,
-          infertile: 600,
-          earlyDead: 180,
-        },
-        {
-          key: "in-006",
-          code: "IN-006",
-          name: "Cobb Cycle 06 – Candled",
-          parentBatchId: activeBatchId,
-          startAgo: 8,
-          eggsSet: 8500,
-          stage: HatcheryIncubationStage.CANDLING,
-          candledAgo: 1,
-          infertile: 500,
-          earlyDead: 150,
-        },
-        {
-          key: "in-007",
-          code: "IN-007",
-          name: "Cobb Cycle 07 – Setter",
-          parentBatchId: activeBatchId,
-          startAgo: 3,
-          eggsSet: 8000,
-          stage: HatcheryIncubationStage.SETTER,
-        },
-        {
-          key: "in-008",
-          code: "IN-008",
-          name: "Ross Historical Cycle 01",
-          parentBatchId: closedBatchId,
-          startAgo: 292,
-          eggsSet: 5000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 285,
-          transferredAgo: 274,
-          infertile: 400,
-          earlyDead: 120,
-          result: {
-            hatchedAgo: 271,
-            hatchedA: 4100,
-            hatchedB: 200,
-            cull: 50,
-            lateDead: 70,
-            unhatched: 60,
-            soldA: 4100,
-            soldB: 200,
-            soldCull: 50,
-            priceA: 88,
-            priceB: 68,
-            priceCull: 20,
-            historical: true,
-          },
-        },
-        {
-          key: "in-009",
-          code: "IN-009",
-          name: "Ross Historical Cycle 02",
-          parentBatchId: closedBatchId,
-          startAgo: 282,
-          eggsSet: 6000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 275,
-          transferredAgo: 264,
-          infertile: 450,
-          earlyDead: 150,
-          result: {
-            hatchedAgo: 261,
-            hatchedA: 4950,
-            hatchedB: 250,
-            cull: 50,
-            lateDead: 80,
-            unhatched: 70,
-            soldA: 4950,
-            soldB: 250,
-            soldCull: 50,
-            priceA: 90,
-            priceB: 70,
-            priceCull: 20,
-            historical: true,
-          },
-        },
-        {
-          key: "in-010",
-          code: "IN-010",
-          name: "Ross Historical Cycle 03",
-          parentBatchId: closedBatchId,
-          startAgo: 272,
-          eggsSet: 6000,
-          stage: HatcheryIncubationStage.COMPLETED,
-          candledAgo: 265,
-          transferredAgo: 254,
-          infertile: 420,
-          earlyDead: 130,
-          result: {
-            hatchedAgo: 251,
-            hatchedA: 5000,
-            hatchedB: 250,
-            cull: 50,
-            lateDead: 80,
-            unhatched: 70,
-            soldA: 5000,
-            soldB: 250,
-            soldCull: 50,
-            priceA: 92,
-            priceB: 72,
-            priceCull: 20,
-            historical: true,
-          },
-        },
-      ];
-
-      const activeEggsSet = incubationSeeds
-        .filter((seed) => seed.parentBatchId === activeBatchId)
-        .reduce((sum, seed) => sum + seed.eggsSet, 0);
-      const closedEggsSet = incubationSeeds
-        .filter((seed) => seed.parentBatchId === closedBatchId)
-        .reduce((sum, seed) => sum + seed.eggsSet, 0);
-
-      for (const incubation of incubationSeeds) {
-        const incubationId = id(`incubation-${incubation.key}`);
-        await upsertById(tx.hatcheryIncubationBatch, incubationId, {
-          hatcheryOwnerId: user.id,
-          parentBatchId: incubation.parentBatchId,
-          hatchableEggTypeId: id("egg-type-hatchable"),
-          stage: incubation.stage,
-          code: incubation.code,
-          name: incubation.name,
-          startDate: daysAgo(incubation.startAgo),
-          eggsSetCount: incubation.eggsSet,
-          setterAt: daysAgo(incubation.startAgo),
-          candledAt:
-            incubation.candledAgo === undefined
-              ? null
-              : daysAgo(incubation.candledAgo),
-          transferredAt:
-            incubation.transferredAgo === undefined
-              ? null
-              : daysAgo(incubation.transferredAgo),
-          hatchedAt: incubation.result
-            ? daysAgo(incubation.result.hatchedAgo)
-            : null,
-          notes: `Demo incubation linked to ${incubation.parentBatchId === activeBatchId ? "PF-001" : "PF-002"}`,
-        });
-
-        await upsertById(tx.hatcheryEggMove, id(`egg-move-${incubation.key}`), {
-          incubationBatchId: incubationId,
-          parentBatchId: incubation.parentBatchId,
-          eggTypeId: id("egg-type-hatchable"),
-          count: incubation.eggsSet,
-          date: daysAgo(incubation.startAgo),
-        });
-
-        if ((incubation.infertile ?? 0) > 0) {
-          await upsertById(
-            tx.hatcheryIncubationLoss,
-            id(`loss-${incubation.key}-infertile`),
-            {
-              incubationBatchId: incubationId,
-              type: HatcheryIncubationLossType.INFERTILE,
-              date: daysAgo(incubation.candledAgo!),
-              count: incubation.infertile!,
-              note: "Removed during candling",
-            },
-          );
-        }
-        if ((incubation.earlyDead ?? 0) > 0) {
-          await upsertById(
-            tx.hatcheryIncubationLoss,
-            id(`loss-${incubation.key}-early-dead`),
-            {
-              incubationBatchId: incubationId,
-              type: HatcheryIncubationLossType.EARLY_DEAD,
-              date: daysAgo(incubation.candledAgo!),
-              count: incubation.earlyDead!,
-              note: "Early embryonic loss identified during candling",
-            },
-          );
-        }
-
-        if (!incubation.result) continue;
-        const result = incubation.result;
-        const hatchResultId = id(`hatch-result-${incubation.key}`);
-        await upsertById(tx.hatcheryHatchResult, hatchResultId, {
-          incubationBatchId: incubationId,
-          date: daysAgo(result.hatchedAgo),
-          hatchedA: result.hatchedA,
-          hatchedB: result.hatchedB,
-          cull: result.cull,
-          lateDead: result.lateDead,
-          unhatched: result.unhatched,
-          note: "Final grading completed after hatch pull",
-        });
-
-        const gradeProduction = [
-          [HatcheryChickGrade.A, "a", result.hatchedA],
-          [HatcheryChickGrade.B, "b", result.hatchedB],
-          [HatcheryChickGrade.CULL, "cull", result.cull],
-        ] as const;
-        for (const [grade, gradeKey, count] of gradeProduction) {
-          await upsertById(
-            tx.hatcheryChickTxn,
-            id(`chick-production-${incubation.key}-${gradeKey}`),
-            {
-              incubationBatchId: incubationId,
-              grade,
-              type: HatcheryChickTxnType.PRODUCTION,
-              count,
-              date: daysAgo(result.hatchedAgo),
-              sourceId: hatchResultId,
-              note: "Chicks graded at hatch pull",
-            },
-          );
-        }
-      }
-
-      const partySales: PartySaleEvent[] = [];
-
-      for (const incubation of incubationSeeds) {
-        if (!incubation.result) continue;
-        const result = incubation.result;
-        const incubationId = id(`incubation-${incubation.key}`);
-        const saleAgo = Math.max(0, result.hatchedAgo - 1);
-        const chickSaleSeeds = [
-          {
-            grade: HatcheryChickGrade.A,
-            gradeKey: "a",
-            count: result.soldA,
-            produced: result.hatchedA,
-            price: result.priceA,
-            partyKey: (result.historical ? "sunrise" : "metro") as PartyKey,
-          },
-          {
-            grade: HatcheryChickGrade.B,
-            gradeKey: "b",
-            count: result.soldB,
-            produced: result.hatchedB,
-            price: result.priceB,
-            partyKey: "sunrise" as PartyKey,
-          },
-          {
-            grade: HatcheryChickGrade.CULL,
-            gradeKey: "cull",
-            count: result.soldCull,
-            produced: result.cull,
-            price: result.priceCull,
-            partyKey: "sunrise" as PartyKey,
-          },
-        ];
-
-        for (const saleSeed of chickSaleSeeds) {
-          const saleId = id(
-            `chick-sale-${incubation.key}-${saleSeed.gradeKey}`,
-          );
-          const amount = round2(saleSeed.count * saleSeed.price);
-          const date = daysAgo(saleAgo, 11);
-
-          await upsertById(tx.hatcheryChickSale, saleId, {
-            incubationBatchId: incubationId,
-            grade: saleSeed.grade,
-            date,
-            count: saleSeed.count,
-            unitPrice: decimal(saleSeed.price),
-            amount: decimal(amount),
-            partyId: partyIds[saleSeed.partyKey],
-            note: `${incubation.code} ${saleSeed.grade} grade chick dispatch`,
-            inventoryItemId: null,
-          });
-          await upsertById(
-            tx.hatcheryChickTxn,
-            id(`chick-sale-${incubation.key}-${saleSeed.gradeKey}-txn`),
-            {
-              incubationBatchId: incubationId,
-              grade: saleSeed.grade,
-              type: HatcheryChickTxnType.SALE,
-              count: -saleSeed.count,
-              date,
-              sourceId: saleId,
-              note: "Chick sale dispatch",
-            },
-          );
-          await upsertById(
-            tx.hatcheryChickStock,
-            id(`chick-stock-${incubation.key}-${saleSeed.gradeKey}`),
-            {
-              incubationBatchId: incubationId,
-              grade: saleSeed.grade,
-              currentStock: saleSeed.produced - saleSeed.count,
-            },
-          );
-
-          partySales.push({
-            key: `chick-${incubation.key}-${saleSeed.gradeKey}`,
-            partyKey: saleSeed.partyKey,
-            date,
-            amount,
-            sourceType: "chick_sale",
-            sourceId: saleId,
-            note: `${incubation.code} ${saleSeed.grade} grade chicks`,
-          });
-        }
-      }
-
-      const activeHatchableSaleTotal =
-        eggTotals.active.hatchable - activeEggsSet - 12_500;
-      const activeTableSaleTotal = eggTotals.active.table - 900;
-      const activeCrackedSaleTotal = eggTotals.active.cracked - 150;
-      const closedHatchableSaleTotal =
-        eggTotals.closed.hatchable - closedEggsSet;
-
-      if (
-        activeHatchableSaleTotal <= 40_000 ||
-        activeTableSaleTotal <= 0 ||
-        activeCrackedSaleTotal <= 0 ||
-        closedHatchableSaleTotal <= 0
-      ) {
-        throw new Error("Hatchery egg seed reconciliation produced invalid stock");
-      }
-
-      const eggSaleSeeds: Array<{
-        key: string;
-        batchId: string;
-        eggTypeKey: "hatchable" | "table" | "cracked";
-        date: Date;
-        count: number;
-        unitPrice: number;
-        partyKey: PartyKey | null;
-        note: string;
-      }> = [
-        {
-          key: "active-hatchable-1",
-          batchId: activeBatchId,
-          eggTypeKey: "hatchable",
-          date: daysAgo(2, 12),
-          count: 20_000,
-          unitPrice: 18,
-          partyKey: "egg-center",
-          note: "Graded hatching eggs supplied under weekly contract",
-        },
-        {
-          key: "active-hatchable-2",
-          batchId: activeBatchId,
-          eggTypeKey: "hatchable",
-          date: daysAgo(1, 12),
-          count: 20_000,
-          unitPrice: 18.25,
-          partyKey: "egg-center",
-          note: "Second weekly hatching egg dispatch",
-        },
-        {
-          key: "active-hatchable-cash",
-          batchId: activeBatchId,
-          eggTypeKey: "hatchable",
-          date: daysAgo(0, 10),
-          count: activeHatchableSaleTotal - 40_000,
-          unitPrice: 18.5,
-          partyKey: null,
-          note: "Farm-gate cash sale of surplus hatching eggs",
-        },
-        {
-          key: "active-table-1",
-          batchId: activeBatchId,
-          eggTypeKey: "table",
-          date: daysAgo(5, 13),
-          count: Math.floor(activeTableSaleTotal * 0.6),
-          unitPrice: 13,
-          partyKey: "egg-center",
-          note: "Sale of non-settable table eggs",
-        },
-        {
-          key: "active-table-2",
-          batchId: activeBatchId,
-          eggTypeKey: "table",
-          date: daysAgo(0, 13),
-          count:
-            activeTableSaleTotal - Math.floor(activeTableSaleTotal * 0.6),
-          unitPrice: 13.5,
-          partyKey: "egg-center",
-          note: "Current table egg dispatch",
-        },
-        {
-          key: "active-cracked",
-          batchId: activeBatchId,
-          eggTypeKey: "cracked",
-          date: daysAgo(0, 14),
-          count: activeCrackedSaleTotal,
-          unitPrice: 6,
-          partyKey: null,
-          note: "Discount cash sale of cracked eggs",
-        },
-        {
-          key: "closed-hatchable-1",
-          batchId: closedBatchId,
-          eggTypeKey: "hatchable",
-          date: daysAgo(269, 12),
-          count: Math.floor(closedHatchableSaleTotal / 2),
-          unitPrice: 16,
-          partyKey: "egg-center",
-          note: "Historical hatching egg dispatch",
-        },
-        {
-          key: "closed-hatchable-2",
-          batchId: closedBatchId,
-          eggTypeKey: "hatchable",
-          date: daysAgo(268, 12),
-          count:
-            closedHatchableSaleTotal -
-            Math.floor(closedHatchableSaleTotal / 2),
-          unitPrice: 16.5,
-          partyKey: "egg-center",
-          note: "Final hatching egg dispatch from PF-002",
-        },
-        {
-          key: "closed-table",
-          batchId: closedBatchId,
-          eggTypeKey: "table",
-          date: daysAgo(267, 12),
-          count: eggTotals.closed.table,
-          unitPrice: 11,
-          partyKey: "egg-center",
-          note: "Historical table egg sale",
-        },
-        {
-          key: "closed-cracked",
-          batchId: closedBatchId,
-          eggTypeKey: "cracked",
-          date: daysAgo(267, 14),
-          count: eggTotals.closed.cracked,
-          unitPrice: 5,
-          partyKey: "egg-center",
-          note: "Historical cracked egg sale",
-        },
-      ];
-
-      for (const sale of eggSaleSeeds) {
-        const saleId = id(`egg-sale-${sale.key}`);
-        const amount = round2(sale.count * sale.unitPrice);
-        await upsertById(tx.hatcheryEggSale, saleId, {
-          batchId: sale.batchId,
-          eggTypeId: id(`egg-type-${sale.eggTypeKey}`),
-          date: sale.date,
-          count: sale.count,
-          unitPrice: decimal(sale.unitPrice),
-          amount: decimal(amount),
-          partyId: sale.partyKey ? partyIds[sale.partyKey] : null,
-          note: sale.note,
-        });
-        await upsertById(tx.hatcheryEggTxn, id(`egg-sale-${sale.key}-txn`), {
-          batchId: sale.batchId,
-          eggTypeId: id(`egg-type-${sale.eggTypeKey}`),
-          type: HatcheryEggTxnType.SALE,
-          count: -sale.count,
-          date: sale.date,
-          sourceId: saleId,
-          note: sale.note,
-        });
-
-        if (sale.partyKey) {
-          partySales.push({
-            key: `egg-${sale.key}`,
-            partyKey: sale.partyKey,
-            date: sale.date,
-            amount,
-            sourceType: "egg_sale",
-            sourceId: saleId,
-            note: sale.note,
-          });
-        }
-      }
-
-      const eggStockSeeds = [
-        ["active-hatchable", activeBatchId, "hatchable", 12_500],
-        ["active-table", activeBatchId, "table", 900],
-        ["active-cracked", activeBatchId, "cracked", 150],
-        ["active-reject", activeBatchId, "reject", 0],
-        ["closed-hatchable", closedBatchId, "hatchable", 0],
-        ["closed-table", closedBatchId, "table", 0],
-        ["closed-cracked", closedBatchId, "cracked", 0],
-        ["closed-reject", closedBatchId, "reject", 0],
-      ] as const;
-      for (const [key, batchId, eggTypeKey, currentStock] of eggStockSeeds) {
-        await upsertById(tx.hatcheryEggStock, id(`egg-stock-${key}`), {
-          batchId,
-          eggTypeId: id(`egg-type-${eggTypeKey}`),
-          currentStock,
-        });
-      }
-
-      const parentSaleSeeds = [
-        {
-          key: "active",
-          batchId: activeBatchId,
-          date: daysAgo(10, 11),
-          femaleCount: 30,
-          maleCount: 70,
-          totalWeightKg: 340,
-          ratePerKg: 250,
-          partyKey: "meat-house" as const,
-          note: "Surplus males and non-performing hens culled from PF-001",
-        },
-        {
-          key: "closed",
-          batchId: closedBatchId,
-          date: daysAgo(112, 11),
-          femaleCount: 864,
-          maleCount: 96,
-          totalWeightKg: 3264,
-          ratePerKg: 225,
-          partyKey: "meat-house" as const,
-          note: "Final depopulation sale for completed PF-002",
-        },
-      ];
-      for (const sale of parentSaleSeeds) {
-        const saleId = id(`parent-sale-${sale.key}`);
-        const saleCount = sale.femaleCount + sale.maleCount;
-        const avgWeightKg = round4(sale.totalWeightKg / saleCount);
-        const amount = round2(sale.totalWeightKg * sale.ratePerKg);
-        await upsertById(tx.hatcheryParentSale, saleId, {
-          batchId: sale.batchId,
-          date: sale.date,
-          count: saleCount,
-          femaleCount: sale.femaleCount,
-          maleCount: sale.maleCount,
-          totalWeightKg: decimal(sale.totalWeightKg),
-          avgWeightKg: decimal(avgWeightKg),
-          ratePerKg: decimal(sale.ratePerKg),
-          amount: decimal(amount),
-          partyId: partyIds[sale.partyKey],
-          note: sale.note,
-        });
-        partySales.push({
-          key: `parent-${sale.key}`,
-          partyKey: sale.partyKey,
-          date: sale.date,
-          amount,
-          sourceType: "parent_sale",
-          sourceId: saleId,
-          note: sale.note,
-        });
-      }
-
-      for (const party of partySeeds) {
-        const sales = partySales.filter((sale) => sale.partyKey === party.key);
-        const totalSales = sales.reduce((sum, sale) => sum + sale.amount, 0);
-        const paymentAmount = round2(
-          party.openingBalance + totalSales - party.targetBalance,
-        );
-        if (paymentAmount <= 0) {
-          throw new Error(`Invalid payment reconciliation for ${party.name}`);
-        }
-
-        const paymentId = id(`party-${party.key}-payment`);
-        const paymentDate = daysAgo(0, 16);
-        await upsertById(tx.hatcheryPartyPayment, paymentId, {
-          partyId: partyIds[party.key],
-          date: paymentDate,
-          amount: decimal(paymentAmount),
-          method: party.key === "sunrise" ? "Bank transfer" : "Cheque / bank",
-          note: "Consolidated payment against outstanding invoices",
-        });
-
-        const ledgerEvents: Array<{
-          key: string;
-          type: HatcheryPartyTxnType;
-          date: Date;
-          amount: number;
-          sourceType: string;
-          sourceId: string | null;
-          note: string;
-        }> = [
-          ...(party.openingBalance > 0
-            ? [
-                {
-                  key: "opening",
-                  type: HatcheryPartyTxnType.OPENING_BALANCE,
-                  date: daysAgo(500),
-                  amount: party.openingBalance,
-                  sourceType: "opening_balance",
-                  sourceId: null,
-                  note: "Opening customer balance",
-                },
-              ]
-            : []),
-          ...sales.map((sale) => ({
-            key: sale.key,
-            type: HatcheryPartyTxnType.SALE,
-            date: sale.date,
-            amount: sale.amount,
-            sourceType: sale.sourceType,
-            sourceId: sale.sourceId,
-            note: sale.note,
-          })),
-          {
-            key: "payment",
-            type: HatcheryPartyTxnType.PAYMENT,
-            date: paymentDate,
-            amount: -paymentAmount,
-            sourceType: "payment",
-            sourceId: paymentId,
-            note: "Consolidated payment received",
-          },
-        ].sort((a, b) => {
-          const dateOrder = a.date.getTime() - b.date.getTime();
-          return dateOrder === 0 ? a.key.localeCompare(b.key) : dateOrder;
-        });
-
-        let runningBalance = 0;
-        for (const event of ledgerEvents) {
-          runningBalance = round2(runningBalance + event.amount);
-          await upsertById(
-            tx.hatcheryPartyTxn,
-            id(`party-${party.key}-${event.key}-txn`),
-            {
-              partyId: partyIds[party.key],
-              type: event.type,
-              date: event.date,
-              amount: decimal(event.amount),
-              balanceAfter: decimal(runningBalance),
-              sourceType: event.sourceType,
-              sourceId: event.sourceId,
-              note: event.note,
-            },
-          );
-        }
-
-        await upsertById(tx.hatcheryParty, partyIds[party.key], {
-          hatcheryOwnerId: user.id,
-          name: party.name,
-          phone: party.phone,
-          address: party.address,
-          openingBalance: decimal(party.openingBalance),
-          balance: decimal(runningBalance),
-        });
-      }
-
-      const receivedByItem = new Map<InventoryKey, number>();
-      for (const event of supplierEvents) {
-        for (const item of event.items ?? []) {
-          receivedByItem.set(
-            item.inventoryKey,
-            (receivedByItem.get(item.inventoryKey) ?? 0) +
-              item.quantity +
-              item.freeQuantity,
-          );
-        }
-      }
-      const usedByItem = new Map<InventoryKey, number>();
-      for (const placement of placementSeeds) {
-        usedByItem.set(
-          placement.inventoryKey,
-          (usedByItem.get(placement.inventoryKey) ?? 0) + placement.quantity,
-        );
-      }
-      for (const expense of inventoryExpenseSeeds) {
-        usedByItem.set(
-          expense.inventoryKey,
-          (usedByItem.get(expense.inventoryKey) ?? 0) + expense.quantity,
-        );
-      }
-      for (const item of inventorySeeds) {
-        const reconciledStock =
-          (receivedByItem.get(item.key) ?? 0) -
-          (usedByItem.get(item.key) ?? 0);
-        if (reconciledStock !== item.currentStock) {
-          throw new Error(
-            `Inventory reconciliation failed for ${item.name}: expected ${item.currentStock}, calculated ${reconciledStock}`,
-          );
-        }
-      }
-
-      for (const incubation of incubationSeeds) {
-        if (!incubation.result) continue;
-        const result = incubation.result;
-        const fertileEggs =
-          incubation.eggsSet -
-          (incubation.infertile ?? 0) -
-          (incubation.earlyDead ?? 0);
-        const recordedOutcome =
-          result.hatchedA +
-          result.hatchedB +
-          result.cull +
-          result.lateDead +
-          result.unhatched;
-        if (fertileEggs !== recordedOutcome) {
-          throw new Error(
-            `Hatch result reconciliation failed for ${incubation.code}`,
-          );
-        }
-        if (
-          result.soldA > result.hatchedA ||
-          result.soldB > result.hatchedB ||
-          result.soldCull > result.cull
-        ) {
-          throw new Error(
-            `Chick stock reconciliation failed for ${incubation.code}`,
-          );
-        }
-      }
-
-      const staffSeeds = [
-        {
-          key: "rajesh",
-          name: "Rajesh Mahato",
-          startDate: daysAgo(430),
-          endDate: null,
-          status: StaffStatus.ACTIVE,
-          monthlyAmount: 32_000,
-          paymentAmount: 64_000,
-          paidAt: daysAgo(10),
-          note: "Two months salary for incubation operations",
-        },
-        {
-          key: "mina",
-          name: "Mina Gurung",
-          startDate: daysAgo(320),
-          endDate: null,
-          status: StaffStatus.ACTIVE,
-          monthlyAmount: 30_000,
-          paymentAmount: 30_000,
-          paidAt: daysAgo(15),
-          note: "Monthly salary for egg grading and chick dispatch",
-        },
-        {
-          key: "dipak",
-          name: "Dipak Chaudhary",
-          startDate: daysAgo(280),
-          endDate: daysAgo(45),
-          status: StaffStatus.STOPPED,
-          monthlyAmount: 27_000,
-          paymentAmount: 18_000,
-          paidAt: daysAgo(48),
-          note: "Final partial salary settlement",
-        },
-      ];
-      for (const staff of staffSeeds) {
-        const staffId = id(`staff-${staff.key}`);
-        await upsertById(tx.staff, staffId, {
-          ownerId: user.id,
-          name: staff.name,
-          startDate: staff.startDate,
-          endDate: staff.endDate,
-          status: staff.status,
-        });
-        await upsertById(tx.staffSalary, id(`staff-${staff.key}-salary`), {
-          staffId,
-          monthlyAmount: decimal(staff.monthlyAmount),
-          effectiveFrom: staff.startDate,
-        });
-        await upsertById(tx.staffPayment, id(`staff-${staff.key}-payment`), {
-          staffId,
-          amount: decimal(staff.paymentAmount),
-          paidAt: staff.paidAt,
-          note: staff.note,
-          receiptImageUrl: null,
-        });
-      }
-
-      const notificationSeeds = [
-        {
-          key: "low-disinfectant",
-          type: "LOW_INVENTORY",
-          title: "Disinfectant stock below minimum",
-          body: "10 bottles remain against a minimum stock level of 12.",
-          status: NotificationStatus.UNREAD,
-          createdAt: daysAgo(1),
-          data: { url: "/hatchery/dashboard/inventory" },
-        },
-        {
-          key: "hatcher-ready",
-          type: "HATCHERY_STAGE",
-          title: "IN-005 transferred to hatcher",
-          body: "Prepare chick boxes and grading space for the upcoming hatch pull.",
-          status: NotificationStatus.UNREAD,
-          createdAt: daysAgo(0),
-          data: {
-            url: `/hatchery/dashboard/incubations/${id("incubation-in-005")}`,
-          },
-        },
-        {
-          key: "party-balance",
-          type: "PAYMENT_DUE",
-          title: "Customer balances need follow-up",
-          body: "Review outstanding hatchery party balances after today's dispatches.",
-          status: NotificationStatus.READ,
-          createdAt: daysAgo(3),
-          data: { url: "/hatchery/dashboard/parties" },
-        },
-      ];
-      for (const notification of notificationSeeds) {
-        await upsertById(
-          tx.notification,
-          id(`notification-${notification.key}`),
-          {
-            userId: user.id,
-            type: notification.type,
-            title: notification.title,
-            body: notification.body,
-            data: notification.data,
-            status: notification.status,
-            createdAt: notification.createdAt,
-            readAt:
-              notification.status === NotificationStatus.READ
-                ? daysAgo(2)
-                : null,
-          },
-        );
-      }
-    },
-    { maxWait: 10_000, timeout: 300_000 },
-  );
-
-  printDemoCredentials("Hatchery", account);
+const HATCHERY_ID = "p360-demo-hatchery-v1";
+const STAFF_LOGIN_PHONE = "+9779800360032";
+const API_URL = (process.env.P360_API_URL || `http://localhost:${process.env.PORT || 8081}/api/v1`).replace(/\/$/, "");
+const RESET = process.argv.includes("--reset");
+
+// ── Dates (Nepal days) ────────────────────────────────────────────────────────
+
+const NEPAL_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+const NEPAL_TODAY = new Date(Date.now() + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
+
+/** AD YYYY-MM-DD of the Nepal day `ago` days before today. Sent like the app's date pickers send it. */
+function dayAgo(ago: number): string {
+  const [y, m, d] = NEPAL_TODAY.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - ago)).toISOString().slice(0, 10);
 }
 
-seedDemoHatchery()
+// ── Small helpers ─────────────────────────────────────────────────────────────
+
+/** Deterministic random numbers so every run builds the same data. */
+function makeRandom(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = makeRandom(3191);
+const between = (min: number, max: number) => min + Math.floor(rnd() * (max - min + 1));
+const pick = <T,>(list: T[]) => list[Math.floor(rnd() * list.length)];
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundDown = (n: number, step: number) => Math.floor(n / step) * step;
+const roundUp = (n: number, step: number) => Math.ceil(n / step) * step;
+
+let token = "";
+let ownerId = "";
+let callCount = 0;
+
+async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
+  callCount += 1;
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(`${method} ${path} failed (${res.status}): ${json?.message || json?.error || text}\nBody: ${JSON.stringify(body)}`);
+  }
+  return json as T;
+}
+
+// ── Event queue (everything is entered in date order, like real life) ─────────
+
+type Event = { ago: number; order: number; label: string; run: () => Promise<void> };
+const events: Event[] = [];
+const on = (ago: number, order: number, label: string, run: () => Promise<void>) =>
+  events.push({ ago, order, label, run });
+
+// Order inside one day.
+const O = {
+  opening: 0, placement: 1, production: 2, eggs: 3, mortality: 4, expense: 5,
+  incubation: 6, sale: 7, partyPayment: 8, supplierPayment: 9,
+};
+
+// ── Catalogue ─────────────────────────────────────────────────────────────────
+
+type SupplierKey = "chicks" | "feed" | "vet" | "grain";
+type ItemKey =
+  | "starter" | "grower" | "layer"
+  | "ndVaccine" | "vitamin" | "antibiotic"
+  | "maize" | "soya" | "premix";
+
+const ITEMS: Record<ItemKey, {
+  name: string;
+  category: "FEED" | "MEDICINE" | "RAW_MATERIAL";
+  unit: string;
+  price: number;
+  supplier: SupplierKey;
+  block: number; // usual order size
+}> = {
+  starter: { name: "Breeder Starter Feed", category: "FEED", unit: "kg", price: 78, supplier: "feed", block: 500 },
+  grower: { name: "Breeder Grower Feed", category: "FEED", unit: "kg", price: 72, supplier: "feed", block: 2000 },
+  layer: { name: "Breeder Layer Feed", category: "FEED", unit: "kg", price: 70, supplier: "feed", block: 3000 },
+  ndVaccine: { name: "ND + IB Vaccine (1000 dose)", category: "MEDICINE", unit: "vial", price: 450, supplier: "vet", block: 10 },
+  vitamin: { name: "Vitamin AD3E (1 L)", category: "MEDICINE", unit: "bottle", price: 650, supplier: "vet", block: 10 },
+  antibiotic: { name: "Enrofloxacin 10% (1 L)", category: "MEDICINE", unit: "bottle", price: 950, supplier: "vet", block: 5 },
+  maize: { name: "Maize", category: "RAW_MATERIAL", unit: "kg", price: 34, supplier: "grain", block: 3000 },
+  soya: { name: "Soybean Meal", category: "RAW_MATERIAL", unit: "kg", price: 88, supplier: "grain", block: 1000 },
+  premix: { name: "Breeder Premix", category: "RAW_MATERIAL", unit: "kg", price: 190, supplier: "grain", block: 100 },
+};
+
+const SELF_FEED_NAME = "Self-made Breeder Feed";
+
+// ── State filled while the seed runs ──────────────────────────────────────────
+
+const supplierIds = {} as Record<SupplierKey, string>;
+const supplierOwed: Record<SupplierKey, number> = { chicks: 0, feed: 0, vet: 0, grain: 0 };
+const itemIds = {} as Partial<Record<ItemKey, string>>;
+const stock = Object.fromEntries(Object.keys(ITEMS).map((k) => [k, 0])) as Record<ItemKey, number>;
+const selfFeedLots: Array<{ id: string; stock: number }> = [];
+let selfFeedProductId = "";
+
+const eggTypeIds = { hatchable: "", table: "", cracked: "" };
+const partyIds: Record<string, string> = {};
+const partyOwed: Record<string, number> = {};
+
+type Flock = {
+  key: "PF1" | "PF2" | "PF3";
+  id: string;
+  placedAgo: number;
+  males: number;
+  females: number;
+  closed: boolean;
+  eggs: { hatchable: number; table: number; cracked: number };
+};
+const flocks: Record<Flock["key"], Flock> = {
+  PF1: { key: "PF1", id: "", placedAgo: 235, males: 0, females: 0, closed: false, eggs: { hatchable: 0, table: 0, cracked: 0 } },
+  PF2: { key: "PF2", id: "", placedAgo: 62, males: 0, females: 0, closed: false, eggs: { hatchable: 0, table: 0, cracked: 0 } },
+  PF3: { key: "PF3", id: "", placedAgo: 200, males: 0, females: 0, closed: false, eggs: { hatchable: 0, table: 0, cracked: 0 } },
+};
+
+type Incubation = { id: string; set: number; fertile: number; chicks: { A: number; B: number; CULL: number } };
+const incubations: Record<number, Incubation> = {};
+
+const counts = { eggSales: 0, chickSales: 0, parentSales: 0, purchases: 0, incubations: 0 };
+
+// ── Purchases and stock ───────────────────────────────────────────────────────
+
+async function findLotId(where: Record<string, unknown>): Promise<string> {
+  const lot = await prisma.hatcheryInventoryItem.findFirst({
+    where: { hatcheryOwnerId: ownerId, deletedAt: null, ...where },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (!lot) throw new Error(`Inventory lot not found: ${JSON.stringify(where)}`);
+  return lot.id;
+}
+
+async function buy(ago: number, lines: Array<[ItemKey, number]>, note?: string) {
+  const supplier = ITEMS[lines[0][0]].supplier;
+  const category = ITEMS[lines[0][0]].category;
+  await api("POST", `/hatchery/suppliers/${supplierIds[supplier]}/transactions`, {
+    type: "PURCHASE",
+    category,
+    date: dayAgo(ago),
+    note,
+    items: lines.map(([key, quantity]) => ({
+      itemName: ITEMS[key].name,
+      quantity,
+      unit: ITEMS[key].unit,
+      unitPrice: ITEMS[key].price,
+      totalAmount: round2(quantity * ITEMS[key].price),
+    })),
+  });
+  counts.purchases += 1;
+  for (const [key, quantity] of lines) {
+    stock[key] += quantity;
+    supplierOwed[supplier] += quantity * ITEMS[key].price;
+    if (!itemIds[key]) itemIds[key] = await findLotId({ name: ITEMS[key].name, itemType: ITEMS[key].category });
+  }
+}
+
+/** Buy more when the store runs short, the way a hatchery reorders. */
+async function ensureStock(ago: number, key: ItemKey, needed: number) {
+  if (stock[key] >= needed) return;
+  const quantity = roundUp(Math.max(ITEMS[key].block, needed - stock[key]), ITEMS[key].block);
+  await buy(ago, [[key, quantity]]);
+}
+
+async function buyParentChicks(ago: number, females: number, males: number, price: number, freeFemales: number) {
+  await api("POST", `/hatchery/suppliers/${supplierIds.chicks}/transactions`, {
+    type: "PURCHASE",
+    category: "CHICKS",
+    date: dayAgo(ago),
+    note: "Cobb 500 parent stock, day-old",
+    items: [
+      { itemName: "Cobb 500 Parent (female)", quantity: females, freeQuantity: freeFemales, unit: "birds", unitPrice: price, totalAmount: round2(females * price), sex: "FEMALE" },
+      { itemName: "Cobb 500 Parent (male)", quantity: males, unit: "birds", unitPrice: price, totalAmount: round2(males * price), sex: "MALE" },
+    ],
+  });
+  counts.purchases += 1;
+  supplierOwed.chicks += (females + males) * price;
+}
+
+// ── Parent flocks ─────────────────────────────────────────────────────────────
+
+function placeFlock(flock: Flock, females: number, males: number, price: number, freeFemales: number) {
+  on(flock.placedAgo, O.placement, `place ${flock.key}`, async () => {
+    await buyParentChicks(flock.placedAgo, females, males, price, freeFemales);
+    const femaleLot = await findLotId({ itemType: "CHICKS", sex: "FEMALE", unitPrice: price });
+    const maleLot = await findLotId({ itemType: "CHICKS", sex: "MALE", unitPrice: price });
+    const batch = await api("POST", "/hatchery/batches", {
+      type: "PARENT_FLOCK",
+      startDate: dayAgo(flock.placedAgo),
+      notes: "Day-old parent chicks from Kalika Parent Stock",
+      placements: [
+        { inventoryItemId: femaleLot, quantity: females + freeFemales },
+        { inventoryItemId: maleLot, quantity: males },
+      ],
+    });
+    flock.id = batch.id;
+    flock.females = females + freeFemales;
+    flock.males = males;
+    await manualExpense(flock, flock.placedAgo, "Rice husk (litter)", 6500);
+  });
+}
+
+async function manualExpense(flock: Flock, ago: number, itemName: string, amount: number, note?: string) {
+  await api("POST", `/hatchery/batches/${flock.id}/expenses`, {
+    date: dayAgo(ago), type: "MANUAL", category: "manual", itemName, amount, note,
+  });
+}
+
+/** Feed per bird per day (kg) by age in days. */
+function feedPerBird(age: number, sex: "male" | "female") {
+  if (age < 42) return 0.045;
+  if (age < 150) return 0.095;
+  return sex === "female" ? 0.165 : 0.135;
+}
+
+function feedKeyForAge(age: number): ItemKey {
+  if (age < 42) return "starter";
+  if (age < 150) return "grower";
+  return "layer";
+}
+
+async function feedWeek(flock: Flock, ago: number) {
+  const age = flock.placedAgo - ago;
+  const female = Math.round(flock.females * feedPerBird(age, "female") * 7);
+  const male = Math.round(flock.males * feedPerBird(age, "male") * 7);
+  const total = female + male;
+  if (total <= 0) return;
+
+  // Grown flocks get part of their feed from the farm's own mill once it runs.
+  const lot = selfFeedLots.find((l) => l.stock >= total);
+  if (feedKeyForAge(age) !== "starter" && lot && rnd() < 0.6) {
+    await api("POST", `/hatchery/batches/${flock.id}/expenses`, {
+      date: dayAgo(ago), type: "INVENTORY", category: "SELF_MADE", inventoryItemId: lot.id,
+      quantity: total, feedTarget: "BOTH", maleFeedQuantity: male, femaleFeedQuantity: female,
+    });
+    lot.stock -= total;
+    return;
+  }
+
+  const key = feedKeyForAge(age);
+  await ensureStock(ago, key, total);
+  // Most weeks the split is written down; some weeks the worker only notes the total.
+  const split = rnd() < 0.75 ? { maleFeedQuantity: male, femaleFeedQuantity: female } : {};
+  await api("POST", `/hatchery/batches/${flock.id}/expenses`, {
+    date: dayAgo(ago), type: "INVENTORY", category: "FEED", inventoryItemId: itemIds[key],
+    quantity: total, feedTarget: "BOTH", ...split,
+  });
+  stock[key] -= total;
+}
+
+async function medicine(flock: Flock, ago: number, key: ItemKey, quantity: number, note: string) {
+  await ensureStock(ago, key, quantity);
+  await api("POST", `/hatchery/batches/${flock.id}/expenses`, {
+    date: dayAgo(ago), type: "INVENTORY", category: "MEDICINE", inventoryItemId: itemIds[key], quantity, note,
+  });
+  stock[key] -= quantity;
+}
+
+async function mortality(flock: Flock, ago: number, female: number, male: number, note?: string) {
+  female = Math.min(female, flock.females);
+  male = Math.min(male, flock.males);
+  if (female + male <= 0) return;
+  await api("POST", `/hatchery/batches/${flock.id}/mortalities`, {
+    date: dayAgo(ago), femaleCount: female, maleCount: male, note,
+  });
+  flock.females -= female;
+  flock.males -= male;
+}
+
+function planFlockCare(flock: Flock, endAgo: number) {
+  const start = flock.placedAgo;
+  for (let ago = start - 1; ago >= endAgo; ago -= 7) {
+    const age = start - ago;
+    on(ago, O.mortality, `${flock.key} mortality`, async () => {
+      if (flock.closed) return;
+      const young = age < 21;
+      await mortality(flock, ago, young ? between(4, 12) : between(0, 5), young ? between(0, 3) : between(0, 2),
+        young ? "Weak chicks" : pick([undefined, "Found dead in morning", "Heat stress", undefined]));
+    });
+    on(ago, O.expense, `${flock.key} feed`, async () => {
+      if (!flock.closed) await feedWeek(flock, ago);
+    });
+  }
+  // Vaccines on the usual days, vitamins every month.
+  for (const age of [7, 21, 35, 70, 120, 160]) {
+    const ago = start - age;
+    if (ago >= endAgo) on(ago, O.expense, `${flock.key} vaccine`, () => medicine(flock, ago, "ndVaccine", Math.max(1, Math.ceil((flock.females + flock.males) / 1000)), `Vaccine day ${age}`));
+  }
+  for (let ago = start - 14; ago >= endAgo; ago -= 30) {
+    on(ago, O.expense, `${flock.key} vitamin`, () => medicine(flock, ago, "vitamin", 2, "Vitamin in water"));
+  }
+  // Electricity bill every month.
+  for (let ago = start - 30; ago >= endAgo; ago -= 30) {
+    on(ago, O.expense, `${flock.key} electricity`, async () => {
+      if (!flock.closed) await manualExpense(flock, ago, "Electricity bill", flock.key === "PF1" ? 9500 : 4200);
+    });
+  }
+}
+
+// ── Eggs ─────────────────────────────────────────────────────────────────────
+
+function planEggs(flock: Flock, fromAgo: number, toAgo: number, peak: number) {
+  for (let ago = fromAgo; ago >= toAgo; ago -= 1) {
+    const k = fromAgo - ago; // days since laying started
+    on(ago, O.eggs, `${flock.key} eggs`, async () => {
+      const rate = Math.min(peak, 0.12 + 0.03 * k) * (1 - Math.max(0, k - 45) * 0.002) * (0.95 + rnd() * 0.07);
+      const total = Math.round(flock.females * rate);
+      if (total <= 0) return;
+      const hatchableShare = k < 10 ? 0.5 + k * 0.03 : 0.83;
+      const cracked = Math.round(total * (0.03 + rnd() * 0.02));
+      const hatchable = Math.round(total * hatchableShare);
+      const table = total - hatchable - cracked;
+      await api("POST", `/hatchery/batches/${flock.id}/egg-productions`, {
+        date: dayAgo(ago),
+        lines: [
+          { eggTypeId: eggTypeIds.hatchable, count: hatchable },
+          { eggTypeId: eggTypeIds.table, count: table },
+          { eggTypeId: eggTypeIds.cracked, count: cracked },
+        ],
+      });
+      flock.eggs.hatchable += hatchable;
+      flock.eggs.table += table;
+      flock.eggs.cracked += cracked;
+    });
+  }
+}
+
+async function sellEggs(flock: Flock, ago: number, type: keyof Flock["eggs"], count: number, unitPrice: number, party?: string, note?: string) {
+  count = Math.min(count, flock.eggs[type]);
+  if (count <= 0) return;
+  await api("POST", `/hatchery/batches/${flock.id}/egg-sales`, {
+    eggTypeId: eggTypeIds[type], date: dayAgo(ago), count, unitPrice,
+    ...(party ? { partyId: partyIds[party] } : {}), note,
+  });
+  flock.eggs[type] -= count;
+  if (party) partyOwed[party] += round2(count * unitPrice);
+  counts.eggSales += 1;
+}
+
+// ── Incubation and chicks ────────────────────────────────────────────────────
+
+function planIncubation(setAgo: number) {
+  const flock = flocks.PF1;
+  on(setAgo, O.incubation, `set eggs ${setAgo}`, async () => {
+    const eggs = roundDown(flock.eggs.hatchable, 100);
+    if (eggs < 300) return;
+    const batch = await api("POST", "/hatchery/incubations", {
+      parentBatchId: flock.id, startDate: dayAgo(setAgo), eggsSetCount: eggs, notes: "Setter machine 1",
+    });
+    flock.eggs.hatchable -= eggs;
+    incubations[setAgo] = { id: batch.id, set: eggs, fertile: eggs, chicks: { A: 0, B: 0, CULL: 0 } };
+    counts.incubations += 1;
+  });
+
+  on(setAgo - 9, O.incubation, `candling ${setAgo}`, async () => {
+    const inc = incubations[setAgo];
+    if (!inc) return;
+    const infertile = Math.round(inc.set * (0.05 + rnd() * 0.04));
+    const earlyDead = Math.round(inc.set * (0.015 + rnd() * 0.015));
+    await api("POST", `/hatchery/incubations/${inc.id}/candling`, { date: dayAgo(setAgo - 9), infertile, earlyDead });
+    inc.fertile = inc.set - infertile - earlyDead;
+  });
+
+  on(setAgo - 18, O.incubation, `transfer ${setAgo}`, async () => {
+    const inc = incubations[setAgo];
+    if (inc) await api("POST", `/hatchery/incubations/${inc.id}/transfer`, { date: dayAgo(setAgo - 18) });
+  });
+
+  on(setAgo - 21, O.incubation, `hatch ${setAgo}`, async () => {
+    const inc = incubations[setAgo];
+    if (!inc) return;
+    const f = inc.fertile;
+    let hatchedA = Math.round(f * (0.86 + rnd() * 0.04));
+    const hatchedB = Math.round(f * (0.03 + rnd() * 0.02));
+    const cull = Math.round(f * (0.01 + rnd() * 0.01));
+    const lateDead = Math.round(f * (0.02 + rnd() * 0.015));
+    const unhatched = Math.max(0, f - hatchedA - hatchedB - cull - lateDead);
+    hatchedA = f - hatchedB - cull - lateDead - unhatched; // totals must equal fertile eggs
+    await api("POST", `/hatchery/incubations/${inc.id}/hatch-results`, {
+      date: dayAgo(setAgo - 21), hatchedA, hatchedB, cull, lateDead, unhatched,
+    });
+    inc.chicks = { A: hatchedA, B: hatchedB, CULL: cull };
+  });
+
+  // Chicks go out on hatch day and the next morning.
+  const hatchAgo = setAgo - 21;
+  on(hatchAgo, O.sale, `chick sales ${setAgo}`, async () => {
+    const inc = incubations[setAgo];
+    if (!inc) return;
+    const buyers = ["Ram Bahadur Thapa", "Sita Gurung", "Hari Prasad Adhikari", "Krishna Chaudhary"];
+    const orders = [pick([1000, 1200, 1500]), pick([800, 1000]), pick([500, 600, 700])];
+    for (const [i, size] of orders.entries()) {
+      await sellChicks(inc, hatchAgo, "A", size, pick([85, 88, 90]), buyers[(setAgo + i) % buyers.length]);
+    }
+    await sellChicks(inc, hatchAgo, "B", inc.chicks.B, 55, "Krishna Chaudhary", "B grade, small chicks");
+  });
+  on(hatchAgo - 1, O.sale, `chick sales next day ${setAgo}`, async () => {
+    const inc = incubations[setAgo];
+    if (!inc) return;
+    // Walk-in cash buyers take most of what is left. The newest hatch keeps a few chicks in stock.
+    const left = hatchAgo - 1 <= 3 ? Math.round(inc.chicks.A * 0.6) : inc.chicks.A;
+    await sellChicks(inc, hatchAgo - 1, "A", left, 92, undefined, "Cash sale at gate");
+    await sellChicks(inc, hatchAgo - 1, "CULL", inc.chicks.CULL, 10, undefined, "Cull chicks");
+  });
+}
+
+async function sellChicks(inc: Incubation, ago: number, grade: "A" | "B" | "CULL", count: number, unitPrice: number, party?: string, note?: string) {
+  count = Math.min(count, inc.chicks[grade]);
+  if (count <= 0 || ago < 0) return;
+  await api("POST", `/hatchery/incubations/${inc.id}/chick-sales`, {
+    grade, date: dayAgo(ago), count, unitPrice, ...(party ? { partyId: partyIds[party] } : {}), note,
+  });
+  inc.chicks[grade] -= count;
+  if (party) partyOwed[party] += round2(count * unitPrice);
+  counts.chickSales += 1;
+}
+
+// ── Parent bird sales ────────────────────────────────────────────────────────
+
+async function sellParents(flock: Flock, ago: number, female: number, male: number, avgKg: number, ratePerKg: number, party?: string, note?: string) {
+  female = Math.min(female, flock.females);
+  male = Math.min(male, flock.males);
+  if (female + male <= 0) return;
+  const totalWeightKg = round2((female + male) * avgKg);
+  await api("POST", `/hatchery/batches/${flock.id}/parent-sales`, {
+    date: dayAgo(ago), femaleCount: female, maleCount: male, totalWeightKg, ratePerKg,
+    ...(party ? { partyId: partyIds[party] } : {}), note,
+  });
+  flock.females -= female;
+  flock.males -= male;
+  if (party) partyOwed[party] += round2(totalWeightKg * ratePerKg);
+  counts.parentSales += 1;
+}
+
+// ── Self-made feed ───────────────────────────────────────────────────────────
+
+function planSelfFeed() {
+  for (let ago = 56; ago >= 2; ago -= 14) {
+    on(ago, O.production, `self feed ${ago}`, async () => {
+      const recipe: Array<[ItemKey, number]> = [["maize", 1050], ["soya", 400], ["premix", 45]];
+      for (const [key, qty] of recipe) await ensureStock(ago, key, qty);
+      await api("POST", "/hatchery/production", {
+        date: dayAgo(ago),
+        referenceNumber: `MILL-${String((56 - ago) / 14 + 1).padStart(2, "0")}`,
+        notes: "Own feed mill",
+        inputs: recipe.map(([key, quantity]) => ({ inventoryItemId: itemIds[key], quantity })),
+        outputs: [{ productId: selfFeedProductId, quantity: 1480, costAllocationPercent: 100 }],
+      });
+      for (const [key, qty] of recipe) stock[key] -= qty;
+      const lot = await prisma.hatcheryInventoryItem.findFirst({
+        where: { hatcheryOwnerId: ownerId, itemType: "SELF_MADE", id: { notIn: selfFeedLots.map((l) => l.id) } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, currentStock: true },
+      });
+      if (lot) selfFeedLots.push({ id: lot.id, stock: Number(lot.currentStock) });
+    });
+  }
+}
+
+// ── Parties and suppliers money ──────────────────────────────────────────────
+
+const PARTIES: Array<{ name: string; phone: string; address: string; opening: number }> = [
+  { name: "Ram Bahadur Thapa", phone: "9846200001", address: "Bharatpur-11, Chitwan", opening: 45000 },
+  { name: "Sita Gurung", phone: "9846200002", address: "Ratnanagar-3, Chitwan", opening: 0 },
+  { name: "Hari Prasad Adhikari", phone: "9846200003", address: "Khairahani-5, Chitwan", opening: 0 },
+  { name: "Krishna Chaudhary", phone: "9846200004", address: "Rapti-4, Chitwan", opening: 0 },
+  { name: "Gaurav Egg Suppliers", phone: "9846200005", address: "Narayangadh, Chitwan", opening: 18000 },
+  { name: "Bharatpur Meat Shop", phone: "9846200006", address: "Bharatpur-10, Chitwan", opening: 0 },
+  { name: "Everest Hatchery", phone: "9846200007", address: "Hetauda, Makwanpur", opening: 0 },
+];
+
+function planPartyPayments() {
+  for (const p of PARTIES) {
+    for (let ago = 60 - between(0, 5); ago >= 1; ago -= between(6, 9)) {
+      on(ago, O.partyPayment, `payment ${p.name}`, async () => {
+        const amount = roundDown(partyOwed[p.name] * (0.45 + rnd() * 0.4), 500);
+        if (amount <= 0) return;
+        await api("POST", `/hatchery/parties/${partyIds[p.name]}/payments`, {
+          date: dayAgo(ago), amount, method: pick(["Cash", "Cash", "Bank transfer", "eSewa"]),
+          note: pick([undefined, "Part payment", "Paid at gate"]),
+        });
+        partyOwed[p.name] -= amount;
+      });
+    }
+  }
+}
+
+function paySupplier(ago: number, supplier: SupplierKey, share: number, method: string) {
+  on(ago, O.supplierPayment, `pay ${supplier}`, async () => {
+    const amount = roundDown(supplierOwed[supplier] * share, 1000);
+    if (amount <= 0) return;
+    await api("POST", `/hatchery/suppliers/${supplierIds[supplier]}/transactions`, {
+      type: "PAYMENT", amount, date: dayAgo(ago), note: `Payment by ${method}`, reference: method === "Cheque" ? `CHQ-${between(100000, 999999)}` : undefined,
+    });
+    supplierOwed[supplier] -= amount;
+  });
+}
+
+// ── Plan ──────────────────────────────────────────────────────────────────────
+
+function planSchedule() {
+  const { PF1, PF2, PF3 } = flocks;
+
+  on(240, O.opening, "feed supplier opening", async () => {
+    await api("POST", `/hatchery/suppliers/${supplierIds.feed}/opening-balance`, {
+      amount: 120000, date: dayAgo(240), note: "Balance before using Poultry360",
+    });
+    supplierOwed.feed += 120000;
+  });
+
+  // Flocks: PF-001 laying now, PF-003 small flock sold out 15 days ago, PF-002 young.
+  placeFlock(PF1, 1000, 130, 650, 20);
+  placeFlock(PF3, 220, 30, 640, 0);
+  placeFlock(PF2, 600, 80, 700, 0);
+  planFlockCare(PF1, 0);
+  planFlockCare(PF3, 16);
+  planFlockCare(PF2, 0);
+
+  // Laying starts at about 24 weeks.
+  planEggs(PF1, 67, 0, 0.82);
+  planEggs(PF3, 40, 16, 0.72);
+
+  // Table eggs to the egg trader every 3 days, cracked eggs for cash every week.
+  for (let ago = 64; ago >= 0; ago -= 3) {
+    on(ago, O.sale, "table eggs", () => sellEggs(PF1, ago, "table", roundDown(PF1.eggs.table, 30), 15, rnd() < 0.8 ? "Gaurav Egg Suppliers" : undefined));
+  }
+  for (let ago = 63; ago >= 0; ago -= 7) {
+    on(ago, O.sale, "cracked eggs", () => sellEggs(PF1, ago, "cracked", PF1.eggs.cracked, 8, undefined, "Cracked eggs, cash"));
+  }
+  // PF-003 is too small to fill the setter, so its hatchable eggs go to another hatchery.
+  for (let ago = 36; ago >= 16; ago -= 4) {
+    on(ago, O.sale, "PF3 hatchable eggs", () => sellEggs(PF3, ago, "hatchable", roundDown(PF3.eggs.hatchable, 30), 32, "Everest Hatchery"));
+    on(ago, O.sale, "PF3 table eggs", () => sellEggs(PF3, ago, "table", PF3.eggs.table, 15, "Gaurav Egg Suppliers"));
+  }
+
+  // Extra males from PF-001, then PF-003 sold out and closed.
+  on(40, O.sale, "PF1 extra males", () => sellParents(PF1, 40, 0, 12, 4.3, 360, "Bharatpur Meat Shop", "Extra males"));
+  on(15, O.sale, "PF3 sold out", async () => {
+    await sellParents(PF3, 15, PF3.females, 0, 3.6, 330, "Bharatpur Meat Shop", "Whole flock sold (females)");
+    await sellParents(PF3, 15, 0, PF3.males, 4.4, 330, "Bharatpur Meat Shop", "Whole flock sold (males)");
+    await sellEggs(PF3, 15, "hatchable", PF3.eggs.hatchable, 32, "Everest Hatchery", "Last eggs");
+    await sellEggs(PF3, 15, "table", PF3.eggs.table, 15, "Gaurav Egg Suppliers", "Last eggs");
+    await sellEggs(PF3, 15, "cracked", PF3.eggs.cracked, 8, undefined, "Last cracked eggs");
+  });
+  on(14, O.sale, "PF3 close", async () => {
+    await api("POST", `/hatchery/batches/${PF3.id}/close`);
+    PF3.closed = true;
+  });
+
+  // Weekly setting. The last three are still in setter / candling / hatcher today.
+  for (let ago = 60; ago >= 4; ago -= 7) planIncubation(ago);
+
+  planSelfFeed();
+  planPartyPayments();
+
+  // Suppliers: chicks paid soon after, feed every 10 days, vet and grain monthly.
+  for (const placed of [235, 200, 62]) paySupplier(placed - 3, "chicks", 1, "Bank transfer");
+  for (let ago = 230; ago >= 2; ago -= 10) paySupplier(ago, "feed", 0.7, pick(["Bank transfer", "Cheque"]));
+  for (let ago = 220; ago >= 5; ago -= 30) paySupplier(ago, "vet", 0.8, "Cash");
+  for (let ago = 50; ago >= 5; ago -= 15) paySupplier(ago, "grain", 0.75, "Cash");
+  on(100, O.supplierPayment, "feed rate adjustment", async () => {
+    await api("POST", `/hatchery/suppliers/${supplierIds.feed}/transactions`, {
+      type: "ADJUSTMENT", amount: -1500, date: dayAgo(100), note: "Rate difference on old bill",
+    });
+    supplierOwed.feed -= 1500;
+  });
+}
+
+// ── Staff, bill details (after the schedule) ─────────────────────────────────
+
+async function seedStaff(password: string) {
+  const staff: Array<{ name: string; payType: "MONTHLY" | "DAILY"; rate: number; startAgo: number }> = [
+    { name: "Bikram Tamang (hatcher operator)", payType: "MONTHLY", rate: 22000, startAgo: 240 },
+    { name: "Sarita Chaudhary (farm worker)", payType: "MONTHLY", rate: 17000, startAgo: 240 },
+    { name: "Dipak Mahato (daily helper)", payType: "DAILY", rate: 900, startAgo: 50 },
+  ];
+  for (const s of staff) {
+    const res = await api("POST", "/hatchery/staff", {
+      name: s.name, payType: s.payType, startDate: `${dayAgo(s.startAgo)}T00:00:00.000Z`, rate: s.rate,
+    });
+    const id = res.data.id;
+    if (s.payType === "MONTHLY") {
+      for (let ago = 215; ago >= 5; ago -= 30) {
+        await api("POST", `/hatchery/staff/${id}/payments`, { amount: s.rate, paidAt: `${dayAgo(ago)}T12:00:00.000Z`, note: "Monthly salary" });
+      }
+    } else {
+      for (const ago of [44, 37, 30, 23, 16, 9]) {
+        await api("PUT", `/hatchery/staff/${id}/attendance`, { date: dayAgo(ago), status: "ABSENT" });
+      }
+      await api("PUT", `/hatchery/staff/${id}/attendance`, { date: dayAgo(6), status: "HALF_DAY" });
+      for (const ago of [35, 20, 3]) {
+        await api("POST", `/hatchery/staff/${id}/payments`, { amount: 9000, paidAt: `${dayAgo(ago)}T12:00:00.000Z`, note: "Wages" });
+      }
+    }
+  }
+
+  const existingStaffLogin = await prisma.staffUser.findFirst({ where: { phone: STAFF_LOGIN_PHONE } });
+  if (!existingStaffLogin) {
+    await api("POST", "/staff-auth/users", {
+      name: "Bikram Tamang",
+      phone: STAFF_LOGIN_PHONE,
+      password,
+      permissions: ["HATCHERY_MANAGE_OPERATIONS", "HATCHERY_VIEW_ANALYTICS"],
+    });
+  }
+}
+
+// ── Login, reset ──────────────────────────────────────────────────────────────
+
+/** Deletes ONLY the demo hatchery account (and everything it owns). Local database only. */
+async function resetDemoHatchery() {
+  const user = await prisma.user.findUnique({ where: { id: account.id }, select: { id: true, phone: true } });
+  if (!user) return;
+  if (user.phone !== account.phone) throw new Error("Refusing to reset: demo id belongs to another phone.");
+  console.log("Deleting old demo hatchery data...");
+  // Child rows that block a plain cascade go first.
+  await prisma.hatcheryIncubationBatch.deleteMany({ where: { hatcheryOwnerId: user.id } });
+  await prisma.hatcheryBatch.deleteMany({ where: { hatcheryOwnerId: user.id } });
+  await prisma.hatcheryProductionRun.deleteMany({ where: { hatcheryOwnerId: user.id } });
+  await prisma.staffUser.deleteMany({ where: { phone: STAFF_LOGIN_PHONE } });
+  await prisma.user.delete({ where: { id: user.id } });
+}
+
+async function ensureDemoHatcheryLogin(): Promise<string> {
+  const password = process.env[account.passwordEnv] || process.env.P360_DEMO_PASSWORD || DEFAULT_DEMO_PASSWORD;
+
+  if (RESET) await resetDemoHatchery();
+
+  const suppliers = await prisma.hatcherySupplier.count({ where: { hatcheryOwnerId: account.id } });
+  if (suppliers > 0) {
+    throw new Error(
+      `Demo hatchery ${account.phone} already has data (${suppliers} supplier(s)). Run again with --reset to delete it and seed fresh.`,
+    );
+  }
+
+  const hash = await bcrypt.hash(password, 12);
+  await prisma.$transaction(async (tx) => {
+    const user = await upsertDemoUser(tx, account, hash);
+    const byId = await tx.hatcheryBusiness.findUnique({ where: { id: HATCHERY_ID } });
+    if (byId && byId.ownerId !== user.id) {
+      throw new Error(`Refusing to seed: reserved hatchery id ${HATCHERY_ID} belongs to another owner.`);
+    }
+    const owned = await tx.hatcheryBusiness.findUnique({ where: { ownerId: user.id } });
+    if (!owned) {
+      await tx.hatcheryBusiness.create({
+        data: { id: HATCHERY_ID, name: account.businessName, contact: account.phone.replace("+977", ""), address: account.location, ownerId: user.id },
+      });
+    }
+  });
+  return password;
+}
+
+function isLocalUrl(url: string) {
+  try {
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  // Paying users are on production: this seed never runs anywhere else.
+  if (!isLocalDatabase() || !isLocalUrl(API_URL)) {
+    throw new Error("Hatchery demo seed is local only (DATABASE_URL and P360_API_URL must be localhost).");
+  }
+  console.log(`Seeding demo hatchery through ${API_URL} (Nepal today ${NEPAL_TODAY})...`);
+
+  const password = await ensureDemoHatcheryLogin();
+  ownerId = account.id;
+  await setAccountFeature({
+    accountId: ownerId, featureKey: ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION, enabled: true, updatedById: ownerId,
+  });
+
+  const login = await api("POST", "/auth/login", { emailOrPhone: account.phone, password });
+  token = login.accessToken;
+
+  await api("PUT", "/bill-settings", {
+    businessName: account.businessName,
+    address: account.location,
+    panNumber: "609876543",
+    phone: account.phone,
+    footerNote: "Thank you! Healthy chicks, every week.",
+  });
+
+  const suppliers: Array<[SupplierKey, string, string, string]> = [
+    ["chicks", "Kalika Parent Stock Pvt. Ltd.", "9855200001", "Ratnanagar, Chitwan"],
+    ["feed", "Shree Ram Feed Industries", "9855200002", "Narayangadh, Chitwan"],
+    ["vet", "Nepal Vet Pharma", "9855200003", "Bharatpur-10, Chitwan"],
+    ["grain", "Chitwan Grain Traders", "9855200004", "Tandi, Chitwan"],
+  ];
+  for (const [key, name, contact, address] of suppliers) {
+    supplierIds[key] = (await api("POST", "/hatchery/suppliers", { name, contact, address })).data.id;
+  }
+
+  eggTypeIds.hatchable = (await api("POST", "/hatchery/egg-types", { name: "Hatchable egg", isHatchable: true })).id;
+  eggTypeIds.table = (await api("POST", "/hatchery/egg-types", { name: "Table egg" })).id;
+  eggTypeIds.cracked = (await api("POST", "/hatchery/egg-types", { name: "Cracked egg" })).id;
+
+  selfFeedProductId = (await api("POST", "/hatchery/products", { name: SELF_FEED_NAME, unit: "kg", minStock: 300 })).data.id;
+
+  for (const p of PARTIES) {
+    const party = await api("POST", "/hatchery/parties", {
+      name: p.name, phone: p.phone, address: p.address, ...(p.opening ? { openingBalance: p.opening } : {}),
+    });
+    partyIds[p.name] = party.id;
+    partyOwed[p.name] = p.opening;
+  }
+
+  planSchedule();
+  events.sort((a, b) => b.ago - a.ago || a.order - b.order);
+  for (const event of events) {
+    if (event.ago < 0) continue; // never enter future dates
+    try {
+      await event.run();
+    } catch (error) {
+      throw new Error(`[${dayAgo(event.ago)} ${event.label}] ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  await seedStaff(password);
+
+  console.log(
+    `\nDemo hatchery ready: ${counts.purchases} purchases, ${counts.incubations} incubations, ` +
+      `${counts.eggSales} egg sales, ${counts.chickSales} chick sales, ${counts.parentSales} parent sales (${callCount} API calls).`,
+  );
+  console.log(`Phone: ${account.phone.replace("+977", "")}`);
+  console.log(`Password: ${process.env[account.passwordEnv] ? "(the one you set)" : password}`);
+  console.log(`Staff login: ${STAFF_LOGIN_PHONE.replace("+977", "")} (same password)`);
+}
+
+main()
   .catch((error) => {
-    console.error("Hatchery demo seed failed:", error);
+    console.error("\nDemo hatchery seed failed:", error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

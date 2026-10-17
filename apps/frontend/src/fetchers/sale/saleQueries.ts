@@ -1,6 +1,7 @@
+import { refreshFarmerData } from "@/fetchers/farmer/refreshFarmerData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
-import { CreateSale, UpdateSale, CategoryType } from "@myapp/shared-types";
+import { CreateSale, CategoryType } from "@myapp/shared-types";
 import { weightKeys } from "@/fetchers/weight/weightQueries";
 
 // ==================== QUERY KEYS ====================
@@ -15,8 +16,6 @@ export const saleQueryKeys = {
     [...saleQueryKeys.all, "batch", batchId] as const,
   batchSalesPage: (batchId: string, params: { page?: number; limit?: number }) =>
     [...saleQueryKeys.batchSales(batchId), "page", params] as const,
-  statistics: (params?: any) =>
-    [...saleQueryKeys.all, "statistics", params] as const,
   categories: (type?: CategoryType) =>
     [...saleQueryKeys.all, "categories", type] as const,
   eggInventory: (batchId?: string | null) =>
@@ -155,27 +154,6 @@ export const useGetBatchSalesPage = (
   });
 };
 
-// Get sales statistics
-export const useGetSalesStatistics = (
-  params?: {
-    farmId?: string;
-    batchId?: string;
-    startDate?: string;
-    endDate?: string;
-  },
-  options?: { enabled?: boolean }
-) => {
-  return useQuery({
-    queryKey: saleQueryKeys.statistics(params),
-    queryFn: async () => {
-      const response = await axiosInstance.get("/sales/statistics", { params });
-      return response.data;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: options?.enabled !== false,
-  });
-};
-
 // Get sales categories
 export const useGetSalesCategories = (options?: { enabled?: boolean }) => {
   return useQuery({
@@ -203,12 +181,13 @@ export const useCreateSale = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch sales lists
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // If batchId is provided, invalidate batch sales
       if (variables.batchId) {
@@ -237,67 +216,6 @@ export const useCreateSale = () => {
   });
 };
 
-// Update sale
-export const useUpdateSale = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: UpdateSale & { itemType?: string };
-    }) => {
-      const response = await axiosInstance.put(`/sales/${id}`, data);
-      return response.data;
-    },
-    onSuccess: (data, variables) => {
-      // Invalidate and refetch the specific sale
-      queryClient.invalidateQueries({
-        queryKey: saleQueryKeys.detail(variables.id),
-      });
-
-      // Invalidate sales lists
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
-
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
-
-      // Refresh both the old and new batch when a sale was moved. The API also
-      // returns batches cleaned up from older stale linked rows.
-      const affectedBatchIds = new Set<string>(
-        data?.meta?.affectedBatchIds || [],
-      );
-      if (variables.data.batchId) affectedBatchIds.add(variables.data.batchId);
-      if (data?.data?.batch?.id) affectedBatchIds.add(data.data.batch.id);
-      for (const batchId of affectedBatchIds) {
-        queryClient.invalidateQueries({
-          queryKey: saleQueryKeys.batchSales(batchId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "detail", batchId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "analytics", batchId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["batches", "detail", batchId, "fcr-history"],
-        });
-        queryClient.invalidateQueries({ queryKey: weightKeys.byBatch(batchId) });
-      }
-
-      // If farmId is provided, invalidate farm-related queries
-      if (variables.data.farmId) {
-        queryClient.invalidateQueries({
-          queryKey: ["farms", "detail", variables.data.farmId],
-        });
-      }
-    },
-  });
-};
-
 // Delete sale
 export const useDeleteSale = () => {
   const queryClient = useQueryClient();
@@ -308,6 +226,9 @@ export const useDeleteSale = () => {
       return response.data;
     },
     onSuccess: (data, id) => {
+      refreshFarmerData(queryClient);
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Remove the sale from cache
       queryClient.removeQueries({ queryKey: saleQueryKeys.detail(id) });
 
@@ -315,8 +236,6 @@ export const useDeleteSale = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.customers() });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Invalidate batch sales (we don't know which batch, so invalidate all)
       queryClient.invalidateQueries({
@@ -356,6 +275,8 @@ export const useAddSalePayment = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch the specific sale
       queryClient.invalidateQueries({
         queryKey: saleQueryKeys.detail(variables.saleId),
@@ -365,8 +286,6 @@ export const useAddSalePayment = () => {
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
 
-      // Invalidate statistics
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
 
       // Invalidate customers for sales (to refresh customer balances after payment)
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
@@ -404,9 +323,10 @@ export const useSoftDeleteCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      // Deleting a receipt made from a sale payment also changes that sale.
+      queryClient.invalidateQueries({ queryKey: saleQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
       queryClient.invalidateQueries({
         queryKey: ["customers", "detail", variables.customerId],
@@ -439,8 +359,9 @@ export const useAddCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
       queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
       queryClient.invalidateQueries({
@@ -470,34 +391,6 @@ export const useCreateSalesCategory = () => {
 
 // ==================== COMBINED HOOKS ====================
 
-// Sales dashboard hook
-export const useSalesDashboard = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const salesQuery = useGetSales(params);
-  const statisticsQuery = useGetSalesStatistics(params);
-  const categoriesQuery = useGetSalesCategories();
-
-  return {
-    sales: salesQuery.data?.data || [],
-    statistics: statisticsQuery.data?.data,
-    categories: categoriesQuery.data?.data || [],
-    isLoading:
-      salesQuery.isLoading ||
-      statisticsQuery.isLoading ||
-      categoriesQuery.isLoading,
-    error: salesQuery.error || statisticsQuery.error || categoriesQuery.error,
-    refetch: () => {
-      salesQuery.refetch();
-      statisticsQuery.refetch();
-      categoriesQuery.refetch();
-    },
-  };
-};
-
 // Batch sales management hook
 export const useBatchSalesManagement = (
   batchId: string,
@@ -507,7 +400,6 @@ export const useBatchSalesManagement = (
   const batchSalesQuery = useGetBatchSales(batchId, options);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
-  const updateSaleMutation = useUpdateSale();
   const deleteSaleMutation = useDeleteSale();
   const addPaymentMutation = useAddSalePayment();
 
@@ -531,11 +423,6 @@ export const useBatchSalesManagement = (
       invalidateWeights();
       return res;
     },
-    updateSale: async (vars: any) => {
-      const res = await updateSaleMutation.mutateAsync(vars);
-      invalidateWeights();
-      return res;
-    },
     deleteSale: async (id: string) => {
       const res = await deleteSaleMutation.mutateAsync(id);
       invalidateWeights();
@@ -545,7 +432,6 @@ export const useBatchSalesManagement = (
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
-    isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
 
@@ -572,7 +458,6 @@ export const useSalesManagement = (params?: {
   const salesQuery = useGetSales(params);
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
-  const updateSaleMutation = useUpdateSale();
   const deleteSaleMutation = useDeleteSale();
   const addPaymentMutation = useAddSalePayment();
   const createCategoryMutation = useCreateSalesCategory();
@@ -587,14 +472,12 @@ export const useSalesManagement = (params?: {
 
     // Mutations
     createSale: createSaleMutation.mutateAsync,
-    updateSale: updateSaleMutation.mutateAsync,
     deleteSale: deleteSaleMutation.mutateAsync,
     addPayment: addPaymentMutation.mutateAsync,
     createCategory: createCategoryMutation.mutateAsync,
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
-    isUpdating: updateSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
     isAddingPayment: addPaymentMutation.isPending,
     isCreatingCategory: createCategoryMutation.isPending,
@@ -632,28 +515,6 @@ export const useCashSales = (params?: {
   endDate?: string;
 }) => {
   return useGetSales({ ...params, isCredit: false });
-};
-
-// Sales analytics hook
-export const useSalesAnalytics = (params?: {
-  farmId?: string;
-  batchId?: string;
-  startDate?: string;
-  endDate?: string;
-}) => {
-  const statisticsQuery = useGetSalesStatistics(params);
-  const salesQuery = useGetSales({ ...params, limit: 100 }); // Get more data for analytics
-
-  return {
-    statistics: statisticsQuery.data?.data,
-    recentSales: salesQuery.data?.data || [],
-    isLoading: statisticsQuery.isLoading || salesQuery.isLoading,
-    error: statisticsQuery.error || salesQuery.error,
-    refetch: () => {
-      statisticsQuery.refetch();
-      salesQuery.refetch();
-    },
-  };
 };
 
 // ==================== CUSTOMER QUERIES ====================
@@ -799,6 +660,8 @@ export const useSetCustomerOpeningBalance = () => {
       return response.data;
     },
     onSuccess: (_data, vars) => {
+      // Home tiles and the profit-per-batch graph read from the dashboard.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["customers", "detail", vars.customerId] });
       queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
     },

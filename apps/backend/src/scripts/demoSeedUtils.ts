@@ -20,45 +20,59 @@ export const DEMO_ACCOUNTS = {
     passwordEnv: "P360_DEMO_SUPER_ADMIN_PASSWORD",
     requiresExplicitPassword: true,
   },
+  // New demo farmer (v2). The old v1 demo accounts on production use phones
+  // +9779800360001..04 and are left alone; they can be deleted by hand.
   farmer: {
-    id: "p360-demo-user-farmer-v1",
-    phone: "+9779800360001",
+    id: "p360-demo-user-farmer-v2",
+    phone: "+9779800360011",
     role: UserRole.OWNER,
-    name: "Aarav Demo Farmer",
+    name: "Ramesh Demo Farmer",
     businessName: "Green Valley Poultry Farm",
     location: "Bharatpur-16, Chitwan",
     passwordEnv: "P360_DEMO_FARMER_PASSWORD",
   },
   dealer: {
-    id: "p360-demo-user-dealer-v1",
-    phone: "+9779800360002",
+    id: "p360-demo-user-dealer-v2",
+    phone: "+9779800360021",
     role: UserRole.DEALER,
-    name: "Suman Demo Dealer",
-    businessName: "Narayani Poultry Suppliers",
-    location: "Bharatpur-10, Chitwan",
+    name: "Suresh Demo Dealer",
+    businessName: "Shree Ganesh Feed Center",
+    location: "Narayangadh, Chitwan",
     passwordEnv: "P360_DEMO_DEALER_PASSWORD",
-  },
-  company: {
-    id: "p360-demo-user-company-v1",
-    phone: "+9779800360003",
-    role: UserRole.COMPANY,
-    name: "Pragati Demo Company",
-    businessName: "Pragati Feeds Nepal",
-    location: "Hetauda Industrial Area, Makwanpur",
-    passwordEnv: "P360_DEMO_COMPANY_PASSWORD",
   },
   hatchery: {
     id: "p360-demo-user-hatchery-v1",
-    phone: "+9779800360004",
+    phone: "+9779800360031",
     role: UserRole.HATCHERY,
-    name: "Nabin Demo Hatchery",
-    businessName: "Narayani Prime Hatchery",
-    location: "Ratnanagar-10, Chitwan",
+    name: "Krishna Demo Hatchery",
+    businessName: "Sunrise Hatchery & Breeder Farm",
+    location: "Ratnanagar-5, Chitwan",
     passwordEnv: "P360_DEMO_HATCHERY_PASSWORD",
   },
 } as const;
 
 export const DEFAULT_DEMO_PASSWORD = "Poultry360Demo!";
+
+const LOCAL_DB_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/** True only when DATABASE_URL points at this machine. */
+export function isLocalDatabase(databaseUrl = process.env.DATABASE_URL): boolean {
+  if (!databaseUrl) return false;
+  try {
+    return LOCAL_DB_HOSTS.has(new URL(databaseUrl).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Stop a script unless it is pointed at a local database. */
+export function requireLocalDatabase(scriptName: string): void {
+  if (!isLocalDatabase()) {
+    throw new Error(
+      `${scriptName} only runs against a local database (localhost). Refusing to run on this DATABASE_URL.`,
+    );
+  }
+}
 
 export type DemoAccount = (typeof DEMO_ACCOUNTS)[keyof typeof DEMO_ACCOUNTS];
 

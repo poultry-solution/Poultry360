@@ -628,6 +628,14 @@ export declare const SalesItemTypeSchema: z.ZodEnum<{
     EGGS: "EGGS";
 }>;
 export type SalesItemType = z.infer<typeof SalesItemTypeSchema>;
+export declare const SaleDiscountInputSchema: z.ZodObject<{
+    type: z.ZodEnum<{
+        PERCENT: "PERCENT";
+        FLAT: "FLAT";
+    }>;
+    value: z.ZodNumber;
+}, z.core.$strip>;
+export type SaleDiscountInput = z.infer<typeof SaleDiscountInputSchema>;
 export declare const SaleSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -654,6 +662,14 @@ export declare const SaleSchema: z.ZodObject<{
         EGGS: "EGGS";
     }>;
     categoryId: z.ZodNullable<z.ZodString>;
+    subtotalAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        type: z.ZodEnum<{
+            PERCENT: "PERCENT";
+            FLAT: "FLAT";
+        }>;
+        value: z.ZodNumber;
+    }, z.core.$strip>>>;
 }, z.core.$strip>;
 export type Sale = z.infer<typeof SaleSchema>;
 export declare const CreateSaleSchema: z.ZodObject<{
@@ -661,6 +677,14 @@ export declare const CreateSaleSchema: z.ZodObject<{
     amount: z.ZodNumber;
     quantity: z.ZodNumber;
     weight: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    weightDiscountPercent: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        type: z.ZodEnum<{
+            PERCENT: "PERCENT";
+            FLAT: "FLAT";
+        }>;
+        value: z.ZodNumber;
+    }, z.core.$strip>>>;
     unitPrice: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -693,31 +717,6 @@ export declare const CreateSaleSchema: z.ZodObject<{
     }, z.core.$strip>>;
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
-export declare const UpdateSaleSchema: z.ZodObject<{
-    date: z.ZodOptional<z.ZodString>;
-    amount: z.ZodOptional<z.ZodNumber>;
-    quantity: z.ZodOptional<z.ZodNumber>;
-    weight: z.ZodOptional<z.ZodNumber>;
-    unitPrice: z.ZodOptional<z.ZodNumber>;
-    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    isCredit: z.ZodOptional<z.ZodBoolean>;
-    paidAmount: z.ZodOptional<z.ZodNumber>;
-    farmId: z.ZodOptional<z.ZodString>;
-    batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-        FEED: "FEED";
-        MEDICINE: "MEDICINE";
-        CHICKS: "CHICKS";
-        EQUIPMENT: "EQUIPMENT";
-        OTHER: "OTHER";
-        Chicken_Meat: "Chicken_Meat";
-        EGGS: "EGGS";
-    }>>>;
-    eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-    categoryId: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
-export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
 export declare const SalePaymentSchema: z.ZodObject<{
     id: z.ZodString;
     createdAt: z.ZodString;
@@ -2871,12 +2870,28 @@ export declare const schemas: {
             EGGS: "EGGS";
         }>;
         categoryId: z.ZodNullable<z.ZodString>;
+        subtotalAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            type: z.ZodEnum<{
+                PERCENT: "PERCENT";
+                FLAT: "FLAT";
+            }>;
+            value: z.ZodNumber;
+        }, z.core.$strip>>>;
     }, z.core.$strip>;
     readonly CreateSale: z.ZodObject<{
         date: z.ZodString;
         amount: z.ZodNumber;
         quantity: z.ZodNumber;
         weight: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        weightDiscountPercent: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        discount: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            type: z.ZodEnum<{
+                PERCENT: "PERCENT";
+                FLAT: "FLAT";
+            }>;
+            value: z.ZodNumber;
+        }, z.core.$strip>>>;
         unitPrice: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         isCredit: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
@@ -2907,30 +2922,6 @@ export declare const schemas: {
             category: z.ZodOptional<z.ZodString>;
             address: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
-    }, z.core.$strip>;
-    readonly UpdateSale: z.ZodObject<{
-        date: z.ZodOptional<z.ZodString>;
-        amount: z.ZodOptional<z.ZodNumber>;
-        quantity: z.ZodOptional<z.ZodNumber>;
-        weight: z.ZodOptional<z.ZodNumber>;
-        unitPrice: z.ZodOptional<z.ZodNumber>;
-        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        isCredit: z.ZodOptional<z.ZodBoolean>;
-        paidAmount: z.ZodOptional<z.ZodNumber>;
-        farmId: z.ZodOptional<z.ZodString>;
-        batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        customerId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        itemType: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
-            FEED: "FEED";
-            MEDICINE: "MEDICINE";
-            CHICKS: "CHICKS";
-            EQUIPMENT: "EQUIPMENT";
-            OTHER: "OTHER";
-            Chicken_Meat: "Chicken_Meat";
-            EGGS: "EGGS";
-        }>>>;
-        eggTypeId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-        categoryId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly SalePayment: z.ZodObject<{
         id: z.ZodString;
@@ -3970,4 +3961,27 @@ export interface BalanceLimitCheckResult {
     newBalance: number;
     limit: number | null;
     exceedsBy?: number;
+}
+export declare const BillSettingsInputSchema: z.ZodObject<{
+    businessName: z.ZodPipe<z.ZodOptional<z.ZodNullable<z.ZodString>>, z.ZodTransform<string | null, string | null | undefined>>;
+    address: z.ZodPipe<z.ZodOptional<z.ZodNullable<z.ZodString>>, z.ZodTransform<string | null, string | null | undefined>>;
+    panNumber: z.ZodPipe<z.ZodOptional<z.ZodNullable<z.ZodString>>, z.ZodTransform<string | null, string | null | undefined>>;
+    phone: z.ZodPipe<z.ZodOptional<z.ZodNullable<z.ZodString>>, z.ZodTransform<string | null, string | null | undefined>>;
+    footerNote: z.ZodPipe<z.ZodOptional<z.ZodNullable<z.ZodString>>, z.ZodTransform<string | null, string | null | undefined>>;
+}, z.core.$strip>;
+export type BillSettingsInput = z.infer<typeof BillSettingsInputSchema>;
+export interface BillDetails {
+    businessName: string | null;
+    address: string | null;
+    panNumber: string | null;
+    phone: string | null;
+    footerNote: string | null;
+}
+export interface BillSettingsResponse {
+    /** What the owner saved (nulls when not set). */
+    saved: BillDetails;
+    /** Values from the business record, used when a field is empty. */
+    defaults: BillDetails;
+    /** What the bill prints: saved value, else the default. */
+    effective: BillDetails;
 }

@@ -67,8 +67,10 @@ export const getPublicListForSale = async (req: Request, res: Response): Promise
     const take = Math.min(Number(limit), 100);
     const skip = Number(offset);
 
-    const where: { status: ListForSaleStatus; category?: ListForSaleCategory; province?: string } = {
+    const where: { status: ListForSaleStatus; category?: ListForSaleCategory; province?: string; user?: object } = {
       status: ListForSaleStatus.ACTIVE,
+      // Only farmers who turned List for sale on (Settings) appear on the public marketplace.
+      user: { accountFeatures: { some: { featureKey: "FARMER_LIST_FOR_SALE", enabled: true } } },
     };
     if (category && typeof category === "string" && isValidCategory(category)) {
       where.category = category as ListForSaleCategory;

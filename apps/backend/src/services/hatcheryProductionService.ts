@@ -6,6 +6,7 @@ import {
 import prisma from "../utils/prisma";
 import {
   allocateProductionCost,
+  assertLotsBoughtByDate,
   normalizeMaterialProductionRequest,
   normalizeProductionDate,
 } from "./productionDomain";
@@ -69,6 +70,23 @@ export class HatcheryProductionService {
         if (products.length !== outputs.length) {
           throw new ProductionRequestError("One or more Self Feed products are invalid or archived");
         }
+
+        const firstPurchases = await tx.hatcheryInventoryTxn.groupBy({
+          by: ["itemId"],
+          where: {
+            itemId: { in: inventoryItems.map((item) => item.id) },
+            type: HatcheryInventoryTxnType.PURCHASE,
+          },
+          _min: { date: true },
+        });
+        const firstPurchaseByItem = new Map(firstPurchases.map((row) => [row.itemId, row._min.date]));
+        assertLotsBoughtByDate(
+          runDate,
+          inventoryItems.map((item) => ({
+            name: item.name,
+            firstPurchaseDate: firstPurchaseByItem.get(item.id) ?? item.createdAt,
+          }))
+        );
 
         const itemMap = new Map(inventoryItems.map((item) => [item.id, item]));
         const productMap = new Map(products.map((product) => [product.id, product]));

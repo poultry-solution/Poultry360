@@ -1,1396 +1,481 @@
+/**
+ * Demo feed dealer seed: one realistic dealer shop, entered through the normal
+ * API so stock, invoices, balances, ledger rows and audit history are created
+ * exactly as when a dealer uses the app.
+ *
+ * - Creates (or reuses) the reserved demo dealer login only. Never touches other users.
+ * - Refuses to run if that dealer already has suppliers (re-running would duplicate data).
+ * - Local database by default. Against any other database it needs
+ *   P360_DEMO_SEED_CONFIRMED=1 (set by scripts/seed-demo-prod.sh after its backup prompt).
+ * - The backend API must be running (P360_API_URL, default http://localhost:8081/api/v1).
+ *
+ * Data, all dated relative to today in Nepal (about the last 100 days):
+ *   3 suppliers (feed mill, hatchery, vet pharma) with opening balance, regular
+ *   purchases (one with a trade discount) and payments.
+ *   Products: 4 feeds, broiler chicks, medicines (one expired, one expiring soon),
+ *   feeders; some below their low-stock level.
+ *   8 farmer customers (2 with opening balances, 1 archived), ~100 sales
+ *   (cash, credit, part paid, some discounted, multi-item) and regular payments.
+ *   Staff: 2 monthly + 1 daily worker with salary payments and absences,
+ *   one staff login, and today's cash in hand.
+ */
+
 import "dotenv/config";
-import {
-  CashDayCloseSource,
-  CashMovementDirection,
-  DealerManualCompanyAdjustmentType,
-  DiscountScope,
-  DiscountType,
-  InventoryItemType,
-  LedgerEntryType,
-  NotificationStatus,
-  StaffStatus,
-  TransactionType,
-} from "@prisma/client";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
-import {
-  bsDates,
-  daysAgo,
-  decimal,
-  DEMO_ACCOUNTS,
-  hashDemoPassword,
-  printDemoCredentials,
-  upsertById,
-  upsertDemoUser,
-} from "./demoSeedUtils";
+import { DEFAULT_DEMO_PASSWORD, DEMO_ACCOUNTS, isLocalDatabase, upsertDemoUser } from "./demoSeedUtils";
 
 const account = DEMO_ACCOUNTS.dealer;
-const id = (suffix: string) => `p360-demo-dealer-${suffix}-v1`;
+const DEALER_ID = "p360-demo-dealer-v2";
+const STAFF_LOGIN_PHONE = "+9779800360022";
+const API_URL = (process.env.P360_API_URL || `http://localhost:${process.env.PORT || 8081}/api/v1`).replace(/\/$/, "");
 
-async function seedDemoDealer(): Promise<void> {
-  console.log("Seeding production-safe dealer demo data...");
-  const passwordHash = await hashDemoPassword(account);
-  const cashDates = bsDates(8);
+// ── Dates (Nepal days) ────────────────────────────────────────────────────────
 
-  await prisma.$transaction(
-    async (tx) => {
-      const user = await upsertDemoUser(tx, account, passwordHash);
-      const dealer = await upsertById<{ id: string }>(
-        tx.dealer,
-        id("business"),
-        {
-          name: account.businessName,
-          contact: account.phone,
-          address: account.location,
-          classification: "REGISTERED",
-          balance: decimal(0),
-          totalPurchases: decimal(0),
-          totalPayments: decimal(0),
-          userId: null,
-          ownerId: user.id,
-        },
-      );
+const NEPAL_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+const NEPAL_TODAY = new Date(Date.now() + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
 
-      const companies = [
-        [
-          "company-pragati",
-          "Pragati Feed Industries",
-          "+9779855013001",
-          "Hetauda Industrial Area",
-          350000,
-          1300000,
-          1000000,
-        ],
-        [
-          "company-everest",
-          "Everest Poultry Pharma",
-          "+9779855013002",
-          "Birgunj, Parsa",
-          40000,
-          220000,
-          180000,
-        ],
-        [
-          "company-agro",
-          "Agro Equipment Nepal",
-          "+9779855013003",
-          "Bharatpur-4, Chitwan",
-          0,
-          150000,
-          150000,
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        phone,
-        address,
-        balance,
-        totalPurchases,
-        totalPayments,
-      ] of companies) {
-        await upsertById(tx.dealerManualCompany, id(key), {
-          name,
-          phone,
-          address,
-          dealerId: dealer.id,
-          archivedAt: null,
-          archivedById: null,
-          balance: decimal(balance),
-          totalPurchases: decimal(totalPurchases),
-          totalPayments: decimal(totalPayments),
-        });
-      }
-
-      const productSeeds = [
-        [
-          "product-starter",
-          "Pragati Broiler Starter",
-          "High-protein starter crumble",
-          InventoryItemType.FEED,
-          "Bag",
-          3350,
-          3800,
-          148,
-          30,
-          "PFS-START-50",
-          id("company-pragati"),
-        ],
-        [
-          "product-grower",
-          "Pragati Broiler Grower",
-          "Balanced grower pellet",
-          InventoryItemType.FEED,
-          "Bag",
-          3475,
-          3975,
-          176,
-          35,
-          "PFG-GROW-50",
-          id("company-pragati"),
-        ],
-        [
-          "product-finisher",
-          "Pragati Broiler Finisher",
-          "Energy-dense finisher pellet",
-          InventoryItemType.FEED,
-          "Bag",
-          3590,
-          4100,
-          92,
-          25,
-          "PFF-FIN-50",
-          id("company-pragati"),
-        ],
-        [
-          "product-layer",
-          "Pragati Layer Mash",
-          "Layer feed with calcium and minerals",
-          InventoryItemType.FEED,
-          "Bag",
-          3420,
-          3900,
-          121,
-          30,
-          "PFL-LAY-50",
-          id("company-pragati"),
-        ],
-        [
-          "product-calcium",
-          "Layer Calcium Plus",
-          "Shell-strength mineral supplement",
-          InventoryItemType.MEDICINE,
-          "Packet",
-          640,
-          900,
-          54,
-          15,
-          "EPP-CAL-1",
-          id("company-everest"),
-        ],
-        [
-          "product-vitamin",
-          "Poultry Vitamin AD3E",
-          "Water-soluble vitamin supplement",
-          InventoryItemType.MEDICINE,
-          "Bottle",
-          310,
-          480,
-          68,
-          18,
-          "EPP-AD3E",
-          id("company-everest"),
-        ],
-        [
-          "product-disinfectant",
-          "BioSafe Disinfectant",
-          "Farm biosecurity concentrate",
-          InventoryItemType.MEDICINE,
-          "Bottle",
-          520,
-          760,
-          16,
-          12,
-          "EPP-BIO",
-          id("company-everest"),
-        ],
-        [
-          "product-feeder",
-          "Automatic Pan Feeder",
-          "Durable 14 kg poultry feeder",
-          InventoryItemType.EQUIPMENT,
-          "PCS",
-          1150,
-          1550,
-          24,
-          8,
-          "AEN-PF14",
-          id("company-agro"),
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        description,
-        type,
-        unit,
-        costPrice,
-        sellingPrice,
-        currentStock,
-        minStock,
-        sku,
-        manualCompanyId,
-      ] of productSeeds) {
-        await upsertById(tx.dealerProduct, id(key), {
-          name,
-          description,
-          type,
-          unit,
-          costPrice: decimal(costPrice),
-          sellingPrice: decimal(sellingPrice),
-          currentStock: decimal(currentStock),
-          hiddenAt: null,
-          minStock: decimal(minStock),
-          sku,
-          dealerId: dealer.id,
-          manualCompanyId,
-          supplierCompanyId: null,
-          companyProductId: null,
-        });
-      }
-
-      for (const productKey of ["starter", "grower", "finisher", "layer"]) {
-        await upsertById(
-          tx.dealerProductUnitConversion,
-          id(`conversion-${productKey}-kg`),
-          {
-            dealerProductId: id(`product-${productKey}`),
-            unitName: "KG",
-            conversionFactor: decimal(0.02),
-          },
-        );
-      }
-
-      const purchases = [
-        [
-          "purchase-pragati-1",
-          id("company-pragati"),
-          daysAgo(52),
-          670000,
-          20000,
-          "PFI-2083-018",
-          "Opening seasonal stock order",
-        ],
-        [
-          "purchase-pragati-2",
-          id("company-pragati"),
-          daysAgo(18),
-          630000,
-          15000,
-          "PFI-2083-067",
-          "Broiler and layer feed replenishment",
-        ],
-        [
-          "purchase-everest",
-          id("company-everest"),
-          daysAgo(24),
-          220000,
-          null,
-          "EPP-2083-104",
-          "Medicine and supplements purchase",
-        ],
-        [
-          "purchase-agro",
-          id("company-agro"),
-          daysAgo(88),
-          150000,
-          null,
-          "AEN-2082-441",
-          "Farm equipment stock",
-        ],
-      ] as const;
-      for (const [
-        key,
-        manualCompanyId,
-        date,
-        totalAmount,
-        tradeDiscountAmount,
-        reference,
-        notes,
-      ] of purchases) {
-        await upsertById(tx.dealerManualPurchase, id(key), {
-          manualCompanyId,
-          date,
-          totalAmount: decimal(totalAmount),
-          tradeDiscountAmount:
-            tradeDiscountAmount === null ? null : decimal(tradeDiscountAmount),
-          notes,
-          reference,
-          voidedAt: null,
-          voidedReason: null,
-        });
-      }
-
-      const purchaseItems = [
-        [
-          "purchase-item-p1-starter",
-          id("purchase-pragati-1"),
-          "Pragati Broiler Starter",
-          InventoryItemType.FEED,
-          "Bag",
-          100,
-          3350,
-          3800,
-          335000,
-          id("product-starter"),
-        ],
-        [
-          "purchase-item-p1-grower",
-          id("purchase-pragati-1"),
-          "Pragati Broiler Grower",
-          InventoryItemType.FEED,
-          "Bag",
-          100,
-          3350,
-          3975,
-          335000,
-          id("product-grower"),
-        ],
-        [
-          "purchase-item-p2-grower",
-          id("purchase-pragati-2"),
-          "Pragati Broiler Grower",
-          InventoryItemType.FEED,
-          "Bag",
-          100,
-          3475,
-          3975,
-          347500,
-          id("product-grower"),
-        ],
-        [
-          "purchase-item-p2-finisher",
-          id("purchase-pragati-2"),
-          "Pragati Broiler Finisher",
-          InventoryItemType.FEED,
-          "Bag",
-          50,
-          3590,
-          4100,
-          179500,
-          id("product-finisher"),
-        ],
-        [
-          "purchase-item-p2-layer",
-          id("purchase-pragati-2"),
-          "Pragati Layer Mash",
-          InventoryItemType.FEED,
-          "Bag",
-          30,
-          3433.33,
-          3900,
-          103000,
-          id("product-layer"),
-        ],
-        [
-          "purchase-item-e-calcium",
-          id("purchase-everest"),
-          "Layer Calcium Plus",
-          InventoryItemType.MEDICINE,
-          "Packet",
-          150,
-          640,
-          900,
-          96000,
-          id("product-calcium"),
-        ],
-        [
-          "purchase-item-e-vitamin",
-          id("purchase-everest"),
-          "Poultry Vitamin AD3E",
-          InventoryItemType.MEDICINE,
-          "Bottle",
-          200,
-          310,
-          480,
-          62000,
-          id("product-vitamin"),
-        ],
-        [
-          "purchase-item-e-disinfectant",
-          id("purchase-everest"),
-          "BioSafe Disinfectant",
-          InventoryItemType.MEDICINE,
-          "Bottle",
-          100,
-          620,
-          760,
-          62000,
-          id("product-disinfectant"),
-        ],
-        [
-          "purchase-item-a-feeder",
-          id("purchase-agro"),
-          "Automatic Pan Feeder",
-          InventoryItemType.EQUIPMENT,
-          "PCS",
-          100,
-          1500,
-          1550,
-          150000,
-          id("product-feeder"),
-        ],
-      ] as const;
-      for (const [
-        key,
-        purchaseId,
-        productName,
-        type,
-        unit,
-        quantity,
-        costPrice,
-        sellingPrice,
-        totalAmount,
-        dealerProductId,
-      ] of purchaseItems) {
-        await upsertById(tx.dealerManualPurchaseItem, id(key), {
-          purchaseId,
-          productName,
-          type,
-          unit,
-          quantity: decimal(quantity),
-          baseQuantity: decimal(quantity),
-          costPrice: decimal(costPrice),
-          sellingPrice: decimal(sellingPrice),
-          totalAmount: decimal(totalAmount),
-          dealerProductId,
-        });
-      }
-
-      const companyPayments = [
-        [
-          "company-payment-pragati-1",
-          id("company-pragati"),
-          500000,
-          daysAgo(38),
-          "BANK",
-          "Initial bank payment",
-          "NBL-83391",
-          850000,
-        ],
-        [
-          "company-payment-pragati-2",
-          id("company-pragati"),
-          500000,
-          daysAgo(8),
-          "BANK",
-          "Second bank payment",
-          "NBL-87442",
-          350000,
-        ],
-        [
-          "company-payment-everest",
-          id("company-everest"),
-          180000,
-          daysAgo(10),
-          "CHEQUE",
-          "Medicine supplier settlement",
-          "CHQ-2083-317",
-          40000,
-        ],
-        [
-          "company-payment-agro",
-          id("company-agro"),
-          150000,
-          daysAgo(70),
-          "CASH",
-          "Equipment invoice settled",
-          "CASH-770",
-          0,
-        ],
-      ] as const;
-      for (const [
-        key,
-        manualCompanyId,
-        amount,
-        paymentDate,
-        paymentMethod,
-        notes,
-        reference,
-        balanceAfter,
-      ] of companyPayments) {
-        await upsertById(tx.dealerManualCompanyPayment, id(key), {
-          manualCompanyId,
-          amount: decimal(amount),
-          paymentMethod,
-          paymentDate,
-          notes,
-          reference,
-          receiptUrl: null,
-          voidedAt: null,
-          voidedReason: null,
-          balanceAfter: decimal(balanceAfter),
-        });
-      }
-      await upsertById(
-        tx.dealerManualCompanyAdjustment,
-        id("company-adjustment-pragati"),
-        {
-          manualCompanyId: id("company-pragati"),
-          type: DealerManualCompanyAdjustmentType.OPENING_BALANCE,
-          amount: decimal(50000),
-          date: daysAgo(120),
-          notes: "Agreed opening balance at the start of Poultry360 use",
-          balanceAfter: decimal(50000),
-        },
-      );
-
-      const purchaseProductTxns = [
-        [
-          "product-txn-purchase-starter",
-          id("product-starter"),
-          100,
-          3350,
-          335000,
-          daysAgo(52),
-          "Purchase from Pragati Feed Industries",
-          "PFI-2083-018",
-        ],
-        [
-          "product-txn-purchase-grower",
-          id("product-grower"),
-          200,
-          3412.5,
-          682500,
-          daysAgo(18),
-          "Feed stock received",
-          "PFI-2083-067",
-        ],
-        [
-          "product-txn-purchase-finisher",
-          id("product-finisher"),
-          50,
-          3590,
-          179500,
-          daysAgo(18),
-          "Feed stock received",
-          "PFI-2083-067",
-        ],
-        [
-          "product-txn-purchase-layer",
-          id("product-layer"),
-          80,
-          3420,
-          273600,
-          daysAgo(18),
-          "Layer feed received",
-          "PFI-2083-067",
-        ],
-        [
-          "product-txn-purchase-calcium",
-          id("product-calcium"),
-          150,
-          640,
-          96000,
-          daysAgo(24),
-          "Supplement stock received",
-          "EPP-2083-104",
-        ],
-        [
-          "product-txn-purchase-vitamin",
-          id("product-vitamin"),
-          200,
-          310,
-          62000,
-          daysAgo(24),
-          "Vitamin stock received",
-          "EPP-2083-104",
-        ],
-        [
-          "product-txn-purchase-disinfectant",
-          id("product-disinfectant"),
-          100,
-          620,
-          62000,
-          daysAgo(24),
-          "Disinfectant stock received",
-          "EPP-2083-104",
-        ],
-        [
-          "product-txn-purchase-feeder",
-          id("product-feeder"),
-          100,
-          1500,
-          150000,
-          daysAgo(88),
-          "Equipment stock received",
-          "AEN-2082-441",
-        ],
-      ] as const;
-      for (const [
-        key,
-        productId,
-        quantity,
-        unitPrice,
-        totalAmount,
-        date,
-        description,
-        reference,
-      ] of purchaseProductTxns) {
-        await upsertById(tx.dealerProductTransaction, id(key), {
-          productId,
-          type: TransactionType.PURCHASE,
-          quantity: decimal(quantity),
-          unitPrice: decimal(unitPrice),
-          totalAmount: decimal(totalAmount),
-          date,
-          description,
-          reference,
-          unit: "Bag",
-          dealerSaleId: null,
-        });
-      }
-
-      const customers = [
-        [
-          "customer-shree",
-          "Shree Ram Poultry Farm",
-          "+9779845152001",
-          "Broiler farm",
-          "Gaidakot-5, Nawalpur",
-          40000,
-          190000,
-          150000,
-        ],
-        [
-          "customer-newhope",
-          "New Hope Layer Farm",
-          "+9779845152002",
-          "Layer farm",
-          "Ratnanagar-8, Chitwan",
-          24700,
-          220200,
-          195500,
-        ],
-        [
-          "customer-chitwan",
-          "Chitwan Integrated Farm",
-          "+9779845152003",
-          "Mixed farm",
-          "Khairahani-3, Chitwan",
-          64920,
-          164920,
-          100000,
-        ],
-        [
-          "customer-everest",
-          "Everest Poultry House",
-          "+9779845152004",
-          "Broiler farm",
-          "Madi-2, Chitwan",
-          0,
-          194375,
-          194375,
-        ],
-        [
-          "customer-retail",
-          "Walk-in Retail Customers",
-          null,
-          "Retail",
-          "Bharatpur, Chitwan",
-          0,
-          20000,
-          20000,
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        phone,
-        category,
-        address,
-        balance,
-        totalSales,
-        totalPayments,
-      ] of customers) {
-        await upsertById(tx.customer, id(key), {
-          name,
-          phone,
-          category,
-          address,
-          balance: decimal(balance),
-          totalSales: decimal(totalSales),
-          totalPayments: decimal(totalPayments),
-          source: "MANUAL",
-          farmerId: null,
-          userId: user.id,
-          archivedAt: null,
-          archivedById: null,
-        });
-      }
-
-      const sales = [
-        [
-          "sale-1001",
-          "DEMO-D-1001",
-          daysAgo(45),
-          193500,
-          190000,
-          150000,
-          40000,
-          true,
-          "Feed supplied for a new broiler batch",
-          id("customer-shree"),
-          DiscountType.FLAT,
-          3500,
-        ],
-        [
-          "sale-1002",
-          "DEMO-D-1002",
-          daysAgo(28),
-          145500,
-          145500,
-          145500,
-          0,
-          false,
-          "Layer feed and calcium, paid in full",
-          id("customer-newhope"),
-          null,
-          null,
-        ],
-        [
-          "sale-1003",
-          "DEMO-D-1003",
-          daysAgo(14),
-          173600,
-          164920,
-          100000,
-          64920,
-          true,
-          "Finisher and vitamins on partial credit",
-          id("customer-chitwan"),
-          DiscountType.PERCENT,
-          5,
-        ],
-        [
-          "sale-1004",
-          "DEMO-D-1004",
-          daysAgo(5),
-          194375,
-          194375,
-          194375,
-          0,
-          false,
-          "Feed replenishment, bank payment",
-          id("customer-everest"),
-          null,
-          null,
-        ],
-        [
-          "sale-1005",
-          "DEMO-D-1005",
-          daysAgo(0),
-          74700,
-          74700,
-          50000,
-          24700,
-          true,
-          "Layer supplies with balance due",
-          id("customer-newhope"),
-          null,
-          null,
-        ],
-        [
-          "sale-1006",
-          "DEMO-D-1006",
-          daysAgo(75),
-          20000,
-          20000,
-          20000,
-          0,
-          false,
-          "Retail equipment sales",
-          id("customer-retail"),
-          null,
-          null,
-        ],
-      ] as const;
-      for (const [
-        key,
-        invoiceNumber,
-        date,
-        subtotalAmount,
-        totalAmount,
-        paidAmount,
-        dueAmount,
-        isCredit,
-        notes,
-        customerId,
-      ] of sales) {
-        await upsertById(tx.dealerSale, id(key), {
-          invoiceNumber,
-          date,
-          subtotalAmount:
-            subtotalAmount === totalAmount ? null : decimal(subtotalAmount),
-          totalAmount: decimal(totalAmount),
-          paidAmount: decimal(paidAmount),
-          dueAmount: decimal(dueAmount),
-          isCredit,
-          notes,
-          customerId,
-          farmerId: null,
-          dealerId: dealer.id,
-          accountId: null,
-        });
-      }
-
-      const saleItems = [
-        [
-          "sale-item-1001-starter",
-          "sale-1001",
-          "product-starter",
-          30,
-          3800,
-          112000,
-        ],
-        [
-          "sale-item-1001-grower",
-          "sale-1001",
-          "product-grower",
-          20,
-          3975,
-          78000,
-        ],
-        [
-          "sale-item-1002-layer",
-          "sale-1002",
-          "product-layer",
-          35,
-          3900,
-          136500,
-        ],
-        [
-          "sale-item-1002-calcium",
-          "sale-1002",
-          "product-calcium",
-          10,
-          900,
-          9000,
-        ],
-        [
-          "sale-item-1003-finisher",
-          "sale-1003",
-          "product-finisher",
-          40,
-          4100,
-          155800,
-        ],
-        [
-          "sale-item-1003-vitamin",
-          "sale-1003",
-          "product-vitamin",
-          20,
-          480,
-          9120,
-        ],
-        [
-          "sale-item-1004-starter",
-          "sale-1004",
-          "product-starter",
-          25,
-          3800,
-          95000,
-        ],
-        [
-          "sale-item-1004-grower",
-          "sale-1004",
-          "product-grower",
-          25,
-          3975,
-          99375,
-        ],
-        ["sale-item-1005-layer", "sale-1005", "product-layer", 18, 3900, 70200],
-        [
-          "sale-item-1005-calcium",
-          "sale-1005",
-          "product-calcium",
-          5,
-          900,
-          4500,
-        ],
-        [
-          "sale-item-1006-feeder",
-          "sale-1006",
-          "product-feeder",
-          10,
-          2000,
-          20000,
-        ],
-      ] as const;
-      for (const [
-        key,
-        saleKey,
-        productKey,
-        quantity,
-        unitPrice,
-        totalAmount,
-      ] of saleItems) {
-        await upsertById(tx.dealerSaleItem, id(key), {
-          saleId: id(saleKey),
-          productId: id(productKey),
-          quantity: decimal(quantity),
-          unitPrice: decimal(unitPrice),
-          totalAmount: decimal(totalAmount),
-          unit: productKey.includes("feeder")
-            ? "PCS"
-            : productKey.includes("calcium")
-              ? "Packet"
-              : productKey.includes("vitamin")
-                ? "Bottle"
-                : "Bag",
-          baseQuantity: decimal(quantity),
-        });
-      }
-
-      const salePayments = [
-        [
-          "payment-1001",
-          "sale-1001",
-          150000,
-          daysAgo(45),
-          "Advance received",
-          "BANK",
-        ],
-        [
-          "payment-1002",
-          "sale-1002",
-          145500,
-          daysAgo(28),
-          "Full cash payment",
-          "CASH",
-        ],
-        [
-          "payment-1003",
-          "sale-1003",
-          100000,
-          daysAgo(14),
-          "Partial cheque payment",
-          "CHEQUE",
-        ],
-        [
-          "payment-1004",
-          "sale-1004",
-          194375,
-          daysAgo(5),
-          "Full bank payment",
-          "BANK",
-        ],
-        [
-          "payment-1005",
-          "sale-1005",
-          50000,
-          daysAgo(0),
-          "Payment at delivery",
-          "CASH",
-        ],
-        [
-          "payment-1006",
-          "sale-1006",
-          20000,
-          daysAgo(75),
-          "Retail cash sale",
-          "CASH",
-        ],
-      ] as const;
-      for (const [
-        key,
-        saleKey,
-        amount,
-        date,
-        description,
-        paymentMethod,
-      ] of salePayments) {
-        await upsertById(tx.dealerSalePayment, id(key), {
-          saleId: id(saleKey),
-          amount: decimal(amount),
-          date,
-          description,
-          paymentMethod,
-          linkedLedgerEntryId: null,
-        });
-      }
-
-      await upsertById(tx.saleDiscount, id("discount-1001"), {
-        type: DiscountType.FLAT,
-        value: decimal(3500),
-        scope: DiscountScope.SALE,
-        dealerSaleId: id("sale-1001"),
-        companySaleId: null,
-      });
-      await upsertById(tx.saleDiscount, id("discount-1003"), {
-        type: DiscountType.PERCENT,
-        value: decimal(5),
-        scope: DiscountScope.SALE,
-        dealerSaleId: id("sale-1003"),
-        companySaleId: null,
-      });
-
-      const saleProductTxns = saleItems.map((item, index) => {
-        const [, saleKey, productKey, quantity, unitPrice, totalAmount] = item;
-        const sale = sales.find((candidate) => candidate[0] === saleKey)!;
-        return [
-          `product-txn-sale-${index + 1}`,
-          productKey,
-          saleKey,
-          quantity,
-          unitPrice,
-          totalAmount,
-          sale[2],
-          sale[1],
-        ] as const;
-      });
-      for (const [
-        key,
-        productKey,
-        saleKey,
-        quantity,
-        unitPrice,
-        totalAmount,
-        date,
-        reference,
-      ] of saleProductTxns) {
-        await upsertById(tx.dealerProductTransaction, id(key), {
-          productId: id(productKey),
-          type: TransactionType.SALE,
-          quantity: decimal(quantity),
-          unitPrice: decimal(unitPrice),
-          totalAmount: decimal(totalAmount),
-          date,
-          description: `Sale - Invoice ${reference}`,
-          reference,
-          unit: "Bag",
-          dealerSaleId: id(saleKey),
-        });
-      }
-
-      let runningBalance = 0;
-      const chronologicalSales = [...sales].sort(
-        (a, b) => a[2].getTime() - b[2].getTime(),
-      );
-      for (const sale of chronologicalSales) {
-        const [
-          saleKey,
-          invoiceNumber,
-          date,
-          ,
-          totalAmount,
-          paidAmount,
-          ,
-          ,
-          ,
-          customerId,
-        ] = sale;
-        runningBalance += totalAmount;
-        await upsertById(tx.dealerLedgerEntry, id(`ledger-${saleKey}-sale`), {
-          type: LedgerEntryType.SALE,
-          amount: decimal(totalAmount),
-          balance: decimal(runningBalance),
-          date,
-          description: `Sale - Invoice ${invoiceNumber}`,
-          reference: invoiceNumber,
-          imageUrl: null,
-          dealerId: dealer.id,
-          saleId: id(saleKey),
-          partyId: customerId,
-          partyType: "CUSTOMER",
-          createdAt: date,
-        });
-        runningBalance -= paidAmount;
-        await upsertById(
-          tx.dealerLedgerEntry,
-          id(`ledger-${saleKey}-payment`),
-          {
-            type: LedgerEntryType.PAYMENT_RECEIVED,
-            amount: decimal(paidAmount),
-            balance: decimal(runningBalance),
-            date,
-            description: `Payment received - Invoice ${invoiceNumber}`,
-            reference: invoiceNumber,
-            imageUrl: null,
-            dealerId: dealer.id,
-            saleId: id(saleKey),
-            partyId: customerId,
-            partyType: "CUSTOMER",
-            createdAt: new Date(date.getTime() + 60_000),
-          },
-        );
-      }
-
-      const customerTxns = sales.flatMap((sale) => {
-        const [
-          saleKey,
-          invoiceNumber,
-          date,
-          ,
-          totalAmount,
-          paidAmount,
-          ,
-          ,
-          notes,
-          customerId,
-        ] = sale;
-        return [
-          [
-            `customer-txn-${saleKey}-sale`,
-            customerId,
-            TransactionType.SALE,
-            totalAmount,
-            date,
-            notes,
-            invoiceNumber,
-          ],
-          [
-            `customer-txn-${saleKey}-payment`,
-            customerId,
-            TransactionType.PAYMENT,
-            paidAmount,
-            date,
-            `Payment for ${invoiceNumber}`,
-            invoiceNumber,
-          ],
-        ] as const;
-      });
-      for (const [
-        key,
-        customerId,
-        type,
-        amount,
-        date,
-        description,
-        reference,
-      ] of customerTxns) {
-        await upsertById(tx.customerTransaction, id(key), {
-          customerId,
-          type,
-          amount: decimal(amount),
-          date,
-          description,
-          reference,
-          imageUrl: null,
-          deletedAt: null,
-        });
-      }
-
-      await upsertById(tx.dealerCashSettings, id("cash-settings"), {
-        dealerId: dealer.id,
-        initialOpening: decimal(125000),
-        startBsDate: cashDates[7],
-      });
-      const cashMovements = [
-        [
-          "cash-today-in-1",
-          cashDates[0],
-          CashMovementDirection.IN,
-          50000,
-          "New Hope Layer Farm",
-          "Payment received with today's delivery",
-        ],
-        [
-          "cash-today-in-2",
-          cashDates[0],
-          CashMovementDirection.IN,
-          18500,
-          "Walk-in customers",
-          "Counter sales collection",
-        ],
-        [
-          "cash-today-out",
-          cashDates[0],
-          CashMovementDirection.OUT,
-          32000,
-          "Local transport and handling",
-          "Delivery vehicle and unloading",
-        ],
-        [
-          "cash-yesterday-in",
-          cashDates[1],
-          CashMovementDirection.IN,
-          42000,
-          "Shree Ram Poultry Farm",
-          "Account collection",
-        ],
-        [
-          "cash-yesterday-out",
-          cashDates[1],
-          CashMovementDirection.OUT,
-          28000,
-          "Everest Poultry Pharma",
-          "Supplier cash payment",
-        ],
-        [
-          "cash-2day-in",
-          cashDates[2],
-          CashMovementDirection.IN,
-          65000,
-          "Chitwan Integrated Farm",
-          "Part payment",
-        ],
-        [
-          "cash-2day-out",
-          cashDates[2],
-          CashMovementDirection.OUT,
-          15500,
-          "Shop operating expenses",
-          "Rent allocation and utilities",
-        ],
-      ] as const;
-      for (const [
-        key,
-        bsDate,
-        direction,
-        amount,
-        partyName,
-        notes,
-      ] of cashMovements) {
-        await upsertById(tx.dealerCashMovement, id(key), {
-          dealerId: dealer.id,
-          bsDate,
-          direction,
-          amount: decimal(amount),
-          partyName,
-          notes,
-          recordedById: user.id,
-        });
-      }
-      const closes = [
-        ["cash-close-1", cashDates[1], 171500, 185500, daysAgo(1, 20)],
-        ["cash-close-2", cashDates[2], 137000, 171500, daysAgo(2, 20)],
-        ["cash-close-3", cashDates[3], 152000, 137000, daysAgo(3, 20)],
-        ["cash-close-4", cashDates[4], 143500, 152000, daysAgo(4, 20)],
-      ] as const;
-      for (const [
-        key,
-        bsDate,
-        openingSnapshot,
-        closingSnapshot,
-        closedAt,
-      ] of closes) {
-        await upsertById(tx.dealerCashDayClose, id(key), {
-          dealerId: dealer.id,
-          bsDate,
-          openingSnapshot: decimal(openingSnapshot),
-          closingSnapshot: decimal(closingSnapshot),
-          source: CashDayCloseSource.USER,
-          closedAt,
-        });
-      }
-
-      const staff = [
-        [
-          "staff-anil",
-          "Anil Mahato",
-          daysAgo(520),
-          null,
-          StaffStatus.ACTIVE,
-          30000,
-          60000,
-          daysAgo(10),
-          "Two months salary",
-        ],
-        [
-          "staff-maya",
-          "Maya Karki",
-          daysAgo(350),
-          null,
-          StaffStatus.ACTIVE,
-          27000,
-          27000,
-          daysAgo(16),
-          "Monthly salary",
-        ],
-        [
-          "staff-rabin",
-          "Rabin Gurung",
-          daysAgo(180),
-          daysAgo(28),
-          StaffStatus.STOPPED,
-          25000,
-          20000,
-          daysAgo(30),
-          "Final settlement installment",
-        ],
-      ] as const;
-      for (const [
-        key,
-        name,
-        startDate,
-        endDate,
-        status,
-        monthlyAmount,
-        paymentAmount,
-        paidAt,
-        note,
-      ] of staff) {
-        const staffId = id(key);
-        await upsertById(tx.staff, staffId, {
-          ownerId: user.id,
-          name,
-          startDate,
-          endDate,
-          status,
-        });
-        await upsertById(tx.staffSalary, id(`${key}-salary`), {
-          staffId,
-          monthlyAmount: decimal(monthlyAmount),
-          effectiveFrom: startDate,
-        });
-        await upsertById(tx.staffPayment, id(`${key}-payment`), {
-          staffId,
-          amount: decimal(paymentAmount),
-          paidAt,
-          note,
-          receiptImageUrl: null,
-        });
-      }
-
-      const notifications = [
-        [
-          "notification-stock",
-          "LOW_INVENTORY",
-          "BioSafe Disinfectant stock is low",
-          "16 bottles remain; reorder before the next delivery cycle.",
-          NotificationStatus.UNREAD,
-          daysAgo(0),
-          { url: "/dealer/dashboard/inventory" },
-        ],
-        [
-          "notification-credit",
-          "PAYMENT_DUE",
-          "Customer balances need follow-up",
-          "Three customers currently have outstanding balances.",
-          NotificationStatus.UNREAD,
-          daysAgo(1),
-          { url: "/dealer/dashboard/customers" },
-        ],
-        [
-          "notification-company",
-          "SUPPLIER_PAYMENT",
-          "Pragati Feeds payment recorded",
-          "The latest NPR 500,000 bank payment is reflected in the company ledger.",
-          NotificationStatus.READ,
-          daysAgo(8),
-          { url: "/dealer/dashboard/company" },
-        ],
-      ] as const;
-      for (const [
-        key,
-        type,
-        title,
-        body,
-        status,
-        createdAt,
-        data,
-      ] of notifications) {
-        await upsertById(tx.notification, id(key), {
-          userId: user.id,
-          type,
-          title,
-          body,
-          data,
-          status,
-          createdAt,
-          readAt: status === NotificationStatus.READ ? daysAgo(7) : null,
-        });
-      }
-    },
-    { maxWait: 10_000, timeout: 120_000 },
-  );
-
-  printDemoCredentials("Dealer", account);
+/** AD YYYY-MM-DD of the Nepal day `ago` days before today (negative = future). */
+function dayAgo(ago: number): string {
+  const [y, m, d] = NEPAL_TODAY.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - ago)).toISOString().slice(0, 10);
 }
 
-seedDemoDealer()
+/**
+ * A moment inside that Nepal day. `utcMinutes` counts from 00:00 UTC (05:45 Nepal),
+ * so anything below 18h stays on the same Nepal day. Never later than now.
+ */
+function at(ago: number, utcMinutes: number): string {
+  const time = new Date(`${dayAgo(ago)}T00:00:00.000Z`).getTime() + utcMinutes * 60 * 1000;
+  return new Date(Math.min(time, Date.now() - 60 * 1000)).toISOString();
+}
+
+// ── Small helpers ─────────────────────────────────────────────────────────────
+
+/** Deterministic random numbers so every run builds the same data. */
+function makeRandom(seed: number) {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rnd = makeRandom(2083);
+const between = (min: number, max: number) => min + Math.floor(rnd() * (max - min + 1));
+const pick = <T,>(list: T[]) => list[Math.floor(rnd() * list.length)];
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const roundTo = (n: number, step: number) => Math.floor(n / step) * step;
+
+let token = "";
+let callCount = 0;
+
+async function api<T = any>(method: string, path: string, body?: unknown): Promise<T> {
+  callCount += 1;
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json: any;
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(`${method} ${path} failed (${res.status}): ${json?.message || text}\nBody: ${JSON.stringify(body)}`);
+  }
+  return json as T;
+}
+
+// ── Event queue (everything is entered in date order, like real life) ─────────
+
+type Event = { ago: number; order: number; label: string; run: () => Promise<void> };
+const events: Event[] = [];
+const on = (ago: number, order: number, label: string, run: () => Promise<void>) =>
+  events.push({ ago, order, label, run });
+
+// Order inside one day: opening balances → purchases → sales → customer payments → supplier payments → staff.
+const O = { opening: 0, purchase: 1, sale: 2, customerPayment: 3, supplierPayment: 4, staff: 5 };
+
+// ── Catalogue ─────────────────────────────────────────────────────────────────
+
+type SupplierKey = "feedMill" | "hatchery" | "vetPharma";
+type ProductKey =
+  | "starter" | "grower" | "finisher" | "layerMash"
+  | "chicks"
+  | "vitamin" | "enro" | "gumboro" | "feeder";
+
+const PRODUCTS: Record<ProductKey, {
+  name: string;
+  type: "FEED" | "CHICKS" | "OTHER";
+  unit: string;
+  cost: number;
+  sell: number;
+  supplier: SupplierKey;
+  minStock?: number;
+  expiryAgo?: number; // expiry date as days ago (negative = in the future)
+}> = {
+  starter: { name: "B0 Starter Feed (50 kg)", type: "FEED", unit: "bags", cost: 3850, sell: 4000, supplier: "feedMill", minStock: 20 },
+  grower: { name: "B1 Grower Feed (50 kg)", type: "FEED", unit: "bags", cost: 3750, sell: 3900, supplier: "feedMill", minStock: 30 },
+  finisher: { name: "B2 Finisher Feed (50 kg)", type: "FEED", unit: "bags", cost: 3700, sell: 3850, supplier: "feedMill", minStock: 30 },
+  layerMash: { name: "Layer Mash (50 kg)", type: "FEED", unit: "bags", cost: 3550, sell: 3700, supplier: "feedMill", minStock: 15 },
+  chicks: { name: "Broiler Chicks (Cobb 500)", type: "CHICKS", unit: "pcs", cost: 82, sell: 92, supplier: "hatchery" },
+  vitamin: { name: "Vitamin AD3E (1 L)", type: "OTHER", unit: "bottles", cost: 420, sell: 480, supplier: "vetPharma", minStock: 10, expiryAgo: -240 },
+  enro: { name: "Enrofloxacin 10% (1 L)", type: "OTHER", unit: "bottles", cost: 850, sell: 950, supplier: "vetPharma", minStock: 5, expiryAgo: -20 },
+  gumboro: { name: "Gumboro Vaccine (1000 dose)", type: "OTHER", unit: "bottles", cost: 300, sell: 360, supplier: "vetPharma", expiryAgo: 10 },
+  feeder: { name: "Round Feeder (plastic)", type: "OTHER", unit: "pcs", cost: 350, sell: 450, supplier: "vetPharma", minStock: 10 },
+};
+
+const FEEDS: ProductKey[] = ["starter", "grower", "finisher", "layerMash"];
+
+// ── State filled while the seed runs ──────────────────────────────────────────
+
+const supplierIds = {} as Record<SupplierKey, string>;
+const supplierOwed: Record<SupplierKey, number> = { feedMill: 0, hatchery: 0, vetPharma: 0 };
+const productIds = {} as Partial<Record<ProductKey, string>>;
+const stock: Record<ProductKey, number> = {
+  starter: 0, grower: 0, finisher: 0, layerMash: 0, chicks: 0, vitamin: 0, enro: 0, gumboro: 0, feeder: 0,
+};
+const customerIds: Record<string, string> = {};
+const customerOwed: Record<string, number> = {};
+let salesMade = 0;
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+function purchase(ago: number, supplier: SupplierKey, lines: Array<[ProductKey, number]>, tradeDiscount = 0) {
+  on(ago, O.purchase, `purchase ${supplier}`, async () => {
+    const items = lines.map(([key, quantity]) => {
+      const p = PRODUCTS[key];
+      return {
+        productName: p.name,
+        type: p.type,
+        unit: p.unit,
+        quantity,
+        costPrice: p.cost,
+        sellingPrice: p.sell,
+        ...(p.minStock != null ? { minStock: p.minStock } : {}),
+        ...(p.expiryAgo != null ? { expiryDate: dayAgo(p.expiryAgo) } : {}),
+      };
+    });
+    const res = await api("POST", `/dealer/manual-companies/${supplierIds[supplier]}/purchases`, {
+      items,
+      date: at(ago, 180),
+      ...(tradeDiscount ? { tradeDiscountAmount: tradeDiscount, notes: "Trade discount on bulk order" } : {}),
+    });
+    const saved = res.data.items as Array<{ dealerProductId: string }>;
+    lines.forEach(([key, quantity], i) => {
+      productIds[key] = saved[i].dealerProductId;
+      stock[key] += quantity;
+    });
+    const gross = lines.reduce((sum, [key, q]) => sum + q * PRODUCTS[key].cost, 0);
+    supplierOwed[supplier] += gross - tradeDiscount;
+  });
+}
+
+function paySupplier(ago: number, supplier: SupplierKey, share: number, method = "BANK_TRANSFER") {
+  on(ago, O.supplierPayment, `pay ${supplier}`, async () => {
+    const amount = roundTo(supplierOwed[supplier] * share, 1000);
+    if (amount <= 0) return;
+    await api("POST", `/dealer/manual-companies/${supplierIds[supplier]}/payments`, {
+      amount,
+      direction: "MADE",
+      paymentMethod: method,
+      paymentDate: at(ago, 540),
+      notes: "Payment to supplier",
+    });
+    supplierOwed[supplier] -= amount;
+  });
+}
+
+type SaleLine = [ProductKey, number];
+
+function sale(ago: number, minute: number, customer: string, lines: SaleLine[], pay: "cash" | "part" | "credit", discount?: { type: "PERCENT" | "FLAT"; value: number }) {
+  on(ago, O.sale, `sale ${customer}`, async () => {
+    // Only sell what is in stock right now (the API rejects short stock).
+    const items = lines
+      .map(([key, qty]) => [key, Math.min(qty, stock[key])] as SaleLine)
+      .filter(([key, qty]) => qty > 0 && productIds[key]);
+    if (items.length === 0) return;
+
+    const subtotal = items.reduce((sum, [key, qty]) => sum + qty * PRODUCTS[key].sell, 0);
+    const discountAmount = !discount ? 0 : discount.type === "FLAT" ? Math.min(discount.value, subtotal) : round2((subtotal * discount.value) / 100);
+    const total = round2(subtotal - discountAmount);
+    const paid = pay === "cash" ? total : pay === "part" ? roundTo(total * (0.4 + rnd() * 0.3), 100) : 0;
+
+    await api("POST", "/dealer/sales", {
+      customerId: customerIds[customer],
+      items: items.map(([key, qty]) => ({ productId: productIds[key], quantity: qty, unitPrice: PRODUCTS[key].sell, unit: PRODUCTS[key].unit })),
+      paidAmount: paid,
+      paymentMethod: pay === "credit" ? undefined : pick(["CASH", "CASH", "BANK_TRANSFER"]),
+      date: at(ago, 240 + minute),
+      ...(discount ? { discount } : {}),
+    });
+    items.forEach(([key, qty]) => { stock[key] -= qty; });
+    customerOwed[customer] += total - paid;
+    salesMade += 1;
+  });
+}
+
+function customerPayment(ago: number, customer: string, share: number) {
+  on(ago, O.customerPayment, `payment ${customer}`, async () => {
+    const amount = roundTo(customerOwed[customer] * share, 500);
+    if (amount <= 0) return;
+    await api("POST", "/dealer/ledger/payments", {
+      customerId: customerIds[customer],
+      amount,
+      direction: "RECEIVED",
+      paymentMethod: pick(["CASH", "BANK_TRANSFER", "CASH"]),
+      date: dayAgo(ago),
+      notes: "Payment received",
+    });
+    customerOwed[customer] -= amount;
+  });
+}
+
+// ── Plan ──────────────────────────────────────────────────────────────────────
+
+const CUSTOMERS: Array<{ name: string; phone: string; address: string; category: string; opening: number; kind: "broiler" | "layer" | "both" }> = [
+  { name: "Ram Bahadur Thapa", phone: "9846100001", address: "Bharatpur-11, Chitwan", category: "Broiler farmer", opening: 85000, kind: "broiler" },
+  { name: "Sita Gurung", phone: "9846100002", address: "Ratnanagar-3, Chitwan", category: "Broiler farmer", opening: 0, kind: "broiler" },
+  { name: "Hari Prasad Adhikari", phone: "9846100003", address: "Khairahani-5, Chitwan", category: "Broiler farmer", opening: 0, kind: "broiler" },
+  { name: "Gita Poudel", phone: "9846100004", address: "Kalika-8, Chitwan", category: "Layer farmer", opening: 42000, kind: "layer" },
+  { name: "Bishnu Shrestha", phone: "9846100005", address: "Madi-2, Chitwan", category: "Broiler farmer", opening: 0, kind: "broiler" },
+  { name: "Krishna Chaudhary", phone: "9846100006", address: "Rapti-4, Chitwan", category: "Broiler farmer", opening: 0, kind: "broiler" },
+  { name: "Laxmi Kandel", phone: "9846100007", address: "Ichchhakamana-1, Chitwan", category: "Layer farmer", opening: 0, kind: "layer" },
+  { name: "Durga Bhattarai", phone: "9846100008", address: "Bharatpur-15, Chitwan", category: "Mixed farmer", opening: 0, kind: "both" },
+];
+
+function planSchedule() {
+  // Supplier opening balance (what the shop owed before using the app).
+  on(100, O.opening, "supplier opening", async () => {
+    await api("POST", `/dealer/manual-companies/${supplierIds.feedMill}/opening-balance`, {
+      openingBalance: 150000,
+      notes: "Balance before using Poultry360",
+      date: at(100, 60),
+    });
+    supplierOwed.feedMill += 150000;
+  });
+
+  // Feed every ~12 days, chicks every ~14 days, medicine twice.
+  for (let ago = 98, i = 0; ago >= 3; ago -= 12, i += 1) {
+    purchase(ago, "feedMill", [["starter", 60], ["grower", 110], ["finisher", 110], ["layerMash", 40]], i === 3 ? 5000 : 0);
+    paySupplier(ago - 5, "feedMill", 0.55);
+  }
+  for (let ago = 97; ago >= 3; ago -= 14) {
+    purchase(ago, "hatchery", [["chicks", 4000]]);
+    paySupplier(ago - 2, "hatchery", 0.8, "CASH");
+  }
+  purchase(95, "vetPharma", [["vitamin", 40], ["enro", 15], ["gumboro", 30], ["feeder", 40]]);
+  purchase(45, "vetPharma", [["vitamin", 30], ["enro", 12]]);
+  paySupplier(60, "vetPharma", 0.7, "CASH");
+  paySupplier(20, "vetPharma", 0.5, "CASH");
+
+  // Sales: most days 1-3 bills, mixed cash / part / credit.
+  const discountFor = () => {
+    const r = rnd();
+    if (r < 0.12) return { type: "FLAT" as const, value: pick([200, 500, 1000]) };
+    if (r < 0.2) return { type: "PERCENT" as const, value: pick([1, 2]) };
+    return undefined;
+  };
+  for (let ago = 96; ago >= 0; ago -= 1) {
+    if (rnd() < 0.3) continue; // closed or quiet day
+    const bills = between(1, 3);
+    for (let b = 0; b < bills; b += 1) {
+      const c = pick(CUSTOMERS);
+      const lines: SaleLine[] = [];
+      if (c.kind === "layer" || (c.kind === "both" && rnd() < 0.4)) {
+        lines.push(["layerMash", between(3, 12)]);
+      } else {
+        const feed = pick(["starter", "grower", "grower", "finisher", "finisher"] as ProductKey[]);
+        lines.push([feed, between(5, 30)]);
+        if (rnd() < 0.35) lines.push([feed === "starter" ? "grower" : "finisher", between(5, 20)]);
+        if (rnd() < 0.18) lines.push(["chicks", pick([500, 800, 1000, 1500])]);
+      }
+      if (rnd() < 0.25) lines.push([pick(["vitamin", "enro", "vitamin", "gumboro"] as ProductKey[]), between(1, 4)]);
+      if (rnd() < 0.06) lines.push(["feeder", between(2, 6)]);
+      const r = rnd();
+      sale(ago, b * 25, c.name, lines, r < 0.45 ? "cash" : r < 0.75 ? "part" : "credit", discountFor());
+    }
+  }
+
+  // Customers pay part of what they owe about once a week.
+  for (const c of CUSTOMERS) {
+    for (let ago = 90 - between(0, 6); ago >= 1; ago -= between(6, 10)) {
+      customerPayment(ago, c.name, 0.35 + rnd() * 0.4);
+    }
+  }
+}
+
+// ── Staff, cash and archive (after sales) ────────────────────────────────────
+
+async function seedStaff(password: string) {
+  const staff: Array<{ name: string; payType: "MONTHLY" | "DAILY"; rate: number; startAgo: number }> = [
+    { name: "Ramesh Tamang (shop helper)", payType: "MONTHLY", rate: 18000, startAgo: 130 },
+    { name: "Sunita Rai (accounts)", payType: "MONTHLY", rate: 22000, startAgo: 130 },
+    { name: "Bikash Magar (loading)", payType: "DAILY", rate: 800, startAgo: 45 },
+  ];
+  for (const s of staff) {
+    const res = await api("POST", "/dealer/staff", {
+      name: s.name,
+      payType: s.payType,
+      startDate: `${dayAgo(s.startAgo)}T00:00:00.000Z`,
+      rate: s.rate,
+    });
+    const id = res.data.id;
+    if (s.payType === "MONTHLY") {
+      for (const ago of [95, 65, 35, 5]) {
+        await api("POST", `/dealer/staff/${id}/payments`, { amount: s.rate, paidAt: `${dayAgo(ago)}T12:00:00.000Z`, note: "Monthly salary" });
+      }
+    } else {
+      for (const ago of [40, 33, 26, 19, 12]) {
+        await api("PUT", `/dealer/staff/${id}/attendance`, { date: dayAgo(ago), status: "ABSENT" });
+      }
+      await api("PUT", `/dealer/staff/${id}/attendance`, { date: dayAgo(8), status: "HALF_DAY" });
+      for (const ago of [30, 15, 2]) {
+        await api("POST", `/dealer/staff/${id}/payments`, { amount: 8000, paidAt: `${dayAgo(ago)}T12:00:00.000Z`, note: "Wages" });
+      }
+    }
+  }
+
+  const existingStaffLogin = await prisma.staffUser.findFirst({ where: { phone: STAFF_LOGIN_PHONE } }).catch(() => null);
+  if (!existingStaffLogin) {
+    await api("POST", "/staff-auth/users", {
+      name: "Sunita Rai",
+      phone: STAFF_LOGIN_PHONE,
+      password,
+      permissions: ["DEALER_VIEW_FINANCIAL_SUMMARIES", "DEALER_VIEW_CASH_HISTORY"],
+    });
+  }
+}
+
+async function seedCashToday() {
+  await api("POST", "/dealer/cash-in-hand/setup", { initialOpening: 45000 });
+  const moves: Array<["IN" | "OUT", number, string, string]> = [
+    ["IN", 38500, "Ram Bahadur Thapa", "Feed sale cash"],
+    ["IN", 12000, "Sita Gurung", "Old due"],
+    ["OUT", 2500, "Tea and snacks", "Shop expense"],
+    ["OUT", 6000, "Truck rent", "Feed delivery to Khairahani"],
+    ["IN", 9600, "Walk-in customer", "Medicine and feeders"],
+  ];
+  for (const [direction, amount, partyName, notes] of moves) {
+    await api("POST", "/dealer/cash-in-hand/movements", { direction, amount, partyName, notes });
+  }
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+
+async function ensureDemoDealerLogin(): Promise<string> {
+  const explicitPassword = process.env[account.passwordEnv];
+  const password = explicitPassword || process.env.P360_DEMO_PASSWORD || DEFAULT_DEMO_PASSWORD;
+
+  const existing = await prisma.user.findUnique({ where: { id: account.id }, select: { id: true } });
+  if (existing) {
+    const dealer = await prisma.dealer.findUnique({ where: { ownerId: account.id }, select: { id: true } });
+    if (dealer) {
+      const suppliers = await prisma.dealerManualCompany.count({ where: { dealerId: dealer.id } });
+      if (suppliers > 0) {
+        throw new Error(
+          `Demo dealer ${account.phone} already has data (${suppliers} supplier(s)). Delete that demo account's data first; re-running would duplicate it.`,
+        );
+      }
+    }
+  }
+
+  const hash = await bcrypt.hash(password, 12);
+  await prisma.$transaction(async (tx) => {
+    const user = await upsertDemoUser(tx, account, hash);
+    const byId = await tx.dealer.findUnique({ where: { id: DEALER_ID } });
+    if (byId && byId.ownerId !== user.id) {
+      throw new Error(`Refusing to seed: reserved dealer id ${DEALER_ID} belongs to another owner.`);
+    }
+    const owned = await tx.dealer.findUnique({ where: { ownerId: user.id } });
+    if (!owned) {
+      await tx.dealer.create({
+        data: { id: DEALER_ID, name: account.businessName, contact: account.phone.replace("+977", ""), address: account.location, ownerId: user.id },
+      });
+    }
+  });
+  return password;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+async function main() {
+  if (!isLocalDatabase() && process.env.P360_DEMO_SEED_CONFIRMED !== "1") {
+    throw new Error(
+      "Not a local database. To seed production, run scripts/seed-demo-prod.sh (it asks for a backup check first).",
+    );
+  }
+  console.log(`Seeding demo dealer through ${API_URL} (Nepal today ${NEPAL_TODAY})...`);
+
+  const password = await ensureDemoDealerLogin();
+  const login = await api("POST", "/auth/login", { emailOrPhone: account.phone, password });
+  token = login.accessToken;
+
+  // Suppliers.
+  const suppliers: Array<[SupplierKey, string, string, string]> = [
+    ["feedMill", "Shree Krishna Feed Udhyog", "9855100001", "Narayangadh, Chitwan"],
+    ["hatchery", "Kalika Hatchery", "9855100002", "Ratnanagar, Chitwan"],
+    ["vetPharma", "Nepal Vet Pharma", "9855100003", "Bharatpur-10, Chitwan"],
+  ];
+  for (const [key, name, phone, address] of suppliers) {
+    supplierIds[key] = (await api("POST", "/dealer/manual-companies", { name, phone, address })).data.id;
+  }
+
+  // Customers (opening balances are entered on day 100 so statements start with them).
+  for (const c of CUSTOMERS) {
+    const res = await api("POST", "/dealer/sales/customers", { name: c.name, phone: c.phone, address: c.address, category: c.category });
+    customerIds[c.name] = res.data.id;
+    customerOwed[c.name] = 0;
+    if (c.opening) {
+      on(100, O.opening, `customer opening ${c.name}`, async () => {
+        await api("POST", `/sales/customers/${customerIds[c.name]}/opening-balance`, {
+          openingBalance: c.opening,
+          notes: "Balance before using Poultry360",
+          date: at(100, 90),
+        });
+        customerOwed[c.name] += c.opening;
+      });
+    }
+  }
+
+  // A customer who bought early, paid in full, then moved away (archived at the end).
+  const OLD_CUSTOMER = "Mohan Lama (moved away)";
+  customerIds[OLD_CUSTOMER] = (await api("POST", "/dealer/sales/customers", {
+    name: OLD_CUSTOMER,
+    phone: "9846100009",
+    address: "Bharatpur-2, Chitwan",
+    category: "Broiler farmer",
+  })).data.id;
+  customerOwed[OLD_CUSTOMER] = 0;
+  sale(92, 50, OLD_CUSTOMER, [["starter", 10], ["vitamin", 2]], "cash");
+
+  planSchedule();
+  events.sort((a, b) => b.ago - a.ago || a.order - b.order);
+  for (const event of events) {
+    if (event.ago < 0) continue; // never enter future dates
+    await event.run();
+  }
+
+  await api("POST", `/dealer/sales/customers/${customerIds[OLD_CUSTOMER]}/archive`);
+
+  await seedStaff(password);
+  await seedCashToday();
+
+  console.log(`\nDemo dealer ready (${salesMade} sales, ${callCount} API calls).`);
+  console.log(`Phone: ${account.phone} (log in with ${account.phone.replace("+977", "")})`);
+  console.log(`Password: ${process.env[account.passwordEnv] ? "(the one you set)" : password}`);
+  console.log(`Staff login: ${STAFF_LOGIN_PHONE.replace("+977", "")} (same password)`);
+}
+
+main()
   .catch((error) => {
-    console.error("Dealer demo seed failed:", error);
+    console.error("\nDemo dealer seed failed:", error instanceof Error ? error.message : error);
     process.exitCode = 1;
   })
   .finally(async () => {

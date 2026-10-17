@@ -91,12 +91,6 @@ export const farmerNavigation: NavigationItem[] = [
     requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
-    nameKey: "sidebar.nav.listForSale",
-    href: "/farmer/dashboard/list-for-sale",
-    icon: Tag,
-    requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
-  },
-  {
     nameKey: "sidebar.nav.staffManagement",
     href: "/farmer/dashboard/staff",
     icon: Users,
@@ -123,9 +117,10 @@ export const farmerNavigation: NavigationItem[] = [
     requiredStaffPermission: "FARMER_VIEW_CASH_HISTORY",
   },
   {
-    nameKey: "sidebar.nav.chatWithDoctor",
-    href: "/farmer/dashboard/chat-doctor",
-    icon: MessageCircle,
+    nameKey: "sidebar.nav.listForSale",
+    href: "/farmer/dashboard/list-for-sale",
+    icon: Tag,
+    requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE,
     requiredStaffPermission: "FARMER_MANAGE_OPERATIONS",
   },
   {
@@ -133,15 +128,6 @@ export const farmerNavigation: NavigationItem[] = [
     href: "/farmer/dashboard/analytics",
     icon: BarChart3,
     requiredStaffPermission: "FARMER_VIEW_ANALYTICS",
-  },
-];
-
-const doctorNavigation: NavigationItem[] = [
-  { nameKey: "sidebar.nav.dashboard", href: "/doctor/dashboard", icon: Home },
-  {
-    nameKey: "sidebar.nav.chat",
-    href: "/doctor/dashboard/chat",
-    icon: MessageCircle,
   },
 ];
 
@@ -166,12 +152,6 @@ export const dealerNavigation: NavigationItem[] = [
     nameKey: "sidebar.nav.sales",
     href: "/dealer/dashboard/sales",
     icon: Receipt,
-  },
-  {
-    nameKey: "sidebar.nav.analytics",
-    href: "/dealer/dashboard/analytics",
-    icon: BarChart3,
-    requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
   },
   {
     nameKey: "sidebar.nav.staffAccess",
@@ -199,6 +179,12 @@ export const dealerNavigation: NavigationItem[] = [
     icon: Wallet,
     // Cash details are private by default for staff. Dealer owners always see it.
     requiredStaffPermission: "DEALER_VIEW_CASH_HISTORY",
+  },
+  {
+    nameKey: "sidebar.nav.analytics",
+    href: "/dealer/dashboard/analytics",
+    icon: BarChart3,
+    requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
   },
 ];
 
@@ -400,7 +386,6 @@ interface SidebarProps {
   role?:
     | "OWNER"
     | "MANAGER"
-    | "DOCTOR"
     | "SUPER_ADMIN"
     | "DEALER"
     | "COMPANY"
@@ -420,7 +405,6 @@ export default function Sidebar({
 
   // Get navigation based on role
   const getNavigation = () => {
-    if (role === "DOCTOR") return doctorNavigation;
     if (role === "SUPER_ADMIN") return adminNavigation;
     if (role === "DEALER") return dealerNavigation;
     if (role === "COMPANY") return companyNavigation;
@@ -450,12 +434,6 @@ export default function Sidebar({
   // Get role display info
   const getRoleInfo = () => {
     const userTitle = user?.isStaff ? t("sidebar.roles.staff.userTitle") : undefined;
-    if (role === "DOCTOR") {
-      return {
-        subtitle: t("sidebar.roles.doctor.subtitle"),
-        userTitle: userTitle ?? t("sidebar.roles.doctor.userTitle"),
-      };
-    }
     if (role === "SUPER_ADMIN") {
       return {
         subtitle: t("sidebar.roles.admin.subtitle"),
@@ -547,9 +525,6 @@ export default function Sidebar({
           } else if (item.href === "/farmer/dashboard/home") {
             // For farmer home, only active if exactly on /farmer/dashboard/home
             isActive = pathname === "/farmer/dashboard/home";
-          } else if (item.href === "/doctor/dashboard") {
-            // For doctor dashboard, only active if exactly on /doctor/dashboard
-            isActive = pathname === "/doctor/dashboard";
           } else if (item.href === "/dealer/dashboard/home") {
             // For dealer home, only active if exactly on /dealer/dashboard/home
             isActive = pathname === "/dealer/dashboard/home";

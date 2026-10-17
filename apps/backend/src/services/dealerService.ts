@@ -6,6 +6,7 @@ import {
   type DiscountType,
 } from "../utils/discountHelpers";
 import { generateNextInvoiceNumber } from "../utils/invoiceNumber";
+import { computeLineCost, getNetUnitCosts } from "./dealerCostService";
 
 export class DealerService {
   /**
@@ -154,6 +155,7 @@ export class DealerService {
       }
 
       // 3. Prepare bulk operations — compute baseQuantity for unit conversions
+      const unitCosts = await getNetUnitCosts(tx, items.map((item) => item.productId));
       const saleItemsData = await Promise.all(items.map(async (item, i) => {
         let baseQuantity: number | null = null;
         const product = productChecks[i];
@@ -168,6 +170,9 @@ export class DealerService {
             baseQuantity = item.quantity * Number(conv.conversionFactor);
           }
         }
+        // Cost uses the same quantity that is taken out of stock below.
+        const unitCost = item.productId ? unitCosts.get(item.productId) ?? null : null;
+        const costAmount = unitCost !== null ? computeLineCost(unitCost, baseQuantity ?? item.quantity) : null;
         return {
           saleId: sale.id,
           productId: item.productId || null,
@@ -179,6 +184,8 @@ export class DealerService {
             ? item.broilerCount
             : null,
           baseQuantity: baseQuantity !== null ? new Prisma.Decimal(baseQuantity) : null,
+          unitCost: unitCost !== null ? new Prisma.Decimal(unitCost) : null,
+          costAmount: costAmount !== null ? new Prisma.Decimal(costAmount) : null,
         };
       }));
 
@@ -483,17 +490,25 @@ export class DealerService {
         }
       }
 
+      const unitCosts = await getNetUnitCosts(tx, resolvedItems.map((item) => item.productId));
+
       await Promise.all([
         tx.dealerSaleItem.createMany({
-          data: resolvedItems.map((item) => ({
-            saleId: sale.id,
-            productId: item.productId,
-            quantity: new Prisma.Decimal(item.quantity),
-            unitPrice: new Prisma.Decimal(item.unitPrice),
-            totalAmount: new Prisma.Decimal(item.lineTotal),
-            unit: item.unit,
-            baseQuantity: new Prisma.Decimal(item.baseQuantity),
-          })),
+          data: resolvedItems.map((item) => {
+            const unitCost = unitCosts.get(item.productId) ?? null;
+            const costAmount = unitCost !== null ? computeLineCost(unitCost, item.baseQuantity) : null;
+            return {
+              saleId: sale.id,
+              productId: item.productId,
+              quantity: new Prisma.Decimal(item.quantity),
+              unitPrice: new Prisma.Decimal(item.unitPrice),
+              totalAmount: new Prisma.Decimal(item.lineTotal),
+              unit: item.unit,
+              baseQuantity: new Prisma.Decimal(item.baseQuantity),
+              unitCost: unitCost !== null ? new Prisma.Decimal(unitCost) : null,
+              costAmount: costAmount !== null ? new Prisma.Decimal(costAmount) : null,
+            };
+          }),
         }),
         tx.dealerProductTransaction.createMany({
           data: resolvedItems.map((item) => ({

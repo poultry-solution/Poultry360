@@ -75,10 +75,6 @@ export function DataTable<T = any>({
   rowClassName,
   isRowSelectable,
 }: DataTableProps<T>) {
-  const gridTemplate = React.useMemo(() => {
-    const base = columns.map((c) => `minmax(${c.width ?? '140px'}, 1fr)`);
-    return [selectable ? '48px' : '', ...base].filter(Boolean).join(' ');
-  }, [columns, selectable]);
   const handleSort = (key: string) => {
     if (!onSort) return;
     
@@ -162,73 +158,93 @@ export function DataTable<T = any>({
     );
   }
 
+  const colCount = columns.length + (selectable ? 1 : 0);
+
+  // A real <table>: each column is as wide as its own content, cells never
+  // wrap or cut text, and the table scrolls sideways only when the content is
+  // wider than the card. `width` on a column is its preferred width.
   return (
     <div className={cn("w-full border border-gray-200 rounded-lg overflow-hidden bg-white", className)}>
       <div className="overflow-x-auto">
-        <div className="min-w-max">
+        <table className="w-full border-collapse whitespace-nowrap text-sm">
           {showHeader && (
-            <div className="bg-gray-50 border-b border-gray-200">
-              <div className="grid" style={{ gridTemplateColumns: gridTemplate }}>
-              {selectable && (
-                <div className={cn("px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-200 flex items-center justify-center")}> 
-                  <input
-                    type="checkbox"
-                    aria-label="Select all rows"
-                    className="h-4 w-4 cursor-pointer"
-                    checked={!!isAllSelected}
-                    onChange={onToggleAll}
-                  />
-                </div>
-              )}
-              {columns.map((column) => (
-                <div
-                  key={column.key}
-                  className={cn(
-                    "px-4 py-3 text-sm font-semibold text-gray-900 border-r border-gray-200 last:border-r-0",
-                    column.align === 'center' && "text-center",
-                    column.align === 'right' && "text-right",
-                    column.className
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{column.label}</span>
-                    {column.sortable && onSort && (
-                      <div className="flex flex-col">
-                        <button
-                          onClick={() => handleSort(column.key)}
-                          className={cn(
-                            "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded",
-                            sortKey === column.key && sortDirection === 'asc' && "text-primary"
-                          )}
-                        >
-                          <ChevronUp className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => handleSort(column.key)}
-                          className={cn(
-                            "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded -mt-1",
-                            sortKey === column.key && sortDirection === 'desc' && "text-primary"
-                          )}
-                        >
-                          <ChevronDown className="h-3 w-3" />
-                        </button>
-                      </div>
+            <thead className="bg-gray-50">
+              <tr className="border-b border-gray-200">
+                {selectable && (
+                  <th
+                    className="w-12 px-4 py-3 text-center align-middle font-semibold text-gray-900 border-r border-gray-200"
+                    style={{ width: 48 }}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label="Select all rows"
+                      className="h-4 w-4 cursor-pointer align-middle"
+                      checked={!!isAllSelected}
+                      onChange={onToggleAll}
+                    />
+                  </th>
+                )}
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    style={column.width ? { width: column.width } : undefined}
+                    className={cn(
+                      "px-4 py-3 text-left align-middle font-semibold text-gray-900 border-r border-gray-200 last:border-r-0",
+                      column.align === 'center' && "text-center",
+                      column.align === 'right' && "text-right",
+                      column.className
                     )}
-                  </div>
-                </div>
-              ))}
-              </div>
-            </div>
+                  >
+                    <div
+                      className={cn(
+                        "flex items-center gap-2",
+                        column.align === 'center' && "justify-center",
+                        column.align === 'right' && "justify-end"
+                      )}
+                    >
+                      <span>{column.label}</span>
+                      {column.sortable && onSort && (
+                        <div className="flex flex-col">
+                          <button
+                            type="button"
+                            onClick={() => handleSort(column.key)}
+                            className={cn(
+                              "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded",
+                              sortKey === column.key && sortDirection === 'asc' && "text-primary"
+                            )}
+                          >
+                            <ChevronUp className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSort(column.key)}
+                            className={cn(
+                              "h-3 w-3 flex items-center justify-center hover:bg-gray-200 rounded -mt-1",
+                              sortKey === column.key && sortDirection === 'desc' && "text-primary"
+                            )}
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
           )}
-          
-          <div className="divide-y divide-gray-200">
+
+          <tbody>
             {data.length === 0 ? (
-              <div className="px-4 py-12 text-center text-gray-500">
-                {emptyMessage}
-              </div>
+              <tr>
+                <td colSpan={colCount} className="px-4 py-12 text-center text-gray-500 whitespace-normal">
+                  {emptyMessage}
+                </td>
+              </tr>
             ) : (
               data.map((row, index) => (
-                <div
+                <tr
                   key={getRowKey ? getRowKey(row, index) : index}
                   role={onRowClick ? "button" : undefined}
                   tabIndex={onRowClick ? 0 : undefined}
@@ -244,46 +260,45 @@ export function DataTable<T = any>({
                       : undefined
                   }
                   className={cn(
-                    "grid hover:bg-gray-50 transition-colors duration-150",
+                    "border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors duration-150",
                     onRowClick && "cursor-pointer",
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/30",
                     rowClassName?.(row, index)
                   )}
-                  style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {selectable && (
-                    <div className={cn("px-4 py-3 text-sm border-r border-gray-200 flex items-center justify-center")}>
+                    <td className="px-4 py-3 text-center align-middle border-r border-gray-200">
                       {(!isRowSelectable || isRowSelectable(row)) ? (
                         <input
                           type="checkbox"
                           aria-label="Select row"
-                          className="h-4 w-4 cursor-pointer"
+                          className="h-4 w-4 cursor-pointer align-middle"
                           checked={isRowSelected ? !!isRowSelected(row) : false}
                           onChange={() => onToggleRow && onToggleRow(row)}
                         />
                       ) : (
-                        <div className="h-4 w-4" />
+                        <div className="mx-auto h-4 w-4" />
                       )}
-                    </div>
+                    </td>
                   )}
                   {columns.map((column) => (
-                    <div
+                    <td
                       key={column.key}
                       className={cn(
-                        "px-4 py-3 text-sm border-r border-gray-200 last:border-r-0",
+                        "px-4 py-3 align-middle border-r border-gray-200 last:border-r-0",
                         column.align === 'center' && "text-center",
                         column.align === 'right' && "text-right",
                         column.className
                       )}
                     >
                       {renderCell(column, row, index)}
-                    </div>
+                    </td>
                   ))}
-                </div>
+                </tr>
               ))
             )}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
       
       {showFooter && footerContent && (

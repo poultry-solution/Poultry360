@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Package, AlertTriangle, TrendingUp, Check, X, ArrowRightLeft, Repeat } from "lucide-react";
+import { Search, Package, AlertTriangle, TrendingUp, Check, X, ArrowRightLeft, Repeat, Eye, EyeOff } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -322,17 +322,19 @@ export default function DealerInventoryPage() {
                 <SelectItem value="EXPIRED">Expired items</SelectItem>
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Input
-                type="checkbox"
-                checked={showHidden}
-                onChange={(e) => {
-                  setShowHidden(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Show hidden
-            </label>
+            <Button
+              type="button"
+              variant={showHidden ? "default" : "outline"}
+              className="h-9 gap-1.5 whitespace-nowrap"
+              aria-pressed={showHidden}
+              onClick={() => {
+                setShowHidden((value) => !value);
+                setPage(1);
+              }}
+            >
+              {showHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              {showHidden ? "Showing hidden" : "Show hidden"}
+            </Button>
           </div>
           <CardDescription className="text-xs md:text-sm">
             {pagination?.total || 0} {t("dealer.inventory.stats.products")}

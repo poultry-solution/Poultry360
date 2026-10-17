@@ -6,11 +6,14 @@ import { useState } from "react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 
 import { useAuth } from "@/common/store/store";
 import { Eye, EyeOff } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { AppLoadingScreen } from "@/common/components/ui/loading-screen";
+
+const PROVINCES = ["Koshi", "Madhesh", "Bagmati", "Gandaki", "Lumbini", "Karnali", "Sudurpashchim"] as const;
 
 export default function SignupPage() {
   const { register, isLoading, error, clearError } = useAuth();
@@ -149,23 +152,21 @@ export default function SignupPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="province">{t("auth.signup.provinceLabel")}</Label>
-                    <select
-                      id="province"
-                      name="province"
+                    <Select
                       value={formData.province}
-                      onChange={handleInputChange}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      onValueChange={(province) => setFormData((prev) => ({ ...prev, province }))}
                     >
-                      <option value="Koshi">Koshi Province</option>
-                      <option value="Madhesh">Madhesh Province</option>
-                      <option value="Bagmati">Bagmati Province</option>
-                      <option value="Gandaki">Gandaki Province</option>
-                      <option value="Lumbini">Lumbini Province</option>
-                      <option value="Karnali">Karnali Province</option>
-                      <option value="Sudurpashchim">
-                        Sudurpashchim Province
-                      </option>
-                    </select>
+                      <SelectTrigger id="province" className="h-10 w-full bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper" align="start" className="bg-white">
+                        {PROVINCES.map((province) => (
+                          <SelectItem key={province} value={province}>
+                            {province} Province
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">

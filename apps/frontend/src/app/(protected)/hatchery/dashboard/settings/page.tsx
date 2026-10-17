@@ -1,4 +1,5 @@
 "use client";
+import { BillSettingsCard } from "@/components/settings/BillSettingsCard";
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -172,6 +173,8 @@ function HatcherySettingsContent() {
           </div>
         </CardContent>
       </Card>
+
+      <BillSettingsCard />
 
       <Card>
         <CardHeader>

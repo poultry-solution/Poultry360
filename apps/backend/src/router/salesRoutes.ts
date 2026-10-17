@@ -4,10 +4,8 @@ import {
   getSaleById,
   getBatchSales,
   createSale,
-  updateSale,
   deleteSale,
   addSalePayment,
-  getSaleStatistics,
   getSalesCategories,
   createSalesCategory,
   getCustomersForSales,
@@ -55,9 +53,6 @@ router.get("/customers", getCustomersForSales);
 // GET /api/sales/customers/:id - Get one customer account
 router.get("/customers/:id", getCustomerById);
 
-// GET /api/sales/statistics - Get sales statistics
-router.get("/statistics", getSaleStatistics);
-
 // ==================== CUSTOMER MANAGEMENT ROUTES ====================
 
 // POST /api/sales/customers - Create new customer
@@ -86,9 +81,6 @@ router.post("/", createSale);
 
 // GET /api/sales/:id - Get sale by ID
 router.get("/:id", getSaleById);
-
-// PUT /api/sales/:id - Update sale by ID
-router.put("/:id", updateSale);
 
 // DELETE /api/sales/:id - Delete sale by ID
 router.delete("/:id", deleteSale);

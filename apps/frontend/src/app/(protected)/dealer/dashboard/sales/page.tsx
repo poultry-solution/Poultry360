@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, Bird, Building2 } from "lucide-react";
+import { Search, Eye, Calendar as CalendarIcon, User, Phone, Package, FileText, Trash2, ReceiptText } from "lucide-react";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -31,14 +31,17 @@ import {
   type DealerSale,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { DealerSaleBill } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { useAuthStore } from "@/common/store/store";
-import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
+import { NewSaleMenuButton } from "@/components/dealer/sales/NewSaleMenuButton";
 
 export default function DealerSalesPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
   const user = useAuthStore((state) => state.user);
   const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
   const [page, setPage] = useState(1);
@@ -47,12 +50,6 @@ export default function DealerSalesPage() {
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
   const [deletePassword, setDeletePassword] = useState("");
   const deleteSaleMutation = useDeleteDealerSale();
-  const supplierSettlementFeature = useAccountFeature(
-    ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES
-  );
-  const broilerFeature = useAccountFeature(
-    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
-  );
   const { data: salesStatsData, isLoading: salesStatsLoading } = useGetSalesStatistics(undefined, { enabled: canViewFinancialSummaries });
 
   // Get sales
@@ -124,37 +121,11 @@ export default function DealerSalesPage() {
         </div>
         <div className="flex flex-col items-start sm:items-end gap-2 sm:flex-row">
           <BusinessDownloadDialog title="sales" fileName="dealer-sales" getData={downloadSales} className="w-full sm:w-auto" />
-          {broilerFeature.isEnabled ? (
-            <Button
-              onClick={() => router.push("/dealer/dashboard/sales/chicken-by-farmer")}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Bird className="mr-2 h-4 w-4" />
-              Broiler Sales by Farmer
-            </Button>
-          ) : null}
-          <Button
-            onClick={() => router.push("/dealer/dashboard/sales/new")}
-            variant="outline"
-            className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">{t("dealer.sales.buttons.newSale")}</span>
-            <span className="sm:hidden">{t("dealer.sales.buttons.newSale")}</span>
-          </Button>
-          {supplierSettlementFeature.isEnabled ? (
-            <Button
-              onClick={() => router.push("/dealer/dashboard/sales/supplier-settlement")}
-              variant="outline"
-              className="w-full sm:w-auto border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              Sell to company
-            </Button>
-          ) : null}
+          <NewSaleMenuButton label={t("dealer.sales.buttons.newSale")} />
         </div>
       </div>
+
+      <DealerSalesTabs />
 
       {/* Search */}
       <div className="max-w-md">
@@ -274,24 +245,28 @@ export default function DealerSalesPage() {
               {
                 key: 'isCredit',
                 label: t("dealer.sales.table.type"),
-                width: '70px',
+                width: '100px',
                 render: (_val, row) => {
                   if (row.isSupplierSettlementSale) {
                     return <Badge variant="outline" className="border-blue-300 text-blue-800">Settled</Badge>;
                   }
-                  const hadInitialPayment = Number(row.paidAmount) > 0;
-                  return (
-                    <Badge variant={hadInitialPayment ? "default" : "secondary"} className="text-xs">
-                      {hadInitialPayment ? t("dealer.sales.badges.cash") : t("dealer.sales.badges.credit")}
-                    </Badge>
-                  );
+                  // Based on what was paid when the sale was made.
+                  const paid = Number(row.paidAmount) || 0;
+                  const total = Number(row.totalAmount) || 0;
+                  if (paid > 0 && paid >= total) {
+                    return <Badge className="bg-green-100 text-xs text-green-800 hover:bg-green-100">{t("dealer.sales.badges.cash")}</Badge>;
+                  }
+                  if (paid > 0) {
+                    return <Badge className="bg-amber-100 text-xs text-amber-800 hover:bg-amber-100">{t("dealer.sales.badges.partlyPaid")}</Badge>;
+                  }
+                  return <Badge className="bg-red-100 text-xs text-red-800 hover:bg-red-100">{t("dealer.sales.badges.credit")}</Badge>;
                 }
               },
               {
                 key: 'actions',
                 label: t("dealer.sales.table.actions"),
                 align: 'right',
-                width: '80px',
+                width: '110px',
                 render: (_, row) => (
                   <div className="flex justify-end gap-1">
                     <Button
@@ -302,6 +277,19 @@ export default function DealerSalesPage() {
                       title="View details"
                     >
                       <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBillSaleId(row.id);
+                      }}
+                      title={t("bills.openBill")}
+                      aria-label={t("bills.openBill")}
+                    >
+                      <ReceiptText className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -597,6 +585,7 @@ export default function DealerSalesPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      <DealerSaleBill saleId={billSaleId} onClose={() => setBillSaleId(null)} />
     </div>
   );
 }

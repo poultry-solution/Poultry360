@@ -1,364 +1,202 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
-export type FarmerAnalyticsBatchType = "BROILER" | "LAYERS";
-export type FarmerAnalyticsBatchStatus = "ACTIVE" | "COMPLETED";
-export type FarmerAnalyticsGroupBy = "daily" | "weekly" | "monthly";
-export type FarmerReportType =
-  | "daily"
-  | "weekly"
-  | "monthly"
-  | "batch"
-  | "expense"
-  | "sales"
-  | "mortality"
-  | "egg-production";
+/**
+ * Farmer analytics. Dates are Nepal days ("YYYY-MM-DD" AD). No dates = all time.
+ * Period numbers follow the dates; per-batch numbers are whole batch life.
+ */
 
-export interface FarmerAnalyticsOverviewParams {
+export type FarmerAnalyticsBatchType = "BROILER" | "LAYERS";
+export type FarmerAnalyticsGroupBy = "daily" | "weekly" | "monthly";
+export type FarmerReportType = "money" | "batches" | "sales" | "costs" | "deaths" | "eggs";
+export type FcrStatus = "FRESH" | "STALE" | "WEIGHT_REQUIRED" | "FINAL" | "NOT_CALCULABLE";
+
+export interface FarmerAnalyticsParams {
   farmId?: string;
   batchId?: string;
   batchType?: FarmerAnalyticsBatchType;
-  status?: FarmerAnalyticsBatchStatus;
   startDate?: string;
   endDate?: string;
-  groupBy?: FarmerAnalyticsGroupBy;
+}
+
+export interface AnalyticsRangeInfo {
+  startDay: string;
+  endDay: string;
+  groupBy: FarmerAnalyticsGroupBy;
+  allTime: boolean;
+}
+
+export interface BatchStatRow {
+  id: string;
+  batchNumber: string;
+  batchType: FarmerAnalyticsBatchType;
+  status: "ACTIVE" | "COMPLETED";
+  farmName: string;
+  startDate: string;
+  endDate: string | null;
+  day: number;
+  started: number;
+  sold: number;
+  died: number;
+  leftAtClose: number;
+  alive: number;
+  deathPercent: number;
+  feedKg: number;
+  avgWeightKg: number | null;
+  fcr: number | null;
+  fcrStatus: FcrStatus | null;
+  sales: number;
+  costs: number;
+  profit: number;
+  costPerBird: number | null;
+  profitPerBird: number | null;
 }
 
 export interface FarmerAnalyticsOverview {
   filters: {
-    farms: Array<{
-      id: string;
-      name: string;
-    }>;
+    farms: Array<{ id: string; name: string }>;
     batches: Array<{
       id: string;
       batchNumber: string;
       batchType: FarmerAnalyticsBatchType;
-      status: FarmerAnalyticsBatchStatus;
-      startDate: string;
-      farmId: string;
+      status: "ACTIVE" | "COMPLETED";
       farmName: string;
     }>;
-    applied: {
-      farmId: string | null;
-      batchId: string | null;
-      batchType: FarmerAnalyticsBatchType | null;
-      status: FarmerAnalyticsBatchStatus | null;
-      startDate: string | null;
-      endDate: string | null;
-      groupBy: FarmerAnalyticsGroupBy;
-    };
   };
-  summary: {
-    totalFarms: number;
-    activeBatches: number;
-    totalBirds: number;
-    currentBirds: number;
-    totalRevenue: number;
-    totalExpenses: number;
-    netProfit: number;
-    moneyToReceive: number;
-    moneyToPay: number;
-  };
-}
-
-export interface FarmerFinanceAnalytics {
-  totals: {
-    totalRevenue: number;
-    totalExpenses: number;
-    netProfit: number;
+  range: AnalyticsRangeInfo;
+  hasLayers: boolean;
+  tiles: {
+    sales: number;
+    costs: number;
+    profit: number;
     salesCount: number;
-    expenseCount: number;
+    costsCount: number;
+    toReceive: number;
+    customersOwing: number;
+    toPay: number;
+    birdsAlive: number;
+    activeBatches: number;
+    deaths: number;
+    deathRate: number | null;
+    fcr: number | null;
+    /** True when no running batch has an up-to-date weight; FCR is from old weights. */
+    fcrIsOld: boolean;
+    fcrBatches: number;
   };
-  trend: Array<{
-    period: string;
-    label: string;
-    revenue: number;
-    expenses: number;
-    profit: number;
-  }>;
-  expenseCategories: Array<{
-    categoryId: string;
-    categoryName: string;
-    amount: number;
-    count: number;
-    percentage: number;
-  }>;
-  table: Array<{
-    period: string;
-    label: string;
-    revenue: number;
-    expenses: number;
-    profit: number;
-  }>;
+  running: Array<
+    Pick<
+      BatchStatRow,
+      "id" | "batchNumber" | "batchType" | "farmName" | "day" | "started" | "alive" | "deathPercent" | "avgWeightKg" | "fcr" | "fcrStatus"
+    >
+  >;
 }
 
-export interface FarmerFlockComparisonAnalytics {
-  rows: Array<{
-    batchId: string;
-    batchNumber: string;
-    farmId: string;
-    farmName: string;
-    batchType: FarmerAnalyticsBatchType;
-    status: FarmerAnalyticsBatchStatus;
-    startDate: string;
-    endDate: string | null;
-    ageDays: number;
-    initialBirds: number;
-    currentBirds: number;
-    naturalMortality: number;
-    totalMortality: number;
-    mortalityRate: number;
-    revenue: number;
-    expense: number;
-    profit: number;
-    costPerBird: number;
-    profitPerBird: number;
-    feedConsumed: number;
-  }>;
-  charts: {
-    profitByBatch: Array<{
-      batchId: string;
-      batchNumber: string;
-      farmName: string;
-      profit: number;
-    }>;
-    costPerBirdByBatch: Array<{
-      batchId: string;
-      batchNumber: string;
-      farmName: string;
-      costPerBird: number;
-    }>;
-  };
+export interface FarmerMoneyAnalytics {
+  range: AnalyticsRangeInfo;
+  totals: { sales: number; costs: number; profit: number; salesCount: number; costsCount: number };
+  series: Array<{ start: string; sales: number; costs: number; profit: number }>;
+  costsByType: Array<{ name: string; amount: number }>;
+  salesByItem: Array<{ itemType: string; amount: number }>;
 }
 
-export interface FarmerOperationsAnalytics {
+export interface FarmerBatchesAnalytics {
+  range: AnalyticsRangeInfo;
+  batches: BatchStatRow[];
+}
+
+export interface FarmerHealthFeedAnalytics {
+  range: AnalyticsRangeInfo;
   health: {
-    totals: {
-      naturalMortality: number;
-      mortalityRate: number;
-      initialBirds: number;
-    };
-    mortalityTrend: Array<{
-      period: string;
-      label: string;
-      naturalDeaths: number;
-    }>;
-    mortalityByReason: Array<{
-      reason: string;
-      count: number;
-      percentage: number;
-    }>;
+    deaths: number;
+    deathRate: number | null;
+    birdsBase: number;
+    series: Array<{ start: string; count: number }>;
+    reasons: Array<{ reason: string | null; count: number }>;
   };
   feed: {
-    trend: Array<{
-      period: string;
-      label: string;
-      quantity: number;
-    }>;
-    byBatch: Array<{
-      batchId: string;
-      batchNumber: string;
-      farmName: string;
-      quantity: number;
-      cost: number;
-      source: "inventory" | "expense" | "none";
-    }>;
+    totalKg: number;
+    perBirdKg: number | null;
+    cost: number;
+    series: Array<{ start: string; kg: number }>;
+    byName: Array<{ name: string; kg: number }>;
   };
-  medicine: {
-    byBatch: Array<{
-      batchId: string;
-      batchNumber: string;
-      farmName: string;
-      quantity: number;
-      cost: number;
-      source: "inventory" | "expense" | "none";
-    }>;
-  };
+  medicines: Array<{ name: string; unit: string | null; quantity: number; batches: number }>;
 }
 
-export interface FarmerProductionAnalytics {
-  totals: {
-    totalEggs: number;
-    eggsSold: number;
-    eggSalesRevenue: number;
-    eggStock: number;
-    costPerEgg: number | null;
-    revenuePerEgg: number | null;
-  };
-  productionTrend: Array<{
-    period: string;
-    label: string;
-    eggsProduced: number;
-  }>;
-  productionByType: Array<{
-    eggTypeId: string;
-    eggTypeName: string;
-    produced: number;
-  }>;
-  salesVsProduction: Array<{
-    period: string;
-    label: string;
-    eggsProduced: number;
-    eggsSold: number;
-    salesRevenue: number;
-  }>;
-  flockComparison: Array<{
-    batchId: string;
-    batchNumber: string;
-    farmName: string;
-    totalEggs: number;
-    eggsPerBird: number | null;
-    salesRevenue: number;
-    unsoldStock: number;
-    mortalityRate: number;
-    profit: number;
-  }>;
-}
+export type FarmerEggsAnalytics =
+  | { range: AnalyticsRangeInfo; hasLayers: false }
+  | {
+      range: AnalyticsRangeInfo;
+      hasLayers: true;
+      totals: {
+        eggsLaid: number;
+        eggsSold: number;
+        eggSales: number;
+        layingPercent: number | null;
+        costPerEgg: number | null;
+        stock: number;
+      };
+      series: Array<{ start: string; eggs: number; sold: number; layingPercent: number | null }>;
+      byType: Array<{ name: string; count: number }>;
+      batches: Array<{
+        id: string;
+        batchNumber: string;
+        farmName: string;
+        day: number;
+        hens: number;
+        eggsLaid: number;
+        layingPercent: number | null;
+        sales: number;
+        costs: number;
+        profit: number;
+      }>;
+    };
 
-export interface FarmerReportAnalytics {
-  reportType: FarmerReportType;
-  title: string;
-  generatedAt: string;
-  summary: Array<{
-    label: string;
-    value: string | number;
-  }>;
-  columns: Array<{
-    key: string;
-    label: string;
-    format?: "money" | "percent";
-  }>;
-  rows: Array<Record<string, string | number | null>>;
+export interface FarmerReport {
+  type: FarmerReportType;
+  range: AnalyticsRangeInfo;
+  rows: Array<Record<string, any>>;
+  totals?: { sales: number; costs: number; profit: number };
+  truncated: boolean;
+  limit: number;
 }
 
 export const farmerAnalyticsQueryKeys = {
   all: ["farmer-analytics"] as const,
-  overview: (params: FarmerAnalyticsOverviewParams) =>
-    [...farmerAnalyticsQueryKeys.all, "overview", params] as const,
-  finance: (params: FarmerAnalyticsOverviewParams) =>
-    [...farmerAnalyticsQueryKeys.all, "finance", params] as const,
-  flockComparison: (params: FarmerAnalyticsOverviewParams) =>
-    [...farmerAnalyticsQueryKeys.all, "flock-comparison", params] as const,
-  operations: (params: FarmerAnalyticsOverviewParams) =>
-    [...farmerAnalyticsQueryKeys.all, "operations", params] as const,
-  production: (params: FarmerAnalyticsOverviewParams) =>
-    [...farmerAnalyticsQueryKeys.all, "production", params] as const,
-  report: (params: FarmerAnalyticsOverviewParams, reportType: FarmerReportType) =>
-    [...farmerAnalyticsQueryKeys.all, "report", params, reportType] as const,
+  tab: (tab: string, params: FarmerAnalyticsParams) => ["farmer-analytics", tab, params] as const,
 };
 
-export const useGetFarmerAnalyticsOverview = (
-  params: FarmerAnalyticsOverviewParams
-) => {
-  return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.overview(params),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerAnalyticsOverview;
-    }> => {
-      const response = await axiosInstance.get("/analytics/farmer/overview", {
-        params,
-      });
-      return response.data;
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-};
+const cleanParams = (params: FarmerAnalyticsParams) =>
+  Object.fromEntries(Object.entries(params).filter(([, value]) => value != null && value !== "" && value !== "all"));
 
-export const useGetFarmerFinanceAnalytics = (
-  params: FarmerAnalyticsOverviewParams
-) => {
+function useAnalytics<T>(tab: string, path: string, params: FarmerAnalyticsParams, enabled: boolean) {
   return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.finance(params),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerFinanceAnalytics;
-    }> => {
-      const response = await axiosInstance.get("/analytics/farmer/finance", {
-        params,
-      });
-      return response.data;
+    queryKey: farmerAnalyticsQueryKeys.tab(tab, params),
+    queryFn: async () => {
+      const { data } = await axiosInstance.get(`/analytics/farmer/${path}`, { params: cleanParams(params) });
+      return data.data as T;
     },
-    staleTime: 2 * 60 * 1000,
+    enabled,
+    // Keep showing the last numbers while new filters load (no flicker, picks don't reset).
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
   });
-};
+}
 
-export const useGetFarmerFlockComparisonAnalytics = (
-  params: FarmerAnalyticsOverviewParams
-) => {
-  return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.flockComparison(params),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerFlockComparisonAnalytics;
-    }> => {
-      const response = await axiosInstance.get(
-        "/analytics/farmer/flock-comparison",
-        {
-          params,
-        }
-      );
-      return response.data;
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-};
+export const useFarmerAnalyticsOverview = (params: FarmerAnalyticsParams, enabled = true) =>
+  useAnalytics<FarmerAnalyticsOverview>("overview", "overview", params, enabled);
+export const useFarmerMoneyAnalytics = (params: FarmerAnalyticsParams, enabled = true) =>
+  useAnalytics<FarmerMoneyAnalytics>("money", "finance", params, enabled);
+export const useFarmerBatchesAnalytics = (params: FarmerAnalyticsParams, enabled = true) =>
+  useAnalytics<FarmerBatchesAnalytics>("batches", "flock-comparison", params, enabled);
+export const useFarmerHealthFeedAnalytics = (params: FarmerAnalyticsParams, enabled = true) =>
+  useAnalytics<FarmerHealthFeedAnalytics>("health-feed", "operations", params, enabled);
+export const useFarmerEggsAnalytics = (params: FarmerAnalyticsParams, enabled = true) =>
+  useAnalytics<FarmerEggsAnalytics>("eggs", "production", params, enabled);
 
-export const useGetFarmerOperationsAnalytics = (
-  params: FarmerAnalyticsOverviewParams
-) => {
-  return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.operations(params),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerOperationsAnalytics;
-    }> => {
-      const response = await axiosInstance.get("/analytics/farmer/operations", {
-        params,
-      });
-      return response.data;
-    },
-    staleTime: 2 * 60 * 1000,
+export async function fetchFarmerReport(type: FarmerReportType, params: FarmerAnalyticsParams) {
+  const { data } = await axiosInstance.get("/analytics/farmer/reports", {
+    params: { ...cleanParams(params), reportType: type },
   });
-};
-
-export const useGetFarmerProductionAnalytics = (
-  params: FarmerAnalyticsOverviewParams
-) => {
-  return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.production(params),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerProductionAnalytics;
-    }> => {
-      const response = await axiosInstance.get("/analytics/farmer/production", {
-        params,
-      });
-      return response.data;
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-};
-
-export const useGetFarmerReportAnalytics = (
-  params: FarmerAnalyticsOverviewParams,
-  reportType: FarmerReportType
-) => {
-  return useQuery({
-    queryKey: farmerAnalyticsQueryKeys.report(params, reportType),
-    queryFn: async (): Promise<{
-      success: boolean;
-      data: FarmerReportAnalytics;
-    }> => {
-      const response = await axiosInstance.get("/analytics/farmer/reports", {
-        params: {
-          ...params,
-          reportType,
-        },
-      });
-      return response.data;
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-};
+  return data.data as FarmerReport;
+}

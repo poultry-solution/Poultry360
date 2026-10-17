@@ -94,7 +94,9 @@ export function QuickActionBtnsFarmer() {
   } | null>(null);
 
   const { data: farmsResponse } = useGetUserFarms("all");
-  const { data: batchesResponse } = useGetAllBatches();
+  // Active batches only, from the server (the default list is the latest 10 of any status).
+  // Same params as the Home page, so both share one request.
+  const { data: batchesResponse } = useGetAllBatches({ status: "ACTIVE", limit: 100 });
   const { data: categoriesResponse } = useGetExpenseCategories("EXPENSE");
   const { data: inventoryResponse } = useGetInventoryTableData();
   const { data: feedForExpenseRes } = useGetInventoryForExpense("FEED");

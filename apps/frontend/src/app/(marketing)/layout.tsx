@@ -11,7 +11,7 @@ const marketingJsonLd = {
   name: "Poultry360",
   url: siteUrl,
   description:
-    "Poultry management software for broiler and layer farmers, feed dealers, feed mills, hatcheries, and veterinary businesses in Nepal.",
+    "Poultry management software for broiler and layer farmers, feed dealers, feed mills, and hatcheries in Nepal.",
   applicationCategory: "BusinessApplication",
   applicationSubCategory: "Poultry Farm Management Software",
   operatingSystem: "Web",

@@ -136,16 +136,10 @@ router.post('/setup-users', async (req, res) => {
       prisma.mortality.deleteMany({}),
       prisma.birdWeight.deleteMany({}),
       prisma.feedConsumption.deleteMany({}),
-      prisma.batchShareView.deleteMany({}),
-      prisma.batchShare.deleteMany({}),
       prisma.batch.deleteMany({}),
 
       // ==================== FARMS ====================
       prisma.farm.deleteMany({}),
-
-      // ==================== CONVERSATIONS & MESSAGES ====================
-      prisma.message.deleteMany({}),
-      prisma.conversation.deleteMany({}),
 
       // ==================== CUSTOMERS ====================
       prisma.customerTransaction.deleteMany({}),

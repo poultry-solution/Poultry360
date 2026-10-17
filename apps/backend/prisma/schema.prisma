@@ -15,7 +15,6 @@ datasource db {
 enum UserRole {
   OWNER
   MANAGER
-  DOCTOR
   DEALER
   COMPANY
   HATCHERY
@@ -78,25 +77,6 @@ enum CompanyDealerAccountAdjustmentStatus {
 enum CompanyDealerAccountAdjustmentCreatedByRole {
   COMPANY
   DEALER
-}
-
-enum ConversationStatus {
-  ACTIVE
-  CLOSED
-  ARCHIVED
-}
-
-enum MessageType {
-  TEXT
-  IMAGE
-  FILE
-  VIDEO
-  AUDIO
-  PDF
-  DOC
-  OTHER
-  BATCH_SHARE
-  FARM_SHARE
 }
 
 enum VaccinationStatus {
@@ -186,12 +166,10 @@ model User {
 
   password String
 
-  role     UserRole   @default(OWNER)
-  status   UserStatus @default(PENDING_VERIFICATION)
-  isTestAccount Boolean @default(false)
-  adminNotes String?
-  isOnline Boolean    @default(false)
-  lastSeen DateTime?
+  role          UserRole   @default(OWNER)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  isTestAccount Boolean    @default(false)
+  adminNotes    String?
 
   // User preferences
   language     Language     @default(ENGLISH)
@@ -253,18 +231,11 @@ model User {
   // Egg types (user-defined: Large, XL, etc.)
   eggTypes EggType[]
 
-  // Chat relationships
-  farmerConversations Conversation[] @relation("FarmerConversations")
-  doctorConversations Conversation[] @relation("DoctorConversations")
-  sentMessages        Message[]
-
   // Reminders
   reminders Reminder[]
 
-  // Batch share relationships
-  batchSharesOwned    BatchShare[]     @relation("BatchShareOwner")
-  batchSharesReceived BatchShare[]     @relation("BatchShareRecipient")
-  batchShareViews     BatchShareView[] @relation("BatchShareViewer")
+  // Batch share links this account created
+  batchShareLinks BatchShareLink[]
 
   // Dealer sales relationships
   dealerSalesReceived DealerSale[] @relation("DealerSalesToFarmer")
@@ -285,6 +256,9 @@ model User {
   farmerPaymentsRecorded       DealerFarmerPayment[] @relation("DealerFarmerPaymentRecorder")
   dealerFarmerBalanceLimitsSet DealerFarmerAccount[] @relation("DealerFarmerBalanceLimitSetter")
   dealerCashMovementsRecorded  DealerCashMovement[]  @relation("DealerCashMovementRecorder")
+
+  // Business details printed on sale bills (per business account)
+  billSettings BillSettings? @relation("UserBillSettings")
 
   // Farmer cash in hand (per user account)
   farmerCashSettings          FarmerCashSettings?
@@ -456,23 +430,23 @@ enum BatchType {
 }
 
 model Batch {
-  id            String      @id @default(cuid())
-  batchNumber   String
-  startDate     DateTime
-  endDate       DateTime?
-  status        BatchStatus @default(ACTIVE)
-  batchType     BatchType   @default(BROILER)
-  initialChicks Int
+  id                        String      @id @default(cuid())
+  batchNumber               String
+  startDate                 DateTime
+  endDate                   DateTime?
+  status                    BatchStatus @default(ACTIVE)
+  batchType                 BatchType   @default(BROILER)
+  initialChicks             Int
   // Old batches keep this null and use the legacy 0.05 kg estimate.
-  initialChickWeightKg Decimal? @db.Decimal(6, 3)
+  initialChickWeightKg      Decimal?    @db.Decimal(6, 3)
   // Optional corrected-FCR settings. Existing batches stay null until set.
-  cfcrTargetWeightKg          Decimal? @db.Decimal(8, 3)
-  cfcrCorrectionFactorPerKg   Decimal? @db.Decimal(8, 4)
+  cfcrTargetWeightKg        Decimal?    @db.Decimal(8, 3)
+  cfcrCorrectionFactorPerKg Decimal?    @db.Decimal(8, 4)
   // Weight snapshot for birds still present when this batch was closed.
-  closureBirdCount Int?
-  closureAverageWeightKg Decimal? @db.Decimal(6, 3)
-  closureWeightSampleCount Int?
-  notes         String?
+  closureBirdCount          Int?
+  closureAverageWeightKg    Decimal?    @db.Decimal(6, 3)
+  closureWeightSampleCount  Int?
+  notes                     String?
 
   // Removed currentChicks - will be computed from mortalities
   // Removed initialChickWeight - replaced with currentWeight
@@ -491,8 +465,6 @@ model Batch {
   feedConsumptions FeedConsumption[]
   birdWeights      BirdWeight[]
   inventoryUsages  InventoryUsage[]
-  // Shares referencing this batch
-  batchShares      BatchShare[]
 
   // Layers: daily egg production (one record per batch per day)
   eggProductions      EggProduction[]
@@ -501,6 +473,7 @@ model Batch {
   reminders           Reminder[]
   batchNotes          BatchNote[]
   fcrHistory          BatchFcrHistory[]
+  shareLinks          BatchShareLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -511,6 +484,29 @@ model Batch {
 
 // Saved FCR points. One row per batch and Nepal business date.
 // These rows keep old FCR values available after the live value becomes stale.
+/// Read-only public link to one batch's health report (no money). Anyone with the link can open it
+/// until it expires or the farmer turns it off.
+model BatchShareLink {
+  id               String    @id @default(cuid())
+  token            String    @unique
+  batchId          String
+  batch            Batch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  /// Account owner (staff links are saved under the owner)
+  createdById      String
+  createdBy        User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdByStaffId String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  showLocation     Boolean   @default(false)
+  showNotes        Boolean   @default(false)
+  viewCount        Int       @default(0)
+  lastViewedAt     DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([batchId])
+  @@index([createdById])
+}
+
 model BatchFcrHistory {
   id                         String   @id @default(cuid())
   calculationDate            DateTime
@@ -762,18 +758,26 @@ enum SalesItemType {
 }
 
 model Sale {
-  id            String   @id @default(cuid())
+  id                    String        @id @default(cuid())
   // Farmer-facing invoice number. This may repeat for different Farmer accounts.
-  invoiceNumber String?
+  invoiceNumber         String?
   // Internal per-Farmer unique key: "<farmer user id>:<invoice number>".
   // It is not used for display, reports, print, or exports.
-  invoiceKey    String?  @unique
-  date          DateTime
-  amount        Decimal  @db.Decimal(10, 2)
-  quantity      Decimal  @db.Decimal(10, 2)
-  weight        Decimal? @db.Decimal(10, 2)
-  unitPrice     Decimal  @db.Decimal(10, 2)
-  description   String?
+  invoiceKey            String?       @unique
+  date                  DateTime
+  amount                Decimal       @db.Decimal(10, 2)
+  quantity              Decimal       @db.Decimal(10, 2)
+  // Real live weight. FCR, cFCR and bird weight always use this.
+  weight                Decimal?      @db.Decimal(10, 2)
+  // Broiler only: % of weight not charged (buyer's weight discount). The bill
+  // uses weight minus this %; null means no discount.
+  weightDiscountPercent Decimal?      @db.Decimal(5, 2)
+  // Bill before the bill discount (after any weight discount); null when no
+  // bill discount. `amount` is always the final amount the customer pays.
+  subtotalAmount        Decimal?      @db.Decimal(10, 2)
+  discount              SaleDiscount?
+  unitPrice             Decimal       @db.Decimal(10, 2)
+  description           String?
 
   itemType    SalesItemType @default(Chicken_Meat)
   eggTypeId   String? // For EGGS sales: user's egg type
@@ -1608,128 +1612,20 @@ enum AuditActorType {
  * Compute from related expenses, sales, mortalities, etc.
  */
 
-// ==================== CHAT MODELS ====================
-
-model Conversation {
-  id        String             @id @default(cuid())
-  farmerId  String
-  doctorId  String
-  status    ConversationStatus @default(ACTIVE)
-  subject   String? // Optional subject/topic
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-
-  messages Message[]
-  farmer   User      @relation("FarmerConversations", fields: [farmerId], references: [id])
-  doctor   User      @relation("DoctorConversations", fields: [doctorId], references: [id])
-
-  // Shares linked to this conversation
-  batchShares BatchShare[]
-
-  @@unique([farmerId, doctorId]) // Prevent duplicate conversations
-}
-
-model Message {
-  id             String      @id @default(cuid())
-  conversationId String
-  senderId       String
-  // Optional textual content (e.g., message body or caption for attachments)
-  text           String?
-  messageType    MessageType @default(TEXT)
-  createdAt      DateTime    @default(now())
-  read           Boolean     @default(false)
-  edited         Boolean     @default(false)
-  // Soft delete flag
-  isDeleted      Boolean     @default(false)
-
-  // Attachment metadata (for IMAGE/VIDEO/AUDIO/PDF/DOC/FILE/OTHER)
-  attachmentUrl String?
-  attachmentKey String? // Storage key/path in R2 (or other store)
-  fileName      String?
-  contentType   String?
-  fileSize      Int?
-  durationMs    Int? // for audio/video
-  width         Int? // for images/videos
-  height        Int?
-  thumbnailUrl  String?
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation(fields: [senderId], references: [id])
-
-  // Optional reference to a shared batch snapshot
-  batchShareId String?
-  batchShare   BatchShare? @relation("MessageToBatchShare", fields: [batchShareId], references: [id])
-
-  @@index([conversationId, createdAt]) // Optimize message queries
-}
-
-// ==================== BATCH/FARM SHARING ====================
-
-model BatchShare {
-  id         String @id @default(cuid())
-  shareToken String @unique @default(cuid())
-
-  // Ownership and context
-  batchId        String
-  farmerId       String
-  sharedWithId   String?
-  conversationId String?
-
-  // Snapshot payload (immutable JSON)
-  snapshotData Json
-
-  // Metadata
-  title       String?
-  description String?
-  isPublic    Boolean   @default(false)
-  expiresAt   DateTime?
-  viewCount   Int       @default(0)
-
-  // Relations
-  batch        Batch            @relation(fields: [batchId], references: [id])
-  farmer       User             @relation("BatchShareOwner", fields: [farmerId], references: [id])
-  sharedWith   User?            @relation("BatchShareRecipient", fields: [sharedWithId], references: [id])
-  conversation Conversation?    @relation(fields: [conversationId], references: [id])
-  views        BatchShareView[]
-  // Reverse relation to messages if embedded in chat
-  messages     Message[]        @relation("MessageToBatchShare")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([shareToken])
-  @@index([batchId])
-  @@index([conversationId])
-}
-
-model BatchShareView {
-  id        String   @id @default(cuid())
-  shareId   String
-  viewerId  String?
-  ipAddress String?
-  userAgent String?
-  viewedAt  DateTime @default(now())
-
-  share  BatchShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
-  viewer User?      @relation("BatchShareViewer", fields: [viewerId], references: [id])
-
-  @@index([shareId])
-}
-
 // ==================== DEALER MODULE MODELS ====================
 
 model DealerProduct {
-  id           String            @id @default(cuid())
-  name         String
-  description  String?
-  type         InventoryItemType
-  unit         String
-  costPrice    Decimal           @db.Decimal(10, 2)
-  sellingPrice Decimal           @db.Decimal(10, 2)
-  currentStock Decimal           @default(0) @db.Decimal(10, 2)
-  hiddenAt     DateTime?
-  minStock     Decimal?          @db.Decimal(10, 2)
-  sku          String?
+  id            String            @id @default(cuid())
+  name          String
+  description   String?
+  type          InventoryItemType
+  unit          String
+  costPrice     Decimal           @db.Decimal(10, 2)
+  sellingPrice  Decimal           @db.Decimal(10, 2)
+  currentStock  Decimal           @default(0) @db.Decimal(10, 2)
+  hiddenAt      DateTime?
+  minStock      Decimal?          @db.Decimal(10, 2)
+  sku           String?
   // Date-only expiry for this stock batch. NO_EXPIRY keeps nullable batches unique.
   expiryDate    DateTime?
   expiryDateKey String            @default("NO_EXPIRY")
@@ -1882,6 +1778,10 @@ model DealerSaleItem {
   totalAmount  Decimal  @db.Decimal(10, 2)
   unit         String?
   baseQuantity Decimal? @db.Decimal(10, 2)
+  // Cost of the stock this line used, saved at sale time (after trade discount).
+  // unitCost is per base unit; costAmount = unitCost × stock quantity cut.
+  unitCost     Decimal? @db.Decimal(12, 4)
+  costAmount   Decimal? @db.Decimal(12, 2)
 
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -1917,14 +1817,14 @@ model DealerSalePayment {
 }
 
 model DealerLedgerEntry {
-  id          String          @id @default(cuid())
-  type        LedgerEntryType
-  amount      Decimal         @db.Decimal(10, 2)
-  balance     Decimal         @db.Decimal(10, 2)
-  date        DateTime
-  description String?
-  reference   String?
-  imageUrl    String? // Receipt/Proof image URL
+  id                     String          @id @default(cuid())
+  type                   LedgerEntryType
+  amount                 Decimal         @db.Decimal(10, 2)
+  balance                Decimal         @db.Decimal(10, 2)
+  date                   DateTime
+  description            String?
+  reference              String?
+  imageUrl               String? // Receipt/Proof image URL
   // Payment rows only. Null keeps old rows compatible; old PAYMENT_MADE rows
   // are treated as history-only unless explicitly marked as an account advance.
   affectsCustomerBalance Boolean?
@@ -2022,10 +1922,15 @@ model SaleDiscount {
   companySaleId String?      @unique
   companySale   CompanySale? @relation(fields: [companySaleId], references: [id], onDelete: Cascade)
 
+  // Farmer sale (Sales Ledger / batch sales)
+  saleId String? @unique
+  sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   @@index([dealerSaleId])
   @@index([companySaleId])
+  @@index([saleId])
 }
 
 // CompanySalePayment model removed - now using CompanyDealerPayment for account-level payments
@@ -2420,13 +2325,13 @@ model DealerManualPurchaseItem {
 }
 
 model DealerManualCompanyPayment {
-  id            String   @id @default(cuid())
-  amount        Decimal  @db.Decimal(10, 2)
+  id            String            @id @default(cuid())
+  amount        Decimal           @db.Decimal(10, 2)
   // Direction is from the Dealer's view. Null is kept for the first
   // migration so older rows remain readable; application code treats null as MADE.
   direction     PaymentDirection?
-  paymentMethod String   @default("CASH")
-  paymentDate   DateTime @default(now())
+  paymentMethod String            @default("CASH")
+  paymentDate   DateTime          @default(now())
   notes         String?
   reference     String?
   receiptUrl    String?
@@ -2501,6 +2406,22 @@ model DealerCashDayClose {
 }
 
 // ==================== FARMER CASH IN HAND ====================
+
+// Business details printed on sale bills. One row per business account (the
+// owner user); staff use their owner's row. Empty fields fall back to the
+// business record (shop / company / hatchery / farm name, address, phone).
+model BillSettings {
+  id           String   @id @default(cuid())
+  accountId    String   @unique
+  account      User     @relation("UserBillSettings", fields: [accountId], references: [id], onDelete: Cascade)
+  businessName String?
+  address      String?
+  panNumber    String? // Nepal PAN: 9 digits
+  phone        String?
+  footerNote   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
 
 model FarmerCashSettings {
   id             String  @id @default(cuid())
@@ -2709,7 +2630,18 @@ model ListForSale {
 enum StaffStatus {
   ACTIVE // Still employed; salary accrues each BS month
   STOPPED // No longer employed; no more accrual, show remaining balance
-  ARCHIVED // Finalized record; read-only after balance reaches zero
+}
+
+// How a payroll staff member earns. Fixed when the staff member is added.
+enum StaffPayType {
+  MONTHLY // Monthly salary, prorated by days worked in each BS month
+  DAILY // Daily wage, earned for every day not marked absent
+}
+
+// Only days that differ from a normal working day are stored.
+enum StaffAttendanceStatus {
+  ABSENT
+  HALF_DAY
 }
 
 // Login-capable staff are separate from payroll Staff records.
@@ -2732,18 +2664,20 @@ enum StaffPermission {
 }
 
 model Staff {
-  id        String      @id @default(cuid())
+  id        String       @id @default(cuid())
   ownerId   String
-  owner     User        @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner     User         @relation("StaffOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   name      String
+  payType   StaffPayType @default(MONTHLY)
   startDate DateTime // First day of employment (AD stored)
   endDate   DateTime? // When stopped (AD); null if ACTIVE
-  status    StaffStatus @default(ACTIVE)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  status    StaffStatus  @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  salaries StaffSalary[]
-  payments StaffPayment[]
+  salaries   StaffSalary[]
+  payments   StaffPayment[]
+  attendance StaffAttendance[]
 
   @@index([ownerId])
   @@index([status])
@@ -2814,8 +2748,11 @@ model StaffSalary {
   id            String   @id @default(cuid())
   staffId       String
   staff         Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  monthlyAmount Decimal  @db.Decimal(12, 2)
-  effectiveFrom DateTime // First day of BS month in AD (when this salary applies from)
+  // Per month for MONTHLY staff, per day for DAILY staff. The column keeps its
+  // original name so existing rows need no data migration.
+  rate          Decimal  @map("monthlyAmount") @db.Decimal(12, 2)
+  // MONTHLY: first day of a BS month in AD. DAILY: any day.
+  effectiveFrom DateTime
   createdAt     DateTime @default(now())
 
   @@index([staffId])
@@ -2834,6 +2771,18 @@ model StaffPayment {
 
   @@index([staffId])
   @@index([paidAt])
+}
+
+model StaffAttendance {
+  id        String                @id @default(cuid())
+  staffId   String
+  staff     Staff                 @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime // Date only, UTC midnight
+  status    StaffAttendanceStatus
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([staffId, date])
 }
 
 // ==================== HATCHERY SUPPLIER LEDGER + INVENTORY ====================

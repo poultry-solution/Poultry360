@@ -37,7 +37,6 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 const ROLE_LABELS: Record<string, string> = {
   OWNER: "Owners",
   MANAGER: "Managers",
-  DOCTOR: "Doctors",
   DEALER: "Dealers",
   COMPANY: "Companies",
   HATCHERY: "Hatcheries",
@@ -68,9 +67,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (user?.role === "DOCTOR") {
-      router.push("/doctor/dashboard");
-    } else if (user?.role === "OWNER" || user?.role === "MANAGER") {
+    if (user?.role === "OWNER" || user?.role === "MANAGER") {
       router.push("/farmer/dashboard/home");
     } else if (user?.role !== "SUPER_ADMIN") {
       router.push("/auth/login");

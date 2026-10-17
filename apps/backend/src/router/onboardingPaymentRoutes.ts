@@ -15,9 +15,8 @@ router.use((req, res, next) => {
     UserRole.DEALER,
     UserRole.COMPANY,
     UserRole.HATCHERY,
-    "DOCTOR",
     UserRole.SUPER_ADMIN,
-  ] as any);
+  ]);
 });
 
 router.get("/status", getOnboardingStatus);

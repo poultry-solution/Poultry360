@@ -239,7 +239,7 @@ export default function SupplierLedgerPage() {
             </Button>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-gray-700">
           Balance: {formatCurrency(balance)} | Purchased: {formatCurrency(purchased)} | Paid:{" "}
           {formatCurrency(paid)}
         </p>

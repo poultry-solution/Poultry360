@@ -84,3 +84,27 @@ export const getFarmerInventoryUnitCosts = async (
     })
   );
 };
+
+/** First purchase day of each lot (merged lots count from their first buy). */
+export const getFarmerFirstPurchaseDates = async (
+  tx: InventoryDb,
+  itemIds: string[]
+) => {
+  const uniqueIds = [...new Set(itemIds)];
+  if (uniqueIds.length === 0) return new Map<string, Date>();
+
+  const rows = await tx.inventoryTransaction.groupBy({
+    by: ["itemId"],
+    where: {
+      itemId: { in: uniqueIds },
+      type: InventoryTransactionType.PURCHASE,
+    },
+    _min: { date: true },
+  });
+
+  return new Map(
+    rows
+      .filter((row) => row._min.date)
+      .map((row) => [row.itemId, row._min.date as Date])
+  );
+};

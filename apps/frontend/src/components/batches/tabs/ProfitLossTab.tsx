@@ -1,5 +1,7 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
+import { Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 interface ProfitLossTabProps {
   salesTotal: number;
@@ -16,11 +18,33 @@ interface ProfitLossTabProps {
     isProfit: boolean;
   };
   batch: any;
+  isBatchClosed: boolean;
   receivableTotal: number;
   perBirdRevenue: number;
-  expenseBreakdown: any[];
-  salesBreakdown: any[];
+  /** Full expense list of the batch (not the paged Expenses tab list). */
+  expenses: any[];
 }
+
+/** Signed money: loss "−रू 2,94,010", profit "+रू 45", zero "रू 0". */
+const signedRupees = (value: number) => {
+  const rounded = Math.round(value);
+  if (rounded === 0) return rupees(0);
+  return `${rounded < 0 ? "−" : "+"}${rupees(Math.abs(rounded))}`;
+};
+
+const count = (value: number) => Number(value || 0).toLocaleString("en-IN");
+
+/** Same names the Expenses tab filter uses; Hatchery counts as Chicks. */
+const costGroup = (name?: string | null) => {
+  if (!name) return "Other";
+  return name === "Hatchery" ? "Chicks" : name;
+};
+
+const BAR_COLORS: Record<string, string> = {
+  Feed: "bg-blue-500",
+  Chicks: "bg-green-500",
+  Medicine: "bg-purple-500",
+};
 
 export function ProfitLossTab({
   salesTotal,
@@ -29,243 +53,202 @@ export function ProfitLossTab({
   analytics,
   perBroilerExpenseData,
   batch,
+  isBatchClosed,
   receivableTotal,
   perBirdRevenue,
-  expenseBreakdown,
-  salesBreakdown,
+  expenses,
 }: ProfitLossTabProps) {
+  const roundedProfit = Math.round(profit);
+  const profitClass = roundedProfit > 0 ? "text-green-600" : roundedProfit < 0 ? "text-red-600" : "text-gray-900";
+  const received = salesTotal - receivableTotal;
+  const initialBirds = Number(batch?.initialChicks || 0);
+
+  const margin = Number(analytics?.profitMargin);
+  const hasSales = salesTotal > 0 && Number.isFinite(margin);
+
+  // Per bird: same value and divisor as before (birds left, or birds started when none are left).
+  const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
+  const divisor =
+    perBroilerExpenseData.remainingBroilers > 0
+      ? { birds: perBroilerExpenseData.remainingBroilers, label: "birds left" }
+      : initialBirds > 0
+        ? { birds: initialBirds, label: "birds started" }
+        : null;
+  const perBirdLabel = !divisor || perBirdRounded === 0
+    ? "Per bird"
+    : perBroilerExpenseData.isProfit ? "Profit per bird" : "Loss per bird";
+  const perBirdValue = !divisor
+    ? "—"
+    : perBirdRounded === 0
+      ? rupees(0)
+      : `${perBroilerExpenseData.isProfit ? "+" : "−"}${rupees(perBirdRounded)}`;
+  const perBirdClass = !divisor || perBirdRounded === 0
+    ? "text-gray-900"
+    : perBroilerExpenseData.isProfit ? "text-green-600" : "text-red-600";
+
+  const costRows = React.useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const ex of expenses || []) {
+      const key = costGroup(ex?.category?.name);
+      totals.set(key, (totals.get(key) || 0) + Number(ex?.amount || 0));
+    }
+    return [...totals.entries()]
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const birdSteps: Array<[string, number]> = [
+    ["Started with", initialBirds],
+    ["Died", perBroilerExpenseData.totalMortality],
+    ["Sold", perBroilerExpenseData.totalSold],
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-900">
-                ₹{salesTotal.toLocaleString()}
-              </div>
-              <div className="text-sm text-green-700">Total Revenue</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-900">
-                ₹{expensesTotal.toLocaleString()}
-              </div>
-              <div className="text-sm text-red-700">Total Expenses</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className={`border-2 ${profit >= 0 ? "border-green-300 bg-green-100" : "border-red-300 bg-red-100"}`}
-        >
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div
-                className={`text-2xl font-bold ${profit >= 0 ? "text-green-900" : "text-red-900"}`}
-              >
-                ₹{profit.toLocaleString()}
-              </div>
-              <div
-                className={`text-sm ${profit >= 0 ? "text-green-700" : "text-red-700"}`}
-              >
-                Net Profit
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-900">
-                {analytics?.profitMargin
-                  ? `${analytics.profitMargin.toFixed(1)}%`
-                  : "0%"}
-              </div>
-              <div className="text-sm text-orange-700">Profit Margin</div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile
+          tile={{
+            label: "Sales",
+            icon: TrendingUp,
+            value: rupees(salesTotal),
+            sub: `${rupees(received)} received`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Costs",
+            icon: Receipt,
+            value: rupees(expensesTotal),
+            sub: `${count((expenses || []).length)} ${(expenses || []).length === 1 ? "entry" : "entries"}`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: roundedProfit < 0 ? "Loss" : "Profit",
+            icon: Wallet,
+            value: signedRupees(profit),
+            valueClass: profitClass,
+            sub: isBatchClosed ? "Final" : "So far",
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Margin",
+            icon: Percent,
+            value: hasSales ? `${margin.toFixed(1)}%` : "—",
+            valueClass: !hasSales ? "text-gray-400" : margin < 0 ? "text-red-600" : "",
+            sub: hasSales ? "of sales" : "No sales yet",
+          }}
+        />
       </div>
 
-      {/* Per Broiler Expense Card */}
-      <Card className="border-2 border-primary/20">
+      {/* Per bird */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-base">Per Broiler Analysis</CardTitle>
-          <CardDescription>
-            Net expense/profit per remaining broiler
-          </CardDescription>
+          <CardTitle className="text-base">Per bird</CardTitle>
+          <CardDescription>Sales minus costs, shared over the birds</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4 text-sm">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="text-center">
-                <div className="text-xs text-muted-foreground mb-2">
-                  {perBroilerExpenseData.isProfit
-                    ? "Profit per Broiler"
-                    : "Cost per Broiler"}
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <p className="text-sm text-muted-foreground">{perBirdLabel}</p>
+              <p className={`mt-1 text-3xl font-bold ${perBirdClass}`}>{perBirdValue}</p>
+              {divisor && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {signedRupees(-perBroilerExpenseData.netExpenses)} ÷ {count(divisor.birds)} {divisor.label}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2 text-sm">
+              {birdSteps.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-medium">{count(value)}</span>
                 </div>
-                <div
-                  className={`text-3xl font-bold ${perBroilerExpenseData.isProfit ? "text-green-600" : "text-orange-600"}`}
-                >
-                  ₹{perBroilerExpenseData.displayValue.toFixed(2)}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Initial Broilers:
-                </span>
-                <span className="font-medium">
-                  {batch.initialChicks?.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Mortality:</span>
-                <span className="font-medium text-red-600">
-                  -{perBroilerExpenseData.totalMortality?.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sold:</span>
-                <span className="font-medium text-blue-600">
-                  -{perBroilerExpenseData.totalSold?.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between border-t pt-2">
-                <span className="text-muted-foreground font-medium">
-                  Remaining Broilers:
-                </span>
-                <span className="font-bold">
-                  {perBroilerExpenseData.remainingBroilers?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2 border-t pt-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Total Expenses:
-                </span>
-                <span className="font-medium text-red-600">
-                  ₹{expensesTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Sales:</span>
-                <span className="font-medium text-green-600">
-                  -₹{salesTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between border-t pt-2">
-                <span className="text-muted-foreground font-medium">
-                  Net Expenses:
-                </span>
-                <span
-                  className={`font-bold ${perBroilerExpenseData.netExpenses >= 0 ? "text-red-600" : "text-green-600"}`}
-                >
-                  ₹{perBroilerExpenseData.netExpenses.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="text-xs text-blue-800">
-                <strong>Formula:</strong> Net Expenses ÷ Remaining Broilers
-              </div>
-              <div className="text-xs text-blue-600 mt-1">
-                ({perBroilerExpenseData.netExpenses >= 0 ? "₹" : "-₹"}
-                {Math.abs(
-                  perBroilerExpenseData.netExpenses
-                ).toLocaleString()}{" "}
-                ÷{" "}
-                {perBroilerExpenseData.remainingBroilers ||
-                  batch.initialChicks}
-                )
+              ))}
+              <div className="flex justify-between gap-4 border-t pt-2">
+                <span className="font-medium">Left</span>
+                <span className="font-semibold">{count(perBroilerExpenseData.remainingBroilers)}</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Revenue Breakdown */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Sales */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Revenue Analysis</CardTitle>
-            <CardDescription>Breakdown of income sources</CardDescription>
+            <CardTitle className="text-base">Sales</CardTitle>
+            <CardDescription>Money from this batch</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Total Sales Amount:
-                </span>
-                <span className="font-medium text-green-600">
-                  ₹{salesTotal.toLocaleString()}
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Total sales</span>
+                <span className="font-medium">{rupees(salesTotal)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Received</span>
+                <span className="font-medium">{rupees(received)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Unpaid on bills</span>
+                <span className={`font-medium ${Math.round(receivableTotal) > 0 ? "text-orange-600" : ""}`}>
+                  {rupees(receivableTotal)}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4 border-t pt-3">
                 <span className="text-muted-foreground">
-                  Amount Received:
+                  Sales per bird
+                  {initialBirds > 0 && (
+                    <span className="ml-1.5 text-xs text-gray-400">÷ {count(initialBirds)} birds started</span>
+                  )}
                 </span>
-                <span className="font-medium text-green-600">
-                  ₹{(salesTotal - receivableTotal).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Outstanding Amount:
-                </span>
-                <span className="font-medium text-orange-600">
-                  ₹{receivableTotal.toLocaleString()}
-                </span>
-              </div>
-              <div className="border-t pt-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Revenue per Bird:
-                  </span>
-                  <span className="font-medium">
-                    ₹{perBirdRevenue.toFixed(2)}
-                  </span>
-                </div>
+                <span className="font-medium">{initialBirds > 0 ? rupees(perBirdRevenue) : "—"}</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Expense Breakdown */}
+        {/* Costs */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Expense Analysis</CardTitle>
-            <CardDescription>Breakdown by category</CardDescription>
+            <CardTitle className="text-base">Costs</CardTitle>
+            <CardDescription>By type, biggest first</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 text-sm">
-              {expenseBreakdown.map((category: any) => (
-                <div key={category.name} className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {category.name}:
-                  </span>
-                  <span className="font-medium">
-                    ₹{category.amount.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-              <div className="border-t pt-2">
-                <div className="flex justify-between font-semibold">
-                  <span>Total Expenses:</span>
-                  <span className="text-red-600">
-                    ₹{expensesTotal.toLocaleString()}
-                  </span>
+            {costRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No costs recorded yet.</p>
+            ) : (
+              <div className="space-y-3 text-sm">
+                {costRows.map((row) => {
+                  const share = expensesTotal > 0 ? (row.amount / expensesTotal) * 100 : 0;
+                  return (
+                    <div key={row.name}>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">{row.name}</span>
+                        <span className="font-medium">
+                          {rupees(row.amount)}
+                          <span className="ml-1.5 text-xs font-normal text-gray-400">{share.toFixed(0)}%</span>
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className={`h-full rounded-full ${BAR_COLORS[row.name] ?? "bg-gray-400"}`}
+                          style={{ width: `${Math.min(100, Math.max(0, share))}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex justify-between gap-4 border-t pt-3 font-semibold">
+                  <span>Total costs</span>
+                  <span>{rupees(expensesTotal)}</span>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

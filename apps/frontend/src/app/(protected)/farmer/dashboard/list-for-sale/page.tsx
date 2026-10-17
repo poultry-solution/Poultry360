@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import {
   Card,
   CardContent,
@@ -74,6 +76,35 @@ function categoryLabelKey(cat: ListForSaleCategory): string {
 }
 
 export default function ListForSalePage() {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const feature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE);
+
+  if (feature.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+  if (!feature.isEnabled) {
+    return (
+      <div className="mx-auto max-w-md rounded-lg border bg-white p-6 text-center">
+        <Tag className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+        <h1 className="text-lg font-semibold">{t("settings.listForSale")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t("farmer.listForSale.turnedOff")}</p>
+        {!user?.isStaff && (
+          <Button asChild className="mt-4">
+            <Link href="/farmer/dashboard/settings">{t("farmer.listForSale.openSettings")}</Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
+  return <ListForSaleContent />;
+}
+
+function ListForSaleContent() {
   const { t } = useI18n();
   const { user } = useAuth();
   const companyName = user?.companyName ?? "";

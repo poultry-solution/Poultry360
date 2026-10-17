@@ -32,6 +32,8 @@ export interface HatcheryInventoryItem {
   effectiveUnitCost: number | null;
   supplierKey: string;
   supplier?: { id: string; name: string } | null;
+  /** First day this lot was bought (from the list endpoint). */
+  firstPurchaseDate?: string | null;
   manufacturedProductId?: string | null;
   currentStock: number;
   minStock: number | null;

@@ -20,6 +20,36 @@ import { useGetLedgerSummary } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useAuthStore } from "@/common/store/store";
+import { SalesVsCollectedChart } from "@/components/dealer/SalesVsCollectedChart";
+
+function HomeStat({
+  label,
+  icon: Icon,
+  value,
+  sub,
+  valueClass,
+}: {
+  label: string;
+  icon: typeof Package;
+  value: string | null;
+  sub: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-medium text-gray-600">{label}</p>
+        <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      </div>
+      {value === null ? (
+        <Loader2 className="my-1 h-5 w-5 animate-spin text-gray-400" />
+      ) : (
+        <p className={`mt-0.5 truncate text-lg font-bold md:text-xl ${valueClass ?? ""}`}>{value}</p>
+      )}
+      <p className="truncate text-[11px] text-gray-500">{sub}</p>
+    </div>
+  );
+}
 
 export default function DealerHomePage() {
   const { t } = useI18n();
@@ -79,7 +109,7 @@ export default function DealerHomePage() {
   const toCompanyDirection = netCompanyBalance >= 0 ? "give" : "receive";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -100,109 +130,58 @@ export default function DealerHomePage() {
         </div>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3">
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Products</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-xl md:text-2xl font-bold">{stats.totalInventory}</div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Product types you sell</p>
-          </CardContent>
-        </Card>
-
-        <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-xl md:text-2xl font-bold">{stats.totalCustomers}</div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Customer records</p>
-          </CardContent>
-        </Card>
-
-        {canViewFinancialSummaries && <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">Product sales</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-xl md:text-2xl font-bold">{formatCurrency(stats.totalSalesAmount)}</div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">Does not include Broiler money</p>
-          </CardContent>
-        </Card>}
-
-        {/* Money position - From Customer (net) */}
-        {canViewFinancialSummaries && <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">
-              {fromCustomerDirection === "receive" ? "Customers owe you" : "You owe customers"}
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {ledgerLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-xl md:text-2xl font-bold text-green-600">
-                {formatCurrency(Math.abs(netCustomerBalance))}
-              </div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Current unpaid amount
-            </p>
-          </CardContent>
-        </Card>}
-
-        {/* Money position - To Company (net) */}
-        {canViewFinancialSummaries && <Card className="p-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4 pb-1 md:pb-2">
-            <CardTitle className="text-xs md:text-sm font-medium">
-              {toCompanyDirection === "give" ? "You owe suppliers" : "Suppliers owe you"}
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="p-3 md:p-4 pt-0">
-            {ledgerLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <div className="text-xl md:text-2xl font-bold text-red-600">
-                {formatCurrency(Math.abs(netCompanyBalance))}
-              </div>
-            )}
-            <p className="text-[10px] md:text-xs text-muted-foreground">
-              Current unpaid amount
-            </p>
-          </CardContent>
-        </Card>}
+      {/* Statistics */}
+      <div className={`grid grid-cols-2 gap-3 ${canViewFinancialSummaries ? "md:grid-cols-3 xl:grid-cols-5" : "md:grid-cols-2"}`}>
+        <HomeStat
+          label="Products"
+          icon={Package}
+          value={isLoading ? null : String(stats.totalInventory)}
+          sub="Product types you sell"
+        />
+        <HomeStat
+          label="Customers"
+          icon={Users}
+          value={isLoading ? null : String(stats.totalCustomers)}
+          sub="Customer records"
+        />
+        {canViewFinancialSummaries ? (
+          <>
+            <HomeStat
+              label="Product sales"
+              icon={Receipt}
+              value={isLoading ? null : formatCurrency(stats.totalSalesAmount)}
+              sub="Does not include Broiler money"
+            />
+            <HomeStat
+              label={fromCustomerDirection === "receive" ? "Customers owe you" : "You owe customers"}
+              icon={Users}
+              value={ledgerLoading ? null : formatCurrency(Math.abs(netCustomerBalance))}
+              valueClass="text-green-700"
+              sub="Current unpaid amount"
+            />
+            <HomeStat
+              label={toCompanyDirection === "give" ? "You owe suppliers" : "Suppliers owe you"}
+              icon={Wallet}
+              value={ledgerLoading ? null : formatCurrency(Math.abs(netCompanyBalance))}
+              valueClass="text-red-600"
+              sub="Current unpaid amount"
+            />
+          </>
+        ) : null}
       </div>
 
+      {canViewFinancialSummaries ? <SalesVsCollectedChart /> : null}
+
       {/* Recent Activity */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card className="gap-0 rounded-lg border-gray-200 py-0">
+          <CardHeader className="border-b border-gray-100 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Receipt className="h-4 w-4 text-gray-500" />
               {t("dealer.dashboard.recentSales.title")}
             </CardTitle>
-            <CardDescription>{t("dealer.dashboard.recentSales.subtitle")}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 py-3">
             {recentSalesLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -216,7 +195,7 @@ export default function DealerHomePage() {
                 {recentSales.map((sale: any) => (
                   <div
                     key={sale.id}
-                    className="flex items-center justify-between border-b pb-2 last:border-0"
+                    className="flex items-center justify-between border-b border-gray-100 pb-2 last:border-0"
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
@@ -244,15 +223,14 @@ export default function DealerHomePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
+        <Card className="gap-0 rounded-lg border-gray-200 py-0">
+          <CardHeader className="border-b border-gray-100 px-4 py-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertCircle className="h-4 w-4 text-gray-500" />
               {t("dealer.dashboard.lowStock.title")}
             </CardTitle>
-            <CardDescription>{t("dealer.dashboard.lowStock.subtitle")}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 py-3">
             {lowStockLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -266,7 +244,7 @@ export default function DealerHomePage() {
                 {lowStockProducts.map((product: any) => (
                   <div
                     key={product.id}
-                    className="flex items-center justify-between border-b pb-2 last:border-0"
+                    className="flex items-center justify-between border-b border-gray-100 pb-2 last:border-0"
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
@@ -276,7 +254,7 @@ export default function DealerHomePage() {
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{t("dealer.dashboard.lowStock.stock", { stock: product.currentStock, unit: product.unit })}</span>
-                        {product.minStock && (
+                        {product.minStock != null && Number(product.minStock) > 0 && (
                           <>
                             <span>•</span>
                             <span>{t("dealer.dashboard.lowStock.min", { min: product.minStock, unit: product.unit })}</span>

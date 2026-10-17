@@ -1,4 +1,5 @@
 "use client";
+import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 import {
   Card,
@@ -40,7 +41,8 @@ import { useI18n } from "@/i18n/useI18n";
 import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
 import { inventoryKeys, useDeleteInventoryItem } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import { formatRatePerUnit, formatRupeesExact, getTodayLocalDate } from "@/common/lib/utils";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import {
   Select,
   SelectContent,
@@ -92,6 +94,17 @@ export default function InventoryPage() {
     | "eggs"
   >("feed");
   const { t } = useI18n();
+
+  // Cost per unit: lakh commas, keeps up to 4 decimals (e.g. chick cost after free chicks), no ".00".
+  const ratePerUnit = formatRatePerUnit;
+  const statusLabel = (status: string) =>
+    status === "In Stock"
+      ? t("farmer.inventory.ui.statusInStock")
+      : status === "Low Stock"
+        ? t("farmer.inventory.ui.statusLowStock")
+        : status === "Out of Stock"
+          ? t("farmer.inventory.ui.statusOutOfStock")
+          : status;
   const [reorderRow, setReorderRow] = useState<any>(null);
   const [reorderQuantity, setReorderQuantity] = useState("");
   const [reorderDate, setReorderDate] = useState(getTodayLocalDate());
@@ -230,11 +243,11 @@ export default function InventoryPage() {
         : activeTab === "medicine"
           ? t("farmer.inventory.tabs.medicine")
           : activeTab === "raw-material"
-            ? "Raw Material"
+            ? t("farmer.inventory.ui.tabRawMaterial")
             : activeTab === "self-made"
-              ? "Self Feed"
+              ? t("farmer.inventory.ui.tabSelfFeed")
               : activeTab === "eggs"
-                ? "Eggs"
+                ? t("farmer.inventory.ui.tabEggs")
                 : t("farmer.inventory.tabs.other");
 
   const openReorderModal = (row: any) => {
@@ -301,11 +314,11 @@ export default function InventoryPage() {
       productForm.minStock === "" ? null : Number(productForm.minStock);
 
     if (!productForm.name.trim() || !productForm.unit.trim()) {
-      toast.error("Product name and unit are required");
+      toast.error(t("farmer.inventory.ui.toastNameUnitRequired"));
       return;
     }
     if (minStock !== null && (!Number.isFinite(minStock) || minStock < 0)) {
-      toast.error("Minimum stock must be zero or greater");
+      toast.error(t("farmer.inventory.ui.toastMinStock"));
       return;
     }
 
@@ -324,25 +337,25 @@ export default function InventoryPage() {
       }
 
       toast.success(
-        editingProduct ? "Product updated" : "Self Feed product added"
+        editingProduct ? t("farmer.inventory.ui.toastProductUpdated") : t("farmer.inventory.ui.toastProductAdded")
       );
       closeProductModal();
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Could not save product");
+      toast.error(error?.response?.data?.message || t("farmer.inventory.ui.toastSaveFailed"));
     }
   };
 
   const handleArchiveProduct = async (
     product: FarmerManufacturedProduct
   ) => {
-    if (!confirm(`Archive ${product.name}?`)) return;
+    if (!confirm(t("farmer.inventory.ui.archiveConfirm", { name: product.name }))) return;
 
     try {
       await archiveProduct.mutateAsync(product.id);
-      toast.success("Product archived");
+      toast.success(t("farmer.inventory.ui.toastArchived"));
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Could not archive product"
+        error?.response?.data?.message || t("farmer.inventory.ui.toastArchiveFailed")
       );
     }
   };
@@ -396,7 +409,7 @@ export default function InventoryPage() {
             </div>
           ),
         }),
-        createColumn("status", "Status", {
+        createColumn("status", t("farmer.inventory.ui.status"), {
           render: (_, item: any) => (
             <Badge
               variant={item.quantity === 0 ? "destructive" : "secondary"}
@@ -406,7 +419,7 @@ export default function InventoryPage() {
                   : "bg-green-100 text-green-800"
               }
             >
-              {item.quantity === 0 ? "Out of Stock" : "In Stock"}
+              {item.quantity === 0 ? t("farmer.inventory.ui.statusOutOfStock") : t("farmer.inventory.ui.statusInStock")}
             </Badge>
           ),
         })
@@ -421,13 +434,19 @@ export default function InventoryPage() {
               <p className="font-medium">{item.name}</p>
               {item.origin === "SELF_MADE" && (
                 <Badge className="bg-emerald-100 text-emerald-800">
-                  Self Feed
+                  {t("farmer.inventory.ui.selfFeedBadge")}
                 </Badge>
               )}
             </div>
             {item.batchNumber && (
               <p className="text-sm text-gray-600">
                 {t("farmer.inventory.table.batch")}: {item.batchNumber}
+              </p>
+            )}
+            {category === "raw-material" && item.firstPurchaseDate && (
+              <p className="text-xs text-gray-500">
+                {t("farmer.inventory.ui.boughtOn")}{" "}
+                <DateDisplay date={item.firstPurchaseDate} format="short" />
               </p>
             )}
           </div>
@@ -441,16 +460,12 @@ export default function InventoryPage() {
           </div>
         ),
       }),
-      createColumn("rate", "Cost / Unit", {
-        render: (_, item: any) =>
-          `₹${Number(item.rate || 0).toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}/${item.unit}`,
+      createColumn("rate", t("farmer.inventory.ui.costPerUnit"), {
+        render: (_, item: any) => ratePerUnit(item.rate, item.unit),
         align: "right",
       }),
       createColumn("value", t("farmer.inventory.table.value"), {
-        render: (_, item: any) => `₹${item.value.toLocaleString()}`,
+        render: (_, item: any) => formatRupeesExact(item.value),
         align: "right",
       }),
       createColumn("supplier", t("farmer.inventory.table.supplier"), {
@@ -465,11 +480,27 @@ export default function InventoryPage() {
         0,
         createColumn("expiryDate", t("farmer.inventory.table.expiry"), {
           render: (value) => {
-            if (!value) return t("common.notAvailable");
-            const isExpired = new Date(value) < new Date();
+            if (!value) return "—";
+            // Compare Nepal days, not the browser clock.
+            const expiryDay = toNepalDayAd(value);
+            const today = getNepalTodayAd();
+            const soonLimit = new Date(`${today}T00:00:00Z`);
+            soonLimit.setUTCDate(soonLimit.getUTCDate() + 30);
+            const isExpired = expiryDay < today;
+            const isSoon = !isExpired && expiryDay <= soonLimit.toISOString().slice(0, 10);
             return (
-              <span className={isExpired ? "text-red-600 font-medium" : ""}>
+              <span className={isExpired ? "font-medium text-red-600" : isSoon ? "font-medium text-amber-600" : ""}>
                 <DateDisplay date={value} format="short" />
+                {isExpired && (
+                  <span className="ml-1.5 rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">
+                    {t("farmer.inventory.ui.expired")}
+                  </span>
+                )}
+                {isSoon && (
+                  <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">
+                    {t("farmer.inventory.ui.expiresSoon")}
+                  </span>
+                )}
               </span>
             );
           },
@@ -479,7 +510,7 @@ export default function InventoryPage() {
 
     // Add status column
     baseColumns.push(
-      createColumn("status", "Status", {
+      createColumn("status", t("farmer.inventory.ui.status"), {
         render: (_, item: any) => (
           <Badge
             variant={item.status === "Low Stock" ? "destructive" : "secondary"}
@@ -489,67 +520,55 @@ export default function InventoryPage() {
                 : "bg-green-100 text-green-800"
             }
           >
-            {item.status === "Low Stock"
-              ? t("farmer.inventory.table.lowStock")
-              : item.status}
+            {statusLabel(item.status)}
           </Badge>
         ),
       })
     );
 
-    // Action column: Reorder (when applicable) + Delete (only when stock is 0)
+    // Action column: Reorder (when applicable) + Delete (shown only when stock is 0).
+    // Rows with stock show no greyed-out button and no warning; one help line sits under the table.
     baseColumns.push(
-      createColumn("action", "Action", {
+      createColumn("action", t("farmer.inventory.ui.action"), {
         render: (_, item: any) => {
           const qty = Number(item.quantity ?? 0);
           const canDelete = qty === 0 && item.origin !== "SELF_MADE";
           const showReorder =
             item.origin !== "SELF_MADE" && item.dealerId && !item.hasDealerAccount;
+          if (!showReorder && !canDelete) {
+            return <span className="text-muted-foreground">—</span>;
+          }
           return (
-            <div className="flex flex-col items-start gap-0.5">
-              <div className="flex items-center gap-1">
-                {showReorder && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => openReorderModal(item)}
-                  >
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    {t("farmer.inventory.reorder.button")}
-                  </Button>
-                )}
+            <div className="flex items-center gap-1">
+              {showReorder && (
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={!canDelete || deleteInventoryMutation.isPending}
-                  title={
-                    canDelete
-                      ? undefined
-                      : item.origin === "SELF_MADE"
-                        ? "Reverse its production run to remove this lot"
-                        : t("farmer.inventory.deleteDisabledReason")
-                  }
-                  aria-label={canDelete ? "Delete" : "Delete unavailable"}
+                  className="h-7 px-2 text-xs"
+                  onClick={() => openReorderModal(item)}
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  {t("farmer.inventory.reorder.button")}
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                  disabled={deleteInventoryMutation.isPending}
+                  aria-label={t("farmer.inventory.ui.delete")}
+                  title={t("farmer.inventory.ui.delete")}
                   onClick={() => {
-                    if (!canDelete) return;
                     if (!confirm(t("farmer.inventory.deleteConfirm", { name: item.name }))) return;
                     deleteInventoryMutation.mutate(item.id, {
                       onSuccess: () => toast.success(t("farmer.inventory.deleteSuccess")),
-                      onError: (err: any) => toast.error(err?.message || "Failed to delete"),
+                      onError: (err: any) => toast.error(err?.message || t("farmer.inventory.ui.toastDeleteFailed")),
                     });
                   }}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
-              </div>
-              {!canDelete && (
-                <span className="text-xs text-amber-600 dark:text-amber-500" role="status">
-                  {item.origin === "SELF_MADE"
-                    ? "Reverse production to remove"
-                    : t("farmer.inventory.deleteDisabledReason")}
-                </span>
               )}
             </div>
           );
@@ -563,28 +582,30 @@ export default function InventoryPage() {
   const productColumns: Column<FarmerManufacturedProduct>[] = [
     {
       key: "name",
-      label: "Product",
+      label: t("farmer.inventory.ui.product"),
       render: (_, product) => (
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{product.name}</span>
           <Badge className="bg-emerald-100 text-emerald-800">
-            Self Feed
+            {t("farmer.inventory.ui.selfFeedBadge")}
           </Badge>
         </div>
       ),
     },
     {
       key: "outputItemType",
-      label: "Category",
+      label: t("farmer.inventory.ui.category"),
       render: (_, product) => (
         <Badge variant="outline">
-          {product.outputItemType.replaceAll("_", " ")}
+          {t(`farmer.inventory.ui.type${product.outputItemType}`) === `farmer.inventory.ui.type${product.outputItemType}`
+            ? product.outputItemType.replaceAll("_", " ")
+            : t(`farmer.inventory.ui.type${product.outputItemType}`)}
         </Badge>
       ),
     },
     {
       key: "currentStock",
-      label: "Quantity",
+      label: t("farmer.inventory.ui.quantity"),
       render: (_, product) => (
         <span className="font-medium">
           {Number(product.currentStock)} {product.unit}
@@ -593,23 +614,18 @@ export default function InventoryPage() {
     },
     {
       key: "lotCount",
-      label: "Production lots",
+      label: t("farmer.inventory.ui.productionLots"),
       render: (_, product) => product.lotCount,
     },
     {
       key: "unitCost",
-      label: "Cost / Unit",
+      label: t("farmer.inventory.ui.costPerUnit"),
       render: (_, product) =>
-        product.unitCost === null
-          ? "—"
-          : `₹${Number(product.unitCost).toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 4,
-            })}/${product.unit}`,
+        product.unitCost === null ? "—" : ratePerUnit(product.unitCost, product.unit),
     },
     {
       key: "minStock",
-      label: "Minimum stock",
+      label: t("farmer.inventory.ui.minimumStock"),
       render: (_, product) =>
         product.minStock === null
           ? "—"
@@ -617,7 +633,7 @@ export default function InventoryPage() {
     },
     {
       key: "actions",
-      label: "Actions",
+      label: t("farmer.inventory.ui.actions"),
       render: (_, product) => {
         const hasStock = Number(product.currentStock) > 0;
 
@@ -629,23 +645,20 @@ export default function InventoryPage() {
               onClick={() => openEditProduct(product)}
             >
               <Pencil className="mr-1 h-3.5 w-3.5" />
-              Edit
+              {t("farmer.inventory.ui.edit")}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-              disabled={hasStock || archiveProduct.isPending}
-              title={
-                hasStock
-                  ? "Use or reverse all remaining stock before archiving"
-                  : undefined
-              }
-              onClick={() => handleArchiveProduct(product)}
-            >
-              <Trash2 className="mr-1 h-3.5 w-3.5" />
-              Archive
-            </Button>
+            {!hasStock && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                disabled={archiveProduct.isPending}
+                onClick={() => handleArchiveProduct(product)}
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                {t("farmer.inventory.ui.archive")}
+              </Button>
+            )}
           </div>
         );
       },
@@ -685,116 +698,72 @@ export default function InventoryPage() {
             {activeTab === "other"
               ? t("farmer.inventory.subtitleOther")
               : activeTab === "eggs"
-                ? "Track your egg inventory from daily production"
+                ? t("farmer.inventory.ui.eggSubtitle")
                 : t("farmer.inventory.subtitleDefault")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <BusinessDownloadDialog title="inventory" fileName="farmer-inventory" getData={downloadInventory} hasDateFilter={false} buttonLabel="Download inventory" />
-        {activeTab === "eggs" ? (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-            <Label htmlFor="egg-batch-select" className="text-sm font-medium whitespace-nowrap">
-              Layers batch
-            </Label>
-            <select
-              id="egg-batch-select"
-              value={selectedEggBatchId}
-              onChange={(e) => setSelectedEggBatchId(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[180px]"
-            >
-              <option value="">Select batch to see egg stock</option>
-              {layerBatches.map((batch: any) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.batchNumber ?? batch.id}
-                  {batch.farm?.name ? ` (${batch.farm.name})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : activeTab === "self-made" ? (
+        {activeTab === "self-made" ? (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={openCreateProduct}>
               <Plus className="mr-1 h-4 w-4" />
-              Add Product
+              {t("farmer.inventory.ui.addProduct")}
             </Button>
             <Button asChild>
               <Link href="/farmer/dashboard/production/new">
                 <Factory className="mr-1 h-4 w-4" />
-                Add Production
+                {t("farmer.inventory.ui.addProduction")}
               </Link>
             </Button>
           </div>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            {t("farmer.inventory.autoAdded")}{" "}
-            {activeTab === "medicine"
-              ? t("farmer.inventory.medicalSupplierLedger")
-              : t("farmer.inventory.dealerLedger")}
-          </div>
-        )}
+        ) : null}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalItems")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.totalItems || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inStock")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.lowStock")}</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.lowStockItems || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.needReorder")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.totalValue")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              <span className="hidden md:inline">रू</span>{(stats?.totalValue || 0).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.inventoryWorth")}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("farmer.inventory.stats.categories")}</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 pb-2 pt-0 md:p-6 md:pt-0">
-            <div className="text-base md:text-2xl font-bold">
-              {stats?.categories || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("farmer.inventory.stats.itemTypes")}</p>
-          </CardContent>
-        </Card>
+      {/* Stats tiles */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.totalItems"),
+            icon: Package,
+            value: Number(stats?.totalItems || 0).toLocaleString("en-IN"),
+            sub: t("farmer.inventory.stats.inStock"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.lowStock"),
+            icon: AlertTriangle,
+            iconClass: "text-orange-500",
+            value: Number(stats?.lowStockItems || 0).toLocaleString("en-IN"),
+            valueClass: Number(stats?.lowStockItems || 0) > 0 ? "text-orange-600" : "",
+            sub: t("farmer.inventory.stats.needReorder"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.totalValue"),
+            icon: Package,
+            value: rupees(stats?.totalValue || 0),
+            sub: t("farmer.inventory.stats.inventoryWorth"),
+          }}
+        />
+        <StatTile
+          tile={{
+            label: t("farmer.inventory.stats.categories"),
+            icon: Package,
+            value: Number(stats?.categories || 0).toLocaleString("en-IN"),
+            sub: t("farmer.inventory.stats.itemTypes"),
+          }}
+        />
       </div>
 
       {/* Tabs */}
       <div className="border-b">
         <nav className="flex gap-1 md:space-x-8 overflow-x-auto pb-1">
           {[
-            ...(hasLayerBatch ? [{ key: "eggs", label: "Eggs", icon: <Egg className="h-4 w-4" /> }] : []),
+            ...(hasLayerBatch ? [{ key: "eggs", label: t("farmer.inventory.ui.tabEggs"), icon: <Egg className="h-4 w-4" /> }] : []),
             { key: "feed", label: t("farmer.inventory.tabs.feed"), icon: <Wheat className="h-4 w-4" /> },
             {
               key: "chicks",
@@ -810,12 +779,12 @@ export default function InventoryPage() {
               ? [
                   {
                     key: "raw-material",
-                    label: "Raw Material",
+                    label: t("farmer.inventory.ui.tabRawMaterial"),
                     icon: <FlaskConical className="h-4 w-4" />,
                   },
                   {
                     key: "self-made",
-                    label: "Self Feed",
+                    label: t("farmer.inventory.ui.tabSelfFeed"),
                     icon: <Factory className="h-4 w-4" />,
                   },
                 ]
@@ -870,9 +839,11 @@ export default function InventoryPage() {
               >
                 {tab.icon}
                 <span>{tab.label}</span>
-                <Badge variant="secondary" className="ml-0.5 md:ml-1 text-[10px] md:text-xs px-1.5 md:px-2">
-                  {getTabCount()}
-                </Badge>
+                {tab.key !== "eggs" && (
+                  <Badge variant="secondary" className="ml-0.5 md:ml-1 text-[10px] md:text-xs px-1.5 md:px-2">
+                    {getTabCount()}
+                  </Badge>
+                )}
               </button>
             );
           })}
@@ -880,53 +851,82 @@ export default function InventoryPage() {
       </div>
 
       {/* Inventory Table */}
-      <Card>
-        <CardHeader className="p-3 md:p-6">
-          <CardTitle className="flex items-center gap-1 md:space-x-2 text-base md:text-lg">
+      <Card className="gap-3 py-0">
+        <CardHeader className="flex flex-col gap-2 px-3 pt-3 pb-0 sm:flex-row sm:items-center sm:justify-between md:px-6 md:pt-5">
+          <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base md:text-lg">
             {getCategoryIcon(activeTab)}
             <span>
               {activeTab === "eggs"
-                ? "Egg Inventory"
+                ? t("farmer.inventory.ui.eggInventory")
                 : t("farmer.inventory.categoryTitle", {
                     category: activeTabLabel,
                   })}
             </span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {activeTab === "eggs"
+                ? selectedEggBatchId && filteredInventory.length > 0
+                  ? t("farmer.inventory.ui.countEggTypes", {
+                      types: filteredInventory.length,
+                      eggs: filteredInventory
+                        .reduce((sum: number, row: any) => sum + Number(row.quantity || 0), 0)
+                        .toLocaleString("en-IN"),
+                    })
+                  : ""
+                : activeTab === "self-made"
+                  ? manufacturedProducts.length === 1
+                    ? t("farmer.inventory.ui.countProduct")
+                    : t("farmer.inventory.ui.countProducts", { count: manufacturedProducts.length })
+                  : filteredInventory.length === 1
+                    ? t("farmer.inventory.ui.countItem")
+                    : t("farmer.inventory.ui.countItems", { count: filteredInventory.length })}
+            </span>
           </CardTitle>
-          <CardDescription>
-            {activeTab === "eggs"
-              ? "Current stock of eggs by category"
-              : activeTab === "self-made"
-                ? `${manufacturedProducts.length} Self Feed product${manufacturedProducts.length === 1 ? "" : "s"}, including products with zero stock`
-              : t("farmer.inventory.categoryDesc", {
-                  count: filteredInventory.length,
-                  category: activeTabLabel,
-                })}
-          </CardDescription>
+          {activeTab === "eggs" && (
+<div className="flex w-full items-center gap-2 sm:w-auto">
+            <Label htmlFor="egg-batch-select" className="whitespace-nowrap text-sm font-normal text-muted-foreground">
+              {t("farmer.inventory.ui.layersBatch")}
+            </Label>
+            <select
+              id="egg-batch-select"
+              value={selectedEggBatchId}
+              onChange={(e) => setSelectedEggBatchId(e.target.value)}
+              className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm font-normal sm:w-64 sm:flex-none"
+            >
+              <option value="">{t("farmer.inventory.ui.selectBatch")}</option>
+              {layerBatches.map((batch: any) => (
+                <option key={batch.id} value={batch.id}>
+                  {batch.batchNumber ?? batch.id}
+                  {batch.farm?.name ? ` (${batch.farm.name})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {activeTab === "self-made" ? (
             productsLoading ? (
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Loading products...
+                {t("farmer.inventory.ui.loadingProducts")}
               </div>
             ) : manufacturedProducts.length === 0 ? (
               <div className="py-10 text-center text-muted-foreground">
                 <Factory className="mx-auto mb-3 h-12 w-12 opacity-40" />
-                <p className="font-medium">No Self Feed products</p>
+                <p className="font-medium">{t("farmer.inventory.ui.noSelfFeedProducts")}</p>
                 <p className="mt-1 text-sm">
-                  Add a product here before recording production.
+                  {t("farmer.inventory.ui.addProductHint")}
                 </p>
                 <Button className="mt-4" onClick={openCreateProduct}>
                   <Plus className="mr-1 h-4 w-4" />
-                  Add Product
+                  {t("farmer.inventory.ui.addProduct")}
                 </Button>
               </div>
             ) : (
               <DataTable
                 data={manufacturedProducts}
                 columns={productColumns}
-                emptyMessage="No Self Feed products"
+                emptyMessage={t("farmer.inventory.ui.noSelfFeedProducts")}
               />
             )
           ) : filteredInventory.length === 0 ? (
@@ -937,9 +937,9 @@ export default function InventoryPage() {
                 <p className="text-sm mt-2">
                   {selectedEggBatchId
                     ? (isEggLoading
-                      ? "Loading..."
-                      : "No eggs in stock for this batch. Record daily egg production on the batch page.")
-                    : "Select a Layers batch above to see egg inventory."}
+                      ? t("farmer.inventory.ui.loading")
+                      : t("farmer.inventory.ui.noEggsForBatch"))
+                    : t("farmer.inventory.ui.selectBatchHint")}
                 </p>
               ) : (
                 <p className="text-sm mt-2">
@@ -951,11 +951,17 @@ export default function InventoryPage() {
               )}
             </div>
           ) : (
-            <DataTable
-              data={filteredInventory}
-              columns={getInventoryColumns(activeTab)}
-              emptyMessage={t("farmer.inventory.empty", { category: activeTab })}
-            />
+            <>
+              <DataTable
+                data={filteredInventory}
+                columns={getInventoryColumns(activeTab)}
+                emptyMessage={t("farmer.inventory.empty", { category: activeTab })}
+              />
+              {activeTab !== "eggs" &&
+                filteredInventory.some((item: any) => Number(item.quantity ?? 0) > 0 && item.origin !== "SELF_MADE") && (
+                  <p className="px-4 py-2 text-xs text-muted-foreground">{t("farmer.inventory.ui.deleteHint")}</p>
+                )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -965,12 +971,12 @@ export default function InventoryPage() {
         isOpen={isProductOpen}
         onClose={closeProductModal}
         title={
-          editingProduct ? "Edit Self Feed Product" : "Add Self Feed Product"
+          editingProduct ? t("farmer.inventory.ui.editProductTitle") : t("farmer.inventory.ui.addProductTitle")
         }
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="self-made-product-name">Product name</Label>
+            <Label htmlFor="self-made-product-name">{t("farmer.inventory.ui.productName")}</Label>
             <Input
               id="self-made-product-name"
               value={productForm.name}
@@ -980,13 +986,13 @@ export default function InventoryPage() {
                   name: event.target.value,
                 }))
               }
-              placeholder="e.g. Broiler starter feed"
+              placeholder={t("farmer.inventory.ui.productNamePlaceholder")}
             />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Inventory category</Label>
+              <Label>{t("farmer.inventory.ui.inventoryCategory")}</Label>
               <Select
                 value={productForm.outputItemType}
                 disabled={Boolean(editingProduct?.lotCount)}
@@ -1003,7 +1009,7 @@ export default function InventoryPage() {
                 <SelectContent className="bg-white">
                   {PRODUCT_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
-                      {type.label}
+                      {t(`farmer.inventory.ui.type${type.value}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1011,7 +1017,7 @@ export default function InventoryPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="self-made-product-unit">Unit</Label>
+              <Label htmlFor="self-made-product-unit">{t("farmer.inventory.ui.unit")}</Label>
               <Input
                 id="self-made-product-unit"
                 value={productForm.unit}
@@ -1022,14 +1028,14 @@ export default function InventoryPage() {
                     unit: event.target.value,
                   }))
                 }
-                placeholder="kg, litre, pcs..."
+                placeholder={t("farmer.inventory.ui.unitPlaceholder")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="self-made-product-min-stock">
-              Minimum stock (optional)
+              {t("farmer.inventory.ui.minStockOptional")}
             </Label>
             <Input
               id="self-made-product-min-stock"
@@ -1048,24 +1054,23 @@ export default function InventoryPage() {
 
           {editingProduct && editingProduct.lotCount > 0 && (
             <p className="text-xs text-muted-foreground">
-              Unit and category cannot be changed after production history
-              exists.
+              {t("farmer.inventory.ui.lockedHint")}
             </p>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={closeProductModal}>
-              Cancel
+              {t("farmer.inventory.ui.cancel")}
             </Button>
             <Button
               onClick={handleSaveProduct}
               disabled={createProduct.isPending || updateProduct.isPending}
             >
               {createProduct.isPending || updateProduct.isPending
-                ? "Saving..."
+                ? t("farmer.inventory.ui.saving")
                 : editingProduct
-                  ? "Save Changes"
-                  : "Add Product"}
+                  ? t("farmer.inventory.ui.saveChanges")
+                  : t("farmer.inventory.ui.addProduct")}
             </Button>
           </div>
         </div>
@@ -1089,7 +1094,7 @@ export default function InventoryPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("farmer.inventory.table.rate")}</Label>
-                <Input value={reorderRow ? `₹${reorderRow.rate}` : ""} disabled />
+                <Input value={reorderRow ? ratePerUnit(reorderRow.rate, reorderRow.unit) : ""} disabled />
               </div>
               <div>
                 <Label>{t("farmer.inventory.modal.unit")}</Label>
@@ -1120,7 +1125,7 @@ export default function InventoryPage() {
             {reorderRow && reorderQuantity && parseFloat(reorderQuantity) > 0 && (
               <div className="bg-muted p-3 rounded-md text-sm">
                 <span className="font-medium">{t("farmer.inventory.reorder.total")}:</span>{" "}
-                ₹{(reorderRow.rate * parseFloat(reorderQuantity)).toLocaleString()}
+                {formatRupeesExact(reorderRow.rate * parseFloat(reorderQuantity))}
               </div>
             )}
           </div>

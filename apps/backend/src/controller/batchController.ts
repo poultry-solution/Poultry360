@@ -1,3 +1,4 @@
+import { nepalBatchDay } from "../utils/nepalBsDate";
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import {
@@ -511,17 +512,13 @@ export const createBatch = async (
       include: { managers: true },
     });
 
-    if (!farm) {
+    // The farm must belong to this account (for every role, not only MANAGER).
+    const hasFarmAccess =
+      !!farm &&
+      (farm.ownerId === currentUserId ||
+        farm.managers.some((manager) => manager.id === currentUserId));
+    if (!farm || !hasFarmAccess) {
       return res.status(404).json({ message: "Farm not found" });
-    }
-
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Check if batch number already exists for this farm
@@ -622,12 +619,15 @@ export const createBatch = async (
         },
       });
 
-      // 2) For each allocation: record usage, decrement stock, and create transaction
+      // 2) For each allocation: record usage, decrement stock, and create transaction.
+      // Dated on the batch start day (not "now") so a backdated batch keeps its chick
+      // cost inside the batch dates (close summary, reports and the expense list).
+      const allocationDate = batch.startDate;
       const usages = [] as any[];
       for (const alloc of allocations) {
         const usage = await tx.inventoryUsage.create({
           data: {
-            date: new Date(),
+            date: allocationDate,
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,
             totalAmount: alloc.totalAmount,
@@ -640,7 +640,7 @@ export const createBatch = async (
 
         const expense = await tx.expense.create({
           data: {
-            date: new Date(),
+            date: allocationDate,
             amount: alloc.totalAmount,
             description: `Purchase of ${alloc.item.name} for batch creation ${batch.batchNumber}`,
             quantity: alloc.requested,
@@ -673,7 +673,7 @@ export const createBatch = async (
             quantity: alloc.requested,
             unitPrice: alloc.unitPrice,
             totalAmount: alloc.totalAmount,
-            date: new Date(),
+            date: allocationDate,
             description: `Chicks allocated to batch ${batch.batchNumber}`,
             itemId: alloc.itemId,
           },
@@ -1171,10 +1171,7 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
             Number(totalExpenses._sum.amount || 0),
           totalSalesQuantity: Number(totalSales._sum.quantity || 0),
           totalSalesWeight: Number(totalSales._sum.weight || 0),
-          daysActive: Math.ceil(
-            (batchEndDate.getTime() - existingBatch.startDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-          ),
+          daysActive: nepalBatchDay(existingBatch.startDate, batchEndDate),
         },
       };
     });
@@ -1381,7 +1378,7 @@ export const getBatchClosureSummary = async (
     const profit = revenue - expenses;
 
     const daysActive = batch.endDate && batch.startDate
-      ? Math.ceil((batch.endDate.getTime() - batch.startDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? nepalBatchDay(batch.startDate, batch.endDate)
       : 0;
 
     // Calculate efficiency metrics
@@ -1580,14 +1577,9 @@ export const getBatchAnalytics = async (
           message: "Use the final FCR value",
         };
 
-    // Calculate days active and batch age
-    const daysActive = Math.ceil(
-      ((batch.endDate || new Date()).getTime() - batch.startDate.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-
-    // Calculate batch age
-    const batchAge = Math.floor((Date.now() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24));
+    // Batch age in Nepal days (arrival day = Day 1), same as Analytics and share links.
+    const daysActive = nepalBatchDay(batch.startDate, batch.endDate || new Date());
+    const batchAge = daysActive;
 
     // also include total sales quantity
     const totalSalesQuantity = fcrResult.currentSoldBirds;

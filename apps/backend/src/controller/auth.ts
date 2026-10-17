@@ -770,14 +770,14 @@ export const registerEntity = async (
       });
     }
 
-    if (!entityType || !["DEALER", "COMPANY", "DOCTOR", "HATCHERY"].includes(entityType)) {
+    if (!entityType || !["DEALER", "COMPANY", "HATCHERY"].includes(entityType)) {
       return res.status(400).json({
         success: false,
-        message: "Entity type must be DEALER, COMPANY, DOCTOR, or HATCHERY",
+        message: "Entity type must be DEALER, COMPANY, or HATCHERY",
       });
     }
 
-    if (entityType !== "DOCTOR" && !entityName) {
+    if (!entityName) {
       return res.status(400).json({
         success: false,
         message: "Entity name is required",
@@ -820,39 +820,10 @@ export const registerEntity = async (
         ? UserRole.DEALER
         : entityType === "COMPANY"
           ? UserRole.COMPANY
-          : entityType === "HATCHERY"
-            ? UserRole.HATCHERY
-            : UserRole.DOCTOR;
+          : UserRole.HATCHERY;
 
     // Create user and entity in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // For DOCTOR: only create user with clinic info (companyName, CompanyFarmLocation)
-      if (entityType === "DOCTOR") {
-        const user = await tx.user.create({
-          data: {
-            name,
-            phone,
-            password: hashedPassword,
-            role: UserRole.DOCTOR,
-            status: UserStatus.ACTIVE,
-            language: "ENGLISH",
-            calendarType: "AD",
-            companyName: entityName || null,
-            CompanyFarmLocation: entityAddress || null,
-          },
-        });
-
-        await tx.userOnboardingPayment.create({
-          data: {
-            userId: user.id,
-            state: UserOnboardingPaymentState.PENDING_PAYMENT,
-            lockedUntilApproved: true,
-          },
-        });
-
-        return { user, entity: null, entityType: "DOCTOR" as const };
-      }
-
       // Create user for DEALER/COMPANY
       const user = await tx.user.create({
         data: {
@@ -971,18 +942,11 @@ export const registerEntity = async (
       },
     };
 
-    if (result.entity) {
-      responsePayload.entity = {
-        id: result.entity.id,
-        name: result.entity.name,
-        type: result.entityType,
-      };
-    } else {
-      // Doctor: no separate entity; clinic info on user
-      responsePayload.entity = null;
-      responsePayload.user.companyName = result.user.companyName;
-      responsePayload.user.companyFarmLocation = result.user.CompanyFarmLocation;
-    }
+    responsePayload.entity = {
+      id: result.entity.id,
+      name: result.entity.name,
+      type: result.entityType,
+    };
 
     return res.status(201).json(responsePayload);
   } catch (error: any) {

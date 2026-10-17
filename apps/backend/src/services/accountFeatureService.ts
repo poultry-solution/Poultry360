@@ -8,6 +8,7 @@ export const ACCOUNT_FEATURE_KEYS = {
   FARMER_STAFF_OPERATIONS: "FARMER_STAFF_OPERATIONS",
   FARMER_PURCHASE_BILL_UPLOAD: "FARMER_PURCHASE_BILL_UPLOAD",
   FARMER_CFCR: "FARMER_CFCR",
+  FARMER_LIST_FOR_SALE: "FARMER_LIST_FOR_SALE",
   HATCHERY_PURCHASE_BILL_UPLOAD: "HATCHERY_PURCHASE_BILL_UPLOAD",
   DEALER_PURCHASE_BILL_UPLOAD: "DEALER_PURCHASE_BILL_UPLOAD",
   COMPANY_PURCHASE_BILL_UPLOAD: "COMPANY_PURCHASE_BILL_UPLOAD",
@@ -80,6 +81,16 @@ export const ACCOUNT_FEATURE_DEFINITIONS: Record<
     name: "Farmer Corrected FCR",
     description:
       "Show corrected FCR settings and results for Farmer Broiler batches.",
+    applicableRoles: [UserRole.OWNER],
+    defaultEnabled: false,
+    selfConfigurable: true,
+    adminConfigurable: false,
+  },
+  FARMER_LIST_FOR_SALE: {
+    key: ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE,
+    name: "Farmer List for Sale",
+    description:
+      "Show List for sale, where a Farmer posts birds or eggs for buyers on the public marketplace.",
     applicableRoles: [UserRole.OWNER],
     defaultEnabled: false,
     selfConfigurable: true,

@@ -519,7 +519,6 @@ describe("Account feature API", () => {
     expect((await apiHelper.get("/dealers")).status).toBe(200);
     expect((await apiHelper.get("/sales")).status).toBe(200);
     expect((await apiHelper.get("/expenses")).status).toBe(200);
-    expect((await apiHelper.get("/conversations")).status).toBe(200);
     expect((await apiHelper.get("/dashboard/overview")).status).toBe(403);
     expect((await apiHelper.get("/analytics/farmer/overview")).status).toBe(403);
   });

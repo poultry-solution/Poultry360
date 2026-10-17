@@ -19,8 +19,6 @@ export default function UniversalDashboard() {
       // Redirect to role-specific dashboard
       if (user?.role === "OWNER" || user?.role === "MANAGER") {
         router.push("/farmer/dashboard/home");
-      } else if (user?.role === "DOCTOR") {
-        router.push("/doctor/dashboard");
       } else if (user?.role === "SUPER_ADMIN") {
         router.push("/admin/dashboard");
       } else {

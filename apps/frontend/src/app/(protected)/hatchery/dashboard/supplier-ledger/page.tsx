@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -18,13 +18,15 @@ import {
   Truck,
   Plus,
   Users,
-  DollarSign,
-  TrendingUp,
+  Wallet,
+  ShoppingCart,
+  Search,
   Trash2,
   Eye,
   X,
-  ChevronDown,
-  ChevronUp,
+  MoreHorizontal,
+  Pencil,
+  Phone,
 } from "lucide-react";
 import {
   Select,
@@ -34,10 +36,18 @@ import {
   SelectValue,
 } from "@/common/components/ui/select";
 import { DateInput } from "@/common/components/ui/date-input";
+import { DataTable, type Column } from "@/common/components/ui/data-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/common/components/ui/dropdown-menu";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { formatRupeesExact, getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetHatcherySuppliers,
   useGetHatcherySupplierStatistics,
@@ -90,8 +100,17 @@ const DEFAULT_UNITS: Record<HatcheryPurchaseCategory, string> = {
   OTHER: "pcs",
 };
 
-const fmtNPR = (n: number | string | undefined | null) =>
-  `Rs. ${Number(n || 0).toLocaleString("en-NP", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtNPR = (n: number | string | undefined | null) => formatRupeesExact(Number(n || 0));
+/** Whole rupees for the summary cards. */
+const fmtWholeRupees = (n: number | string | undefined | null) => formatRupeesExact(Math.round(Number(n || 0)));
+
+/** Supplier balance words: plus = you owe them, minus = you paid in advance. */
+function supplierBalanceView(balance: number | string | undefined | null) {
+  const value = Number(balance || 0);
+  if (value > 0) return { label: "You owe", amount: fmtNPR(value), className: "text-red-600" };
+  if (value < 0) return { label: "Advance", amount: fmtNPR(-value), className: "text-green-600" };
+  return { label: "Settled", amount: fmtNPR(0), className: "text-muted-foreground" };
+}
 
 // ==================== EMPTY LINE ITEM ====================
 
@@ -115,7 +134,7 @@ const emptyLineItem = (category: HatcheryPurchaseCategory): AddPurchaseItem & {
 // ==================== PAGE ====================
 
 export default function HatcherySupplierLedgerPage() {
-  const SUPPLIER_PAGE_LIMIT = 5;
+  const SUPPLIER_PAGE_LIMIT = 10;
   const TRANSACTION_PAGE_LIMIT = 10;
   const { isEnabled: isSelfFeedEnabled } = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.SELF_FEED_PRODUCTION
@@ -129,11 +148,16 @@ export default function HatcherySupplierLedgerPage() {
     "purchases"
   );
   const [supplierPage, setSupplierPage] = useState(1);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const detailRef = useRef<HTMLDivElement>(null);
   const [purchasePage, setPurchasePage] = useState(1);
   const [paymentPage, setPaymentPage] = useState(1);
 
   // Modals
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [supplierModalMode, setSupplierModalMode] = useState<"add" | "edit">("add");
+  const [purchaseDetails, setPurchaseDetails] = useState<any>(null);
   const [isAddPurchaseOpen, setIsAddPurchaseOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [isOpeningBalanceOpen, setIsOpeningBalanceOpen] = useState(false);
@@ -197,11 +221,15 @@ export default function HatcherySupplierLedgerPage() {
   }, [isPurchaseBillEnabled, purchaseForm.receiptImageUrl]);
   // Queries
   const { data: suppliersRes, isLoading: suppliersLoading } =
-    useGetHatcherySuppliers({ page: supplierPage, limit: SUPPLIER_PAGE_LIMIT });
+    useGetHatcherySuppliers({
+      page: supplierPage,
+      limit: SUPPLIER_PAGE_LIMIT,
+      search: debouncedSearch || undefined,
+    });
   const { data: statsRes } = useGetHatcherySupplierStatistics();
   const { data: purchaseTxnRes, isLoading: purchaseLoading } =
     useGetHatcherySupplierTransactions(
-      activeTab === "purchases" && activeSupplierId ? activeSupplierId : null,
+      activeSupplierId || null,
       {
         page: purchasePage,
         limit: TRANSACTION_PAGE_LIMIT,
@@ -210,7 +238,7 @@ export default function HatcherySupplierLedgerPage() {
     );
   const { data: paymentTxnRes, isLoading: paymentLoading } =
     useGetHatcherySupplierTransactions(
-      activeTab === "payments" && activeSupplierId ? activeSupplierId : null,
+      activeSupplierId || null,
       {
         page: paymentPage,
         limit: TRANSACTION_PAGE_LIMIT,
@@ -220,6 +248,7 @@ export default function HatcherySupplierLedgerPage() {
 
   // Mutations
   const createSupplier = useCreateHatcherySupplier();
+  const updateSupplier = useUpdateHatcherySupplier();
   const deleteSupplier = useDeleteHatcherySupplier();
   const setOpeningBalance = useSetHatcherySupplierOpeningBalance();
   const addPurchase = useAddHatcherySupplierPurchase();
@@ -301,6 +330,23 @@ export default function HatcherySupplierLedgerPage() {
         Number(paymentPagination?.limit ?? TRANSACTION_PAGE_LIMIT)
     )
   );
+
+  // Search after the user stops typing, from page 1.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(supplierSearch.trim());
+      setSupplierPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [supplierSearch]);
+
+  const selectSupplier = (id: string) => {
+    setActiveSupplierId(id);
+    // On phones the details sit below the list, so bring them into view.
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
+  };
 
   // Auto-select first supplier
   useEffect(() => {
@@ -430,6 +476,45 @@ export default function HatcherySupplierLedgerPage() {
   );
 
   // ==================== SUBMIT HANDLERS ====================
+
+  const openAddSupplier = () => {
+    setSupplierModalMode("add");
+    setSupplierForm({ name: "", contact: "", address: "" });
+    setIsAddSupplierOpen(true);
+  };
+
+  const openEditSupplier = () => {
+    if (!activeSupplier) return;
+    setSupplierModalMode("edit");
+    setSupplierForm({
+      name: activeSupplier.name ?? "",
+      contact: activeSupplier.contact ?? "",
+      address: activeSupplier.address ?? "",
+    });
+    setIsAddSupplierOpen(true);
+  };
+
+  const handleSaveSupplier = async () => {
+    if (supplierModalMode === "add") return handleCreateSupplier();
+    if (!supplierForm.name.trim()) {
+      toast.error("Supplier name is required");
+      return;
+    }
+    try {
+      await updateSupplier.mutateAsync({
+        id: activeSupplierId,
+        data: {
+          name: supplierForm.name.trim(),
+          contact: supplierForm.contact.trim(),
+          address: supplierForm.address.trim(),
+        },
+      });
+      toast.success("Supplier saved");
+      setIsAddSupplierOpen(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to save supplier");
+    }
+  };
 
   const handleCreateSupplier = async () => {
     if (!supplierForm.name.trim()) {
@@ -580,80 +665,167 @@ export default function HatcherySupplierLedgerPage() {
     }
   };
 
+  // ==================== TABLE COLUMNS ====================
+
+  const askDeleteTxn = (id: string) => {
+    setTxnToDelete(id);
+    setIsDeleteTxnOpen(true);
+  };
+
+  const purchaseColumns: Column<any>[] = [
+    { key: "date", label: "Date", width: "100px", render: (value) => <DateDisplay date={value} /> },
+    {
+      key: "amount",
+      label: "Amount",
+      align: "right",
+      width: "110px",
+      render: (value) => <span className="font-semibold">{fmtNPR(value)}</span>,
+    },
+    { key: "type", label: "Type", width: "110px", render: (_v, row) => <TxnTypeBadge txn={row} /> },
+    {
+      key: "items",
+      label: "Details",
+      render: (_v, row) => {
+        // The badge already says "Opening balance"; don't repeat it as a note.
+        const note = row.type === "OPENING_BALANCE" && /^opening balance$/i.test(String(row.note ?? "").trim()) ? "" : row.note;
+        const items = itemsSummary(row);
+        return (
+          <div className="min-w-[180px] max-w-[260px] whitespace-normal">
+            {items !== "—" && <p className="text-sm">{items}</p>}
+            {note ? (
+              <p className="truncate text-xs text-muted-foreground" title={note}>{note}</p>
+            ) : items === "—" ? (
+              <span className="text-muted-foreground">—</span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    ...(isPurchaseBillEnabled
+      ? [{
+          key: "receiptImageUrl",
+          label: "Bill",
+          width: "70px",
+          render: (value: any, row: any) =>
+            row.type === "PURCHASE" && value ? <FileLink href={value} /> : <span className="text-muted-foreground">—</span>,
+        } as Column<any>]
+      : []),
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      width: "80px",
+      render: (_v, row) => (
+        <div className="flex justify-end gap-1">
+          {row.type === "PURCHASE" &&
+            iconButton("View purchase", () => setPurchaseDetails(row), <Eye className="h-4 w-4" />)}
+          {/* The opening balance is changed from More → Opening balance, not deleted here. */}
+          {row.type !== "OPENING_BALANCE" &&
+            iconButton("Delete", () => askDeleteTxn(row.id), <Trash2 className="h-4 w-4" />, true)}
+        </div>
+      ),
+    },
+  ];
+
+  const paymentColumns: Column<any>[] = [
+    { key: "date", label: "Date", width: "100px", render: (value) => <DateDisplay date={value} /> },
+    {
+      key: "amount",
+      label: "Amount",
+      align: "right",
+      width: "120px",
+      render: (value) => <span className="font-semibold text-green-700">{fmtNPR(value)}</span>,
+    },
+    {
+      key: "reference",
+      label: "Reference",
+      render: (value) => (value ? value : <span className="text-muted-foreground">—</span>),
+    },
+    {
+      key: "note",
+      label: "Note",
+      render: (value) =>
+        value ? (
+          <span className="block max-w-[220px] truncate text-muted-foreground" title={value}>{value}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: "receiptImageUrl",
+      label: "Receipt",
+      width: "80px",
+      render: (value) => (value ? <FileLink href={value} /> : <span className="text-muted-foreground">—</span>),
+    },
+    {
+      key: "actions",
+      label: "",
+      align: "right",
+      width: "50px",
+      render: (_v, row) => (
+        <div className="flex justify-end">
+          {iconButton("Delete", () => askDeleteTxn(row.id), <Trash2 className="h-4 w-4" />, true)}
+        </div>
+      ),
+    },
+  ];
+
+  const activeBalance = supplierBalanceView(activeSupplier?.balance);
+  const purchaseCount = Number(purchasePagination?.total ?? 0);
+  const paymentCount = Number(paymentPagination?.total ?? 0);
+
   // ==================== RENDER ====================
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <Truck className="w-6 h-6 text-orange-500" />
+          <Truck className="h-6 w-6 shrink-0 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Supplier Ledger</h1>
+            <h1 className="text-xl font-bold sm:text-2xl">Supplier Ledger</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your feed, medicine, chick and equipment suppliers
+              Buy from suppliers and track what you owe
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <BusinessDownloadDialog title="suppliers" fileName="hatchery-suppliers" getData={downloadSuppliers} hasDateFilter={false} />
-          <Button
-            onClick={() => setIsAddSupplierOpen(true)}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            <Plus className="w-4 h-4 mr-2" />
+          <Button onClick={openAddSupplier}>
+            <Plus className="mr-2 h-4 w-4" />
             Add Supplier
           </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Suppliers</p>
-                <p className="text-2xl font-bold">{stats.totalSuppliers ?? 0}</p>
-              </div>
-              <Users className="w-8 h-8 text-orange-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Outstanding</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {fmtNPR(stats.outstandingAmount)}
-                </p>
-              </div>
-              <DollarSign className="w-8 h-8 text-red-400" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {fmtNPR(stats.thisMonthAmount)}
-                </p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <SummaryCard
+          className="col-span-2 lg:col-span-1"
+          label="You owe suppliers"
+          value={fmtWholeRupees(stats.outstandingAmount)}
+          valueClassName={Number(stats.outstandingAmount || 0) > 0 ? "text-red-600" : "text-foreground"}
+          icon={Wallet}
+        />
+        <SummaryCard label="Bought this month" value={fmtWholeRupees(stats.thisMonthAmount)} icon={ShoppingCart} />
+        <SummaryCard label="Suppliers" value={String(stats.totalSuppliers ?? 0)} icon={Users} />
       </div>
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Supplier list */}
         <Card className="lg:col-span-1">
-          <CardHeader>
+          <CardHeader className="space-y-3">
             <CardTitle className="text-base">Suppliers</CardTitle>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search name or phone"
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {suppliersLoading ? (
@@ -662,48 +834,51 @@ export default function HatcherySupplierLedgerPage() {
               </div>
             ) : suppliers.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground text-sm">
-                No suppliers yet.{" "}
-                <button
-                  className="text-orange-500 underline"
-                  onClick={() => setIsAddSupplierOpen(true)}
-                >
-                  Add one
-                </button>
+                {debouncedSearch ? (
+                  "No supplier found."
+                ) : (
+                  <>
+                    No suppliers yet.{" "}
+                    <button
+                      className="text-primary underline"
+                      onClick={openAddSupplier}
+                    >
+                      Add one
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="divide-y">
-                {suppliers.map((sup: any) => (
-                  <button
-                    key={sup.id}
-                    className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
-                      activeSupplierId === sup.id ? "bg-orange-50 border-l-4 border-orange-500" : ""
-                    }`}
-                    onClick={() => setActiveSupplierId(sup.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{sup.name}</p>
-                        {sup.contact && (
-                          <p className="text-xs text-muted-foreground">
-                            {sup.contact}
+                {suppliers.map((sup: any) => {
+                  const balance = supplierBalanceView(sup.balance);
+                  return (
+                    <button
+                      key={sup.id}
+                      className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors ${
+                        activeSupplierId === sup.id ? "bg-primary/5 border-l-4 border-primary" : ""
+                      }`}
+                      onClick={() => selectSupplier(sup.id)}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-sm">{sup.name}</p>
+                          {sup.contact && (
+                            <p className="text-xs text-muted-foreground">
+                              {sup.contact}
+                            </p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-semibold ${balance.className}`}>
+                            {balance.amount}
                           </p>
-                        )}
+                          <p className="text-xs text-muted-foreground">{balance.label}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p
-                          className={`text-sm font-semibold ${
-                            Number(sup.balance) > 0
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {fmtNPR(sup.balance)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">balance</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -719,125 +894,119 @@ export default function HatcherySupplierLedgerPage() {
         </Card>
 
         {/* Supplier detail */}
-        <Card className="lg:col-span-2">
+        <Card ref={detailRef} className="scroll-mt-4 lg:col-span-2">
           {!activeSupplierId ? (
             <CardContent className="pt-8 text-center text-muted-foreground">
               Select a supplier to view details
             </CardContent>
           ) : (
             <>
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <CardTitle>{activeSupplier?.name}</CardTitle>
-                    {activeSupplier?.contact && (
-                      <CardDescription>{activeSupplier.contact}</CardDescription>
-                    )}
+              <CardHeader className="space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <CardTitle className="text-lg">{activeSupplier?.name}</CardTitle>
+                    <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                      {activeSupplier?.contact && (
+                        <a
+                          href={`tel:${activeSupplier.contact}`}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          {activeSupplier.contact}
+                        </a>
+                      )}
+                      {activeSupplier?.address && <p>{activeSupplier.address}</p>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {activeSupplier ? <BusinessDownloadDialog title={`${activeSupplier.name} statement`} fileName={`${activeSupplier.name}-statement`} getData={downloadSupplierStatement} /> : null}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsOpeningBalanceOpen(true)}
-                    >
-                      Opening Balance
-                    </Button>
-                    <Button
-                      onClick={() => setIsAddPurchaseOpen(true)}
-                      size="sm"
-                      className="bg-orange-500 hover:bg-orange-600"
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Purchase
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsAddPaymentOpen(true)}
-                    >
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      Payment
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-600"
-                      onClick={() => setIsDeleteSupplierOpen(true)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  <div className="sm:text-right">
+                    <p className="text-xs text-muted-foreground">{activeBalance.label}</p>
+                    <p className={`text-2xl font-bold ${activeBalance.className}`}>{activeBalance.amount}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Opening: {fmtNPR(activeSupplier?.openingBalance)}
+                    </p>
                   </div>
                 </div>
 
-                {/* Balance summary row */}
-                <div className="flex items-center gap-6 mt-2 text-sm">
-                  <span className="text-muted-foreground">
-                    Opening:{" "}
-                    <span className="font-semibold text-foreground">
-                      {fmtNPR(activeSupplier?.openingBalance)}
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Current Balance:{" "}
-                    <span
-                      className={`font-semibold ${
-                        Number(activeSupplier?.balance) > 0
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {fmtNPR(activeSupplier?.balance)}
-                    </span>
-                  </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={() => setIsAddPurchaseOpen(true)} className="flex-1 sm:flex-none">
+                    <Plus className="mr-1 h-4 w-4" />
+                    Purchase
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsAddPaymentOpen(true)} className="flex-1 sm:flex-none">
+                    <Wallet className="mr-1 h-4 w-4" />
+                    Pay
+                  </Button>
+                  {activeSupplier ? (
+                    <BusinessDownloadDialog
+                      title={`${activeSupplier.name} statement`}
+                      fileName={`${activeSupplier.name}-statement`}
+                      getData={downloadSupplierStatement}
+                      className="h-9"
+                    />
+                  ) : null}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger>
+                      <Button variant="outline" size="sm" className="h-9 w-9 p-0" aria-label="More">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-white border shadow-lg">
+                      <DropdownMenuItem onClick={openEditSupplier}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setIsOpeningBalanceOpen(true)}>
+                        <Wallet className="mr-2 h-4 w-4" />
+                        Opening balance
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setIsDeleteSupplierOpen(true)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete supplier
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardHeader>
 
               {/* Tabs */}
               <CardContent>
                 <div className="flex border-b mb-4">
-                  {(["purchases", "payments"] as const).map((tab) => (
+                  {([
+                    ["purchases", `Purchases (${purchaseCount})`],
+                    ["payments", `Payments (${paymentCount})`],
+                  ] as const).map(([tab, label]) => (
                     <button
                       key={tab}
-                      className={`px-4 py-2 text-sm font-medium capitalize border-b-2 transition-colors ${
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === tab
-                          ? "border-orange-500 text-orange-600"
+                          ? "border-primary text-primary"
                           : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                       onClick={() => setActiveTab(tab)}
                     >
-                      {tab}
+                      {label}
                     </button>
                   ))}
                 </div>
 
                 {activeTab === "purchases" && (
                   <div className="space-y-2">
-                    {purchaseLoading ? (
-                      <p className="text-center text-muted-foreground text-sm py-4">
-                        Loading purchases...
-                      </p>
-                    ) : purchaseTxns.length === 0 ? (
-                      <p className="text-center text-muted-foreground text-sm py-4">
-                        No purchase entries yet
-                      </p>
-                    ) : (
-                      purchaseTxns.map((txn: any) => (
-                        <PurchaseRow
-                          key={txn.id}
-                          txn={txn}
-                          onDelete={(id) => {
-                            setTxnToDelete(id);
-                            setIsDeleteTxnOpen(true);
-                          }}
-                          showBill={isPurchaseBillEnabled}
-                          />
-                      ))
-                    )}
+                    <DataTable
+                      data={purchaseTxns}
+                      columns={purchaseColumns}
+                      loading={purchaseLoading}
+                      emptyMessage="No purchases yet"
+                      getRowKey={(row: any) => row.id}
+                      onRowClick={(row: any) => row.type === "PURCHASE" && setPurchaseDetails(row)}
+                    />
                     <LedgerPagination
                       page={purchasePage}
                       totalPages={purchaseTotalPages}
-                      totalRows={Number(purchasePagination?.total ?? 0)}
+                      totalRows={purchaseCount}
                       pageLimit={TRANSACTION_PAGE_LIMIT}
                       onPageChange={setPurchasePage}
                       loading={purchaseLoading}
@@ -848,30 +1017,17 @@ export default function HatcherySupplierLedgerPage() {
 
                 {activeTab === "payments" && (
                   <div className="space-y-2">
-                    {paymentLoading ? (
-                      <p className="text-center text-muted-foreground text-sm py-4">
-                        Loading payments...
-                      </p>
-                    ) : paymentTxns.length === 0 ? (
-                      <p className="text-center text-muted-foreground text-sm py-4">
-                        No payment entries yet
-                      </p>
-                    ) : (
-                      paymentTxns.map((txn: any) => (
-                        <PaymentRow
-                          key={txn.id}
-                          txn={txn}
-                          onDelete={(id) => {
-                            setTxnToDelete(id);
-                            setIsDeleteTxnOpen(true);
-                          }}
-                          />
-                      ))
-                    )}
+                    <DataTable
+                      data={paymentTxns}
+                      columns={paymentColumns}
+                      loading={paymentLoading}
+                      emptyMessage="No payments yet"
+                      getRowKey={(row: any) => row.id}
+                    />
                     <LedgerPagination
                       page={paymentPage}
                       totalPages={paymentTotalPages}
-                      totalRows={Number(paymentPagination?.total ?? 0)}
+                      totalRows={paymentCount}
                       pageLimit={TRANSACTION_PAGE_LIMIT}
                       onPageChange={setPaymentPage}
                       loading={paymentLoading}
@@ -891,7 +1047,7 @@ export default function HatcherySupplierLedgerPage() {
       <Modal
         isOpen={isAddSupplierOpen}
         onClose={() => setIsAddSupplierOpen(false)}
-        title="Add Supplier"
+        title={supplierModalMode === "edit" ? "Edit supplier" : "Add Supplier"}
       >
         <ModalContent>
           <div className="space-y-4">
@@ -932,11 +1088,59 @@ export default function HatcherySupplierLedgerPage() {
             Cancel
           </Button>
           <Button
-            className="bg-orange-500 hover:bg-orange-600"
-            onClick={handleCreateSupplier}
-            disabled={createSupplier.isPending}
+           
+            onClick={handleSaveSupplier}
+            disabled={createSupplier.isPending || updateSupplier.isPending}
           >
-            {createSupplier.isPending ? "Creating..." : "Add Supplier"}
+            {supplierModalMode === "edit"
+              ? updateSupplier.isPending ? "Saving..." : "Save"
+              : createSupplier.isPending ? "Creating..." : "Add Supplier"}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Purchase details */}
+      <Modal
+        isOpen={!!purchaseDetails}
+        onClose={() => setPurchaseDetails(null)}
+        title="Purchase details"
+        className="max-w-lg"
+      >
+        {purchaseDetails && (
+          <ModalContent>
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <TxnTypeBadge txn={purchaseDetails} />
+                <DateDisplay date={purchaseDetails.date} />
+                <span className="text-muted-foreground">· {activeSupplier?.name}</span>
+              </div>
+              <div className="divide-y rounded-lg border">
+                {(purchaseDetails.items ?? []).map((item: any) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{item.itemName}</p>
+                      <p className="text-xs text-muted-foreground">{purchaseItemLine(item)}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold">{fmtNPR(item.totalAmount)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between border-t pt-2">
+                <span className="font-medium">Purchase total</span>
+                <span className="font-bold">{fmtNPR(purchaseDetails.amount)}</span>
+              </div>
+              {purchaseDetails.note && (
+                <p className="text-sm text-muted-foreground">Note: {purchaseDetails.note}</p>
+              )}
+              {isPurchaseBillEnabled && purchaseDetails.receiptImageUrl && (
+                <FileLink href={purchaseDetails.receiptImageUrl} label="View bill" />
+              )}
+            </div>
+          </ModalContent>
+        )}
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setPurchaseDetails(null)}>
+            Close
           </Button>
         </ModalFooter>
       </Modal>
@@ -986,7 +1190,7 @@ export default function HatcherySupplierLedgerPage() {
             Cancel
           </Button>
           <Button
-            className="bg-orange-500 hover:bg-orange-600"
+           
             onClick={handleSetOpeningBalance}
             disabled={setOpeningBalance.isPending}
           >
@@ -1196,7 +1400,7 @@ export default function HatcherySupplierLedgerPage() {
             {/* Total */}
             <div className="flex justify-between border-t pt-2">
               <span className="font-medium">Purchase Total</span>
-              <span className="font-bold text-orange-600">
+              <span className="font-bold text-primary">
                 {fmtNPR(purchaseTotalAmount)}
               </span>
             </div>
@@ -1241,7 +1445,7 @@ export default function HatcherySupplierLedgerPage() {
             Cancel
           </Button>
           <Button
-            className="bg-orange-500 hover:bg-orange-600"
+           
             onClick={handleAddPurchase}
             disabled={addPurchase.isPending || isPurchaseBillUploading}
           >
@@ -1322,7 +1526,7 @@ export default function HatcherySupplierLedgerPage() {
             Cancel
           </Button>
           <Button
-            className="bg-orange-500 hover:bg-orange-600"
+           
             onClick={handleAddPayment}
             disabled={addPayment.isPending}
           >
@@ -1412,146 +1616,102 @@ export default function HatcherySupplierLedgerPage() {
 
 // ==================== SUB-COMPONENTS ====================
 
-function PurchaseRow({
-  txn,
-  onDelete,
-  showBill,
+function SummaryCard({
+  label,
+  value,
+  icon: Icon,
+  valueClassName = "text-foreground",
+  className = "",
 }: {
-  txn: any;
-  onDelete: (id: string) => void;
-  showBill: boolean;
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  valueClassName?: string;
+  className?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const isOpeningBalance = txn.type === "OPENING_BALANCE";
-
   return (
-    <div className="border rounded-lg p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              {isOpeningBalance ? (
-                <Badge variant="outline" className="text-xs">
-                  Opening Balance
-                </Badge>
-              ) : txn.purchaseCategory ? (
-                <Badge
-                  className={`text-xs ${
-                    CATEGORY_COLORS[
-                      txn.purchaseCategory as HatcheryPurchaseCategory
-                    ] ?? "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {
-                    CATEGORY_LABELS[
-                      txn.purchaseCategory as HatcheryPurchaseCategory
-                    ] ?? txn.purchaseCategory
-                  }
-                </Badge>
-              ) : null}
-              <span className="text-sm font-semibold text-foreground">
-                {fmtNPR(txn.amount)}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              <DateDisplay date={txn.date} />
-              {txn.note && ` · ${txn.note}`}
-            </p>
-            {showBill && txn.type === "PURCHASE" && txn.receiptImageUrl && (
-              <a
-                href={txn.receiptImageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-500 underline"
-              >
-                View bill
-              </a>
-            )}
-          </div>
+    <Card className={`gap-0 py-0 ${className}`}>
+      <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground sm:text-sm">{label}</p>
+          <p className={`truncate text-lg font-bold sm:text-xl ${valueClassName}`}>{value}</p>
         </div>
-        <div className="flex items-center gap-1">
-          {txn.items && txn.items.length > 0 && (
-            <button
-              className="p-1 text-muted-foreground hover:text-foreground"
-              onClick={() => setExpanded((x) => !x)}
-            >
-              {expanded ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
-            </button>
-          )}
-          <button
-            className="p-1 text-red-400 hover:text-red-600"
-            onClick={() => onDelete(txn.id)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Line items */}
-      {expanded && txn.items && txn.items.length > 0 && (
-        <div className="mt-2 border-t pt-2 space-y-1">
-          {txn.items.map((item: any) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between text-xs text-muted-foreground"
-            >
-              <span>
-                {item.itemName} — {Number(item.quantity)} {item.unit}
-                {Number(item.freeQuantity ?? 0) > 0 &&
-                  ` + ${Number(item.freeQuantity ?? 0)} free`}{" "}
-                @ {fmtNPR(item.unitPrice)}
-              </span>
-              <span>{fmtNPR(item.totalAmount)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+        <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+      </CardContent>
+    </Card>
   );
 }
 
-function PaymentRow({
-  txn,
-  onDelete,
-}: {
-  txn: any;
-  onDelete: (id: string) => void;
-}) {
+/** Small icon button for table rows: grey, red on hover when `danger`. */
+function iconButton(label: string, onClick: () => void, icon: React.ReactNode, danger = false) {
   return (
-    <div className="border rounded-lg p-3 flex items-center justify-between">
-      <div>
-        <div className="flex items-center gap-2">
-          <Badge className="bg-green-100 text-green-800 text-xs">Payment</Badge>
-          <span className="text-sm font-semibold text-green-600">
-            {fmtNPR(txn.amount)}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          <DateDisplay date={txn.date} />
-          {txn.reference && ` · Ref: ${txn.reference}`}
-          {txn.note && ` · ${txn.note}`}
-        </p>
-        {txn.receiptImageUrl && (
-          <a
-            href={txn.receiptImageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-500 underline"
-          >
-            View receipt
-          </a>
-        )}
-      </div>
-      <button
-        className="p-1 text-red-400 hover:text-red-600"
-        onClick={() => onDelete(txn.id)}
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
-    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label={label}
+      title={label}
+      className={`h-8 w-8 p-0 text-muted-foreground ${danger ? "hover:text-red-600" : "hover:text-foreground"}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {icon}
+    </Button>
   );
+}
+
+function FileLink({ href, label = "View" }: { href: string; label?: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-primary underline"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {label}
+    </a>
+  );
+}
+
+function TxnTypeBadge({ txn }: { txn: any }) {
+  if (txn.type === "OPENING_BALANCE") {
+    return <Badge variant="outline" className="text-xs">Opening balance</Badge>;
+  }
+  if (txn.type === "ADJUSTMENT") {
+    return <Badge className="bg-gray-100 text-gray-700 text-xs">Adjustment</Badge>;
+  }
+  const category = txn.purchaseCategory as HatcheryPurchaseCategory | undefined;
+  if (!category) return null;
+  return (
+    <Badge className={`text-xs ${CATEGORY_COLORS[category] ?? "bg-gray-100 text-gray-600"}`}>
+      {CATEGORY_LABELS[category] ?? category}
+    </Badge>
+  );
+}
+
+const fmtQty = (n: number | string | undefined | null) =>
+  Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+/** "Breeder Layer Feed · 3,000 kg × रू 70 +20 free +1 more" */
+function itemsSummary(txn: any): string {
+  const items: any[] = txn.items ?? [];
+  if (txn.type !== "PURCHASE" || items.length === 0) return "—";
+  const first = items[0];
+  const free = Number(first.freeQuantity ?? 0);
+  let text = `${first.itemName} · ${fmtQty(first.quantity)} ${first.unit} × ${fmtNPR(first.unitPrice)}`;
+  if (free > 0) text += ` +${fmtQty(free)} free`;
+  if (items.length > 1) text += ` +${items.length - 1} more`;
+  return text;
+}
+
+/** "Female · 600 birds × रू 700 · +20 free" */
+function purchaseItemLine(item: any): string {
+  const parts: string[] = [];
+  if (item.sex === "MALE") parts.push("Male");
+  if (item.sex === "FEMALE") parts.push("Female");
+  parts.push(`${fmtQty(item.quantity)} ${item.unit} × ${fmtNPR(item.unitPrice)}`);
+  if (Number(item.freeQuantity ?? 0) > 0) parts.push(`+${fmtQty(item.freeQuantity)} free`);
+  return parts.join(" · ");
 }

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 // Query keys
@@ -6,8 +6,12 @@ export const manualCompanyKeys = {
     all: ["dealer-manual-companies"] as const,
     lists: () => [...manualCompanyKeys.all, "list"] as const,
     list: (archived: boolean) => [...manualCompanyKeys.lists(), { archived }] as const,
+    /** Prefix of every statement query for one supplier; refresh this after any change. */
+    statementBase: (id: string) => [...manualCompanyKeys.all, "statement", id] as const,
     statement: (id: string, includeVoided?: boolean) =>
-        [...manualCompanyKeys.all, "statement", id, { includeVoided: !!includeVoided }] as const,
+        [...manualCompanyKeys.statementBase(id), { includeVoided: !!includeVoided }] as const,
+    statementTab: (id: string, params: { type: StatementTab; page: number; limit: number }) =>
+        [...manualCompanyKeys.statementBase(id), "tab", params] as const,
 };
 
 // Types
@@ -121,6 +125,45 @@ export const useGetManualCompanyStatement = (id: string, params?: { includeVoide
     });
 };
 
+export type StatementTab = "purchases" | "payments" | "settlements" | "adjustments" | "voided";
+
+export interface StatementTabResponse {
+    company: {
+        id: string;
+        name: string;
+        phone?: string | null;
+        address?: string | null;
+        balance: number;
+        totalPurchases: number;
+        totalPayments: number;
+        totalSettlementSales: number;
+    };
+    openingBalance: { amount: number; date: string | null; notes: string | null };
+    type: StatementTab;
+    rows: any[];
+    counts: Record<StatementTab, number>;
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+/** One tab of a supplier's account, paged on the server (10 per page). */
+export const useGetManualCompanyStatementTab = (
+    id: string,
+    { type, page, limit = 10 }: { type: StatementTab; page: number; limit?: number }
+) => {
+    return useQuery({
+        queryKey: manualCompanyKeys.statementTab(id, { type, page, limit }),
+        queryFn: async () => {
+            const { data } = await axiosInstance.get<{ success: boolean; data: StatementTabResponse }>(
+                `/dealer/manual-companies/${id}/statement`,
+                { params: { type, page, limit } }
+            );
+            return data.data;
+        },
+        enabled: !!id,
+        placeholderData: keepPreviousData,
+    });
+};
+
 // ==================== MUTATIONS ====================
 
 export const useCreateManualCompany = () => {
@@ -208,10 +251,11 @@ export const useVoidManualPurchase = () => {
             return data;
         },
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
             queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
             queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+            queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
         },
     });
 };
@@ -227,7 +271,7 @@ export const useVoidManualPayment = () => {
             return data;
         },
         onSuccess: (_data, vars) => {
-            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
         },
     });
@@ -260,13 +304,15 @@ export const useRecordManualPurchase = () => {
             );
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({
                 queryKey: manualCompanyKeys.lists(),
             });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
             // Also invalidate inventory data since products were added
             queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
             queryClient.invalidateQueries({ queryKey: ["inventory-summary"] });
+            queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
         },
     });
 };
@@ -281,10 +327,11 @@ export const useRecordManualCompanyPayment = () => {
             );
             return data;
         },
-        onSuccess: () => {
+        onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({
                 queryKey: manualCompanyKeys.lists(),
             });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
         },
     });
 };
@@ -301,22 +348,43 @@ export const useSetManualCompanyOpeningBalance = () => {
         },
         onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statement(vars.companyId) });
+            queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
         },
     });
 };
 
 // ==================== PROFIT SUMMARY ====================
 
-export const useGetDealerProfitSummary = () => {
+export interface DealerProfitSummary {
+    /** Purchases after trade discount, without voided bills. */
+    totalPurchases: number;
+    totalSales: number;
+    normalSales: number;
+    /** Cost of the items sold (saved on each sale). */
+    costOfGoodsSold: number;
+    broilerMargin: number;
+    /** normalSales − costOfGoodsSold + broilerMargin */
+    profit: number;
+    /** Old sale lines with no saved cost (product deleted). */
+    itemsMissingCost: number;
+}
+
+/** Leave params empty for all time. Dates are AD YYYY-MM-DD, read as Nepal days. */
+export const useGetDealerProfitSummary = (
+    params?: { startDate?: string; endDate?: string },
+    options?: { enabled?: boolean }
+) => {
+    const startDate = params?.startDate || undefined;
+    const endDate = params?.endDate || undefined;
     return useQuery({
-        queryKey: ["dealer-profit-summary"] as const,
+        queryKey: ["dealer-profit-summary", { startDate, endDate }] as const,
         queryFn: async () => {
-            const { data } = await axiosInstance.get<{
-                success: boolean;
-                data: { totalPurchases: number; totalSales: number; profit: number };
-            }>("/dealer/manual-companies/profit/summary");
+            const { data } = await axiosInstance.get<{ success: boolean; data: DealerProfitSummary }>(
+                "/dealer/manual-companies/profit/summary",
+                { params: { startDate, endDate } }
+            );
             return data.data;
         },
+        enabled: options?.enabled ?? true,
     });
 };

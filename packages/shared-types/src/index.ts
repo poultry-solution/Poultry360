@@ -562,6 +562,13 @@ export const SalesItemTypeSchema = z.enum([
 ]);
 export type SalesItemType = z.infer<typeof SalesItemTypeSchema>;
 
+// Bill discount on a farmer sale. The server works out the money; value > 0.
+export const SaleDiscountInputSchema = z.object({
+  type: z.enum(["PERCENT", "FLAT"]),
+  value: z.number().positive(),
+});
+export type SaleDiscountInput = z.infer<typeof SaleDiscountInputSchema>;
+
 export const SaleSchema = BaseSchema.extend({
   date: z.date(),
   amount: z.number().positive(),
@@ -577,6 +584,9 @@ export const SaleSchema = BaseSchema.extend({
   customerId: z.string().nullable(),
   itemType: SalesItemTypeSchema,
   categoryId: z.string().nullable(),
+  // Bill before the bill discount; null when there is no discount.
+  subtotalAmount: z.number().nonnegative().nullable().optional(),
+  discount: SaleDiscountInputSchema.nullable().optional(),
 });
 
 
@@ -589,6 +599,10 @@ export const CreateSaleSchema = z
     amount: z.number().positive(),
     quantity: z.number().positive(),
     weight: z.number().positive().optional().nullable(),
+    // Broiler sales only: % of weight not charged. The server works out the bill.
+    weightDiscountPercent: z.number().gt(0).lt(100).optional().nullable(),
+    // Bill discount on the amount (after any weight discount). `amount` is the bill before it.
+    discount: SaleDiscountInputSchema.nullable().optional(),
     unitPrice: z.number().positive(),
     description: z.string().optional(),
     isCredit: z.boolean().optional().default(false),
@@ -625,25 +639,6 @@ export const CreateSaleSchema = z
   );
 
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
-
-export const UpdateSaleSchema = z.object({
-  date: z.string().datetime().optional(),
-  amount: z.number().positive().optional(),
-  quantity: z.number().positive().optional(),
-  weight: z.number().positive().optional(),
-  unitPrice: z.number().positive().optional(),
-  description: z.string().nullable().optional(),
-  isCredit: z.boolean().optional(),
-  paidAmount: z.number().nonnegative().optional(),
-  farmId: z.string().optional(),
-  batchId: z.string().nullable().optional(),
-  customerId: z.string().nullable().optional(),
-  itemType: SalesItemTypeSchema.optional().default("Chicken_Meat"),
-  eggTypeId: z.string().nullable().optional(),
-  categoryId: z.string().optional(),
-});
-
-export type UpdateSale = z.infer<typeof UpdateSaleSchema>;
 
 // ==================== SALE PAYMENT SCHEMAS ====================
 
@@ -1643,7 +1638,6 @@ export const schemas = {
 
   Sale: SaleSchema,
   CreateSale: CreateSaleSchema,
-  UpdateSale: UpdateSaleSchema,
 
   SalePayment: SalePaymentSchema,
   CreateSalePayment: CreateSalePaymentSchema,
@@ -1793,3 +1787,58 @@ export interface BalanceLimitCheckResult {
 }
 
 // ==================== USER RESPONSE SCHEMAS ====================
+
+// ==================== BILL SETTINGS ====================
+// Business details printed on sale bills. Every field is optional; an empty
+// value means "use the business record" (shop / company / farm name, etc.).
+const optionalBillText = (max: number, tooLong: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, tooLong)
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null));
+
+export const BillSettingsInputSchema = z.object({
+  businessName: optionalBillText(120, "Business name must be 120 characters or less"),
+  address: optionalBillText(200, "Address must be 200 characters or less"),
+  panNumber: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null))
+    .refine((value) => value === null || /^\d{9}$/.test(value), {
+      message: "PAN number must be 9 digits",
+    }),
+  phone: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null))
+    // Nepal number: fixed +977 then exactly 10 digits.
+    .refine((value) => value === null || /^\+977\d{10}$/.test(value), {
+      message: "Phone must be 10 digits after +977",
+    }),
+  footerNote: optionalBillText(200, "Footer note must be 200 characters or less"),
+});
+export type BillSettingsInput = z.infer<typeof BillSettingsInputSchema>;
+
+export interface BillDetails {
+  businessName: string | null;
+  address: string | null;
+  panNumber: string | null;
+  phone: string | null;
+  footerNote: string | null;
+}
+
+export interface BillSettingsResponse {
+  /** What the owner saved (nulls when not set). */
+  saved: BillDetails;
+  /** Values from the business record, used when a field is empty. */
+  defaults: BillDetails;
+  /** What the bill prints: saved value, else the default. */
+  effective: BillDetails;
+}

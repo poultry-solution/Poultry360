@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bird, CircleDollarSign, Users } from "lucide-react";
+import { Bird, CircleDollarSign, Users } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
+import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { toast } from "sonner";
 import { ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer } from "@/fetchers/dealer/dealerSaleQueries";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
+import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
 
 export default function ChickenSalesByFarmerPage() {
   const router = useRouter();
@@ -42,7 +45,8 @@ function ChickenSalesByFarmerContent() {
   const [settlementTarget, setSettlementTarget] = useState<ChickenSalesByFarmerRow | null>(null);
   const [marginAmount, setMarginAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [settlementDate, setSettlementDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // Today in Nepal (toISOString gave yesterday before 5:45 AM).
+  const [settlementDate, setSettlementDate] = useState(() => getNepalTodayAd());
   const [notes, setNotes] = useState("");
   const sourceFarmerSelect = useSearchableCustomerSelect();
   const {
@@ -81,7 +85,7 @@ function ChickenSalesByFarmerContent() {
     setSettlementTarget(row);
     setMarginAmount("");
     setPaymentMethod("CASH");
-    setSettlementDate(new Date().toISOString().slice(0, 10));
+    setSettlementDate(getNepalTodayAd());
     setNotes("");
   };
 
@@ -112,19 +116,14 @@ function ChickenSalesByFarmerContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push("/dealer/dashboard/sales")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broiler Settlement</h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Check Broiler money and pay each farmer.
-            </p>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Broiler settlements</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
+          Check Broiler money and pay each farmer.
+        </p>
       </div>
+
+      <DealerSalesTabs />
 
       <Card className="border-amber-200 bg-amber-50/50">
         <CardContent className="flex gap-3 p-4 text-sm text-amber-900">
@@ -241,7 +240,16 @@ function ChickenSalesByFarmerContent() {
                 <div className="flex justify-between"><span>Pay farmer</span><span className="font-semibold">{formatCurrency(settlementAmounts.farmerPayout)}</span></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label htmlFor="settlementDate">Settlement Date</Label><Input id="settlementDate" type="date" value={settlementDate} onChange={(event) => setSettlementDate(event.target.value)} /></div>
+                <div className="space-y-2">
+                  <Label>Settlement Date</Label>
+                  <NepaliDatePicker
+                    defaultDate={convertADtoBS(settlementDate)}
+                    onChange={({ adDate }) => setSettlementDate(adDate.split("T")[0])}
+                    className="w-full rounded-md border border-input"
+                    theme="light"
+                    language="en"
+                  />
+                </div>
                 <div className="space-y-2"><Label>Payment Method</Label><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CASH">Cash</SelectItem><SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem><SelectItem value="CHEQUE">Cheque</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>
               </div>
               <div className="space-y-2"><Label htmlFor="settlementNotes">Notes (optional)</Label><Textarea id="settlementNotes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></div>

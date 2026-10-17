@@ -13,14 +13,14 @@ const siteUrl = "https://www.poultry360.org";
 export const metadata: Metadata = {
   title: "Poultry Farm Management Software for Nepal | Poultry360",
   description:
-    "Poultry360 helps broiler farms, layer farms, hatcheries, feed dealers, feed mills, and poultry vets in Nepal manage batches, inventory, sales, expenses, and performance in one system.",
+    "Poultry360 helps broiler farms, layer farms, hatcheries, feed dealers, and feed mills in Nepal manage batches, inventory, sales, expenses, and performance in one system.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     title: "Poultry Farm Management Software for Nepal | Poultry360",
     description:
-      "Manage broiler and layer farms, hatcheries, feed operations, and veterinary workflows with Poultry360.",
+      "Manage broiler and layer farms, hatcheries, and feed operations with Poultry360.",
     url: siteUrl,
     siteName: "Poultry360",
     type: "website",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Poultry Farm Management Software for Nepal | Poultry360",
     description:
-      "Manage broiler and layer farms, hatcheries, feed operations, and veterinary workflows with Poultry360.",
+      "Manage broiler and layer farms, hatcheries, and feed operations with Poultry360.",
   },
 };
 

@@ -46,7 +46,7 @@ export default function AdminBlogPostDetailPage() {
   if (isError || !post) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">Failed to load blog post.</p>
+        <p className="text-sm text-red-600">Failed to load blog post.</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => refetch()}>
             Retry

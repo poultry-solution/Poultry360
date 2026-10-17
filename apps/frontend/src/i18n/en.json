@@ -21,18 +21,6 @@
     "optional": "Optional",
     "notAvailable": "N/A"
   },
-  "chat": {
-    "unknown": "Unknown",
-    "online": "Online",
-    "offline": "Offline",
-    "deleteConversation": "Delete conversation",
-    "micAccessError": "Could not access microphone. Please check permissions.",
-    "recording": "Recording",
-    "stop": "Stop",
-    "send": "Send",
-    "sending": "Sending...",
-    "cancel": "Cancel"
-  },
   "topbar": {
     "expandSidebar": "Expand sidebar",
     "settings": "Settings",
@@ -41,7 +29,6 @@
     "signOut": "Sign Out",
     "search": {
       "farmer": "Search farms, batches, inventory...",
-      "doctor": "Search consultations, patients...",
       "admin": "Search users, farms, batches...",
       "dealer": "Search dealers, companies...",
       "company": "Search companies, dealers..."
@@ -50,28 +37,19 @@
   "sidebar": {
     "collapse": "Collapse sidebar",
     "roles": {
-      "doctor": {
-        
-        "subtitle": "Veterinary Services",
-        "userTitle": "Doctor"
-      },
       "admin": {
-       
         "subtitle": "System Management",
         "userTitle": "Administrator"
       },
       "dealer": {
-
         "subtitle": "Feed & Supply Management",
         "userTitle": "Dealer"
       },
       "company": {
-       
         "subtitle": "Product & Distribution Management",
         "userTitle": "Company"
       },
       "farmer": {
-     
         "subtitle": "Farm Management",
         "userTitle": "Owner"
       },
@@ -92,12 +70,10 @@
       "salesLedger": "Sales Ledger",
       "inventory": "Inventory",
       "listForSale": "List for sale",
-      "staffManagement": "Staff management",
+      "staffManagement": "Staff Payroll",
       "staffAccess": "Staff access",
       "activity": "Activity",
-      "chatWithDoctor": "Chat with Doctor",
       "dashboard": "Dashboard",
-      "chat": "Chat",
       "ledger": "Ledger",
       "companies": "Companies",
       "customers": "Customers",
@@ -120,7 +96,6 @@
       "purchases": "Purchases",
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
-      "saleRequests": "Sale Requests",
       "cashInHand": "Cash In Hand",
       "hatcheryOverview": "Overview",
       "hatcherySupplierLedger": "Supplier Ledger",
@@ -145,12 +120,9 @@
     "dealerName": "Dealer Name",
     "contact": "Contact",
     "address": "Address",
-    "ownedFarms": "Owned Farms",
-    "managedFarms": "Managed Farms",
     "farmName": "Farm Name",
     "capacity": "Capacity",
     "description": "Description",
-    "noFarms": "No farms found. You don't own or manage any farms yet.",
     "preferences": "Preferences",
     "language": "Language",
     "calendar": "Calendar",
@@ -179,7 +151,30 @@
     "paymentDirection": "Show reverse payment option",
     "paymentDirectionDescription": "Show the option to receive from a company or pay a customer.",
     "paymentDirectionUpdated": "Payment options updated",
-    "paymentDirectionUpdateFailed": "Failed to update payment options"
+    "paymentDirectionUpdateFailed": "Failed to update payment options",
+    "bill": {
+      "title": "Bill details",
+      "description": "Shown on your printed bills.",
+      "businessName": "Business name on bill",
+      "address": "Bill address",
+      "panNumber": "PAN number",
+      "phone": "Phone on bill",
+      "footerNote": "Footer note",
+      "preview": "Bill header preview",
+      "save": "Save bill details",
+      "saved": "Bill details saved",
+      "saveFailed": "Could not save bill details",
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "fromBusiness": "from your business details",
+      "emptyHint": "Leave a box empty to use your business details.",
+      "panInvalid": "PAN must be 9 digits",
+      "phoneInvalid": "Phone must be 10 digits"
+    },
+    "listForSale": "List for sale",
+    "listForSaleDescription": "Post birds or eggs for sale on the public marketplace. When off, your listings are hidden.",
+    "listForSaleUpdated": "List for sale setting updated",
+    "listForSaleUpdateFailed": "Could not update List for sale"
   },
   "auth": {
     "login": {
@@ -229,8 +224,6 @@
       "signupDealer": "Sign up as Dealer",
       "registerCompany": "Want to register as a company?",
       "signupCompany": "Sign up as Company",
-      "registerDoctor": "Are you a vet or doctor?",
-      "signupDoctor": "Sign up as Doctor",
       "errors": {
         "passwordMismatch": "Passwords do not match!",
         "passwordTooShort": "Password must be at least 6 characters long!",
@@ -302,31 +295,6 @@
         "registrationFailed": "Registration failed. Please try again."
       }
     },
-    "doctorSignup": {
-      "title": "Doctor Registration",
-      "subtitle": "Create your doctor account to support farmers",
-      "nameLabel": "Full Name *",
-      "phoneLabel": "Phone Number *",
-      "phonePlaceholder": "98XXXXXXXX",
-      "phoneHelp": "Your contact number for login and notifications.",
-      "clinicNameLabel": "Clinic / Practice Name",
-      "clinicNamePlaceholder": "Optional",
-      "clinicLocationLabel": "Clinic Location",
-      "clinicLocationPlaceholder": "e.g. Province, City",
-      "passwordLabel": "Password *",
-      "confirmPasswordLabel": "Confirm Password *",
-      "createAccount": "Create Doctor Account",
-      "creatingAccount": "Creating account...",
-      "alreadyHaveAccount": "Already have an account?",
-      "login": "Log in",
-      "errors": {
-        "nameRequired": "Name is required!",
-        "phoneInvalid": "Phone number must be exactly 10 digits!",
-        "passwordTooShort": "Password must be at least 6 characters long!",
-        "passwordMismatch": "Passwords do not match!",
-        "registrationFailed": "Registration failed. Please try again."
-      }
-    },
     "hatcherySignup": {
       "title": "Hatchery Registration",
       "subtitle": "Create your hatchery account to manage end-to-end operations",
@@ -360,8 +328,8 @@
   },
   "farmer": {
     "staff": {
-      "title": "Staff management",
-      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "title": "Staff Payroll",
+      "subtitle": "Track staff salary, payments and balances.",
       "addStaff": "Add staff",
       "name": "Name",
       "startDate": "Start date",
@@ -371,7 +339,7 @@
       "due": "Due",
       "advance": "Advance",
       "pay": "Pay",
-      "editSalary": "Edit salary",
+      "editSalary": "New rate from",
       "stop": "Stop",
       "details": "Details",
       "currentSalary": "Current salary",
@@ -399,23 +367,15 @@
       "addParty": "Add Party",
       "newSale": "New Sale",
       "tabs": {
-        "overview": "Overview",
-        "overviewShort": "Stats",
         "sales": "Sales",
         "parties": "Parties",
-        "payments": "Payments",
-        "payShort": "Pay"
+        "payments": "Payments"
       },
       "overview": {
         "sales": "Sales",
-        "credit": "Credit",
         "parties": "Parties",
-        "due": "Due",
         "owe": "owe",
-        "dueLabel": "due",
-        "outstanding": "Outstanding",
-        "recentSales": "Recent Sales",
-        "latestTransactions": "Latest transactions"
+        "outstanding": "Outstanding"
       },
       "filters": "Filters",
       "search": "Search",
@@ -468,13 +428,12 @@
         "amount": "Amount",
         "receipt": "Receipt",
         "view": "View",
-        "paymentLabel": "Payment"
+        "paymentLabel": "Payment",
+        "was": "was"
       },
       "viewCount": "View ({count})",
       "saleModal": {
-        "editSale": "Edit Sale",
         "addNewSale": "Add New Sale",
-        "smartForm": "💡 Smart Form: Farm and batch selections are remembered for your next sale to save time!",
         "selectFarm": "Select Farm *",
         "chooseFarm": "Choose a farm",
         "selectBatch": "Select Batch *",
@@ -486,7 +445,6 @@
         "type": "Type",
         "eggType": "Egg type",
         "addLine": "Add line",
-        "rateRupee": "Rate (₹)",
         "ratePerUnit": "Rate per unit",
         "quantityBirds": "Quantity (Birds)",
         "quantityUnits": "Quantity (Units)",
@@ -500,7 +458,7 @@
         "calculatedRateWeight": "Calculated as rate × weight",
         "calculatedRateQty": "Calculated as rate × quantity",
         "date": "Date",
-        "remainingBalance": "Remaining balance?",
+        "remainingBalance": "Sold on credit",
         "searchCustomer": "Search Customer",
         "searchExistingCustomers": "Search existing customers...",
         "noCustomersFound": "No customers found",
@@ -515,8 +473,23 @@
         "cancel": "Cancel",
         "updating": "Updating...",
         "creating": "Creating...",
-        "updateSale": "Update Sale",
-        "createSale": "Create Sale"
+        "createSale": "Create Sale",
+        "chickenMeat": "Chicken (meat)",
+        "ratePerEgg": "Rate per egg (रू)",
+        "ratePerUnitLabel": "Rate per unit (रू)",
+        "ratePerKgLabel": "Rate per kg (रू)",
+        "ratePerKg": "Rate per kg",
+        "moreOptions": "More options",
+        "moreOptionsChicken": "More options (discount, weight discount, invoice number)",
+        "moreOptionsOther": "More options (discount, invoice number)",
+        "calculatedRateWeightDiscount": "Rate × weight, with {percent}% weight discount",
+        "billDiscount": "Discount",
+        "discountFlat": "रू Flat",
+        "discountPercent": "% Percent",
+        "subtotal": "Subtotal",
+        "discount": "Discount",
+        "discountPercentRange": "Discount % must be above 0 and below 100.",
+        "discountFlatRange": "Flat discount must be less than the bill amount."
       },
       "partyModal": {
         "editParty": "Edit Party",
@@ -574,7 +547,6 @@
         "dateRequired": "Date is required"
       },
       "toast": {
-        "saleUpdated": "Sale updated successfully",
         "saleCreated": "Sale created successfully",
         "partyUpdated": "Party updated successfully",
         "partyCreated": "Party created successfully",
@@ -584,7 +556,39 @@
         "partyDeleted": "Party deleted successfully",
         "deletePartyFailed": "Failed to delete party"
       },
-      "failedCreateSale": "Failed to create sale. Please try again."
+      "failedCreateSale": "Failed to create sale. Please try again.",
+      "ui": {
+        "creditSales": "Credit sales",
+        "soldOnCredit": "{amount} sold on credit",
+        "toReceive": "To receive",
+        "filtered": "Filtered",
+        "searchSales": "Customer, farm or note",
+        "searchParties": "Name or phone",
+        "searchPayments": "Customer, note or reference",
+        "item": "Item",
+        "allItems": "All items",
+        "chicken": "Chicken",
+        "eggs": "Eggs",
+        "payment": "Payment",
+        "allPayments": "Cash and credit",
+        "cash": "Cash",
+        "credit": "Credit",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear",
+        "owesOnly": "Owes only",
+        "dateOrder": "From date is after To date.",
+        "noMatch": "Nothing matches these filters.",
+        "paidAtSale": "Paid at sale",
+        "paidLater": "Paid later",
+        "more": "More",
+        "showDeleted": "Show deleted",
+        "hideDeleted": "Hide deleted",
+        "deleteEntries": "Delete entries",
+        "showingDeleted": "Showing deleted payments",
+        "deleteCount": "Delete ({count})",
+        "dates": "Dates"
+      }
     },
     "paymentRequests": {
       "title": "Payment Requests",
@@ -858,63 +862,11 @@
       "pay": "Pay",
       "requestPayment": "Request Payment"
     },
-    "saleRequests": {
-      "title": "Sale Requests",
-      "subtitle": "Review and approve sale requests from your connected dealers",
-      "stats": {
-        "pending": "Pending Review",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "total": "Total"
-      },
-      "loading": "Loading...",
-      "emptyTitle": "No sale requests",
-      "emptyHelp": "When dealers send you sale requests, they'll appear here",
-      "from": "From",
-      "paid": "Paid",
-      "itemsTitle": "Items:",
-      "table": {
-        "product": "Product",
-        "quantity": "Quantity",
-        "unitPrice": "Unit Price",
-        "total": "Total"
-      },
-      "notes": "Notes:",
-      "rejectionReason": "Rejection Reason:",
-      "approve": "Approve",
-      "approving": "Approving...",
-      "reject": "Reject",
-      "rejecting": "Rejecting...",
-      "approveDialogTitle": "Approve Sale Request",
-      "approveDialogBody": "Are you sure you want to approve this sale request? This will add the items to your inventory and create a purchase entry.",
-      "rejectDialogTitle": "Reject Sale Request",
-      "rejectDialogBody": "Please provide a reason for rejecting this sale request.",
-      "requestLabel": "Request:",
-      "dealerLabel": "Dealer:",
-      "totalAmountLabel": "Total Amount:",
-      "itemsCountLabel": "Items:",
-      "itemsCountValue": "{count} items",
-      "cancel": "Cancel",
-      "reasonLabel": "Reason (optional)",
-      "reasonPlaceholder": "e.g., Price too high, don't need these items right now...",
-      "toast": {
-        "approved": "Sale request approved successfully!",
-        "rejected": "Sale request rejected",
-        "approveFailed": "Failed to approve request",
-        "rejectFailed": "Failed to reject request"
-      },
-      "status": {
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      }
-    },
     "dealers": {
       "title": "My Dealers",
       "subtitle": "Manage your dealer connections and verification requests",
       "buttons": {
         "feedLedger": "Feed Ledger",
-        "saleRequests": "Sale Requests",
         "paymentRequests": "Payment Requests",
         "apply": "Apply to Dealer",
         "viewDetails": "View Details",
@@ -1239,45 +1191,89 @@
       }
     },
     "farms": {
-      "title": "Farms",
-      "subtitle": "Manage your farm locations and details.",
-      "addFarm": "Add Farm",
-      "loading": "Loading farms...",
-      "error": "Failed to load farms. Please try again.",
-      "emptyTitle": "No farms found",
-      "emptyHelp": "Get started by creating your first farm.",
-      "createFarm": "Create Farm",
-      "activeBatches": "Active Batches ({count})",
-      "birds": "birds",
-      "capacity": "Capacity:",
-      "owner": "Owner:",
-      "totalBatches": "Total Batches:",
-      "created": "Created:",
-      "modal": {
-        "addTitle": "Add New Farm",
-        "farmName": "Farm Name",
-        "capacity": "Capacity (Number of Birds)",
-        "description": "Description (Optional)",
-        "cancel": "Cancel",
-        "creating": "Creating...",
-        "create": "Create Farm",
-        "batchesTitle": "{farm} – {status} Batches",
-        "loadingBatches": "Loading {status} batches...",
-        "errorBatches": "Failed to load batches. Please try again.",
-        "noBatches": "No {status} batches found for this farm.",
+      "list": {
+        "title": "Farms",
+        "subtitle": "Your farms and the birds in them",
+        "addFarm": "Add farm",
+        "loadFailed": "Could not load farms. Please try again.",
+        "emptyTitle": "No farms yet",
+        "emptyBody": "Add your first farm to start adding batches.",
+        "farm": "Farm",
+        "capacity": "Capacity",
+        "birdsAlive": "Birds alive",
+        "batches": "Batches",
+        "birdsN": "{n} birds",
+        "capacityN": "Capacity {n}",
+        "batchesCount": "{running} running · {total} total",
+        "pageOf": "Page {page} of {total}"
+      },
+      "detail": {
+        "notFound": "Farm not found.",
+        "backToFarms": "Back to farms",
+        "capacityLine": "Room for {n} birds",
+        "edit": "Edit",
+        "delete": "Delete",
+        "batches": "Batches",
+        "runningN": "{n} running",
+        "fcrNow": "Running broilers",
+        "fcrOld": "From an old weight",
+        "fcrNone": "No running broilers",
+        "sales": "Sales",
+        "costs": "Costs",
+        "profit": "Profit",
+        "loss": "Loss",
+        "allTime": "All time",
+        "batchesTitle": "Batches",
+        "addBatch": "Add batch",
+        "filterAll": "All {n}",
+        "filterRunning": "Running {n}",
+        "filterClosed": "Closed {n}",
+        "searchBatches": "Search batches",
+        "noBatches": "No batches in this farm yet.",
+        "noMatch": "No batches match.",
+        "batch": "Batch",
         "started": "Started",
         "age": "Age",
-        "days": "days",
-        "current": "Current",
-        "view": "View",
-        "close": "Close"
+        "birds": "Birds",
+        "deaths": "Deaths",
+        "running": "Running",
+        "broiler": "Broiler",
+        "layers": "Layers",
+        "dayN": "Day {n}",
+        "closedAfter": "Closed · {n} days",
+        "aliveOf": "{alive} alive of {started}",
+        "soldOf": "{sold} sold of {started}",
+        "soFar": "so far",
+        "batchesSub": "{alive} birds alive · {total} in total"
       },
-      "status": {
-        "active": "Active",
-        "closed": "Closed"
+      "form": {
+        "addTitle": "Add farm",
+        "editTitle": "Edit farm",
+        "name": "Farm name",
+        "namePlaceholder": "e.g. Green Valley Farm",
+        "nameRequired": "Enter a farm name",
+        "capacity": "Capacity (birds)",
+        "capacityHint": "Most birds this farm can keep at one time.",
+        "capacityInvalid": "Enter a whole number of 1 or more",
+        "description": "Note (optional)",
+        "descriptionPlaceholder": "e.g. 2 broiler sheds",
+        "cancel": "Cancel",
+        "create": "Add farm",
+        "save": "Save",
+        "created": "Farm added",
+        "updated": "Farm saved",
+        "saveFailed": "Could not save the farm"
       },
-      "toasts": {
-        "created": "Farm created successfully!"
+      "delete": {
+        "title": "Delete {name}?",
+        "body": "This farm has no batches, sales or costs. Deleting it cannot be undone. Enter your password to confirm.",
+        "password": "Your password",
+        "cancel": "Cancel",
+        "confirm": "Delete farm",
+        "deleted": "Farm deleted",
+        "failed": "Could not delete the farm",
+        "hasRecords": "This farm has batches, sales or costs, so it can't be deleted. Its records stay safe for your reports.",
+        "ok": "OK"
       }
     },
     "inventory": {
@@ -1285,7 +1281,6 @@
       "subtitleOther": "Manage other supplies and equipment.",
       "subtitleDefault": "Track feed, medicine, and supplies from purchases.",
       "addItem": "Add Item",
-      "autoAdded": "Items are automatically added when you make purchases in",
       "dealerLedger": "Supplier  Ledger",
       "medicalSupplierLedger": " Supplier Ledger",
       "loading": "Loading inventory...",
@@ -1314,11 +1309,9 @@
         "value": "Value",
         "supplier": "Supplier",
         "expiry": "Expiry",
-        "status": "Status",
-        "lowStock": "Low Stock"
+        "status": "Status"
       },
       "categoryTitle": "{category} Inventory",
-      "categoryDesc": "{count} items in {category} category",
       "empty": "No {category} items found",
       "emptyAddFirst": "Add First {category} Item",
       "emptyHelp": "Items will appear here when you make purchases in",
@@ -1365,7 +1358,74 @@
       },
       "deleteConfirm": "Remove {name} from inventory? It will be hidden from lists.",
       "deleteSuccess": "Item removed from inventory",
-      "deleteDisabledReason": "You have stock left. Clear or use stock before deleting."
+      "ui": {
+        "tabRawMaterial": "Raw Material",
+        "tabSelfFeed": "Self Feed",
+        "tabEggs": "Eggs",
+        "statusInStock": "In stock",
+        "statusLowStock": "Low stock",
+        "statusOutOfStock": "Out of stock",
+        "status": "Status",
+        "costPerUnit": "Cost / Unit",
+        "action": "Action",
+        "product": "Product",
+        "category": "Category",
+        "quantity": "Quantity",
+        "productionLots": "Production lots",
+        "minimumStock": "Minimum stock",
+        "actions": "Actions",
+        "expired": "Expired",
+        "expiresSoon": "Expires soon",
+        "eggSubtitle": "Track your egg inventory from daily production",
+        "layersBatch": "Layers batch",
+        "selectBatch": "Select batch to see egg stock",
+        "eggInventory": "Egg Inventory",
+        "noEggsForBatch": "No eggs in stock for this batch. Record daily egg production on the batch page.",
+        "selectBatchHint": "Select a Layers batch above to see egg inventory.",
+        "loading": "Loading...",
+        "selfFeedBadge": "Self Feed",
+        "addProduct": "Add Product",
+        "addProduction": "Add Production",
+        "loadingProducts": "Loading products...",
+        "noSelfFeedProducts": "No Self Feed products",
+        "addProductHint": "Add a product here before recording production.",
+        "editProductTitle": "Edit Self Feed Product",
+        "addProductTitle": "Add Self Feed Product",
+        "productName": "Product name",
+        "productNamePlaceholder": "e.g. Broiler starter feed",
+        "inventoryCategory": "Inventory category",
+        "unit": "Unit",
+        "unitPlaceholder": "kg, litre, pcs...",
+        "minStockOptional": "Minimum stock (optional)",
+        "lockedHint": "Unit and category cannot be changed after production history exists.",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveChanges": "Save Changes",
+        "edit": "Edit",
+        "archive": "Archive",
+        "archiveConfirm": "Archive {name}?",
+        "toastNameUnitRequired": "Product name and unit are required",
+        "toastMinStock": "Minimum stock must be zero or greater",
+        "toastProductUpdated": "Product updated",
+        "toastProductAdded": "Self Feed product added",
+        "toastSaveFailed": "Could not save product",
+        "toastArchived": "Product archived",
+        "toastArchiveFailed": "Could not archive product",
+        "toastDeleteFailed": "Could not delete the item",
+        "deleteHint": "Items can be deleted when their stock is 0.",
+        "delete": "Delete",
+        "countItems": "{count} items",
+        "countItem": "1 item",
+        "countProducts": "{count} products",
+        "countProduct": "1 product",
+        "countEggTypes": "{types} types · {eggs} eggs",
+        "typeFEED": "Feed",
+        "typeMEDICINE": "Medicine",
+        "typeEQUIPMENT": "Equipment",
+        "typeRAW_MATERIAL": "Raw Material",
+        "typeOTHER": "Other",
+        "boughtOn": "Bought"
+      }
     },
     "dealerLedger": {
       "title": "Dealer Ledger",
@@ -1849,12 +1909,171 @@
           "fail": "Failed to create payment request"
         }
       }
+    },
+    "listForSale": {
+      "turnedOff": "List for sale is turned off. Turn it on in Settings to post birds or eggs for sale.",
+      "openSettings": "Open Settings"
+    },
+    "analytics": {
+      "title": "Analytics",
+      "subtitle": "How your farm is doing",
+      "loadFailed": "Could not load analytics. Please try again.",
+      "noAccessTitle": "No access to analytics",
+      "noAccessBody": "Your owner has not given this staff account access to analytics.",
+      "sales": "Sales",
+      "costs": "Costs",
+      "profit": "Profit",
+      "loss": "Loss",
+      "total": "Total",
+      "period": "Period",
+      "batch": "Batch",
+      "birdsAlive": "Birds alive",
+      "alive": "Alive",
+      "deaths": "Deaths",
+      "weight": "Weight",
+      "feed": "Feed",
+      "toReceive": "To receive",
+      "toPay": "To pay",
+      "broiler": "Broiler",
+      "layers": "Layers",
+      "running": "running",
+      "closed": "closed",
+      "dayN": "Day {n}",
+      "weekOf": "Week of {date}",
+      "fcrNeedsWeight": "Needs weight",
+      "oldWeight": "old weight",
+      "tabs": {
+        "overview": "Overview",
+        "money": "Money",
+        "batches": "Batches",
+        "health": "Health & Feed",
+        "eggs": "Eggs"
+      },
+      "filters": {
+        "allTime": "All time",
+        "customDates": "Custom dates",
+        "allFarms": "All farms",
+        "allTypes": "All types",
+        "allBatches": "All batches",
+        "from": "From",
+        "to": "To",
+        "clear": "Clear",
+        "badDates": "The start date must be before the end date.",
+        "allTimeSince": "All time · since {date}"
+      },
+      "overview": {
+        "allTime": "All time",
+        "inDates": "In these dates",
+        "bills": "{n} bills",
+        "entries": "{n} entries",
+        "salesMinusCosts": "Sales minus costs",
+        "fcrRunning": "Running broilers ({n})",
+        "fcrNeedsWeights": "Needs new weights",
+        "inRunning": "In {n} running batches",
+        "todayAllFarms": "Today · all farms",
+        "runningTitle": "Batches running now",
+        "noRunning": "No batches running right now.",
+        "fcrOldWeight": "From an old weight"
+      },
+      "money": {
+        "chartTitle": "Sales and costs",
+        "noMoney": "No sales or costs in these dates.",
+        "costsByType": "Costs by type",
+        "noCosts": "No costs in these dates.",
+        "salesByItem": "Sales by item",
+        "noSales": "No sales in these dates.",
+        "tableTitle": "Money by period"
+      },
+      "items": {
+        "EGGS": "Eggs",
+        "Chicken_Meat": "Chicken",
+        "CHICKS": "Chicks",
+        "FEED": "Feed",
+        "MEDICINE": "Medicine",
+        "EQUIPMENT": "Equipment",
+        "OTHER": "Other"
+      },
+      "batches": {
+        "title": "Batches",
+        "wholeLife": "Whole batch life",
+        "none": "No batches in these dates.",
+        "age": "Age",
+        "birds": "Birds",
+        "costPerBird": "Cost / bird",
+        "profitPerBird": "Profit / bird",
+        "perBird": "per bird",
+        "closedAfter": "Closed · {n} days",
+        "aliveN": "{n} alive",
+        "soldN": "{n} sold",
+        "soFar": "so far",
+        "best": "Best",
+        "worst": "Worst"
+      },
+      "health": {
+        "naturalOnly": "Natural deaths",
+        "deathRate": "Death rate",
+        "ofBirds": "of {n} birds",
+        "feedCost": "Cost {amount}",
+        "feedPerBird": "Feed per bird",
+        "feedPerBirdHint": "Feed ÷ birds",
+        "deathsTitle": "Deaths",
+        "noDeaths": "No deaths in these dates.",
+        "noReason": "No reason",
+        "feedTitle": "Feed given (kg)",
+        "noFeed": "No feed recorded in these dates.",
+        "medicineTitle": "Medicine and vaccines",
+        "noMedicine": "No medicine in these dates.",
+        "medicine": "Medicine",
+        "amount": "Amount",
+        "batches": "Batches"
+      },
+      "eggs": {
+        "noLayers": "No layer batches here.",
+        "laid": "Eggs laid",
+        "sold": "Eggs sold",
+        "inStock": "{n} in stock now",
+        "layingPercent": "Laying %",
+        "layingHint": "Eggs ÷ hens each day",
+        "costPerEgg": "Cost per egg",
+        "costPerEggHint": "Layer costs ÷ eggs laid",
+        "chartTitle": "Eggs",
+        "noEggs": "No eggs recorded in these dates.",
+        "byType": "By egg type",
+        "batchesTitle": "Layer batches",
+        "hens": "{n} hens",
+        "laidN": "{n} eggs",
+        "profitHint": "Profit is for the whole batch life."
+      },
+      "download": {
+        "button": "Download",
+        "title": "Download a report",
+        "hint": "Pick a report. It uses the filters and dates you chose.",
+        "cancel": "Cancel",
+        "failed": "Could not download the report",
+        "truncated": "Only the first {n} rows were saved. Pick shorter dates for the rest.",
+        "types": {
+          "money": "Money by period",
+          "batches": "Batch summary",
+          "sales": "Sales list",
+          "costs": "Costs list",
+          "deaths": "Deaths list",
+          "eggs": "Eggs by day"
+        },
+        "typeHints": {
+          "money": "Sales, costs and profit",
+          "batches": "Birds, deaths, feed, FCR, profit",
+          "sales": "Every bill with discount",
+          "costs": "Every cost entry",
+          "deaths": "Each death entry and reason",
+          "eggs": "Eggs laid and sold, laying %"
+        }
+      }
     }
   },
   "dealer": {
     "staff": {
-      "title": "Staff management",
-      "subtitle": "Track staff salary and payments. Balance is calculated by Nepali month.",
+      "title": "Staff Payroll",
+      "subtitle": "Track staff salary, payments and balances.",
       "addStaff": "Add staff",
       "name": "Name",
       "startDate": "Start date",
@@ -1864,7 +2083,7 @@
       "due": "Due",
       "advance": "Advance",
       "pay": "Pay",
-      "editSalary": "Edit salary",
+      "editSalary": "New rate from",
       "stop": "Stop",
       "details": "Details",
       "currentSalary": "Current salary",
@@ -1890,7 +2109,6 @@
       "subtitle": "Manage your inventory, customers, and sales.",
       "buttons": {
         "addSale": "Add Sale",
-        "saleRequests": "Sale Requests",
         "consignments": "Consignments"
       },
       "stats": {
@@ -2421,42 +2639,8 @@
       },
       "badges": {
         "credit": "Credit",
-        "cash": "Cash"
-      }
-    },
-    "saleRequests": {
-      "title": "Sale Requests",
-      "subtitle": "Track sale requests to farmers",
-      "back": "Back to Sales",
-      "backMobile": "Back",
-      "stats": {
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "total": "Total"
-      },
-      "filters": {
-        "searchPlaceholder": "Search...",
-        "statusPlaceholder": "Status",
-        "all": "All",
-        "pending": "Pending",
-        "approved": "Approved",
-        "rejected": "Rejected"
-      },
-      "table": {
-        "request": "Request",
-        "farmer": "Farmer",
-        "date": "Date",
-        "items": "Items",
-        "amount": "Amount",
-        "status": "Status",
-        "view": "View",
-        "empty": "No sale requests. Requests will appear when you create sales.",
-        "paid": "Paid: {amount}"
-      },
-      "pagination": {
-        "prev": "Prev",
-        "next": "Next"
+        "cash": "Cash",
+        "partlyPaid": "Partly paid"
       }
     },
     "newSale": {
@@ -2828,14 +3012,13 @@
       "dealer": "Feed Dealer",
       "company": "Feed mill company",
       "hatchery": "Hatchery",
-      "veterinary": "Veterinary Doctor",
       "alreadyHaveAccount": "Already have an account?",
       "login": "Log in"
     },
     "hero": {
       "headingMain": "Manage Your Poultry Business",
       "headingHighlight": " Anytime, Anywhere",
-      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, hatcheries, and vets.",
+      "description": "One platform for Nepal's poultry chain—from layer and broiler farms to feed dealers, feed mills, and hatcheries.",
       "useWeb": "Use Web Version",
       "bookDemo": "Book a demo",
       "download": "Download Poultry360",
@@ -2882,7 +3065,7 @@
     "features": {
       "badge": "Key Features",
       "title": "All in One Poultry Management App",
-      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, hatcheries, and veterinary doctors together—manage operations, inventory, and health in one platform.",
+      "subtitle": "Poultry360 brings broiler and layer farmers, feed suppliers, feed mill companies, and hatcheries together—manage operations, inventory, and health in one platform.",
       "cards": {
         "layer": {
           "title": "Layer Management",
@@ -2903,10 +3086,6 @@
         "hatchery": {
           "title": "Hatchery",
           "description": "Run parent flocks, egg production, incubation, hatch results, chick grades, sales, and supplier and party ledgers in one place."
-        },
-        "veterinary": {
-          "title": "Veterinary Doctor",
-          "description": "Track farm visits, prescriptions, and bird health across your client base."
         }
       }
     },
@@ -3107,7 +3286,6 @@
       "DEALER": "Feed dealer",
       "COMPANY": "Company",
       "HATCHERY": "Hatchery",
-      "DOCTOR": "Doctor",
       "SUPER_ADMIN": "Administrator"
     }
   },
@@ -3180,5 +3358,229 @@
       "autoClosed": "Auto-closed",
       "closedByYou": "Closed by you"
     }
+  },
+  "production": {
+    "list": {
+      "title": "Production",
+      "subtitle": "Feed you made from raw materials",
+      "add": "Add production",
+      "search": "Search product, reference or notes",
+      "loading": "Loading...",
+      "noMatch": "No production found for this search.",
+      "emptyTitle": "No production yet. To start:",
+      "step1": "Buy raw materials in Supplier Ledger.",
+      "step1Link": "Open Supplier Ledger",
+      "step2": "Add a feed product in Inventory → Self Feed.",
+      "step2Link": "Open Inventory",
+      "step3": "Click Add production.",
+      "used": "Used",
+      "made": "Made",
+      "totalCost": "Total cost"
+    },
+    "details": {
+      "title": "Production details",
+      "date": "Date",
+      "reference": "Reference",
+      "used": "Used",
+      "made": "Made",
+      "material": "Material",
+      "product": "Product",
+      "qty": "Qty",
+      "rate": "Rate",
+      "amount": "Amount",
+      "share": "Cost share",
+      "costPerUnit": "Cost per unit",
+      "totalCost": "Total cost",
+      "notes": "Notes",
+      "undo": "Undo this production"
+    },
+    "undo": {
+      "title": "Undo production",
+      "body": "This puts the raw materials back in stock and removes the feed made. You can only undo if none of the feed has been used yet.",
+      "cancel": "Cancel",
+      "confirm": "Undo production",
+      "working": "Undoing..."
+    },
+    "form": {
+      "back": "Back",
+      "title": "Add production",
+      "subtitle": "Pick the materials you used and the feed you made. Stock updates by itself.",
+      "date": "Date",
+      "reference": "Reference (optional)",
+      "referencePlaceholder": "e.g. RUN-001",
+      "notes": "Notes (optional)",
+      "notesPlaceholder": "Anything to remember about this production",
+      "materialsTitle": "Raw materials used",
+      "addMaterial": "Add material",
+      "material": "Material",
+      "pickMaterial": "Pick a raw material",
+      "searchByName": "Search by name",
+      "quantity": "Quantity",
+      "left": "{qty} {unit} left",
+      "onlyLeft": "Only {qty} {unit} left",
+      "inStock": "{qty} in stock",
+      "boughtOn": "Bought {date}",
+      "boughtLaterHint": "This was bought on {date}. Change the production date or pick another lot.",
+      "removeMaterial": "Remove material {n}",
+      "noMaterials": "No raw materials in stock. Buy them in Supplier Ledger first.",
+      "goToSupplierLedger": "Open Supplier Ledger",
+      "productsTitle": "Feed made",
+      "addProduct": "Add product",
+      "product": "Product",
+      "pickProduct": "Pick a product",
+      "productsHint": "Products are added in",
+      "noProducts": "No products yet. Add one first in",
+      "inventorySelfFeed": "Inventory → Self Feed",
+      "shareHint": "The cost is shared equally; you can change the share.",
+      "costShare": "Cost share %",
+      "costPerUnit": "Cost {rate}",
+      "unitFallback": "unit",
+      "removeProduct": "Remove product {n}",
+      "totalCost": "Total cost",
+      "save": "Save production",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "errorNeedRows": "Add at least one material and one product",
+      "errorShareTotal": "Cost shares must add up to 100% (now {total}%)",
+      "errorBoughtLater": "{name} was bought on {date}. Production date can't be before that.",
+      "errorNotEnough": "Only {qty} {unit} of {name} left",
+      "sentenceEnd": "."
+    },
+    "toast": {
+      "saved": "Production saved. Stock is updated.",
+      "saveFailed": "Could not save production",
+      "undone": "Production undone",
+      "undoFailed": "Could not undo production"
+    }
+  },
+  "share": {
+    "ended": {
+      "title": "This link has ended",
+      "body": "This link has expired or was turned off. Ask the farmer to send a new link."
+    }
+  },
+  "batchShare": {
+    "shareButton": "Share",
+    "modal": {
+      "title": "Share this batch",
+      "whatTheySee": "They will see bird health and growth only: deaths, weight, feed, medicine. No money is shown.",
+      "howLong": "How long should the link work?",
+      "oneDay": "1 day",
+      "days": "{n} days",
+      "showLocation": "Show farm location",
+      "showLocationHint": "Your address from your profile.",
+      "showNotes": "Show batch notes",
+      "showNotesHint": "Notes you wrote in the Notes tab.",
+      "create": "Create link",
+      "linkReady": "Link is ready. Send it to the doctor:",
+      "makeAnother": "Make another link",
+      "whatsapp": "WhatsApp",
+      "copy": "Copy link",
+      "copiedShort": "Copied",
+      "more": "More",
+      "copied": "Link copied",
+      "copyFailed": "Could not copy. Please copy it by hand.",
+      "createFailed": "Could not create the link",
+      "openLinks": "Open links",
+      "loading": "Loading...",
+      "noLinks": "No open links.",
+      "endsOn": "Ends",
+      "opened": "Opened {n} times",
+      "withLocation": "with location",
+      "withNotes": "with notes",
+      "turnOff": "Turn off",
+      "turnedOff": "Link turned off",
+      "turnOffFailed": "Could not turn off the link",
+      "close": "Close",
+      "whatsappText": "Batch {batch} health report (Poultry360): {url}"
+    },
+    "page": {
+      "headerTitle": "Batch health report",
+      "loading": "Loading report...",
+      "errorTitle": "Could not load this report",
+      "errorBody": "Please check your internet and try again.",
+      "tooMany": "Too many tries. Please wait a minute and try again.",
+      "broiler": "Broiler",
+      "layers": "Layers",
+      "active": "Active",
+      "closed": "Closed",
+      "dayN": "Day {n}",
+      "dayShort": "D{n}",
+      "started": "Started",
+      "closedOn": "Closed",
+      "updatedNow": "Live data",
+      "linkEnds": "Link ends",
+      "birdsAlive": "Birds alive",
+      "birdsStarted": "Birds started",
+      "ofStarted": "of {n} started",
+      "deaths": "Deaths",
+      "avgWeight": "Avg weight",
+      "noWeight": "Not weighed yet",
+      "layingPercent": "Laying %",
+      "noEggs": "No eggs recorded yet",
+      "fcrNeedsWeight": "Needs a new weight",
+      "fcrNotReady": "Not ready yet",
+      "fcrWeightFrom": "Weight from",
+      "fcrOldWeight": "Old weight from",
+      "birdsTitle": "Birds",
+      "died": "Died",
+      "sold": "Sold",
+      "leftAtClose": "Left at close",
+      "deathsTitle": "Deaths",
+      "noDeaths": "No deaths recorded.",
+      "chartByDay": "By batch day",
+      "last7Days": "Last 7 days",
+      "reasons": "Reasons",
+      "noReason": "No reason given",
+      "date": "Date",
+      "reason": "Reason",
+      "eggsTitle": "Eggs",
+      "totalEggs": "Total eggs",
+      "lastEggs": "Last day's eggs",
+      "eggChartHint": "Last 30 days: eggs (bars) and laying % (line)",
+      "weightTitle": "Weight",
+      "birdsWeighed": "Birds weighed",
+      "feedTitle": "Feed",
+      "totalFeed": "Total feed",
+      "feedPerBird": "Feed per bird",
+      "feedPerBirdHint": "Feed per bird = total feed ÷ (birds alive + sold).",
+      "feedChartHint": "Feed given in the last 14 days (kg)",
+      "medicineTitle": "Medicine and vaccines",
+      "noMedicine": "No medicine or vaccine recorded.",
+      "notesTitle": "Farmer's notes",
+      "footer": "Shared by the farmer from Poultry360.",
+      "weightChartHint": "Average weight (kg) by batch day"
+    }
+  },
+  "bills": {
+    "title": "Bill",
+    "titleWithNumber": "Bill {n}",
+    "openBill": "Bill",
+    "loading": "Loading bill...",
+    "notFound": "This bill could not be loaded.",
+    "back": "Back",
+    "preparing": "Preparing...",
+    "shareImage": "Share image",
+    "sharePdf": "Share PDF",
+    "downloadImage": "Download image",
+    "downloadPdf": "Download PDF",
+    "downloaded": "Bill saved to your downloads",
+    "prepareFailed": "Could not make the bill file. You can still print it.",
+    "print": "Print",
+    "savedTitle": "Sale saved",
+    "savedBody": "Share the bill with your customer now, print it, or do it later from the sales list.",
+    "invoice": "Invoice",
+    "later": "Later",
+    "shareBill": "Share bill"
+  },
+  "saleDelete": {
+    "title": "Delete this sale?",
+    "body": "Bill {n} · {amount}. Birds, eggs and the customer balance will go back. This cannot be undone.",
+    "laterPayments": "{amount} received later on this sale will also be removed. Add it again after you add the sale again.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "deleted": "Sale deleted",
+    "failed": "Could not delete the sale."
   }
 }

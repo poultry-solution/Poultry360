@@ -4,13 +4,16 @@ import {
   DEMO_ACCOUNTS,
   hashDemoPassword,
   printDemoCredentials,
+  requireLocalDatabase,
   upsertDemoUser,
 } from "./demoSeedUtils";
 
 const account = DEMO_ACCOUNTS.superAdmin;
 
 async function seedDemoSuperAdmin(): Promise<void> {
-  console.log("Seeding Super Admin demo account...");
+  // Local only: never create an extra admin login on production.
+  requireLocalDatabase("Super Admin seed");
+  console.log("Seeding Super Admin demo account (local)...");
   const passwordHash = await hashDemoPassword(account);
 
   await prisma.$transaction(async (tx) => {

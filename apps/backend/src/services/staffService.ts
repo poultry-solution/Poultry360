@@ -1,13 +1,19 @@
 /**
  * Staff management service.
- * Accrual is computed by Nepali (BS) month with day-wise proration.
- * All dates stored in DB are AD; we use nepali-date-converter to iterate BS months.
+ *
+ * Two pay types:
+ * - MONTHLY: monthly salary, prorated by days worked in each Nepali (BS) month.
+ * - DAILY: daily wage for every working day; days marked ABSENT earn nothing and
+ *   HALF_DAY earns half.
+ *
+ * Nothing earned is stored: it is recomputed from start/end dates, salary rates
+ * and attendance on every read. All dates stored in DB are AD (UTC midnight).
  */
 
 import NepaliDate from "nepali-date-converter";
 import prisma from "../utils/prisma";
-import { StaffStatus } from "@prisma/client";
-import type { Staff, StaffSalary, StaffPayment } from "@prisma/client";
+import { StaffAttendanceStatus, StaffPayType, StaffStatus } from "@prisma/client";
+import type { Staff, StaffSalary, StaffPayment, StaffAttendance } from "@prisma/client";
 
 /** First day of BS month (year, month 1-12) as AD Date at midnight UTC (date only). */
 function firstDayOfBSMonthAD(bsYear: number, bsMonth: number): Date {
@@ -18,7 +24,7 @@ function firstDayOfBSMonthAD(bsYear: number, bsMonth: number): Date {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function normalizeDateOnlyUTC(date: Date): Date {
+export function normalizeDateOnlyUTC(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
 }
 
@@ -39,12 +45,8 @@ function inclusiveDays(start: Date, end: Date): number {
   return Math.floor((end.getTime() - start.getTime()) / DAY_MS) + 1;
 }
 
-function getDaysInBSMonth(bsYear: number, bsMonth: number): number {
-  const monthStart = firstDayOfBSMonthAD(bsYear, bsMonth);
-  const nextMonthStart = bsMonth === 12
-    ? firstDayOfBSMonthAD(bsYear + 1, 1)
-    : firstDayOfBSMonthAD(bsYear, bsMonth + 1);
-  return Math.round((nextMonthStart.getTime() - monthStart.getTime()) / DAY_MS);
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /** Get BS year and month from an AD date. */
@@ -55,7 +57,7 @@ function getBSYearMonth(adDate: Date): { year: number; month: number } {
 
 /**
  * Return the first day of the BS month that contains the given AD date (at UTC midnight).
- * Use when creating staff so startDate and initial salary effectiveFrom align with accrual.
+ * Monthly salary rates always start on a BS month boundary.
  */
 export function getFirstDayOfStartBSMonth(adDate: Date): Date {
   const startBS = getBSYearMonth(adDate);
@@ -82,117 +84,227 @@ function* iterateBSMonths(
   }
 }
 
-/** Get the salary amount (number) effective at a given AD date (start of month). */
-function getSalaryForMonth(salaries: StaffSalary[], monthStartAD: Date): number {
-  const sorted = [...salaries].sort(
-    (a, b) => new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime()
-  );
-  for (const s of sorted) {
-    if (new Date(s.effectiveFrom).getTime() <= monthStartAD.getTime()) {
-      return Number(s.monthlyAmount);
+/** Newest rate first; for the same effective date the most recently created wins. */
+function sortRatesNewestFirst(salaries: StaffSalary[]): StaffSalary[] {
+  return [...salaries].sort((a, b) => {
+    const byDate = new Date(b.effectiveFrom).getTime() - new Date(a.effectiveFrom).getTime();
+    if (byDate !== 0) return byDate;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+/**
+ * Rate in effect on a date. Days before the first rate use the first rate, so
+ * moving the joining date earlier never makes those days earn nothing.
+ */
+function getRateOn(sortedNewestFirst: StaffSalary[], date: Date): number {
+  if (sortedNewestFirst.length === 0) return 0;
+  for (const s of sortedNewestFirst) {
+    if (new Date(s.effectiveFrom).getTime() <= date.getTime()) {
+      return Number(s.rate);
     }
   }
-  return 0;
+  return Number(sortedNewestFirst[sortedNewestFirst.length - 1].rate);
 }
 
 /** Current date in Nepal (UTC+5:45) so "today" in BS is correct regardless of server TZ. */
-function getTodayInNepalDateOnly(): Date {
+export function getTodayInNepalDateOnly(): Date {
   const nepalOffsetMs = 5.75 * 60 * 60 * 1000;
   const inNepal = new Date(Date.now() + nepalOffsetMs);
   return new Date(Date.UTC(inNepal.getUTCFullYear(), inNepal.getUTCMonth(), inNepal.getUTCDate(), 0, 0, 0, 0));
 }
 
 /**
- * Compute total accrued salary for a staff up to "today" (or endDate if stopped).
- * Uses BS month iteration and prorates joining/stopping months by actual BS month days.
+ * Last day that earns pay: the end date when stopped, otherwise today in Nepal.
+ * Never after today, so an end date saved in the future cannot make unworked days due.
  */
-export function computeAccruedSalary(staff: Staff, salaries: StaffSalary[]): number {
+function getAccrualEndDate(staff: Staff): Date {
+  const today = getTodayInNepalDateOnly();
+  if (staff.status === StaffStatus.ACTIVE || !staff.endDate) return today;
+  return minDate(normalizeDateOnlyUTC(new Date(staff.endDate)), today);
+}
+
+export interface AccrualLine {
+  type: "accrual";
+  bsYear: number;
+  bsMonth: number;
+  amount: number;
+  monthStartAD: Date;
+  /** Days paid for. Half days count as 0.5. */
+  workedDays: number;
+  daysInMonth: number;
+  /** MONTHLY: salary / days in month. DAILY: the daily rate (latest in the month). */
+  dailyRate: number;
+  absentDays: number;
+  halfDays: number;
+}
+
+/** One line per BS month from joining to the accrual end date. */
+function computeAccrualLines(
+  staff: Staff,
+  salaries: StaffSalary[],
+  attendance: StaffAttendance[] = []
+): AccrualLine[] {
   const startDate = normalizeDateOnlyUTC(new Date(staff.startDate));
-  const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
-    ? normalizeDateOnlyUTC(new Date(staff.endDate))
-    : getTodayInNepalDateOnly();
+  const endDate = getAccrualEndDate(staff);
+  if (endDate.getTime() < startDate.getTime()) return [];
+
+  const rates = sortRatesNewestFirst(salaries);
+  const isDaily = staff.payType === StaffPayType.DAILY;
+  const attendanceByDay = new Map<number, StaffAttendanceStatus>();
+  if (isDaily) {
+    for (const a of attendance) {
+      attendanceByDay.set(normalizeDateOnlyUTC(new Date(a.date)).getTime(), a.status);
+    }
+  }
 
   const startBS = getBSYearMonth(startDate);
   const endBS = getBSYearMonth(endDate);
+  const lines: AccrualLine[] = [];
 
-  let total = 0;
   for (const { year, month } of iterateBSMonths(startBS.year, startBS.month, endBS.year, endBS.month)) {
     const monthStartAD = firstDayOfBSMonthAD(year, month);
     const nextMonthStartAD = month === 12
       ? firstDayOfBSMonthAD(year + 1, 1)
       : firstDayOfBSMonthAD(year, month + 1);
-    const monthEndAD = addDays(nextMonthStartAD, -1);
+    const daysInMonth = Math.round((nextMonthStartAD.getTime() - monthStartAD.getTime()) / DAY_MS);
     const workedStart = maxDate(startDate, monthStartAD);
-    const workedEnd = minDate(endDate, monthEndAD);
-    const workedDays = inclusiveDays(workedStart, workedEnd);
+    const workedEnd = minDate(endDate, addDays(nextMonthStartAD, -1));
+    const calendarDays = inclusiveDays(workedStart, workedEnd);
+    if (calendarDays <= 0) continue;
 
-    if (workedDays <= 0) continue;
-
-    const monthlySalary = getSalaryForMonth(salaries, monthStartAD);
-    const daysInMonth = getDaysInBSMonth(year, month);
-    total += (monthlySalary / daysInMonth) * workedDays;
+    if (isDaily) {
+      let amount = 0;
+      let workedDays = 0;
+      let absentDays = 0;
+      let halfDays = 0;
+      for (let d = workedStart; d.getTime() <= workedEnd.getTime(); d = addDays(d, 1)) {
+        const status = attendanceByDay.get(d.getTime());
+        const share = status === StaffAttendanceStatus.ABSENT ? 0 : status === StaffAttendanceStatus.HALF_DAY ? 0.5 : 1;
+        if (status === StaffAttendanceStatus.ABSENT) absentDays += 1;
+        if (status === StaffAttendanceStatus.HALF_DAY) halfDays += 1;
+        workedDays += share;
+        amount += getRateOn(rates, d) * share;
+      }
+      lines.push({
+        type: "accrual",
+        bsYear: year,
+        bsMonth: month,
+        amount: roundMoney(amount),
+        monthStartAD,
+        workedDays,
+        daysInMonth,
+        dailyRate: getRateOn(rates, workedEnd),
+        absentDays,
+        halfDays,
+      });
+    } else {
+      const monthlySalary = getRateOn(rates, monthStartAD);
+      const dailyRate = monthlySalary / daysInMonth;
+      // Whole rupees per month, so a balance can be settled exactly with cash.
+      lines.push({
+        type: "accrual",
+        bsYear: year,
+        bsMonth: month,
+        amount: Math.round(dailyRate * calendarDays),
+        monthStartAD,
+        workedDays: calendarDays,
+        daysInMonth,
+        dailyRate,
+        absentDays: 0,
+        halfDays: 0,
+      });
+    }
   }
-  return total;
+  return lines;
+}
+
+/** Total earned up to today (or the end date if stopped). */
+export function computeAccruedSalary(
+  staff: Staff,
+  salaries: StaffSalary[],
+  attendance: StaffAttendance[] = []
+): number {
+  return roundMoney(computeAccrualLines(staff, salaries, attendance).reduce((sum, line) => sum + line.amount, 0));
 }
 
 /**
  * Balance = accrued - total payments.
  * Positive = owner owes staff (due), negative = advance.
  */
-export function computeBalance(staff: Staff, salaries: StaffSalary[], payments: StaffPayment[]): number {
-  const accrued = computeAccruedSalary(staff, salaries);
+export function computeBalance(
+  staff: Staff,
+  salaries: StaffSalary[],
+  payments: StaffPayment[],
+  attendance: StaffAttendance[] = []
+): number {
+  const accrued = computeAccruedSalary(staff, salaries, attendance);
   const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  return accrued - totalPayments;
+  return roundMoney(accrued - totalPayments);
+}
+
+/** Rate in effect today, or on the last working day for stopped staff. A future raise is not "current" yet. */
+export function getCurrentRate(staff: Staff, salaries: StaffSalary[]): number {
+  return getRateOn(sortRatesNewestFirst(salaries), getAccrualEndDate(staff));
 }
 
 export interface StaffWithBalance extends Staff {
   balance: number;
-  currentMonthlySalary: number;
+  currentRate: number;
 }
 
 export interface StaffSummary {
   totalStaff: number;
   activeStaff: number;
   stoppedStaff: number;
-  archivedStaff: number;
+  monthlyStaff: number;
+  dailyStaff: number;
   totalSalaryExpense: number;
   totalSalaryPayments: number;
   remainingBalance: number;
 }
 
 export type StaffStatusFilter = StaffStatus | "ALL";
+export type StaffPayTypeFilter = StaffPayType | "ALL";
 
-async function getStaffAccountingRows(ownerId: string, statusFilter: StaffStatusFilter = "ALL") {
+async function getStaffAccountingRows(
+  ownerId: string,
+  statusFilter: StaffStatusFilter = "ALL",
+  payTypeFilter: StaffPayTypeFilter = "ALL"
+) {
   return prisma.staff.findMany({
     where: {
       ownerId,
       ...(statusFilter === "ALL" ? {} : { status: statusFilter }),
+      ...(payTypeFilter === "ALL" ? {} : { payType: payTypeFilter }),
     },
     include: {
-      salaries: { orderBy: { effectiveFrom: "desc" } },
+      salaries: { orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }] },
       payments: true,
+      attendance: true,
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
 /**
- * List staff for owner with computed balance and current salary.
+ * List staff for owner with computed balance and current rate.
  */
 export async function listStaffForOwner(
   ownerId: string,
-  statusFilter: StaffStatusFilter = "ALL"
+  statusFilter: StaffStatusFilter = "ALL",
+  payTypeFilter: StaffPayTypeFilter = "ALL"
 ): Promise<StaffWithBalance[]> {
-  const staffList = await getStaffAccountingRows(ownerId, statusFilter);
+  const staffList = await getStaffAccountingRows(ownerId, statusFilter, payTypeFilter);
 
   return staffList.map((s) => {
-    const balance = computeBalance(s, s.salaries, s.payments);
-    const currentSalary = s.salaries.length > 0 ? Number(s.salaries[0].monthlyAmount) : 0;
-    const { salaries, payments, ...staff } = s;
+    const balance = computeBalance(s, s.salaries, s.payments, s.attendance);
+    const currentRate = getCurrentRate(s, s.salaries);
+    const { salaries, payments, attendance, ...staff } = s;
     return {
       ...staff,
       balance,
-      currentMonthlySalary: currentSalary,
+      currentRate,
     };
   });
 }
@@ -202,18 +314,18 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
 
   return staffList.reduce<StaffSummary>(
     (summary, staff) => {
-      const balance = computeBalance(staff, staff.salaries, staff.payments);
-      const salaryExpense = computeAccruedSalary(staff, staff.salaries);
+      const salaryExpense = computeAccruedSalary(staff, staff.salaries, staff.attendance);
       const payments = staff.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
 
       summary.totalStaff += 1;
-      summary.totalSalaryExpense += salaryExpense;
-      summary.totalSalaryPayments += payments;
-      summary.remainingBalance += balance;
+      summary.totalSalaryExpense = roundMoney(summary.totalSalaryExpense + salaryExpense);
+      summary.totalSalaryPayments = roundMoney(summary.totalSalaryPayments + payments);
+      summary.remainingBalance = roundMoney(summary.remainingBalance + salaryExpense - payments);
 
       if (staff.status === StaffStatus.ACTIVE) summary.activeStaff += 1;
-      else if (staff.status === StaffStatus.STOPPED) summary.stoppedStaff += 1;
-      else summary.archivedStaff += 1;
+      else summary.stoppedStaff += 1;
+      if (staff.payType === StaffPayType.DAILY) summary.dailyStaff += 1;
+      else summary.monthlyStaff += 1;
 
       return summary;
     },
@@ -221,7 +333,8 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
       totalStaff: 0,
       activeStaff: 0,
       stoppedStaff: 0,
-      archivedStaff: 0,
+      monthlyStaff: 0,
+      dailyStaff: 0,
       totalSalaryExpense: 0,
       totalSalaryPayments: 0,
       remainingBalance: 0,
@@ -229,119 +342,39 @@ export async function getStaffSummaryForOwner(ownerId: string): Promise<StaffSum
   );
 }
 
-export async function archiveStaffForOwner(staffId: string, ownerId: string): Promise<StaffWithBalance | null> {
-  const staff = await prisma.staff.findFirst({
-    where: { id: staffId, ownerId },
-    include: {
-      salaries: { orderBy: { effectiveFrom: "desc" } },
-      payments: true,
-    },
-  });
-
-  if (!staff) {
-    return null;
-  }
-
-  if (staff.status === StaffStatus.ACTIVE) {
-    throw new Error("Only stopped staff can be archived");
-  }
-
-  if (staff.status === StaffStatus.ARCHIVED) {
-    throw new Error("Staff is already archived");
-  }
-
-  const balance = computeBalance(staff, staff.salaries, staff.payments);
-  if (Math.abs(balance) > 0.0001) {
-    throw new Error("Staff can only be archived when balance is zero");
-  }
-
-  const updated = await prisma.staff.update({
-    where: { id: staff.id },
-    data: { status: StaffStatus.ARCHIVED },
-    include: {
-      salaries: { orderBy: { effectiveFrom: "desc" } },
-      payments: true,
-    },
-  });
-
-  const updatedBalance = computeBalance(updated, updated.salaries, updated.payments);
-  const currentSalary = updated.salaries.length > 0 ? Number(updated.salaries[0].monthlyAmount) : 0;
-  const { salaries, payments, ...rest } = updated;
-
-  return {
-    ...rest,
-    balance: updatedBalance,
-    currentMonthlySalary: currentSalary,
-  };
-}
-
-/**
- * Get one staff by id (must belong to owner) with balance and full salary/payment lists.
- */
 export async function getStaffById(staffId: string, ownerId: string) {
   const staff = await prisma.staff.findFirst({
     where: { id: staffId, ownerId },
     include: {
-      salaries: { orderBy: { effectiveFrom: "asc" } },
+      salaries: { orderBy: [{ effectiveFrom: "asc" }, { createdAt: "asc" }] },
       payments: { orderBy: { paidAt: "desc" } },
+      attendance: { orderBy: { date: "asc" } },
     },
   });
   if (!staff) return null;
-  const balance = computeBalance(staff, staff.salaries, staff.payments);
-  const currentSalary = staff.salaries.length > 0
-    ? Number(staff.salaries[staff.salaries.length - 1].monthlyAmount)
-    : 0;
   return {
     ...staff,
-    balance,
-    currentMonthlySalary: currentSalary,
+    balance: computeBalance(staff, staff.salaries, staff.payments, staff.attendance),
+    currentRate: getCurrentRate(staff, staff.salaries),
   };
 }
 
 export type TransactionItem =
-  | {
-      type: "accrual";
-      bsYear: number;
-      bsMonth: number;
-      amount: number;
-      monthStartAD: Date;
-      workedDays: number;
-      daysInMonth: number;
-      dailyRate: number;
-    }
+  | AccrualLine
   | { type: "payment"; id: string; amount: number; paidAt: Date; note: string | null; receiptImageUrl: string | null };
 
 /**
  * Get merged transaction list for details view: accrual entries (per BS month) + payments, sorted by date.
  */
-export function getStaffTransactions(staff: Staff, salaries: StaffSalary[], payments: StaffPayment[]): TransactionItem[] {
-  const startDate = normalizeDateOnlyUTC(new Date(staff.startDate));
-  const endDate = staff.status !== StaffStatus.ACTIVE && staff.endDate
-    ? normalizeDateOnlyUTC(new Date(staff.endDate))
-    : getTodayInNepalDateOnly();
-  const startBS = getBSYearMonth(startDate);
-  const endBS = getBSYearMonth(endDate);
-
-  const accruals: TransactionItem[] = [];
-  for (const { year, month } of iterateBSMonths(startBS.year, startBS.month, endBS.year, endBS.month)) {
-    const monthStartAD = firstDayOfBSMonthAD(year, month);
-    const nextMonthStartAD = month === 12
-      ? firstDayOfBSMonthAD(year + 1, 1)
-      : firstDayOfBSMonthAD(year, month + 1);
-    const monthEndAD = addDays(nextMonthStartAD, -1);
-    const workedStart = maxDate(startDate, monthStartAD);
-    const workedEnd = minDate(endDate, monthEndAD);
-    const workedDays = inclusiveDays(workedStart, workedEnd);
-    if (workedDays <= 0) continue;
-
-    const daysInMonth = getDaysInBSMonth(year, month);
-    const monthlySalary = getSalaryForMonth(salaries, monthStartAD);
-    const dailyRate = monthlySalary / daysInMonth;
-    const amount = dailyRate * workedDays;
-    if (amount > 0) {
-      accruals.push({ type: "accrual", bsYear: year, bsMonth: month, amount, monthStartAD, workedDays, daysInMonth, dailyRate });
-    }
-  }
+export function getStaffTransactions(
+  staff: Staff,
+  salaries: StaffSalary[],
+  payments: StaffPayment[],
+  attendance: StaffAttendance[] = []
+): TransactionItem[] {
+  const accruals: TransactionItem[] = computeAccrualLines(staff, salaries, attendance).filter(
+    (line) => line.amount > 0
+  );
 
   const paymentItems: TransactionItem[] = payments.map((p) => ({
     type: "payment" as const,

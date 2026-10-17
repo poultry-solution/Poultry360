@@ -1,4 +1,5 @@
 "use client";
+import { BillSettingsCard } from "@/components/settings/BillSettingsCard";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -9,7 +10,6 @@ import { useAuth, useAuthStore } from "@/common/store/store";
 import { useState } from "react";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
-import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
 import { useI18n } from "@/i18n/useI18n";
 import {
   ACCOUNT_FEATURE_KEYS,
@@ -25,14 +25,10 @@ export default function SettingsPage() {
     ACCOUNT_FEATURE_KEYS.FARMER_PURCHASE_BILL_UPLOAD
   );
   const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
+  const listForSaleFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE);
   const updateAccountFeature = useUpdateCurrentAccountFeature();
 
-  // Fetch owned and managed farms
-  const { data: ownedFarmsResponse, isLoading: ownedFarmsLoading } = useGetUserFarms("owned");
-  const { data: managedFarmsResponse, isLoading: managedFarmsLoading } = useGetUserFarms("managed");
 
-  const ownedFarms = ownedFarmsResponse?.data || [];
-  const managedFarms = managedFarmsResponse?.data || [];
 
   const handleLanguageChange = async (newLanguage: string) => {
     try {
@@ -72,6 +68,18 @@ export default function SettingsPage() {
       toast.error(
         error?.response?.data?.message || t("settings.purchaseBillUpdateFailed")
       );
+    }
+  };
+
+  const handleListForSaleToggle = async () => {
+    try {
+      await updateAccountFeature.mutateAsync({
+        featureKey: ACCOUNT_FEATURE_KEYS.FARMER_LIST_FOR_SALE,
+        enabled: !listForSaleFeature.isEnabled,
+      });
+      toast.success(t("settings.listForSaleUpdated"));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t("settings.listForSaleUpdateFailed"));
     }
   };
 
@@ -148,106 +156,7 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {/* Owned Farms */}
-      {ownedFarms.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("settings.ownedFarms")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {ownedFarmsLoading ? (
-              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-            ) : (
-              ownedFarms.map((farm: any) => (
-                <div key={farm.id} className="border rounded-lg p-4 space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.farmName")}</Label>
-                    <Input
-                      value={farm.name}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.capacity")}</Label>
-                    <Input
-                      value={farm.capacity || t("common.notSet")}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  {farm.description && (
-                    <div>
-                      <Label className="text-sm font-medium">{t("settings.description")}</Label>
-                      <Input
-                        value={farm.description}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Managed Farms */}
-      {managedFarms.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("settings.managedFarms")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {managedFarmsLoading ? (
-              <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-            ) : (
-              managedFarms.map((farm: any) => (
-                <div key={farm.id} className="border rounded-lg p-4 space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.farmName")}</Label>
-                    <Input
-                      value={farm.name}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">{t("settings.capacity")}</Label>
-                    <Input
-                      value={farm.capacity || t("common.notSet")}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                  {farm.description && (
-                    <div>
-                      <Label className="text-sm font-medium">{t("settings.description")}</Label>
-                      <Input
-                        value={farm.description}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Show message if no farms */}
-      {!ownedFarmsLoading && !managedFarmsLoading && ownedFarms.length === 0 && managedFarms.length === 0 && (
-        <Card>
-          <CardContent className="py-6">
-            <p className="text-sm text-muted-foreground text-center">
-              {t("settings.noFarms")}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      <BillSettingsCard />
 
       {/* User Preferences */}
       <Card>
@@ -324,6 +233,41 @@ export default function SettingsPage() {
                   aria-hidden="true"
                   className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
                     cfcrFeature.isEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">{t("settings.listForSale")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("settings.listForSaleDescription")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <span className="text-xs font-medium text-muted-foreground">
+                {updateAccountFeature.isPending
+                  ? t("settings.updatingFeature")
+                  : listForSaleFeature.isEnabled
+                    ? t("settings.featureOn")
+                    : t("settings.featureOff")}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={listForSaleFeature.isEnabled}
+                aria-label={t("settings.listForSale")}
+                disabled={listForSaleFeature.isLoading || updateAccountFeature.isPending}
+                onClick={handleListForSaleToggle}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  listForSaleFeature.isEnabled ? "bg-emerald-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    listForSaleFeature.isEnabled ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>

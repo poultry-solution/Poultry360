@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
+import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, notFound } from "next/navigation";
@@ -19,6 +21,11 @@ import {
   Trash2,
   Loader2,
   CheckCircle,
+  Bird,
+  CalendarDays,
+  HeartPulse,
+  Scale,
+  Share2,
 } from "lucide-react";
 import {
   useGetBatchById,
@@ -85,9 +92,14 @@ import { WeightModal } from "@/components/batches/modals/WeightModal";
 import { PaymentModal } from "@/components/batches/modals/PaymentModal";
 import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
+import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
+import { useI18n } from "@/i18n/useI18n";
+import { nepalBatchAge } from "@/common/lib/nepali-date";
 import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
 import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
+import { StatTile } from "@/components/dashboard/StatsCards";
+import { useCalendar } from "@/common/hooks/useCalendar";
 import { ExpensesTab, ExpenseCategoryFilter } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
 import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
@@ -98,6 +110,7 @@ import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
 import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
+import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
 import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
@@ -127,22 +140,6 @@ type ExpenseRow = {
   otherQuantity?: number;
 };
 
-type SaleRow = {
-  id: number;
-  item: string;
-  rate: number;
-  quantity: number;
-  remaining: boolean;
-  customer?: {
-    name: string;
-    phone: string;
-    category: "Chicken" | "Other";
-    balance: number;
-  } | null;
-  date: string; // yyyy-mm-dd
-  categoryId: string;
-};
-
 const EXPENSES_PAGE_LIMIT = 10;
 const SALES_PAGE_LIMIT = 10;
 
@@ -163,6 +160,7 @@ type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes
 export default function BatchDetailPage() {
   const params = useParams<{ id: string }>();
   const batchId = params?.id;
+  const { t } = useI18n();
 
   // Always call hooks with consistent parameters to avoid "hooks called conditionally" error
   // Even if batchId is empty, hooks will be disabled via `enabled: false` option
@@ -185,6 +183,7 @@ export default function BatchDetailPage() {
     enabled: !!batchId,
   });
   const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
+  const { toDisplayDate } = useCalendar();
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
@@ -200,6 +199,7 @@ export default function BatchDetailPage() {
     useState<ExpenseCategoryFilter>("All");
   const [salesPage, setSalesPage] = useState(1);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isBatchDeleting, setIsBatchDeleting] = useState(false);
 
@@ -279,12 +279,9 @@ export default function BatchDetailPage() {
     isLoading: salesLoading,
     error: salesError,
     createSale,
-    updateSale,
     deleteSale,
     addPayment,
     isCreating,
-    isUpdating,
-    isDeleting,
     isAddingPayment,
     refetch: refetchSales,
   } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
@@ -336,7 +333,8 @@ export default function BatchDetailPage() {
 
   // Per Broiler Expense Calculation (place before any early returns to keep hooks order stable)
   const perBroilerExpenseData = useMemo(() => {
-    const expensesList: any[] = (expensesResponse?.data as any[]) || [];
+    // Full expense list from the batch detail (not the paged Expenses tab list).
+    const expensesList: any[] = ((batch as any)?.expenses as any[]) || [];
     const totalExpenses = expensesList.reduce(
       (sum: number, ex: any) => sum + Number(ex.amount || 0),
       0
@@ -391,14 +389,12 @@ export default function BatchDetailPage() {
       isProfit,
     };
   }, [
-    expensesResponse?.data,
+    (batch as any)?.expenses,
     batchSales,
     batch?.initialChicks,
     mortalityStats?.totalMortality,
     analytics?.totalSalesQuantity,
   ]);
-
-  console.log("perBroilerExpenseData", perBroilerExpenseData);
 
   // ==================== WEIGHTS (Growth) ====================
   const {
@@ -1041,7 +1037,7 @@ export default function BatchDetailPage() {
 
   // --- Sales Modal ---
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
-  const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
   type EggLineRow = { eggTypeId: string; quantity: string; unitPrice: string };
   const [saleForm, setSaleForm] = useState<{
     farmId: string;
@@ -1049,6 +1045,10 @@ export default function BatchDetailPage() {
     rate: string;
     quantity: string;
     weight: string;
+    weightDiscountEnabled: boolean;
+    weightDiscountPercent: string;
+    discountType: BillDiscountType;
+    discountValue: string;
     itemType: string;
     eggTypeId: string;
     eggLineItems: EggLineRow[];
@@ -1065,6 +1065,10 @@ export default function BatchDetailPage() {
     rate: "",
     quantity: "",
     weight: "",
+    weightDiscountEnabled: false,
+    weightDiscountPercent: "",
+    discountType: "FLAT",
+    discountValue: "",
     itemType: "Chicken_Meat",
     eggTypeId: "",
     eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1076,6 +1080,26 @@ export default function BatchDetailPage() {
     balance: "",
     date: getTodayLocalDate(),
   });
+
+  // Bill before the bill discount (after any weight discount), and the discount preview.
+  // The server works out the same numbers when the sale is saved.
+  const saleSubtotal = (() => {
+    if (saleForm.itemType === "EGGS") {
+      return saleForm.eggLineItems.reduce(
+        (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
+        0
+      );
+    }
+    if (saleForm.itemType === "Chicken_Meat") {
+      return computeBroilerSaleAmount(
+        Number(saleForm.weight || 0),
+        Number(saleForm.rate || 0),
+        parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+      ).amount;
+    }
+    return Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
+  })();
+  const billPreview = previewBillDiscount(saleSubtotal, saleForm.discountType, saleForm.discountValue);
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
   const { data: eggInventoryResponse } = useGetEggInventory({
@@ -1091,16 +1115,23 @@ export default function BatchDetailPage() {
       ...p,
       [name]:
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+      // Weight discount only exists for chicken meat sales.
+      ...(name === "itemType" && value !== "Chicken_Meat"
+        ? { weightDiscountEnabled: false, weightDiscountPercent: "" }
+        : {}),
     }));
   }
   function openNewSale() {
-    setEditingSaleId(null);
     setSaleForm({
       farmId: batch?.farmId ?? "",
       batchId: batchId ?? "",
       rate: "",
       quantity: "",
       weight: "",
+      weightDiscountEnabled: false,
+      weightDiscountPercent: "",
+      discountType: "FLAT",
+      discountValue: "",
       itemType: "Chicken_Meat",
       eggTypeId: "",
       eggLineItems: [{ eggTypeId: "", quantity: "", unitPrice: "" }],
@@ -1114,54 +1145,6 @@ export default function BatchDetailPage() {
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
-  }
-  function openEditSale(row: SaleRow) {
-    setEditingSaleId(row.id);
-    const r = row as any;
-    const savedUnitPrice = r.unitPrice ?? r.rate;
-    const eggLines = r.eggLines as { eggTypeId: string; quantity: number; unitPrice: number }[] | undefined;
-    const eggLineItems: EggLineRow[] =
-      eggLines && eggLines.length > 0
-        ? eggLines.map((l: { eggTypeId: string; quantity: number; unitPrice: number }) => ({
-            eggTypeId: l.eggTypeId,
-            quantity: String(l.quantity),
-            unitPrice: String(l.unitPrice),
-          }))
-        : r.eggTypeId
-          ? [{
-              eggTypeId: r.eggTypeId,
-              quantity: String(row.quantity),
-              unitPrice: savedUnitPrice == null ? "" : String(savedUnitPrice),
-            }]
-          : [{ eggTypeId: "", quantity: "", unitPrice: "" }];
-    setSaleForm({
-      farmId: batch?.farmId ?? "",
-      batchId: batchId ?? "",
-      rate: savedUnitPrice == null ? "" : String(savedUnitPrice),
-      quantity: String(row.quantity),
-      weight: String(r.weight || ""),
-      itemType: r.itemType || "Chicken_Meat",
-      eggTypeId: r.eggTypeId || "",
-      eggLineItems,
-      remaining: Boolean(r.isCredit ?? r.remaining),
-      customerId: r.customerId || r.customer?.id || "",
-      customerName: row.customer?.name || "",
-      contact: row.customer?.phone || "",
-      customerCategory: row.customer?.category || "Chicken",
-      balance: r.paidAmount == null ? "" : String(r.paidAmount),
-      date: row.date?.includes("T") ? row.date.split("T")[0] : row.date || getTodayLocalDate(),
-    });
-    setCustomerSearch("");
-    setIsSaleModalOpen(true);
-  }
-  async function handleDeleteSale(id: string) {
-    try {
-      await deleteSale(id);
-      flash("success", "Sale deleted successfully");
-    } catch (error) {
-      console.error("Failed to delete sale:", error);
-      flash("error", "Failed to delete sale");
-    }
   }
 
   const [saleErrors, setSaleErrors] = useState<Record<string, string>>({});
@@ -1199,6 +1182,12 @@ export default function BatchDetailPage() {
           errs.weight = `Average weight per bird (${avgWeightPerBird.toFixed(2)}kg) seems unrealistic. Please check your values.`;
         }
       }
+      if (
+        saleForm.weightDiscountEnabled &&
+        parseWeightDiscountPercent(true, saleForm.weightDiscountPercent) === null
+      ) {
+        errs.weightDiscountPercent = "Enter a discount above 0 and below 100";
+      }
     }
 
     if (saleForm.remaining) {
@@ -1209,22 +1198,18 @@ export default function BatchDetailPage() {
       if (!saleForm.customerId && !saleForm.contact) {
         errs.contact = "Contact number required for new customer";
       }
-      let totalAmount: number;
-      if (saleForm.itemType === "EGGS" && saleForm.eggLineItems.length > 0) {
-        totalAmount = saleForm.eggLineItems.reduce(
-          (sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0),
-          0
-        );
-      } else {
-        totalAmount =
-          saleForm.itemType === "Chicken_Meat"
-            ? Number(saleForm.rate || 0) * Number(saleForm.weight || 0)
-            : Number(saleForm.rate || 0) * Number(saleForm.quantity || 0);
-      }
+      // Paid can't be more than the final total (after the bill discount).
+      const totalAmount = billPreview.amount;
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
         errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
       }
+    }
+    if (billPreview.error) {
+      errs.discount =
+        billPreview.error === "percentRange"
+          ? "Discount % must be above 0 and below 100."
+          : "Flat discount must be less than the bill amount.";
     }
     setSaleErrors(errs);
     return Object.keys(errs).length === 0;
@@ -1259,15 +1244,22 @@ export default function BatchDetailPage() {
         unitPrice = parseFloat(saleForm.rate);
         amount =
           saleForm.itemType === "Chicken_Meat"
-            ? unitPrice * (weight || 0)
+            ? computeBroilerSaleAmount(
+                weight || 0,
+                unitPrice,
+                parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+              ).amount
             : unitPrice * quantity;
       }
 
+      // `amount` is the bill before the bill discount; the customer pays billPreview.amount.
       const paidAmount = saleForm.remaining
         ? saleForm.balance
           ? parseFloat(saleForm.balance)
           : 0
-        : amount;
+        : billPreview.discount
+          ? billPreview.amount
+          : amount;
       const saleDateRaw = saleForm.date || "";
       const saleDateOnly = saleDateRaw.includes("T") ? saleDateRaw.split("T")[0] : saleDateRaw;
       const saleData: any = {
@@ -1277,6 +1269,17 @@ export default function BatchDetailPage() {
         amount,
         quantity,
         weight: weight ?? undefined,
+        // null clears a saved discount when editing.
+        ...(saleForm.itemType === "Chicken_Meat"
+          ? {
+              weightDiscountPercent: parseWeightDiscountPercent(
+                saleForm.weightDiscountEnabled,
+                saleForm.weightDiscountPercent
+              ),
+            }
+          : {}),
+        // null removes a saved bill discount when editing.
+        discount: billPreview.discount,
         unitPrice,
         description: undefined,
         isCredit: saleForm.remaining,
@@ -1326,16 +1329,10 @@ export default function BatchDetailPage() {
         }
       }
 
-      if (editingSaleId) {
-        await updateSale({ id: String(editingSaleId), data: saleData });
-        flash("success", "Sale updated successfully");
-      } else {
-        await createSale(saleData);
-        flash("success", "Sale added successfully");
-      }
+      await createSale(saleData);
+      flash("success", "Sale added successfully");
 
       setIsSaleModalOpen(false);
-      setEditingSaleId(null);
       setSaleErrors({});
     } catch (error) {
       console.error("Failed to save sale:", error);
@@ -1616,11 +1613,9 @@ export default function BatchDetailPage() {
     ? expensesTotal / batch.initialChicks
     : 0;
 
-  // Calculate current age in days
-  const currentAge = Math.ceil(
-    (new Date().getTime() - new Date(batch.startDate).getTime()) /
-    (1000 * 60 * 60 * 24)
-  );
+  // Age in Nepal days: the arrival day is Day 1 and the day changes at Nepal midnight
+  // (same as Analytics and share links).
+  const currentAge = nepalBatchAge(batch.startDate, isBatchClosed ? batch.endDate : null);
 
   // Column configurations for DataTable
   const expenseColumns = createExpenseColumns({
@@ -1631,10 +1626,7 @@ export default function BatchDetailPage() {
 
   const salesColumns = createSalesColumns({
     isBatchClosed,
-    isUpdating,
-    isDeleting,
-    openEditSale,
-    handleDeleteSale,
+    onDeleteSale: setSaleToDelete,
     openTransactionsModal,
   });
 
@@ -1693,6 +1685,14 @@ export default function BatchDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs sm:text-sm"
+          onClick={() => setIsShareModalOpen(true)}
+        >
+          <Share2 className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+          <span>{t("batchShare.shareButton")}</span>
+        </Button>
         {batch.status === "ACTIVE" && (
           <Button
             variant="outline"
@@ -1727,39 +1727,52 @@ export default function BatchDetailPage() {
         <Banner type="error" message="Batch appears finished. You can close the batch to finalize records and generate a summary." />
       )}
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Start Date</CardTitle>
-            <CardDescription>
-              <DateDisplay date={batch.startDate} format="short" />
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Current Chicks</CardTitle>
-            <CardDescription>
-              {batch.currentChicks.toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Initial Birds</CardTitle>
-            <CardDescription>
-              {batch.initialChicks.toLocaleString()}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Current Age</CardTitle>
-            <CardDescription>{currentAge} days</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatTile
+          tile={{
+            label: "Birds left",
+            icon: Bird,
+            value: batch.currentChicks.toLocaleString("en-IN"),
+            sub: `of ${batch.initialChicks.toLocaleString("en-IN")}${
+              analytics ? ` · ${Number(analytics.totalSalesQuantity || 0).toLocaleString("en-IN")} sold` : ""
+            }`,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Age",
+            icon: CalendarDays,
+            value: `${currentAge} days`,
+            sub: isBatchClosed
+              ? "Closed batch"
+              : `Started ${toDisplayDate(batch.startDate, "long")}`,
+            loading: isBatchClosed && analyticsLoading,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Deaths",
+            icon: HeartPulse,
+            value: Number(mortalityStats?.totalMortality || 0).toLocaleString("en-IN"),
+            sub:
+              analytics?.mortalityRate != null
+                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds`
+                : "—",
+            loading: mortalityLoading || analyticsLoading,
+          }}
+        />
+        <StatTile
+          tile={{
+            label: "Avg weight",
+            icon: Scale,
+            value:
+              analytics?.currentAvgWeight != null
+                ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
+                : "—",
+            sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
+            loading: analyticsLoading,
+          }}
+        />
       </div>
 
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -1790,9 +1803,9 @@ export default function BatchDetailPage() {
           salesTotal={salesTotal}
           expensesTotal={expensesTotal}
           mortalityStats={mortalityStats}
-          recentExpenses={(batch as any).expenses?.slice(0, 3) || []}
-          recentSales={batchSales?.slice(0, 3) || []}
-          recentMortalities={batchMortalities.slice(0, 3)}
+          recentExpenses={(batch as any).expenses?.slice(0, 5) || []}
+          recentSales={batchSales?.slice(0, 5) || []}
+          recentMortalities={batchMortalities.slice(0, 5)}
           onRecordWeight={() => setIsWeightModalOpen(true)}
           cfcrEnabled={cfcrFeature.isEnabled}
           onSaveCfcrSettings={saveCfcrSettings}
@@ -1871,13 +1884,13 @@ export default function BatchDetailPage() {
           perBroilerExpenseData={perBroilerExpenseData}
           receivableTotal={receivableTotal}
           perBirdRevenue={perBirdRevenue}
-          expenseBreakdown={[]}
-          salesBreakdown={[]}
+          isBatchClosed={isBatchClosed}
+          expenses={(batch as any).expenses || []}
         />
       )}
 
       {activeTab === "Notes" && batchId && (
-        <NotesTab batchId={batchId} />
+        <NotesTab batchId={batchId} batchStartDate={batch.startDate} />
       )}
 
       {activeTab === "Growth" && batch && (batch as any).batchType !== "LAYERS" && (
@@ -1918,6 +1931,13 @@ export default function BatchDetailPage() {
         onSubmit={submitCloseBatch}
         onFieldUpdate={updateCloseBatchField}
         isPending={closeBatchMutation.isPending}
+      />
+
+      <ShareBatchModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        batchId={String(batchId ?? "")}
+        batchName={batch.batchNumber}
       />
 
       {/* Delete Batch Modal */}
@@ -2050,16 +2070,17 @@ export default function BatchDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <DeleteSaleDialog sale={saleToDelete} onClose={() => setSaleToDelete(null)} onDelete={deleteSale} />
+
       {/* Sale Modal — same as sales-ledger New Sale, with farm/batch fixed from current batch */}
       <Modal
         isOpen={isSaleModalOpen}
         onClose={() => {
           setIsSaleModalOpen(false);
-          setEditingSaleId(null);
           setSaleErrors({});
           setCustomerSearch("");
         }}
-        title={editingSaleId ? "Edit Sale" : "Add Sale"}
+        title="Add Sale"
       >
         <form onSubmit={submitSale}>
           <ModalContent>
@@ -2262,15 +2283,85 @@ export default function BatchDetailPage() {
                       {(Number(saleForm.weight) / Number(saleForm.quantity)).toFixed(2)} kg
                     </p>
                   )}
+                  <div className="mt-3">
+                    <BroilerWeightDiscountField
+                      enabled={saleForm.weightDiscountEnabled}
+                      percent={saleForm.weightDiscountPercent}
+                      weight={saleForm.weight}
+                      error={saleErrors.weightDiscountPercent}
+                      onEnabledChange={(enabled) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountEnabled: enabled }))
+                      }
+                      onPercentChange={(percent) =>
+                        setSaleForm((p) => ({ ...p, weightDiscountPercent: percent }))
+                      }
+                    />
+                  </div>
                 </div>
               )}
 
+              <div>
+                <Label htmlFor="batchBillDiscount">Discount</Label>
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex shrink-0 rounded-md border border-gray-200 p-0.5">
+                    {(["FLAT", "PERCENT"] as const).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setSaleForm((p) => ({ ...p, discountType: type }))}
+                        className={`rounded px-3 py-1 text-sm transition-colors ${
+                          saleForm.discountType === type
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {type === "FLAT" ? "रू Flat" : "% Percent"}
+                      </button>
+                    ))}
+                  </div>
+                  <Input
+                    id="batchBillDiscount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={saleForm.discountValue}
+                    onChange={(e) => setSaleForm((p) => ({ ...p, discountValue: e.target.value }))}
+                    placeholder={saleForm.discountType === "FLAT" ? "e.g. 500" : "e.g. 2"}
+                    className="h-9 max-w-[160px]"
+                  />
+                </div>
+                {(saleErrors.discount || billPreview.error) && (
+                  <p className="text-xs text-red-600 mt-1">
+                    {saleErrors.discount ||
+                      (billPreview.error === "percentRange"
+                        ? "Discount % must be above 0 and below 100."
+                        : "Flat discount must be less than the bill amount.")}
+                  </p>
+                )}
+              </div>
+
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                {billPreview.discount && (
+                  <div className="mb-1.5 space-y-0.5 border-b border-gray-200 pb-1.5 text-sm text-gray-600">
+                    <div className="flex items-center justify-between">
+                      <span>Subtotal</span>
+                      <span>₹{billPreview.subtotal.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>
+                        Discount{billPreview.discount.type === "PERCENT" ? ` (${billPreview.discount.value}%)` : ""}
+                      </span>
+                      <span className="text-red-600">−₹{billPreview.discountAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Total Amount</span>
                   <span className="text-lg font-bold text-green-700">
                     ₹
-                    {saleForm.itemType === "EGGS"
+                    {billPreview.discount
+                      ? billPreview.amount.toLocaleString()
+                      : saleForm.itemType === "EGGS"
                       ? saleForm.eggLineItems
                           .reduce(
                             (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0),
@@ -2278,7 +2369,11 @@ export default function BatchDetailPage() {
                           )
                           .toLocaleString()
                       : saleForm.itemType === "Chicken_Meat" && Number(saleForm.weight)
-                        ? (Number(saleForm.rate || 0) * Number(saleForm.weight)).toLocaleString()
+                        ? computeBroilerSaleAmount(
+                            Number(saleForm.weight),
+                            Number(saleForm.rate || 0),
+                            parseWeightDiscountPercent(saleForm.weightDiscountEnabled, saleForm.weightDiscountPercent)
+                          ).amount.toLocaleString()
                         : (Number(saleForm.rate || 0) * Number(saleForm.quantity || 0)).toLocaleString()}
                   </span>
                 </div>
@@ -2431,7 +2526,6 @@ export default function BatchDetailPage() {
               variant="outline"
               onClick={() => {
                 setIsSaleModalOpen(false);
-                setEditingSaleId(null);
                 setSaleErrors({});
                 setCustomerSearch("");
               }}
@@ -2441,15 +2535,13 @@ export default function BatchDetailPage() {
             <Button
               type="submit"
               className="bg-primary hover:bg-primary/90"
-              disabled={isCreating || isUpdating}
+              disabled={isCreating}
             >
-              {isCreating || isUpdating ? (
+              {isCreating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {editingSaleId ? "Updating..." : "Creating..."}
+                  Creating...
                 </>
-              ) : editingSaleId ? (
-                "Update Sale"
               ) : (
                 "Save"
               )}

@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/command";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
@@ -80,7 +81,8 @@ export function DealerAddPaymentDialog({
   const [amount, setAmount] = useState<number>(0);
   const [direction, setDirection] = useState<"RECEIVED" | "MADE">("RECEIVED");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [date, setDate] = useState(new Date().toISOString());
+  // Today in Nepal; toISOString() showed yesterday before 5:45 AM.
+  const [date, setDate] = useState(() => getNepalTodayAd());
   const [notes, setNotes] = useState("");
   const [reference, setReference] = useState("");
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
@@ -106,7 +108,7 @@ export function DealerAddPaymentDialog({
     setAmount(0);
     setDirection("RECEIVED");
     setPaymentMethod("CASH");
-    setDate(new Date().toISOString());
+    setDate(getNepalTodayAd());
     setNotes("");
     setReference("");
     setReceiptImageUrl("");

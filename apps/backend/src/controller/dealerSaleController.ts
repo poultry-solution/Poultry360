@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { Prisma, TransactionType } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { parseDealerSaleDateRange } from "../utils/dealerSaleDateRange";
+import { parseDealerSaleDateRange, parseNepalBoundary } from "../utils/dealerSaleDateRange";
 import { DealerService } from "../services/dealerService";
+import { getDealerSalesTrend } from "../services/dealerSalesTrendService";
 import bcrypt from "bcrypt";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import {
@@ -303,14 +304,19 @@ export const getDealerSales = async (
       where.sourceFarmerId = sourceFarmerId;
     }
 
+    // Dates are full Nepal days (UTC+5:45), the same rule as statistics and analytics.
     if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) {
-        const end = new Date(endDate as string);
-        end.setUTCHours(23, 59, 59, 999);
-        where.date.lte = end;
+      let gte: Date | null;
+      let lte: Date | null;
+      try {
+        gte = parseNepalBoundary(startDate, "start");
+        lte = parseNepalBoundary(endDate, "end");
+      } catch {
+        return res.status(400).json({ message: "Invalid startDate or endDate" });
       }
+      where.date = {};
+      if (gte) where.date.gte = gte;
+      if (lte) where.date.lte = lte;
     }
 
     const [sales, total] = await Promise.all([
@@ -560,7 +566,9 @@ export const getDealerCustomers = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { search, page = 1, limit = 10, archived } = req.query;
+    const { search, page = 1, limit = 10, archived, owing } = req.query;
+    // owing=true: only customers who owe money, biggest balance first (Analytics).
+    const owingOnly = owing === "true";
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -592,12 +600,18 @@ export const getDealerCustomers = async (
       where.archivedAt = null;
     }
 
+    if (owingOnly) {
+      where.balance = { gt: 0 };
+    }
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
         take: Number(limit),
-        orderBy: { createdAt: "desc" },
+        orderBy: owingOnly
+          ? [{ balance: "desc" }, { createdAt: "desc" }]
+          : { createdAt: "desc" },
         select: {
           id: true,
           name: true,
@@ -950,6 +964,30 @@ export const createCustomer = async (
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET SALES VS COLLECTED (HOME GRAPH) ====================
+export const getSalesTrend = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const range = parseDealerSaleDateRange(req.query.startDate, req.query.endDate);
+    if (!range.ok) {
+      return res.status(400).json({ message: range.message });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: req.userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ message: "Dealer not found" });
+    }
+
+    const days = await getDealerSalesTrend(dealer.id, range.range);
+    return res.status(200).json({ success: true, data: days });
+  } catch (error: any) {
+    console.error("Get sales trend error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

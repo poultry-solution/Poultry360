@@ -38,11 +38,6 @@ const signupOptions = [
     icon: "🥚",
     labelKey: "landing.navbar.hatchery",
   },
-  {
-    href: "/auth/signup/doctor",
-    icon: "🩺",
-    labelKey: "landing.navbar.veterinary",
-  },
 ] as const;
 
 export function SignupChooserDialog({ trigger }: SignupChooserDialogProps) {

@@ -22,12 +22,6 @@ interface RoleRouteConfig {
 
 // Define role-based routing configuration
 const ROLE_ROUTES: RoleRouteConfig = {
-  DOCTOR: {
-    basePath: "/doctor",
-    defaultRoute: "/doctor/dashboard",
-    port: 3000,
-    isCrossPort: false,
-  },
   OWNER: {
     basePath: "/farmer",
     defaultRoute: "/farmer/dashboard/home",

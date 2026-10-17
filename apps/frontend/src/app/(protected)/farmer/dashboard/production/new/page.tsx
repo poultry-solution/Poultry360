@@ -12,6 +12,7 @@ import {
 import { useCreateFarmerProduction } from "@/fetchers/farmer/farmerProductionQueries";
 import { AccountFeatureGuard } from "@/components/features/AccountFeatureGuard";
 import { ACCOUNT_FEATURE_KEYS } from "@/fetchers/accountFeatureQueries";
+import { useI18n } from "@/i18n/useI18n";
 
 interface FarmerRawMaterial {
   id: string;
@@ -20,6 +21,7 @@ interface FarmerRawMaterial {
   currentStock: number;
   unitPrice?: number | null;
   effectiveUnitCost?: number;
+  firstPurchaseDate?: string | null;
   supplierKey?: string | null;
   origin?: string;
 }
@@ -36,6 +38,7 @@ export default function NewFarmerProductionPage() {
 }
 
 function NewFarmerProductionContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const createProduction = useCreateFarmerProduction();
   const [materialSearch, setMaterialSearch] = useState("");
@@ -59,7 +62,7 @@ function NewFarmerProductionContent() {
       unit: item.unit,
       currentStock: Number(item.currentStock),
       unitCost: Number(item.effectiveUnitCost ?? item.unitPrice ?? 0),
-      subtitle: `${item.origin === "SELF_MADE" ? "Self Feed" : "Purchased"} · ${Number(item.currentStock)} ${item.unit} available · Rs. ${Number(item.effectiveUnitCost ?? item.unitPrice ?? 0).toFixed(2)}/${item.unit}`,
+      firstPurchaseDate: item.firstPurchaseDate ?? null,
     })
   );
   const products = (
@@ -69,13 +72,13 @@ function NewFarmerProductionContent() {
     name: product.name,
     unit: product.unit,
     currentStock: Number(product.currentStock),
-    subtitle: `${product.outputItemType.replaceAll("_", " ")} · ${product.unit} · ${Number(product.currentStock)} in stock`,
   }));
 
   return (
     <MaterialProductionForm
       backHref="/farmer/dashboard/production"
       inventoryHref="/farmer/dashboard/inventory"
+      purchaseHref="/farmer/dashboard/supplier-ledger"
       materials={materials}
       products={products}
       isLoadingMaterials={inventoryLoading}
@@ -86,11 +89,11 @@ function NewFarmerProductionContent() {
       onSubmit={async (input) => {
         try {
           await createProduction.mutateAsync(input);
-          toast.success("Production recorded and inventory updated");
+          toast.success(t("production.toast.saved"));
           router.push("/farmer/dashboard/production");
         } catch (error: any) {
           toast.error(
-            error?.response?.data?.message || "Failed to record production"
+            error?.response?.data?.message || t("production.toast.saveFailed")
           );
         }
       }}

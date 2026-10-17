@@ -8,12 +8,11 @@ This folder contains shared components, hooks, services, and utilities that are 
 common/
 ├── components/
 │   ├── ui/           # Shadcn UI components (Button, Input, Modal, etc.)
-│   ├── chat/         # Chat system components
 │   ├── notifications/ # Notification components
 │   └── auth/         # Auth components
-├── hooks/            # Custom hooks (useChat, useNotifications, etc.)
-├── contexts/         # React contexts (ChatContext)
-├── services/         # Services (chatservices, notificationActionService)
+├── hooks/            # Custom hooks (useNotifications, useCalendar, etc.)
+├── contexts/         # React contexts (InventoryContext)
+├── services/         # Services (notificationActionService)
 ├── lib/              # Utilities (axios, utils)
 ├── types/            # TypeScript types
 ├── providers/        # React providers
@@ -23,13 +22,6 @@ common/
 ## Migration Summary
 
 The following components have been migrated from the original structure to this common folder:
-
-### Chat System
-- **Components**: ChatHeader, ChatInputBar, MessageList, ShareBatchModal, VoiceRecorder
-- **Context**: ChatContext
-- **Hook**: useChat
-- **Services**: chatQueries, socketService
-- **Types**: chat.ts
 
 ### UI Components
 - All Shadcn UI components (Button, Input, Modal, Card, etc.)
@@ -62,11 +54,6 @@ Import from the common folder using the `@/common/` alias:
 import { Button } from "@/common/components/ui/button";
 import { Modal } from "@/common/components/ui/modal";
 
-// Chat System
-import { ChatHeader } from "@/common/components/chat/ChatHeader";
-import { useChat } from "@/common/hooks/useChat";
-import { ChatProvider } from "@/common/contexts/ChatContext";
-
 // Notifications
 import { NotificationBell } from "@/common/components/notifications/NotificationBell";
 import { useNotifications } from "@/common/hooks/useNotifications";
@@ -98,7 +85,7 @@ import { useAuthStore } from "@/common/store/store";
 ## Next Steps
 
 This common folder structure prepares the codebase for the unified architecture where:
-- Doctor-frontend and admin-frontend can reference this common folder
+- Admin and other role screens can reference this common folder
 - The unified app can use this structure as the foundation for the `(shared)` route group
 - Cross-role features can be easily implemented using these shared components
 

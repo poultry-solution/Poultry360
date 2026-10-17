@@ -6,9 +6,13 @@ import {
   createStaff,
   updateStaff,
   stopStaff,
+  resumeStaff,
+  updateSalaryRate,
+  deleteSalaryRate,
+  setAttendance,
   addPayment,
   deletePayment,
-  archiveStaff,
+  deleteStaff,
   getTransactions,
 } from "../controller/staffController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
@@ -53,7 +57,11 @@ router.get("/:id", getStaffById);
 router.post("/", createStaff);
 router.put("/:id", updateStaff);
 router.patch("/:id/stop", stopStaff);
-router.patch("/:id/archive", archiveStaff);
+router.patch("/:id/resume", resumeStaff);
+router.put("/:id/salaries/:salaryId", updateSalaryRate);
+router.delete("/:id/salaries/:salaryId", deleteSalaryRate);
+router.put("/:id/attendance", setAttendance);
+router.delete("/:id", deleteStaff);
 router.post("/:id/payments", addPayment);
 router.delete("/:id/payments/:paymentId", deletePayment);
 router.get("/:id/transactions", getTransactions);

@@ -7,10 +7,12 @@ import {
 import prisma from "../utils/prisma";
 import {
   ensureFarmerInventoryCategory,
+  getFarmerFirstPurchaseDates,
   getFarmerInventoryUnitCosts,
 } from "./farmerInventoryDomain";
 import {
   allocateProductionCost,
+  assertLotsBoughtByDate,
   normalizeMaterialProductionRequest,
   normalizeProductionDate,
 } from "./productionDomain";
@@ -82,6 +84,18 @@ export class FarmerProductionService {
               "One or more Self Feed products are invalid or archived"
             );
           }
+
+          const firstPurchaseByItem = await getFarmerFirstPurchaseDates(
+            tx,
+            inventoryItems.map((item) => item.id)
+          );
+          assertLotsBoughtByDate(
+            runDate,
+            inventoryItems.map((item) => ({
+              name: item.name,
+              firstPurchaseDate: firstPurchaseByItem.get(item.id) ?? item.createdAt,
+            }))
+          );
 
           const itemMap = new Map(inventoryItems.map((item) => [item.id, item]));
           const productMap = new Map(products.map((product) => [product.id, product]));
