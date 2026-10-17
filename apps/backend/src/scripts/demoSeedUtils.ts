@@ -40,6 +40,15 @@ export const DEMO_ACCOUNTS = {
     location: "Narayangadh, Chitwan",
     passwordEnv: "P360_DEMO_DEALER_PASSWORD",
   },
+  hatchery: {
+    id: "p360-demo-user-hatchery-v1",
+    phone: "+9779800360031",
+    role: UserRole.HATCHERY,
+    name: "Krishna Demo Hatchery",
+    businessName: "Sunrise Hatchery & Breeder Farm",
+    location: "Ratnanagar-5, Chitwan",
+    passwordEnv: "P360_DEMO_HATCHERY_PASSWORD",
+  },
 } as const;
 
 export const DEFAULT_DEMO_PASSWORD = "Poultry360Demo!";

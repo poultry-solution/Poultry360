@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
 // ==================== TYPES ====================
@@ -94,6 +94,7 @@ export const useGetHatcherySuppliers = (filters?: {
 }) => {
   return useQuery({
     queryKey: hatcherySupplierKeys.list(filters ?? {}),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.page) params.append("page", String(filters.page));
