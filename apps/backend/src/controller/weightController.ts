@@ -73,9 +73,14 @@ export const addBirdWeight = async (
       });
     }
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: { managers: true },
@@ -85,16 +90,6 @@ export const addBirdWeight = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     if (batch.status === BatchStatus.COMPLETED) {
@@ -178,9 +173,14 @@ export const getBirdWeights = async (
     const currentUserRole = req.role;
     const { startDate, endDate, source } = req.query;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: { managers: true },
@@ -190,16 +190,6 @@ export const getBirdWeights = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Build where clause
@@ -315,16 +305,12 @@ export const updateBirdWeight = async (
       });
     }
 
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingWeight.batch.farm.ownerId === currentUserId ||
-        existingWeight.batch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+    if (
+      currentUserRole !== UserRole.SUPER_ADMIN &&
+      existingWeight.batch.farm.ownerId !== currentUserId &&
+      !existingWeight.batch.farm.managers.some((m) => m.id === currentUserId)
+    ) {
+      return res.status(404).json({ message: "Weight record not found" });
     }
 
     if (existingWeight.batch.status === BatchStatus.COMPLETED) {
@@ -457,16 +443,12 @@ export const deleteBirdWeight = async (
       });
     }
 
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingWeight.batch.farm.ownerId === currentUserId ||
-        existingWeight.batch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+    if (
+      currentUserRole !== UserRole.SUPER_ADMIN &&
+      existingWeight.batch.farm.ownerId !== currentUserId &&
+      !existingWeight.batch.farm.managers.some((m) => m.id === currentUserId)
+    ) {
+      return res.status(404).json({ message: "Weight record not found" });
     }
 
     if (existingWeight.batch.status === BatchStatus.COMPLETED) {
@@ -522,9 +504,14 @@ export const getGrowthChartData = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: { managers: true },
@@ -534,16 +521,6 @@ export const getGrowthChartData = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Fetch all weights for charting

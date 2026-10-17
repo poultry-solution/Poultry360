@@ -14,8 +14,14 @@ export const getMortalityById = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const mortality = await prisma.mortality.findUnique({
-      where: { id },
+    let mortalityOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
+        : { batch: { farm: { ownerId: currentUserId } } };
+    }
+    const mortality = await prisma.mortality.findFirst({
+      where: { id, ...mortalityOwnershipWhere },
       include: {
         batch: {
           include: {
@@ -50,19 +56,6 @@ export const getMortalityById = async (
       return res.status(404).json({ message: "Mortality record not found" });
     }
 
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        mortality.batch.farm.ownerId === currentUserId ||
-        mortality.batch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
     return res.json({
       success: true,
       data: mortality,
@@ -84,9 +77,14 @@ export const getBatchMortalities = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: {
@@ -99,17 +97,6 @@ export const getBatchMortalities = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Get ALL mortalities for statistics calculation (including sales)
@@ -298,9 +285,14 @@ export const updateMortality = async (
 
     const { date, count, reason } = requestData;
 
-    // Check if mortality exists and user has access
-    const existingMortality = await prisma.mortality.findUnique({
-      where: { id },
+    let mortalityOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
+        : { batch: { farm: { ownerId: currentUserId } } };
+    }
+    const existingMortality = await prisma.mortality.findFirst({
+      where: { id, ...mortalityOwnershipWhere },
       include: {
         batch: {
           include: {
@@ -326,19 +318,6 @@ export const updateMortality = async (
       return res.status(400).json({
         message: "Cannot update mortality record linked to a sale. Please update or delete the sale instead.",
       });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingMortality.batch.farm.ownerId === currentUserId ||
-        existingMortality.batch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Validate count if being updated
@@ -405,9 +384,14 @@ export const deleteMortality = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if mortality exists and user has access
-    const existingMortality = await prisma.mortality.findUnique({
-      where: { id },
+    let mortalityOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
+        : { batch: { farm: { ownerId: currentUserId } } };
+    }
+    const existingMortality = await prisma.mortality.findFirst({
+      where: { id, ...mortalityOwnershipWhere },
       include: {
         batch: {
           include: {
@@ -432,19 +416,6 @@ export const deleteMortality = async (
       return res.status(400).json({
         message: "Cannot delete mortality record linked to a sale. Please delete the sale instead.",
       });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingMortality.batch.farm.ownerId === currentUserId ||
-        existingMortality.batch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Delete mortality
