@@ -139,6 +139,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       calendarType,
     } = data;
 
+    if (role === UserRole.SUPER_ADMIN) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
     // Check if phone number already exists (phone must be unique)
     const existingUser = await prisma.user.findUnique({
       where: {

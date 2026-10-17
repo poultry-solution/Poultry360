@@ -180,8 +180,14 @@ export const getExpenseById = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const expense = await prisma.expense.findUnique({
-      where: { id },
+    let ownershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      ownershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const expense = await prisma.expense.findFirst({
+      where: { id, ...ownershipWhere },
       include: {
         farm: {
           select: {
@@ -257,16 +263,6 @@ export const getExpenseById = async (
 
     if (!expense) {
       return res.status(404).json({ message: "Expense not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        expense.farm?.owner.id === currentUserId ||
-        expense.farm?.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     return res.json({

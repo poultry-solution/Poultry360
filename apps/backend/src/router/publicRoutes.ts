@@ -5,6 +5,7 @@ import {
   getLandingContacts,
   createLandingContact,
 } from "../controller/publicController";
+import { authMiddleware } from "../middelware/middelware";
 import {
   getPublicBlogPostBySlug,
   getPublicBlogPosts,
@@ -27,7 +28,7 @@ router.get("/reviews", getLandingReviews);
 router.post("/reviews", createLandingReview);
 
 // Landing page contact form (list + submit)
-router.get("/contacts", getLandingContacts);
+router.get("/contacts", (req, res, next) => authMiddleware(req, res, next), getLandingContacts);
 router.post("/contacts", createLandingContact);
 
 // Landing hero "Book a demo" form (no auth required)

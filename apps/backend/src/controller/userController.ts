@@ -239,12 +239,31 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
     }
 
     // Role-based access control
-    if (currentUserRole !== UserRole.OWNER && currentUserId !== id) {
+    if (
+      currentUserRole !== UserRole.OWNER &&
+      currentUserRole !== UserRole.SUPER_ADMIN &&
+      currentUserId !== id
+    ) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Only OWNER can change roles and status
-    if (currentUserRole !== UserRole.OWNER) {
+    // Block SUPER_ADMIN role assignment from non-SUPER_ADMIN callers.
+    if (data.role === UserRole.SUPER_ADMIN && currentUserRole !== UserRole.SUPER_ADMIN) {
+      return res.status(403).json({ message: "Cannot assign SUPER_ADMIN role" });
+    }
+
+    // OWNER can only modify users who manage at least one of their farms (tenant isolation).
+    if (currentUserRole === UserRole.OWNER && currentUserId !== id) {
+      const sharedFarm = await prisma.farm.count({
+        where: { ownerId: currentUserId, managers: { some: { id } } },
+      });
+      if (sharedFarm === 0) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    // Only OWNER/SUPER_ADMIN can change roles and status
+    if (currentUserRole !== UserRole.OWNER && currentUserRole !== UserRole.SUPER_ADMIN) {
       delete data.role;
       delete data.status;
     }
@@ -314,6 +333,14 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
       return res
         .status(400)
         .json({ message: "Cannot delete your own account" });
+    }
+
+    // OWNER can only delete users who manage at least one of their farms (tenant isolation).
+    const sharedFarm = await prisma.farm.count({
+      where: { ownerId: currentUserId, managers: { some: { id } } },
+    });
+    if (sharedFarm === 0) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     // Check if user has any farms

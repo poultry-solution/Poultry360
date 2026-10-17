@@ -240,8 +240,15 @@ export const getBatchById = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    // Embed ownership in the query so non-owners get 404 (not 403) to prevent enumeration.
+    let ownershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      ownershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...ownershipWhere },
       include: {
         farm: {
           select: {
@@ -358,16 +365,6 @@ export const getBatchById = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.owner.id === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Calculate current chicks

@@ -550,9 +550,15 @@ export const getBatchSales = async (
     const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    // Embed ownership in the query — non-owners get 404, not 403, to prevent enumeration.
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
+        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
+        : { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: {
@@ -565,17 +571,6 @@ export const getBatchSales = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     const include = {

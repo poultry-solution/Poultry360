@@ -41,6 +41,16 @@ export const deleteUploadedImage = async (
             return res.status(400).json({ message: "Image URL is required" });
         }
 
+        // Restrict deletion to images in this app's own Cloudinary account and folder.
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+        if (
+            !cloudName ||
+            !imageUrl.includes(`res.cloudinary.com/${cloudName}`) ||
+            !imageUrl.includes("/poultry360/")
+        ) {
+            return res.status(400).json({ message: "Invalid image URL" });
+        }
+
         // Extract public ID from URL
         const publicId = extractPublicIdFromUrl(imageUrl);
 
