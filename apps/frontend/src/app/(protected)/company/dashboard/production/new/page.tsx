@@ -15,6 +15,7 @@ import { Button } from "@/common/components/ui/button";
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
   useGetCompanyPurchasesAggregated,
@@ -46,7 +47,7 @@ export default function NewProductionPage() {
   const bucketsWithStock = buckets.filter((b) => Number(b.remainingQuantity ?? b.totalQuantity ?? 0) > 0);
   const companyProducts = productsData?.data ?? [];
 
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => getNepalTodayAd());
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [inputLines, setInputLines] = useState<InputLine[]>([

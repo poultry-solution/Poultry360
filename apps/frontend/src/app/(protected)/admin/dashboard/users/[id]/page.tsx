@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import Link from "next/link";
 import {
   Card,
@@ -298,7 +299,7 @@ function AccountPaymentsSection({
   const [form, setForm] = useState({
     type: hasInitialPayment ? "MAINTENANCE" as const : "INITIAL" as const,
     amount: "",
-    paidAt: new Date().toISOString().slice(0, 10),
+    paidAt: getNepalTodayAd(),
   });
 
   const submitPayment = async (event: React.FormEvent) => {
@@ -311,7 +312,7 @@ function AccountPaymentsSection({
 
     try {
       await createPayment.mutateAsync({ accountId, type: form.type, amount, paidAt: form.paidAt });
-      setForm({ type: "MAINTENANCE", amount: "", paidAt: new Date().toISOString().slice(0, 10) });
+      setForm({ type: "MAINTENANCE", amount: "", paidAt: getNepalTodayAd() });
       toast.success("Payment recorded");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Could not record payment");
@@ -394,7 +395,7 @@ function AccountPaymentsSection({
             <Input
               id="payment-date"
               required
-              max={new Date().toISOString().slice(0, 10)}
+              max={getNepalTodayAd()}
               type="date"
               value={form.paidAt}
               onChange={(event) => setForm((current) => ({ ...current, paidAt: event.target.value }))}

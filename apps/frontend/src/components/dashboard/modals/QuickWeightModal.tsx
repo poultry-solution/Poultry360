@@ -7,6 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 
 interface QuickWeightModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export function QuickWeightModal({
   const [form, setForm] = useState({
     farmId: "",
     batchId: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getNepalTodayAd(),
     avgWeight: "",
     sampleCount: "",
     notes: "",
@@ -39,7 +40,7 @@ export function QuickWeightModal({
   // Ensure default date when modal opens
   useEffect(() => {
     if (isOpen && !form.date) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getNepalTodayAd();
       setForm((p) => ({ ...p, date: today }));
     }
   }, [isOpen, form.date]);
@@ -92,7 +93,7 @@ export function QuickWeightModal({
       setForm({
         farmId: "",
         batchId: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getNepalTodayAd(),
         avgWeight: "",
         sampleCount: "",
         notes: "",

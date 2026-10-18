@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Landmark, Plus } from "lucide-react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Input } from "@/common/components/ui/input";
@@ -50,7 +51,7 @@ export default function AdminFinancesPage() {
   const [expense, setExpense] = useState({
     description: "",
     amount: "",
-    spentAt: new Date().toISOString().slice(0, 10),
+    spentAt: getNepalTodayAd(),
   });
   const finance = data?.data;
 
@@ -68,7 +69,7 @@ export default function AdminFinancesPage() {
         amount,
         spentAt: expense.spentAt,
       });
-      setExpense({ description: "", amount: "", spentAt: new Date().toISOString().slice(0, 10) });
+      setExpense({ description: "", amount: "", spentAt: getNepalTodayAd() });
       toast.success("Expense recorded");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Could not record expense");
@@ -137,7 +138,7 @@ export default function AdminFinancesPage() {
                   <Input
                     id="expense-date"
                     required
-                    max={new Date().toISOString().slice(0, 10)}
+                    max={getNepalTodayAd()}
                     type="date"
                     value={expense.spentAt}
                     onChange={(event) => setExpense((current) => ({ ...current, spentAt: event.target.value }))}

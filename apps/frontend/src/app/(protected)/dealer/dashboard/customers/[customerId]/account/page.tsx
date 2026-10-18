@@ -156,15 +156,15 @@ export default function CustomerAccountPage() {
             ? "Rs 0.00"
             : `Rs ${Math.abs(openingAmount).toFixed(2)} (${openingAmount > 0 ? "customer owes me" : "advance"})`,
         },
-        { label: "Current balance", value: `Rs ${currentBalance.toFixed(2)}` },
-        { label: "Sales", value: `Rs ${allSales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount || 0), 0).toFixed(2)}` },
-        { label: "Payments", value: `Rs ${allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0).toFixed(2)}` },
+        { label: "Current balance", value: `Rs ${(Math.round(currentBalance * 100) / 100).toFixed(2)}` },
+        { label: "Sales", value: `Rs ${(Math.round(allSales.reduce((sum: number, sale: any) => sum + Number(sale.totalAmount || 0), 0) * 100) / 100).toFixed(2)}` },
+        { label: "Payments", value: `Rs ${(Math.round(allPayments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0) * 100) / 100).toFixed(2)}` },
       ],
     };
   };
 
   const formatCurrency = (amount: number) => {
-    return `रू ${amount.toFixed(2)}`;
+    return `रू ${(Math.round(amount * 100) / 100).toFixed(2)}`;
   };
 
   const salesTotalRows = Number(salesPagination?.total ?? 0);

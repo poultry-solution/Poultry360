@@ -1,6 +1,8 @@
 import express from 'express';
 import prisma from '../utils/prisma';
 import bcrypt from 'bcrypt';
+import { UserOnboardingPaymentState } from '@prisma/client';
+import { authMiddleware } from '../middelware/middelware';
 
 const router = express.Router();
 
@@ -206,6 +208,39 @@ router.post('/setup-users', async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+});
+
+/**
+ * Test-only equivalent of an admin approving a newly registered account.
+ *
+ * API tests can create their own account through /auth/register, then call
+ * this route as that same account. This keeps test code on the HTTP boundary
+ * and avoids the destructive global reset in /setup-users.
+ */
+router.post('/approve-current-user', authMiddleware, async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    await prisma.userOnboardingPayment.upsert({
+      where: { userId: req.userId },
+      create: {
+        userId: req.userId,
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+      },
+      update: {
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+      },
+    });
+
+    return res.json({ success: true, message: 'Test account approved' });
+  } catch (error: any) {
+    console.error('Test account approval error:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 

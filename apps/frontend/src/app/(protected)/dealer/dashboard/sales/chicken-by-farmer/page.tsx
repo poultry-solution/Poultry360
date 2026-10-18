@@ -72,7 +72,7 @@ function ChickenSalesByFarmerContent() {
     }
   }, [chickenSalesError, router, settlementsError]);
 
-  const formatCurrency = (amount: number) => `रू ${Math.abs(Number(amount) || 0).toFixed(2)}`;
+  const formatCurrency = (amount: number) => `रू ${(Math.round(Math.abs(Number(amount) || 0) * 100) / 100).toFixed(2)}`;
   const settlementAmounts = settlementTarget ? (() => {
     const proceeds = Number(settlementTarget.tentativeRevenue) || 0;
     const margin = Number(marginAmount) || 0;

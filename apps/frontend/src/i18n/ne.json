@@ -2675,7 +2675,8 @@
         "percent": "प्रतिशत (%)",
         "flat": "फ्ल्याट (रू)",
         "value": "मूल्य",
-        "label": "छुट: {amount} ({percent}%)"
+        "label": "छुट: {amount} ({percent}%)",
+        "labelFlat": "छुट: रू {amount}"
       },
       "payment": {
         "title": "भुक्तानी जानकारी",

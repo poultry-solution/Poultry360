@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useRouter } from "next/navigation";
 import { Plus, FlaskConical, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
@@ -81,7 +82,7 @@ export default function IncubationsPage() {
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [parentBatchId, setParentBatchId] = useState("");
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(getNepalTodayAd());
   const [eggsSetCount, setEggsSetCount] = useState("");
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
@@ -105,7 +106,7 @@ export default function IncubationsPage() {
 
   function resetCreate() {
     setParentBatchId("");
-    setStartDate(new Date().toISOString().split("T")[0]);
+    setStartDate(getNepalTodayAd());
     setEggsSetCount("");
     setName("");
     setNotes("");

@@ -57,8 +57,19 @@ interface UnitConversion {
   conversionFactor: number;
 }
 
+// Snapshot of the product fields the form needs. Captured at add-time so the
+// line can render name/stock/units after the search box has moved on to a
+// different search term and the product is no longer in productSelect.products.
+interface SaleItemProductSnapshot {
+  name: string;
+  unit: string;
+  currentStock: number;
+  unitConversions: UnitConversion[];
+}
+
 interface SaleItem {
   productId: string;
+  product?: SaleItemProductSnapshot;
   quantity: number;
   broilerCount?: number;
   unitPrice: number;
@@ -165,7 +176,7 @@ export default function NewSalePage() {
     convertADtoBS(draftAd || getTodayLocalDate());
 
   const formatCurrency = (amount: number) => {
-    return `रू ${amount.toFixed(2)}`;
+    return `रू ${(Math.round(amount * 100) / 100).toFixed(2)}`;
   };
 
   const handleCustomerChange = (value: string, option?: any) => {
@@ -185,8 +196,18 @@ export default function NewSalePage() {
 
     // Add new item with prefilled price
     const basePrice = Number(selectedProduct?.sellingPrice) || 0;
+    const unitConversions: UnitConversion[] =
+      selectedProduct?.unitConversions ||
+      selectedProduct?.companyProduct?.unitConversions ||
+      [];
     const newItem: SaleItem = {
       productId,
+      product: {
+        name: selectedProduct?.name || "",
+        unit: selectedProduct?.unit || "",
+        currentStock: Number(selectedProduct?.currentStock) || 0,
+        unitConversions,
+      },
       quantity: 1, // Default quantity
       unitPrice: basePrice,
       unit: selectedProduct?.unit || undefined,
@@ -208,17 +229,16 @@ export default function NewSalePage() {
     setItems(updated);
   };
 
-  // Get all available units (base + alternate) for a product
-  const getAvailableUnits = (product: any): Array<{ unitName: string; conversionFactor: number }> => {
-    if (!product) return [];
-    const baseUnit = product.unit || "Unit";
+  // Get all available units (base + alternate) for a captured product snapshot.
+  const getAvailableUnits = (
+    snapshot: SaleItemProductSnapshot | undefined
+  ): Array<{ unitName: string; conversionFactor: number }> => {
+    if (!snapshot) return [];
+    const baseUnit = snapshot.unit || "Unit";
     const units: Array<{ unitName: string; conversionFactor: number }> = [
       { unitName: baseUnit, conversionFactor: 1 },
     ];
-    // Collect unit conversions from the product itself or from companyProduct
-    const conversions: UnitConversion[] =
-      product.unitConversions || product.companyProduct?.unitConversions || [];
-    for (const conv of conversions) {
+    for (const conv of snapshot.unitConversions) {
       if (conv.unitName && conv.conversionFactor && conv.unitName !== baseUnit) {
         units.push({ unitName: conv.unitName, conversionFactor: conv.conversionFactor });
       }
@@ -229,8 +249,7 @@ export default function NewSalePage() {
   // Handle unit change for a sale item - recalculate unit price
   const handleUnitChange = (index: number, newUnit: string) => {
     const item = items[index];
-    const product = productSelect.products.find((p: any) => p.id === item.productId);
-    const availableUnits = getAvailableUnits(product);
+    const availableUnits = getAvailableUnits(item.product);
     const selectedUnit = availableUnits.find((u) => u.unitName === newUnit);
     const conversionFactor = selectedUnit?.conversionFactor || 1;
 
@@ -288,6 +307,20 @@ export default function NewSalePage() {
         toast.error(t("dealer.newSale.messages.productInvalid"));
         return;
       }
+      // Stock check (product sales only — broiler sales don't deduct inventory).
+      if (!isChickenSale && item.product) {
+        const factor =
+          getAvailableUnits(item.product).find(
+            (u) => u.unitName === (item.unit || item.product?.unit)
+          )?.conversionFactor || 1;
+        const quantityInBaseUnits = item.quantity * factor;
+        if (quantityInBaseUnits > item.product.currentStock) {
+          toast.error(
+            `Not enough stock for ${item.product.name}: ${item.product.currentStock} ${item.product.unit} available`
+          );
+          return;
+        }
+      }
     }
 
     if (paidAmount < 0 || paidAmount > finalTotal) {
@@ -332,6 +365,17 @@ export default function NewSalePage() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  // Group total quantity by unit so mixed-unit lines (e.g. bags + kg) don't
+  // get summed into a meaningless single number on the summary.
+  const quantityByUnit = items.reduce<Record<string, number>>((acc, item) => {
+    const unit = item.unit || item.product?.unit || "";
+    acc[unit] = (acc[unit] || 0) + item.quantity;
+    return acc;
+  }, {});
+  const quantitySummary =
+    Object.entries(quantityByUnit)
+      .map(([unit, qty]) => `${qty.toFixed(2)}${unit ? ` ${unit}` : ""}`)
+      .join(", ") || "0";
   const discountAmount =
     discountValue > 0
       ? discountType === "PERCENT"
@@ -549,9 +593,16 @@ export default function NewSalePage() {
                   </div>
 
                   {items.map((item, index) => {
-                    const product = productSelect.products.find((p: any) => p.id === item.productId);
-                    const availableUnits = getAvailableUnits(product);
+                    const availableUnits = getAvailableUnits(item.product);
                     const hasAlternateUnits = availableUnits.length > 1;
+                    const currentUnit = item.unit || item.product?.unit || "";
+                    const currentUnitFactor =
+                      availableUnits.find((u) => u.unitName === currentUnit)
+                        ?.conversionFactor || 1;
+                    const stockInCurrentUnit =
+                      item.product && currentUnitFactor
+                        ? item.product.currentStock / currentUnitFactor
+                        : undefined;
                     return (
                       <div
                         key={index}
@@ -559,12 +610,12 @@ export default function NewSalePage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium">{isChickenSale ? "Broiler" : product?.name || t("dealer.newSale.products.unknown")}</h4>
+                            <h4 className="font-medium">{isChickenSale ? "Broiler" : item.product?.name || t("dealer.newSale.products.unknown")}</h4>
                             {isChickenSale ? (
                               <p className="text-sm text-muted-foreground">Variable weight — not tracked in dealer inventory</p>
                             ) : (
                               <p className="text-sm text-muted-foreground">
-                                {t("dealer.newSale.products.stock", { stock: product?.currentStock || 0, unit: product?.unit || "" })}
+                                {t("dealer.newSale.products.stock", { stock: item.product?.currentStock || 0, unit: item.product?.unit || "" })}
                               </p>
                             )}
                           </div>
@@ -585,7 +636,7 @@ export default function NewSalePage() {
                             <div>
                               <Label htmlFor={`unit-${index}`} className="text-xs">Unit</Label>
                               <Select
-                                value={item.unit || product?.unit || ""}
+                                value={item.unit || item.product?.unit || ""}
                                 onValueChange={(value) => handleUnitChange(index, value)}
                               >
                                 <SelectTrigger className="h-9 bg-white">
@@ -594,7 +645,7 @@ export default function NewSalePage() {
                                 <SelectContent className="bg-white">
                                   {availableUnits.map((u) => (
                                     <SelectItem key={u.unitName} value={u.unitName}>
-                                      {u.unitName}{u.conversionFactor !== 1 ? ` (${u.conversionFactor} ${product?.unit})` : ""}
+                                      {u.unitName}{u.conversionFactor !== 1 ? ` (${u.conversionFactor} ${item.product?.unit})` : ""}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -609,12 +660,20 @@ export default function NewSalePage() {
                               type="number"
                               min="0.01"
                               step="0.01"
+                              max={!isChickenSale && stockInCurrentUnit != null ? stockInCurrentUnit : undefined}
                               value={item.quantity || ""}
                               onChange={(e) =>
                                 updateItem(index, "quantity", parseFloat(e.target.value) || 0)
                               }
                               className="h-9"
                             />
+                            {!isChickenSale &&
+                              stockInCurrentUnit != null &&
+                              item.quantity > stockInCurrentUnit && (
+                                <p className="text-xs text-destructive mt-1">
+                                  Exceeds stock ({stockInCurrentUnit.toFixed(2)} {currentUnit})
+                                </p>
+                              )}
                           </div>
 
                           {isChickenSale && (
@@ -639,7 +698,7 @@ export default function NewSalePage() {
                           <div>
                             <Label htmlFor={`unitPrice-${index}`} className="text-xs">
                               {t("dealer.newSale.products.unitPrice")}
-                              {item.unit && item.unit !== product?.unit ? ` / ${item.unit}` : ""}
+                              {item.unit && item.unit !== item.product?.unit ? ` / ${item.unit}` : ""}
                             </Label>
                             <Input
                               id={`unitPrice-${index}`}
@@ -717,7 +776,9 @@ export default function NewSalePage() {
                 </div>
                 {discountValue > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {t("dealer.newSale.discount.label", { amount: discountAmount.toFixed(2), percent: Math.min(100, discountValue) })}
+                    {discountType === "PERCENT"
+                      ? t("dealer.newSale.discount.label", { amount: discountAmount.toFixed(2), percent: Math.min(100, discountValue) })
+                      : t("dealer.newSale.discount.labelFlat", { amount: discountAmount.toFixed(2) })}
                   </p>
                 )}
               </CardContent>
@@ -820,8 +881,8 @@ export default function NewSalePage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{t("dealer.newSale.summary.quantity")}</span>
-                    <span className="font-medium">
-                      {items.reduce((sum, item) => sum + item.quantity, 0).toFixed(2)}
+                    <span className="font-medium text-right">
+                      {quantitySummary}
                     </span>
                   </div>
                   {paidAmount > 0 && (
@@ -890,12 +951,11 @@ export default function NewSalePage() {
                 <CardContent>
                   <div className="space-y-3">
                     {items.map((item, index) => {
-                      const product = productSelect.products.find((p: any) => p.id === item.productId);
                       const lineTotal = item.quantity * item.unitPrice;
-                      const displayUnit = item.unit && item.unit !== product?.unit ? item.unit : product?.unit || "";
+                      const displayUnit = item.unit && item.unit !== item.product?.unit ? item.unit : item.product?.unit || "";
                       return (
                         <div key={index} className="text-sm space-y-1">
-                          <div className="font-medium">{product?.name || "Unknown"}</div>
+                          <div className="font-medium">{item.product?.name || "Unknown"}</div>
                           <div className="text-xs text-muted-foreground flex justify-between">
                             <span>
                               {item.quantity} {displayUnit} × रू {item.unitPrice.toFixed(2)}

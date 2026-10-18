@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
 import { applyBillDiscount, BillDiscountError, type BillDiscountResult } from "../utils/discountHelpers";
 import prisma from "../utils/prisma";
-import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
+import { UserRole, TransactionType, SalesItemType, BatchStatus } from "@prisma/client";
 import {
   CreateSaleSchema,
   SaleSchema,
@@ -1166,11 +1166,21 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
     // Only the farmer's own sale; anyone else gets "not found".
     const existingSale = await prisma.sale.findFirst({
       where: ownSaleWhere(id, currentUserId),
-      include: { eggLines: true },
+      include: { eggLines: true, batch: { select: { status: true } } },
     });
 
     if (!existingSale) {
       return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // Deleting a sale restocks birds / eggs. A closed batch has locked
+    // end-of-cycle totals; restocking would corrupt them. UI matches this
+    // guard (farmer sales ledger + batch sales table both hide the delete
+    // button when batch.status === COMPLETED).
+    if (existingSale.batch?.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({
+        message: "Cannot delete a sale from a closed batch.",
+      });
     }
 
     const saleBatchId = existingSale.batchId;

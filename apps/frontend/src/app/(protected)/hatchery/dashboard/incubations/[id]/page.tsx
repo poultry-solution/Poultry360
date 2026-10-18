@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   ArrowLeft,
   Loader2,
@@ -205,7 +206,7 @@ function CandlingTab({ batch, batchId }: { batch: any; batchId: string }) {
   const { data: losses, isLoading } = useIncubationLosses(batchId);
   const candlingMutation = useRecordCandling(batchId);
 
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getNepalTodayAd());
   const [infertile, setInfertile] = useState("");
   const [earlyDead, setEarlyDead] = useState("");
   const [note, setNote] = useState("");
@@ -298,7 +299,7 @@ function CandlingTab({ batch, batchId }: { batch: any; batchId: string }) {
 
 function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
   const transferMutation = useTransferToHatcher(batchId);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getNepalTodayAd());
   const [err, setErr] = useState<string | null>(null);
 
   const alreadyTransferred = !!batch.transferredAt;
@@ -368,7 +369,7 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
   const { data: results, isLoading } = useHatchResults(batchId);
   const addMutation = useAddHatchResult(batchId);
 
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getNepalTodayAd());
   const [hatchedA, setHatchedA] = useState("");
   const [hatchedB, setHatchedB] = useState("");
   const [cull, setCull] = useState("");
@@ -556,7 +557,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
   const { data: partiesData } = useHatcheryParties();
 
   const [grade, setGrade] = useState<ChickGrade>("A");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getNepalTodayAd());
   const [count, setCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [partyId, setPartyId] = useState("");
