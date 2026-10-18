@@ -275,6 +275,10 @@ export const useAddSalePayment = () => {
       return response.data;
     },
     onSuccess: (data, variables) => {
+      // Analytics tiles ("Money to receive" etc.) read from customer.balance,
+      // which this payment just changed. Without this refresh the tile shows
+      // the pre-payment number from React Query's cache.
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Invalidate and refetch the specific sale
@@ -323,6 +327,9 @@ export const useSoftDeleteCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
+      // Reversing a payment bumps customer.balance back up; the analytics
+      // "Money to receive" tile needs to reflect the new balance.
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       // Deleting a receipt made from a sale payment also changes that sale.
@@ -359,6 +366,9 @@ export const useAddCustomerPayment = () => {
       return response.data;
     },
     onSuccess: (_data, variables) => {
+      // Account-level customer payments change customer.balance; analytics
+      // "Money to receive" tile needs to refresh.
+      refreshFarmerData(queryClient);
       // Home tiles and the profit-per-batch graph read from the dashboard.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Eye, EyeOff, Lock, Pencil, Phone, Plus, ShieldCheck, UserRound, Users } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Lock, Pencil, Phone, Plus, ShieldCheck, UserRound, Users } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/common/components/ui/dialog";
@@ -165,6 +165,9 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
   const [form, setForm] = useState({ name: "", phone: "", password: "", permissions: config.defaultPermissions });
   const [credentials, setCredentials] = useState<Record<string, { phone?: string; password?: string }>>({});
   const [editingMember, setEditingMember] = useState<StaffAccessUser | null>(null);
+  const [resettingMember, setResettingMember] = useState<StaffAccessUser | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -222,6 +225,22 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
       setEditingMember(null);
       toast.success("Staff credentials updated");
     } catch (error: any) { toast.error(error?.response?.data?.message || "Could not update staff credentials"); }
+  };
+  const submitPasswordReset = async () => {
+    if (!resettingMember) return;
+    if (resetPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    try {
+      await update.mutateAsync({ id: resettingMember.id, password: resetPassword });
+      setResettingMember(null);
+      setResetPassword("");
+      setShowResetPassword(false);
+      toast.success("Password reset. The staff will be asked to set their own on next login.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not reset password");
+    }
   };
 
   const activeCount = staff.filter((member) => member.isActive).length;
@@ -321,7 +340,7 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <label className="flex cursor-pointer items-center gap-2 text-sm">
                     <ToggleSwitch
                       checked={member.isActive}
@@ -330,17 +349,31 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
                     />
                     Login active
                   </label>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setCredentials((current) => ({ ...current, [member.id]: { phone: localPhone(member.phone), password: "" } }));
-                      setEditingMember(member);
-                    }}
-                  >
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                    Edit login
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setResetPassword("");
+                        setShowResetPassword(false);
+                        setResettingMember(member);
+                      }}
+                    >
+                      <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                      Reset password
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setCredentials((current) => ({ ...current, [member.id]: { phone: localPhone(member.phone), password: "" } }));
+                        setEditingMember(member);
+                      }}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      Edit login
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -412,6 +445,49 @@ export function StaffAccessPage({ module }: { module: StaffModule }) {
               <Button type="submit" disabled={create.isPending}>{create.isPending ? "Creating…" : "Create staff login"}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset password dialog */}
+      <Dialog open={!!resettingMember} onOpenChange={(open) => { if (!open) { setResettingMember(null); setResetPassword(""); setShowResetPassword(false); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5" />
+              Reset password
+            </DialogTitle>
+            <DialogDescription>
+              {resettingMember ? `Set a new password for ${resettingMember.name}. They will be asked to set their own on next login.` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="staff-reset-password">New password</Label>
+            <div className="relative">
+              <Input
+                id="staff-reset-password"
+                minLength={8}
+                type={showResetPassword ? "text" : "password"}
+                placeholder="At least 8 characters"
+                className="pr-10"
+                value={resetPassword}
+                onChange={(event) => setResetPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={showResetPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowResetPassword((value) => !value)}
+              >
+                {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setResettingMember(null); setResetPassword(""); setShowResetPassword(false); }}>Cancel</Button>
+            <Button disabled={update.isPending || resetPassword.length < 8} onClick={submitPasswordReset}>
+              {update.isPending ? "Saving…" : "Reset password"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -332,6 +332,72 @@ poller, provider, or socket work starts, and reuse the same TanStack Query cache
 
 ---
 
+## Date Handling (Nepal Timezone)
+
+The app is Nepal-only (UTC+05:45). All stored and transmitted dates are AD (Gregorian); BS (Bikram Sambat) is a display-only concern — the AD/BS toggle UI exists but is hidden (`EFFECTIVE_CALENDAR_TYPE = "BS"`, `CALENDAR_TOGGLE_VISIBLE = false` in `apps/frontend/src/common/config/calendar.ts`), so every user sees BS in the UI.
+
+### Convention
+
+- A `DateTime` field in storage represents a **Nepal wall-clock calendar day**, serialized as `YYYY-MM-DDT00:00:00.000Z` (UTC midnight of the AD day). The UTC-midnight wire format is just the chosen encoding — semantically it means "the Nepal day the user picked".
+- Writers normalize via `date: new Date(payload.date)`. Readers must apply the Nepal offset (+05:45) before extracting day/month/year, or they drift one day between 00:00 and 05:45 Nepal time.
+- Do calculations in AD. Only convert to BS at display time.
+
+### Where the helpers live
+
+| Module | Purpose |
+|---|---|
+| `apps/frontend/src/common/lib/nepali-date.ts` | **Primary frontend module.** All date work on the client goes through here. |
+| `apps/backend/src/utils/nepalBsDate.ts` | **Primary backend module** for Nepal-day logic (today, day keys, BS month windows). |
+| `apps/backend/src/services/farmerFcrService.ts` | Exports `startOfNepalDay` / `endOfNepalDay`. Used by weight, batch, FCR controllers for `gte`/`lte` filters. |
+| `apps/backend/src/utils/dealerSaleDateRange.ts` | `parseNepalBoundary` + `parseDealerDateRange` for dealer list/filter endpoints. |
+| `apps/frontend/src/common/hooks/useCalendar.ts` | React hook wrapping the lib. Provides `toDisplayDate` + `formatRelativeDate` used by `<DateDisplay/>` and forms. |
+
+### Cheat sheet — what to use when
+
+| Situation | Frontend | Backend |
+|---|---|---|
+| "today" default for a form | `getNepalTodayAd()` | `getNepaliNow()` / `toNepalDayKey(new Date())` |
+| Day a timestamp falls on | `toNepalDayAd(x)` | `toNepalDayKey(x)` |
+| Display AD as BS | `convertADtoBS(x)` or `<DateDisplay/>` | — (never display server-side) |
+| `gte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.startDate` | `startOfNepalDay(x)` or `parseNepalBoundary(x, "start")` |
+| `lte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.endDate` | `endOfNepalDay(x)` or `parseNepalBoundary(x, "end")` |
+| Parse `YYYY-MM-DD` from UI | `parseDateStringLocal(s)` (noon-local; avoids UTC-midnight trap) | `new Date(s)` + wrap with `startOfNepalDay` if used for day logic |
+| Current BS month boundaries | — (ask backend) | `getNepalBsMonthWindow()` |
+| Batch day number | `nepalBatchAge(start)` | `nepalBatchDay(start, now)` |
+| "N days from today" | `toNepalDayAd(new Date(Date.now() + n*86400000))` | `toNepalDayKey(new Date(Date.now() + n*86400000))` |
+
+### Flow
+
+```
+BS picker (NepaliDatePicker) → DateInput emits AD YYYY-MM-DD or ISO
+  → form state (AD string)
+  → POST { date: "2026-10-19T00:00:00.000Z" }
+  → backend `date: new Date(payload.date)` (UTC midnight)
+  → Prisma DateTime column
+  → GET response (ISO string)
+  → <DateDisplay/> → convertADtoBS() → "Magh 5, 2082" shown to user
+```
+
+### Anti-patterns (will cause bugs between 00:00–05:45 Nepal time)
+
+```ts
+new Date().toISOString().split("T")[0]      // ❌ UTC day, not Nepal day
+new Date().toISOString().slice(0, 10)       // ❌ same bug
+new Date(dateStr).getDate()                 // ❌ reads device-local, not Nepal
+new Date(a) > new Date(b)                   // ❌ for day-boundary comparisons — use startOfNepalDay
+date_trunc('day', col) in raw SQL           // ❌ Postgres groups by server UTC
+```
+
+### Known open items
+
+- **Dealer sales list filter** uses UTC days while stats use Nepal days — mismatch near midnight. Fix: route the list through `parseDealerDateRange`.
+- **Broiler settlement** default date uses UTC — can show yesterday before 05:45. Fix: swap default to `getNepalTodayAd()`.
+- **`useCalendar.formatRelativeDate`** (`apps/frontend/src/common/hooks/useCalendar.ts:71`) compares `new Date().getTime() - dateObj.getTime()` with no Nepal shift, so "Today"/"Yesterday"/"N days ago" labels can be off by one between 00:00 and 05:45 Nepal time.
+- **`useCalendar.toDisplayDate`** AD-format branch (line 42) uses `toLocaleDateString` which reads device-local time — latent only; the AD branch is dead code while `EFFECTIVE_CALENDAR_TYPE === "BS"` is forced.
+- Final sweep for stray `.toISOString().split('T')[0]` / `.slice(0, 10)` and bare `new Date()` sentinels (both backend and frontend) is still open.
+
+---
+
 ## Farmer Raw FCR and cFCR
 
 The old FCR review and the later cFCR plan are complete and replaced by

@@ -8,6 +8,7 @@ export interface StaffAccessUser {
   phone: string;
   isActive: boolean;
   permissions: StaffPermission[];
+  mustChangePassword?: boolean;
   createdAt: string;
 }
 

@@ -2,6 +2,8 @@ import { Router } from "express";
 import { UserRole } from "@prisma/client";
 import { authMiddleware, requireStaffAccountOwner } from "../middelware/middelware";
 import {
+  acknowledgeStaffPassword,
+  changeStaffPassword,
   createStaffUser,
   getStaffInfo,
   listStaffUsers,
@@ -19,6 +21,8 @@ router.post("/logout", authMiddleware, (req, res, next) => {
   if (req.actorType !== "STAFF") return res.status(403).json({ error: "Use the account logout route" });
   next();
 }, staffLogout);
+router.post("/change-password", authMiddleware, changeStaffPassword);
+router.post("/acknowledge-password", authMiddleware, acknowledgeStaffPassword);
 router.get("/@me", getStaffInfo);
 router.get("/validate", validateStaffToken);
 

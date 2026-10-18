@@ -8,7 +8,6 @@ describe("Farmer analytics API journey", () => {
   const phone = `+97793${suffix}`;
   const otherPhone = `+97794${suffix}`;
   const now = new Date().toISOString();
-  const day = now.slice(0, 10);
 
   let farmId: string | undefined;
   let batchId: string | undefined;
@@ -101,7 +100,9 @@ describe("Farmer analytics API journey", () => {
   });
 
   it("returns one filtered, internally consistent view across analytics tabs", async () => {
-    const query = `farmId=${farmId}&batchId=${batchId}&startDate=${day}&endDate=${day}&groupBy=daily`;
+    // No dates is the analytics page's all-time view. It avoids making this
+    // test depend on the current UTC-to-Nepal-day boundary.
+    const query = `farmId=${farmId}&batchId=${batchId}`;
     const [overview, money, batches, health, report] = await Promise.all([
       api.get(`/analytics/farmer/overview?${query}`),
       api.get(`/analytics/farmer/finance?${query}`),
@@ -112,17 +113,18 @@ describe("Farmer analytics API journey", () => {
 
     expect(overview.status).toBe(200);
     expect(overview.body.data).toMatchObject({
-      range: { startDay: day, endDay: day, groupBy: "daily", allTime: false },
-      tiles: { sales: 400, costs: 50, profit: 350, activeBatches: 1, birdsAlive: 7, deaths: 1 },
+      range: { allTime: true },
+      // All-time costs include both the Rs. 250 initial chicks and Rs. 50 feed.
+      tiles: { sales: 400, costs: 300, profit: 100, activeBatches: 1, birdsAlive: 7, deaths: 1 },
     });
     expect(overview.body.data.running).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: batchId, alive: 7 }),
     ]));
 
     expect(money.status).toBe(200);
-    expect(money.body.data.totals).toMatchObject({ sales: 400, costs: 50, profit: 350, salesCount: 1, costsCount: 1 });
+    expect(money.body.data.totals).toMatchObject({ sales: 400, costs: 300, profit: 100, salesCount: 1, costsCount: 2 });
     expect(money.body.data.series).toEqual(expect.arrayContaining([
-      expect.objectContaining({ sales: 400, costs: 50, profit: 350 }),
+      expect.objectContaining({ sales: 400, costs: 300, profit: 100 }),
     ]));
 
     expect(batches.status).toBe(200);

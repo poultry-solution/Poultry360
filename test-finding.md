@@ -63,3 +63,18 @@ says it is for testing, but it cannot be used through the API.
 
 Suggested fix: accept an ISO date string in the request schema and convert it
 to `Date` in the controller.
+
+### Staff can change owner optional-feature settings
+
+- Area: Farmer settings and staff access
+- Endpoint: `PUT /api/v1/account-features/:featureKey`
+- Severity: Medium
+- Found: 2026-10-19
+
+A farmer staff login with only `FARMER_MANAGE_OPERATIONS` can turn owner-level
+optional features on or off. This includes public List for sale, corrected FCR,
+and purchase-bill upload. The same staff user is correctly blocked from
+`PATCH /api/v1/users/preferences`, so this is an access-control gap.
+
+Suggested fix: add the owner-only staff-account guard to account-feature update
+routes, or apply a clear separate permission that only an owner can hold.

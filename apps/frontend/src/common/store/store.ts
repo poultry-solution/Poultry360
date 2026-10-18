@@ -69,6 +69,7 @@ export interface User {
   farmer?: FarmerBusiness | null; // Farmer account summary when signed in as staff
   isStaff?: boolean;
   permissions?: StaffPermission[];
+  mustChangePassword?: boolean;
 }
 
 export type StaffPermission =
@@ -264,6 +265,7 @@ export const useAuthStore = create<AuthState>()(
                 company: user.company || null,
                 isStaff: true,
                 permissions: user.permissions || [],
+                mustChangePassword: !!user.mustChangePassword,
               },
               accessToken,
               isAuthenticated: true,
@@ -407,6 +409,7 @@ export const useAuthStore = create<AuthState>()(
                   company: response.user.company || null,
                   isStaff: true,
                   permissions: response.user.permissions || [],
+                  mustChangePassword: !!response.user.mustChangePassword,
                 },
                 isAuthenticated: true,
                 error: null,
@@ -487,6 +490,7 @@ export const useAuthStore = create<AuthState>()(
                   company: userData.company || null,
                   isStaff: true,
                   permissions: userData.permissions || [],
+                  mustChangePassword: !!userData.mustChangePassword,
                 },
                 error: null,
               });

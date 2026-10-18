@@ -2691,6 +2691,10 @@ model StaffUser {
   phone          String            @unique
   passwordHash   String
   isActive       Boolean           @default(true)
+  // true when the staff must set a new password before using the app:
+  // auto-set on create and on owner-triggered password reset. Cleared when
+  // the staff self-changes or acknowledges "keep current" from the modal.
+  mustChangePassword Boolean       @default(false)
   permissions    StaffPermission[] @default([])
   sessionVersion Int               @default(1)
   createdAt      DateTime          @default(now())
