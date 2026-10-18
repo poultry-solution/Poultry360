@@ -2,6 +2,21 @@
 
 ## Open
 
+### Parallel raw-material creation can return a server error
+
+- Area: Farmer inventory and self-feed production
+- Endpoint: `POST /api/v1/inventory`
+- Severity: Medium
+- Found: 2026-10-19
+
+When a farmer creates two `RAW_MATERIAL` items at the same time, both requests
+try to create the default `Raw Material` inventory category. One request can
+then hit the category unique key and return `500 Internal server error`.
+
+Suggested fix: handle the `P2002` race in `ensureFarmerInventoryCategory` by
+reading the existing category and retrying, or create categories before
+parallel item requests.
+
 ### Supplier transaction values use text instead of numbers
 
 - Area: Farmer supplier ledger API
@@ -63,18 +78,3 @@ says it is for testing, but it cannot be used through the API.
 
 Suggested fix: accept an ISO date string in the request schema and convert it
 to `Date` in the controller.
-
-### Staff can change owner optional-feature settings
-
-- Area: Farmer settings and staff access
-- Endpoint: `PUT /api/v1/account-features/:featureKey`
-- Severity: Medium
-- Found: 2026-10-19
-
-A farmer staff login with only `FARMER_MANAGE_OPERATIONS` can turn owner-level
-optional features on or off. This includes public List for sale, corrected FCR,
-and purchase-bill upload. The same staff user is correctly blocked from
-`PATCH /api/v1/users/preferences`, so this is an access-control gap.
-
-Suggested fix: add the owner-only staff-account guard to account-feature update
-routes, or apply a clear separate permission that only an owner can hold.

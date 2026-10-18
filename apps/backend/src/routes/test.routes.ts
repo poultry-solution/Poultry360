@@ -3,6 +3,10 @@ import prisma from '../utils/prisma';
 import bcrypt from 'bcrypt';
 import { UserOnboardingPaymentState } from '@prisma/client';
 import { authMiddleware } from '../middelware/middelware';
+import {
+  getAccountFeatureDefinition,
+  setAccountFeature,
+} from '../services/accountFeatureService';
 
 const router = express.Router();
 
@@ -240,6 +244,46 @@ router.post('/approve-current-user', authMiddleware, async (req, res) => {
     return res.json({ success: true, message: 'Test account approved' });
   } catch (error: any) {
     console.error('Test account approval error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * Test-only account feature switch. Some features are intentionally controlled
+ * by an admin in normal use, so API tests need a narrow HTTP-only way to turn
+ * them on for the account they created.
+ */
+router.put('/current-user/features/:featureKey', authMiddleware, async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const definition = getAccountFeatureDefinition(req.params.featureKey);
+    if (!definition) {
+      return res.status(404).json({ success: false, message: 'Feature not found' });
+    }
+    if (typeof req.body?.enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'enabled must be a boolean' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { role: true },
+    });
+    if (!user || !definition.applicableRoles.includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Feature is not available for this account' });
+    }
+
+    const feature = await setAccountFeature({
+      accountId: req.userId,
+      featureKey: definition.key,
+      enabled: req.body.enabled,
+      updatedById: req.userId,
+    });
+    return res.json({ success: true, data: feature });
+  } catch (error: any) {
+    console.error('Test feature update error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });

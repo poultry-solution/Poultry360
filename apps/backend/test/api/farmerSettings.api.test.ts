@@ -60,7 +60,7 @@ describe("Farmer settings API journey", () => {
     expect(invalidFeature.status).toBe(403);
   });
 
-  it("blocks staff account administration but currently lets staff change owner feature settings", async () => {
+  it("blocks staff from changing owner account settings", async () => {
     const staff = await ownerApi.post("/staff-auth/users", {
       name: `Settings staff ${suffix}`,
       phone: staffPhone,
@@ -77,13 +77,12 @@ describe("Farmer settings API journey", () => {
     expect(preferenceDenied.status).toBe(403);
     expect(preferenceDenied.body.code).toBe("OWNER_ONLY");
 
-    // This should be owner-only like preferences, but is currently allowed.
     const staffFeatureChange = await staffApi.put("/account-features/FARMER_LIST_FOR_SALE", { enabled: true });
-    expect(staffFeatureChange.status).toBe(200);
-    expect(staffFeatureChange.body.data).toMatchObject({ key: "FARMER_LIST_FOR_SALE", enabled: true });
+    expect(staffFeatureChange.status).toBe(403);
+    expect(staffFeatureChange.body.code).toBe("OWNER_ONLY");
     const featuresAfterStaffChange = await ownerApi.get("/account-features");
     expect(featuresAfterStaffChange.body.data).toEqual(expect.arrayContaining([
-      expect.objectContaining({ key: "FARMER_LIST_FOR_SALE", enabled: true }),
+      expect.objectContaining({ key: "FARMER_LIST_FOR_SALE", enabled: false }),
     ]));
   });
 });
