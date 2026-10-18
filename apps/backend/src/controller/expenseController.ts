@@ -615,6 +615,7 @@ export const createExpense = async (
                   date: new Date(date),
                   description: `Usage recorded for ${farmId || "general"}${batchId ? ` - Batch ${batchId}` : ""}`,
                   itemId: itemData.itemId,
+                  batchId: batchId || null,
                 },
               });
 

@@ -456,6 +456,7 @@ model Batch {
   feedConsumptions FeedConsumption[]
   birdWeights      BirdWeight[]
   inventoryUsages  InventoryUsage[]
+  inventoryTransactions InventoryTransaction[]
 
   // Layers: daily egg production (one record per batch per day)
   eggProductions      EggProduction[]
@@ -894,6 +895,12 @@ model InventoryTransaction {
   itemId String
   item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
+  // Optional link to the batch this transaction was created for. Cascade on
+  // batch delete so initial-allocation rows clean up canonically, without the
+  // fragile description/batchNumber matching the old deleteBatch used.
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
   productionInput  FarmerProductionInput?  @relation("FarmerProductionInputTxn")
   productionOutput FarmerProductionOutput? @relation("FarmerProductionOutputTxn")
 
@@ -901,6 +908,7 @@ model InventoryTransaction {
   updatedAt DateTime @updatedAt
 
   @@index([itemId, date])
+  @@index([batchId])
 }
 
 // Usage records that automatically update stock

@@ -13,6 +13,7 @@
     "seed:demo:dealer": "ts-node src/scripts/seedDemoDealer.ts",
     "seed:demo:hatchery": "ts-node src/scripts/seedDemoHatchery.ts",
     "seed:demo:all": "ts-node src/scripts/seedDemoSuperAdmin.ts && ts-node src/scripts/seedDemoFarmer.ts && ts-node src/scripts/seedDemoDealer.ts && ts-node src/scripts/seedDemoHatchery.ts",
+    "backfill:inventory-txn-batch-id": "ts-node src/scripts/backfillInventoryTxnBatchId.ts",
     "build": "tsc"
   },
   "keywords": [],

@@ -651,6 +651,7 @@ export const createBatch = async (
             date: allocationDate,
             description: `Chicks allocated to batch ${batch.batchNumber}`,
             itemId: alloc.itemId,
+            batchId: batch.id,
           },
         });
 
@@ -913,10 +914,22 @@ export const deleteBatch = async (
         });
       }
 
-      // 2) Remove related inventory transactions created for initial allocation
+      // 2) Remove related inventory transactions created for initial allocation.
+      //    Post-migration rows: scoped by FK. (Also handled by onDelete:Cascade
+      //    on tx.batch.delete below, but the explicit call keeps intent clear
+      //    and the restore->delete ordering tidy.)
+      await tx.inventoryTransaction.deleteMany({
+        where: { batchId: id, type: InventoryTransactionType.USAGE },
+      });
+
+      //    Legacy fallback for pre-migration rows (batchId IS NULL). Narrowing
+      //    on `batchId: null` means that after the backfill completes this
+      //    clause matches nothing, and even today it only touches rows that
+      //    predate the FK. Remove once backfill is verified complete.
       await tx.inventoryTransaction.deleteMany({
         where: {
-          type: "USAGE",
+          type: InventoryTransactionType.USAGE,
+          batchId: null,
           description: { contains: initialUsageDescContains },
           itemId: { in: initialUsages.map((u) => u.itemId) },
         },
