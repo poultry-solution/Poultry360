@@ -208,26 +208,36 @@ export class DealerService {
           : []
       );
 
-      // 4. Atomically check-and-decrement stock for each product (guarded updateMany).
-      // This closes the TOCTOU race: the WHERE clause checks ownership, visibility, and
-      // sufficient stock in the same SQL statement that performs the decrement.
+      // 4. Atomically check-and-decrement stock per unique product (guarded updateMany).
+      // A single sale can legitimately include the same product on multiple lines
+      // (different unit prices, notes, sub-quantities). We aggregate the total
+      // deduction per productId first, then do ONE check-and-decrement per unique
+      // product. This preserves TOCTOU safety (atomic SQL check + decrement in one
+      // statement) while treating repeated line items as a cumulative request —
+      // what the UI's "sum of all lines" semantics imply.
+      const totalDeductByProduct = new Map<string, Prisma.Decimal>();
       for (let i = 0; i < saleItemsData.length; i++) {
         const saleItem = saleItemsData[i];
         if (!saleItem.productId) continue;
         const deductQty = saleItem.baseQuantity ?? new Prisma.Decimal(items[i].quantity);
+        const running = totalDeductByProduct.get(saleItem.productId) ?? new Prisma.Decimal(0);
+        totalDeductByProduct.set(saleItem.productId, running.plus(deductQty));
+      }
+
+      for (const [productId, totalDeduct] of totalDeductByProduct) {
         const stockUpdate = await tx.dealerProduct.updateMany({
           where: {
-            id: saleItem.productId,
+            id: productId,
             dealerId,
             hiddenAt: null,
-            currentStock: { gte: deductQty },
+            currentStock: { gte: totalDeduct },
           },
-          data: { currentStock: { decrement: deductQty } },
+          data: { currentStock: { decrement: totalDeduct } },
         });
         if (stockUpdate.count !== 1) {
-          const product = productChecks[i];
+          const product = productChecks.find((p) => p?.id === productId);
           throw new Error(
-            `Insufficient stock for product ${product?.name ?? saleItem.productId}. Requested: ${deductQty}`
+            `Insufficient stock for product ${product?.name ?? productId}. Requested: ${totalDeduct}`
           );
         }
       }
@@ -471,9 +481,11 @@ export class DealerService {
         },
       });
 
+      // Per-line decrement is safe here: duplicate productIds are rejected
+      // earlier in normalizedItems validation (see "Each inventory product can
+      // only be included once" above), so each product appears at most once.
+      // The guarded updateMany still closes the TOCTOU race for concurrent sales.
       for (const item of resolvedItems) {
-        // The guarded decrement closes the read/update race and guarantees that
-        // a second concurrent sale cannot take stock below zero.
         const stockUpdate = await tx.dealerProduct.updateMany({
           where: {
             id: item.productId,

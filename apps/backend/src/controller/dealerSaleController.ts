@@ -897,7 +897,7 @@ export const createCustomer = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { name, phone, address, category, openingBalance } = req.body;
+    const { name, phone, address, category, openingBalance, openingBalanceDate } = req.body;
     const normalizedName = typeof name === "string" ? name.trim() : "";
     const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
 
@@ -928,6 +928,20 @@ export const createCustomer = async (
     if (Number.isNaN(ob)) {
       return res.status(400).json({ message: "Opening balance must be a valid number" });
     }
+    // Opening balance is a BEFORE-the-app figure, so callers can specify the
+    // historical date they want it dated to. Falls back to now() when absent,
+    // matching the previous behaviour for UI callers that don't send one.
+    let openingTxnDate: Date = new Date();
+    if (openingBalanceDate !== undefined && openingBalanceDate !== null && openingBalanceDate !== "") {
+      const parsed = new Date(openingBalanceDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: "openingBalanceDate must be a valid ISO date" });
+      }
+      if (parsed.getTime() > Date.now() + 60 * 1000) {
+        return res.status(400).json({ message: "openingBalanceDate cannot be in the future" });
+      }
+      openingTxnDate = parsed;
+    }
 
     // Create customer (and opening balance transaction if provided)
     const customer = await prisma.$transaction(async (tx) => {
@@ -947,7 +961,7 @@ export const createCustomer = async (
           data: {
             type: "OPENING_BALANCE",
             amount: ob,
-            date: new Date(),
+            date: openingTxnDate,
             description: "Opening balance",
             customerId: created.id,
           },
