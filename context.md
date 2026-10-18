@@ -84,12 +84,15 @@ account.
 
 | Role | Route Prefix | Default Dashboard |
 |------|--------------|-------------------|
-| `OWNER`, `MANAGER` | `/farmer/*` | `/farmer/dashboard/home` |
+| `OWNER` | `/farmer/*` | `/farmer/dashboard/home` |
 | `DEALER` | `/dealer/*` | `/dealer/dashboard/home` |
 | `COMPANY` | `/company/*` | `/company/dashboard/home` |
+| `HATCHERY` | `/hatchery/*` | `/hatchery/dashboard/home` |
 | `SUPER_ADMIN` | `/admin/*` | `/admin/dashboard` |
 
-Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection.
+Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection. The `MANAGER` role was removed on 2026-10-18 (migration `20261018000000_remove_manager_role`); it was never surfaced in any UI and left prod with zero rows.
+
+Ownership is enforced at the handler level, not just the route. Farmer by-id and list handlers compose `batchScopedBy(userId, role)` / `farmScopedBy(userId, role)` from `apps/backend/src/services/ownershipService.ts` into their Prisma `where`, and list filters (`?farmId=`, `?batchId=`) are pre-checked with `userOwnsFarm` / `userOwnsBatch`. Non-matching requests return 404 (not 403), to prevent id enumeration. `SUPER_ADMIN` returns an empty where fragment (admin bypass).
 
 ### Account Relationships
 
@@ -186,6 +189,7 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 | `CompanyDealerAccountService` | Active Company-owned dealer sale/payment ledger; keep it one-sided and do not turn it into account sync |
 | `DealerService` | Dealer operations, farmer/customer balance-based ledger |
 | `farmerFcrService` | Raw FCR, cFCR, freshness, history rebuilds, and dashboard totals for Farmer Broiler batches |
+| `ownershipService` | Scoped-WHERE fragments (`batchScopedBy`, `farmScopedBy`) and ownership asserts (`userOwnsFarm`, `userOwnsBatch`) for farmer by-id and list endpoints. SUPER_ADMIN bypasses. |
 | `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
 | `ReminderCronService` | Cron job for vaccination/reminder notifications |

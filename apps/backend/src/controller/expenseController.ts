@@ -15,6 +15,12 @@ import { InventoryService } from "../services/inventoryService";
 import { getFarmerInventoryUnitCosts } from "../services/farmerInventoryDomain";
 import { resolveFeedKgPerUnit } from "../utils/farmerFeedUnits";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
+import {
+  batchScopedBy,
+  farmScopedBy,
+  userOwnsBatch,
+  userOwnsFarm,
+} from "../services/ownershipService";
 
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
@@ -45,15 +51,22 @@ export const getAllExpenses = async (
       },
     };
 
-    if (currentUserRole === UserRole.OWNER) {
-      where.farm = { ownerId: currentUserId };
+    const farmFragment = farmScopedBy(currentUserId!, currentUserRole);
+    if (Object.keys(farmFragment).length > 0) {
+      where.farm = farmFragment;
     }
 
     if (farmId) {
+      if (!(await userOwnsFarm(farmId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Farm not found" });
+      }
       where.farmId = farmId as string;
     }
 
     if (batchId) {
+      if (!(await userOwnsBatch(batchId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Batch not found" });
+      }
       where.batchId = batchId as string;
     }
 
@@ -271,9 +284,9 @@ export const getBatchExpenses = async (
     const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    // Scoped find — non-owner gets null -> 404.
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchScopedBy(currentUserId!, currentUserRole) },
       include: {
         farm: {
           include: {
@@ -285,10 +298,6 @@ export const getBatchExpenses = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     // Build where clause

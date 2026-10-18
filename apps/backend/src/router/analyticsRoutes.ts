@@ -1,6 +1,6 @@
 import express from "express";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
-import { StaffPermission } from "@prisma/client";
+import { StaffPermission, UserRole } from "@prisma/client";
 import {
   getFarmerAnalyticsOverview,
   getFarmerFinanceAnalytics,
@@ -12,7 +12,10 @@ import {
 
 const router = express.Router();
 
-router.use(authMiddleware);
+// Farmer analytics only (staff inherit role=OWNER).
+router.use((req, res, next) => {
+  authMiddleware(req, res, next, [UserRole.OWNER]);
+});
 router.use(requireStaffPermission(StaffPermission.FARMER_VIEW_ANALYTICS));
 
 router.get("/farmer/overview", getFarmerAnalyticsOverview);

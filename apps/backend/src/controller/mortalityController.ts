@@ -3,6 +3,7 @@ import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { CreateMortalitySchema } from "@myapp/shared-types";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
+import { batchScopedBy } from "../services/ownershipService";
 
 // ==================== GET MORTALITY BY ID ====================
 export const getMortalityById = async (
@@ -183,9 +184,9 @@ export const createMortality = async (
 
     const { date, count, reason, batchId } = data;
 
-    // Validate batch access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    // Scoped find — non-owner gets null -> 404.
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchScopedBy(currentUserId!, currentUserRole) },
       include: {
         farm: {
           include: {
@@ -198,10 +199,6 @@ export const createMortality = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
-      return res.status(403).json({ message: "Access denied to batch" });
     }
 
     // Validate count doesn't exceed available birds

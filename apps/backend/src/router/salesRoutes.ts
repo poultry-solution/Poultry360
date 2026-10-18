@@ -20,11 +20,15 @@ import {
 } from "../controller/salesController";
 import { authMiddleware } from "../middelware/middelware";
 import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
+import { UserRole } from "@prisma/client";
 
 const router = express.Router();
 
-// Apply authentication middleware to all routes
-router.use(authMiddleware);
+// Apply authentication middleware to all routes. Farmer sales are OWNER-only
+// (staff of farmer accounts inherit role=OWNER via middleware).
+router.use((req, res, next) => {
+  authMiddleware(req, res, next, [UserRole.OWNER]);
+});
 
 // Customer and sales operations are deliberately available to all active
 // staff, within their owner's data scope. Each business module uses these

@@ -12,6 +12,12 @@ import {
   generateNextFarmerInvoiceNumber,
 } from "../utils/invoiceNumber";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
+import {
+  batchScopedBy,
+  farmScopedBy,
+  userOwnsBatch,
+  userOwnsFarm,
+} from "../services/ownershipService";
 
 /**
  * A farmer can only open, pay or delete their own sales. Every sale has the
@@ -246,15 +252,22 @@ export const getAllSales = async (
     // Build where clause
     const where: any = {};
 
-    if (currentUserRole === UserRole.OWNER) {
-      where.farm = { ownerId: currentUserId };
+    const farmFragment = farmScopedBy(currentUserId!, currentUserRole);
+    if (Object.keys(farmFragment).length > 0) {
+      where.farm = farmFragment;
     }
 
     if (farmId) {
+      if (!(await userOwnsFarm(farmId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Farm not found" });
+      }
       where.farmId = farmId as string;
     }
 
     if (batchId) {
+      if (!(await userOwnsBatch(batchId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Batch not found" });
+      }
       where.batchId = batchId as string;
     }
 
@@ -669,10 +682,10 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: "categoryId is required" });
     }
 
-    // Validate farm access if provided
+    // Validate farm access if provided — non-owner gets null -> 404.
     if (farmId) {
-      const farm = await prisma.farm.findUnique({
-        where: { id: farmId },
+      const farm = await prisma.farm.findFirst({
+        where: { id: farmId, ...farmScopedBy(currentUserId!, currentUserRole) },
         include: {
           owner: true,
         },
@@ -680,10 +693,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
       if (!farm) {
         return res.status(404).json({ message: "Farm not found" });
-      }
-
-      if (currentUserRole === UserRole.OWNER && farm.ownerId !== currentUserId) {
-        return res.status(403).json({ message: "Access denied to farm" });
       }
     }
 
@@ -694,11 +703,11 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // Validate batch access if provided
+    // Validate batch access if provided — non-owner gets null -> 404.
     let batch = null;
     if (batchId) {
-      batch = await prisma.batch.findUnique({
-        where: { id: batchId },
+      batch = await prisma.batch.findFirst({
+        where: { id: batchId, ...batchScopedBy(currentUserId!, currentUserRole) },
         include: {
           farm: {
             include: {
@@ -711,10 +720,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
       if (!batch) {
         return res.status(404).json({ message: "Batch not found" });
-      }
-
-      if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
-        return res.status(403).json({ message: "Access denied to batch" });
       }
 
       // Validate egg type(s) for EGGS sales

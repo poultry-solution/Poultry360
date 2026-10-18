@@ -22,6 +22,11 @@ import {
   startOfNepalDay,
 } from "../services/farmerFcrService";
 import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
+import {
+  batchScopedBy,
+  farmScopedBy,
+  userOwnsFarm,
+} from "../services/ownershipService";
 
 const DEFAULT_CFCR_TARGET_WEIGHT_KG = 2;
 const DEFAULT_CFCR_CORRECTION_FACTOR_PER_KG = 0.4;
@@ -80,11 +85,12 @@ export const getAllBatches = async (
     // Build where clause
     const where: any = {};
 
-    if (currentUserRole === UserRole.OWNER) {
-      where.farm = { ownerId: currentUserId };
-    }
+    Object.assign(where, batchScopedBy(currentUserId!, currentUserRole));
 
     if (farmId) {
+      if (!(await userOwnsFarm(farmId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Farm not found" });
+      }
       where.farmId = farmId as string;
     }
 
@@ -1144,9 +1150,9 @@ export const updateBatchStatus = async (
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Check if batch exists
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    // Scoped find — non-owner (or admin-bypassed) gets null -> 404.
+    const existingBatch = await prisma.batch.findFirst({
+      where: { id, ...batchScopedBy(currentUserId!, currentUserRole) },
       include: {
         farm: true,
       },
@@ -1154,10 +1160,6 @@ export const updateBatchStatus = async (
 
     if (!existingBatch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    if (currentUserRole === UserRole.OWNER && existingBatch.farm.ownerId !== currentUserId) {
-      return res.status(403).json({ message: "Access denied" });
     }
 
     // If trying to close batch via status update, recommend using closeBatch endpoint
