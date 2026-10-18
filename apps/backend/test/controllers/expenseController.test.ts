@@ -147,7 +147,7 @@ describe("saved Other expense names", () => {
   it("includes custom expense names in the Other filter", async () => {
     mocked.batch.findUnique.mockResolvedValue({
       id: "batch-1",
-      farm: { ownerId: "farmer-1", owner: {}, managers: [] },
+      farm: { ownerId: "farmer-1", owner: {} },
     });
     mocked.expense.findMany.mockResolvedValue([]);
     mocked.expense.count.mockResolvedValue(0);

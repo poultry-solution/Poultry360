@@ -59,7 +59,6 @@ function existingBatch(status: "ACTIVE" | "COMPLETED") {
     status,
     farm: {
       ownerId: "farmer-1",
-      managers: [],
     },
   };
 }
@@ -78,7 +77,6 @@ describe("Farmer batch cFCR settings", () => {
     mockedPrisma.farm.findUnique.mockResolvedValue({
       id: "farm-1",
       ownerId: "farmer-1",
-      managers: [],
     });
     mockedPrisma.batch.findUnique.mockResolvedValue(null);
     mockedInventoryCosts.mockResolvedValue(new Map([["chicks-1", 10]]));

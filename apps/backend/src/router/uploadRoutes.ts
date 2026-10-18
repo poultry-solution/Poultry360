@@ -13,7 +13,7 @@ router.use((req, res, next) => {
       req,
       res,
       next,
-      ["OWNER", "MANAGER", "DEALER", "COMPANY", "HATCHERY", "SUPER_ADMIN"] as any
+      ["OWNER", "DEALER", "COMPANY", "HATCHERY", "SUPER_ADMIN"] as any
     );
 });
 

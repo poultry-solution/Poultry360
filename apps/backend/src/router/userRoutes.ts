@@ -6,7 +6,6 @@ import {
   updateUser,
   deleteUser,
   getOwnerUsers,
-  getManagerUsers,
   updateUserStatus,
   getUserStatistics,
   updateUserPreferences,
@@ -65,15 +64,6 @@ userRouter.get(
     authMiddleware(req, res, next, [UserRole.OWNER]);
   },
   getOwnerUsers
-);
-
-// Get all manager users
-userRouter.get(
-  "/managers/list",
-  (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]);
-  },
-  getManagerUsers
 );
 
 // ==================== ADMIN ROUTES ====================

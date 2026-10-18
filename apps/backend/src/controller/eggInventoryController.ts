@@ -23,17 +23,14 @@ export const getEggInventory = async (req: Request, res: Response): Promise<any>
         where: { id: batchId },
         include: {
           farm: {
-            select: { ownerId: true, managers: { select: { id: true } } },
+            select: { ownerId: true },
           },
         },
       });
       if (!batch) {
         return res.status(404).json({ message: "Batch not found" });
       }
-      const hasAccess =
-        batch.farm.ownerId === userId ||
-        batch.farm.managers.some((m: { id: string }) => m.id === userId);
-      if (!hasAccess) {
+      if (batch.farm.ownerId !== userId) {
         return res.status(403).json({ message: "Access denied to this batch" });
       }
 

@@ -110,7 +110,6 @@ export default function CompanySignupPage() {
                         : null,
                     language: user.language || "ENGLISH",
                     calendarType: user.calendarType || "AD",
-                    managedFarms: [],
                     ownedFarms: [],
                     dealer: null,
                     company: user.company,

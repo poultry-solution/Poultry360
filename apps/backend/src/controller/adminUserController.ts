@@ -91,16 +91,10 @@ export const getAllUsers = async (
           _count: {
             select: {
               ownedFarms: true,
-              managedFarms: true,
             },
           },
           // Owned farms (preview)
           ownedFarms: {
-            select: { id: true, name: true },
-            take: 5,
-          },
-          // Managed farms (preview)
-          managedFarms: {
             select: { id: true, name: true },
             take: 5,
           },
@@ -120,7 +114,6 @@ export const getAllUsers = async (
       accountPayments: undefined,
       _count: {
         ownedFarms: user._count.ownedFarms,
-        managedFarms: user._count.managedFarms,
       },
     }));
 
@@ -198,26 +191,6 @@ export const getUserById = async (
             },
           },
         },
-        managedFarms: {
-          select: {
-            id: true,
-            name: true,
-            capacity: true,
-            description: true,
-            createdAt: true,
-            _count: { select: { batches: true } },
-            batches: {
-              select: {
-                id: true,
-                batchNumber: true,
-                batchType: true,
-                status: true,
-                initialChicks: true,
-              },
-              orderBy: { startDate: "desc" },
-            },
-          },
-        },
         // Dealer account links (for farmers)
         farmerAccounts: {
           select: {
@@ -259,10 +232,9 @@ export const getUserById = async (
       });
     }
 
-    const farmBatchIds = [
-      ...user.ownedFarms.flatMap((farm) => farm.batches.map((batch) => batch.id)),
-      ...user.managedFarms.flatMap((farm) => farm.batches.map((batch) => batch.id)),
-    ];
+    const farmBatchIds = user.ownedFarms.flatMap((farm) =>
+      farm.batches.map((batch) => batch.id)
+    );
     const mortalityTotals =
       farmBatchIds.length > 0
         ? await prisma.mortality.groupBy({
@@ -304,10 +276,9 @@ export const getUserById = async (
         };
       });
 
-    const [accountFeatures, ownedFarms, managedFarms] = await Promise.all([
+    const [accountFeatures, ownedFarms] = await Promise.all([
       getAdminResolvedAccountFeatures(user.id, user.role),
       Promise.resolve(addBirdTotals(user.ownedFarms)),
-      Promise.resolve(addBirdTotals(user.managedFarms)),
     ]);
     const normalizedUser = {
       ...user,
@@ -318,7 +289,6 @@ export const getUserById = async (
       })),
       accountFeatures,
       ownedFarms,
-      managedFarms,
       dealerAccounts: user.farmerAccounts.map((account: any) => ({
         accountCreatedAt: account.createdAt,
         dealer: account.dealer,

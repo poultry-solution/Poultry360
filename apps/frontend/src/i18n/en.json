@@ -3282,7 +3282,6 @@
     "goToLogin": "Go to login",
     "roles": {
       "OWNER": "Layer / Broiler farmer",
-      "MANAGER": "Farm manager",
       "DEALER": "Feed dealer",
       "COMPANY": "Company",
       "HATCHERY": "Hatchery",

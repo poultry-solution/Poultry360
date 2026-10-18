@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
-import { TransactionType, UserRole } from "@prisma/client";
+import { TransactionType } from "@prisma/client";
 
 // ==================== GET ALL ACCOUNT TRANSACTIONS ====================
 export const getAllAccountTransactions = async (
@@ -18,7 +18,6 @@ export const getAllAccountTransactions = async (
       search,
     } = req.query;
     const currentUserId = req.userId;
-    const currentUserRole = req.role;
 
     const skip = (Number(page) - 1) * Number(limit);
 
@@ -107,26 +106,11 @@ export const getAllAccountTransactions = async (
     // Build where clause for Sales
     const salesWhere: any = {};
 
-    // Role-based filtering for sales
-    if (currentUserRole === UserRole.MANAGER) {
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      salesWhere.farmId = { in: userFarms.map((farm) => farm.id) };
-    } else {
-      // For OWNER, get all farms they own
-      const userFarms = await prisma.farm.findMany({
-        where: { ownerId: currentUserId },
-        select: { id: true },
-      });
-      salesWhere.farmId = { in: userFarms.map((farm) => farm.id) };
-    }
+    const userFarms = await prisma.farm.findMany({
+      where: { ownerId: currentUserId },
+      select: { id: true },
+    });
+    salesWhere.farmId = { in: userFarms.map((farm) => farm.id) };
 
     // Filter sales by entity type (only if CUSTOMER is selected)
     if (entityType === "CUSTOMER") {

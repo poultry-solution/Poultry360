@@ -50,7 +50,7 @@ export interface User {
   phone: string;
   companyName?: string;
   companyFarmLocation?: string;
-  role: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
+  role: "OWNER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   status: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
   onboardingPayment?: {
     state:
@@ -62,7 +62,6 @@ export interface User {
   } | null;
   language?: "ENGLISH" | "NEPALI";
   calendarType?: "AD" | "BS";
-  managedFarms?: string[]; // Array of farm IDs for managers
   ownedFarms?: string[]; // Array of farm IDs for owners
   dealer?: DealerBusiness | null; // Dealer business info if user owns a dealer
   company?: CompanyBusiness | null; // Company business info if user owns a company
@@ -98,7 +97,7 @@ export interface RegisterData {
   name: string;
   password: string;
   phone: string;
-  role: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
+  role: "OWNER" | "DEALER" | "COMPANY" | "HATCHERY" | "SUPER_ADMIN";
   companyName?: string;
   companyFarmLocation?: string;
   language?: "ENGLISH" | "NEPALI";
@@ -217,7 +216,6 @@ export const useAuthStore = create<AuthState>()(
                 : null,
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
-              managedFarms: user.managedFarms || [],
               ownedFarms: user.ownedFarms || [],
               dealer: user.dealer || null,
               company: user.company || null,
@@ -308,7 +306,6 @@ export const useAuthStore = create<AuthState>()(
                 : null,
               language: user.language || "ENGLISH",
               calendarType: user.calendarType || "AD",
-              managedFarms: [],
               ownedFarms: user.ownedFarms || [],
               dealer: user.dealer || null,
               company: user.company || null,
@@ -446,7 +443,6 @@ export const useAuthStore = create<AuthState>()(
                   : null,
                 language: response.user.language || "ENGLISH",
                 calendarType: response.user.calendarType || "AD",
-                managedFarms: response.user.managedFarms || [],
                 ownedFarms: response.user.ownedFarms || [],
                 dealer: response.user.dealer || null,
                 company: response.user.company || null,
@@ -514,7 +510,6 @@ export const useAuthStore = create<AuthState>()(
               status: userData.status || "ACTIVE",
               language: userData.language || "ENGLISH",
               calendarType: userData.calendarType || "AD",
-              managedFarms: userData.managedFarms || [],
               ownedFarms: userData.ownedFarms || [],
               dealer: userData.dealer || null,
               company: userData.company || null,

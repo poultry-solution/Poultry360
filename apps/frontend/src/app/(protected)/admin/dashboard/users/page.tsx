@@ -53,7 +53,6 @@ import { toast } from "sonner";
 
 const ROLE_OPTIONS = [
   { value: "OWNER", label: "Owner" },
-  { value: "MANAGER", label: "Manager" },
   { value: "DEALER", label: "Dealer" },
   { value: "COMPANY", label: "Company" },
   { value: "HATCHERY", label: "Hatchery" },
@@ -67,7 +66,6 @@ const STATUS_OPTIONS = [
 
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
-  MANAGER: "bg-purple-100 text-purple-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
   HATCHERY: "bg-amber-100 text-amber-800",

@@ -45,20 +45,7 @@ export const getAllExpenses = async (
       },
     };
 
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see expenses from farms they manage or own
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.farmId = { in: userFarms.map((f) => f.id) };
-    } else if (currentUserRole === UserRole.OWNER) {
+    if (currentUserRole === UserRole.OWNER) {
       where.farm = { ownerId: currentUserId };
     }
 
@@ -184,9 +171,7 @@ export const getExpenseById = async (
 
     let ownershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      ownershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      ownershipWhere = { farm: { ownerId: currentUserId } };
     }
     const expense = await prisma.expense.findFirst({
       where: { id, ...ownershipWhere },
@@ -196,12 +181,6 @@ export const getExpenseById = async (
             id: true,
             name: true,
             owner: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            managers: {
               select: {
                 id: true,
                 name: true,
@@ -299,7 +278,6 @@ export const getBatchExpenses = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
       },
@@ -309,14 +287,8 @@ export const getBatchExpenses = async (
       return res.status(404).json({ message: "Batch not found" });
     }
 
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+    if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     // Build where clause
@@ -439,7 +411,6 @@ export const createExpense = async (
         where: { id: farmId },
         include: {
           owner: true,
-          managers: true,
         },
       });
 
@@ -448,10 +419,7 @@ export const createExpense = async (
       }
       inventoryOwnerId = farm.ownerId;
 
-      const hasAccess =
-        farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
+      if (farm.ownerId !== currentUserId) {
         return res.status(403).json({ message: "Access denied" });
       }
     }
@@ -460,7 +428,7 @@ export const createExpense = async (
     if (batchId) {
       const batch = await prisma.batch.findUnique({
         where: { id: batchId },
-        include: { farm: { include: { managers: true } } },
+        include: { farm: true },
       });
 
       if (!batch) {
@@ -468,10 +436,7 @@ export const createExpense = async (
       }
       inventoryOwnerId = batch.farm.ownerId;
 
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
+      if (batch.farm.ownerId !== currentUserId) {
         return res.status(403).json({ message: "Access denied" });
       }
 
@@ -773,9 +738,7 @@ export const updateExpense = async (
     // Fetch expense with ownership embedded in WHERE (returns 404 for both not-found and unauthorized)
     let expenseOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      expenseOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      expenseOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const existingExpense = await prisma.expense.findFirst({
       where: { id, ...expenseOwnershipWhere },
@@ -783,7 +746,6 @@ export const updateExpense = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
         category: true,
@@ -937,9 +899,7 @@ export const deleteExpense = async (
     // Fetch expense with ownership embedded in WHERE (returns 404 for both not-found and unauthorized)
     let expenseOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      expenseOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      expenseOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const existingExpense = await prisma.expense.findFirst({
       where: { id, ...expenseOwnershipWhere },
@@ -947,7 +907,6 @@ export const deleteExpense = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
         batch: {

@@ -14,7 +14,6 @@ datasource db {
 
 enum UserRole {
   OWNER
-  MANAGER
   DEALER
   COMPANY
   HATCHERY
@@ -179,9 +178,6 @@ model User {
   // Farms this user owns
   ownedFarms Farm[]
 
-  // Farms this user manages
-  managedFarms Farm[] @relation("FarmManagers")
-
   customers       Customer[]    @relation("CustomerOwner")
   customerRecords Customer[]    @relation("CustomerFarmer") // Reverse relation for connected farmers
   vaccinations    Vaccination[]
@@ -197,8 +193,6 @@ model User {
   medicineSuppliers MedicineSupplier[]
 
   dealer Dealer? @relation("DealerOwner")
-
-  managedDealers Dealer[] @relation("DealerManagers")
 
   company Company? @relation("CompanyOwner")
 
@@ -409,9 +403,6 @@ model Farm {
   // Owner (one-to-many)
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  // Managers (many-to-many)
-  managers User[] @relation("FarmManagers")
 
   batches         Batch[]
   expenses        Expense[]
@@ -1123,9 +1114,6 @@ model Dealer {
   // Owner (dealer authentication / access control)
   ownerId String? @unique
   owner   User?   @relation("DealerOwner", fields: [ownerId], references: [id])
-
-  // NEW: Managers of this dealer (many-to-many)
-  managers User[] @relation("DealerManagers")
 
   transactions           EntityTransaction[]
   products               DealerProduct[]

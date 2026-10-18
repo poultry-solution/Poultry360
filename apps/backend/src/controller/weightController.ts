@@ -75,16 +75,12 @@ export const addBirdWeight = async (
 
     let batchOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
@@ -175,16 +171,12 @@ export const getBirdWeights = async (
 
     let batchOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
@@ -282,9 +274,7 @@ export const updateBirdWeight = async (
       include: {
         batch: {
           include: {
-            farm: {
-              include: { managers: true },
-            },
+            farm: true,
           },
         },
       },
@@ -307,8 +297,7 @@ export const updateBirdWeight = async (
 
     if (
       currentUserRole !== UserRole.SUPER_ADMIN &&
-      existingWeight.batch.farm.ownerId !== currentUserId &&
-      !existingWeight.batch.farm.managers.some((m) => m.id === currentUserId)
+      existingWeight.batch.farm.ownerId !== currentUserId
     ) {
       return res.status(404).json({ message: "Weight record not found" });
     }
@@ -420,9 +409,7 @@ export const deleteBirdWeight = async (
       include: {
         batch: {
           include: {
-            farm: {
-              include: { managers: true },
-            },
+            farm: true,
           },
         },
       },
@@ -445,8 +432,7 @@ export const deleteBirdWeight = async (
 
     if (
       currentUserRole !== UserRole.SUPER_ADMIN &&
-      existingWeight.batch.farm.ownerId !== currentUserId &&
-      !existingWeight.batch.farm.managers.some((m) => m.id === currentUserId)
+      existingWeight.batch.farm.ownerId !== currentUserId
     ) {
       return res.status(404).json({ message: "Weight record not found" });
     }
@@ -506,16 +492,12 @@ export const getGrowthChartData = async (
 
     let batchOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 

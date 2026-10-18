@@ -58,7 +58,7 @@ export async function buildAnalyticsScope(
   const batchType = rawType === "BROILER" || rawType === "LAYERS" ? (rawType as BatchType) : undefined;
 
   const farms = await prisma.farm.findMany({
-    where: { OR: [{ ownerId: userId }, { managers: { some: { id: userId } } }] },
+    where: { ownerId: userId },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

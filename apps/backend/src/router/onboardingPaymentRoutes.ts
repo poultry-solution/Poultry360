@@ -11,7 +11,6 @@ const router = Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [
     UserRole.OWNER,
-    UserRole.MANAGER,
     UserRole.DEALER,
     UserRole.COMPANY,
     UserRole.HATCHERY,

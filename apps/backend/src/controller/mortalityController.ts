@@ -16,9 +16,7 @@ export const getMortalityById = async (
 
     let mortalityOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
-        : { batch: { farm: { ownerId: currentUserId } } };
+      mortalityOwnershipWhere = { batch: { farm: { ownerId: currentUserId } } };
     }
     const mortality = await prisma.mortality.findFirst({
       where: { id, ...mortalityOwnershipWhere },
@@ -28,7 +26,6 @@ export const getMortalityById = async (
             farm: {
               include: {
                 owner: true,
-                managers: true,
               },
             },
           },
@@ -79,9 +76,7 @@ export const getBatchMortalities = async (
 
     let batchOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, ...batchOwnershipWhere },
@@ -89,7 +84,6 @@ export const getBatchMortalities = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
       },
@@ -196,7 +190,6 @@ export const createMortality = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
         mortalities: true,
@@ -207,14 +200,8 @@ export const createMortality = async (
       return res.status(404).json({ message: "Batch not found" });
     }
 
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to batch" });
-      }
+    if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
+      return res.status(403).json({ message: "Access denied to batch" });
     }
 
     // Validate count doesn't exceed available birds
@@ -287,9 +274,7 @@ export const updateMortality = async (
 
     let mortalityOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
-        : { batch: { farm: { ownerId: currentUserId } } };
+      mortalityOwnershipWhere = { batch: { farm: { ownerId: currentUserId } } };
     }
     const existingMortality = await prisma.mortality.findFirst({
       where: { id, ...mortalityOwnershipWhere },
@@ -299,7 +284,6 @@ export const updateMortality = async (
             farm: {
               include: {
                 owner: true,
-                managers: true,
               },
             },
             mortalities: true,
@@ -386,9 +370,7 @@ export const deleteMortality = async (
 
     let mortalityOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      mortalityOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { batch: { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } } }
-        : { batch: { farm: { ownerId: currentUserId } } };
+      mortalityOwnershipWhere = { batch: { farm: { ownerId: currentUserId } } };
     }
     const existingMortality = await prisma.mortality.findFirst({
       where: { id, ...mortalityOwnershipWhere },
@@ -398,7 +380,6 @@ export const deleteMortality = async (
             farm: {
               include: {
                 owner: true,
-                managers: true,
               },
             },
           },

@@ -28,19 +28,17 @@ export class BatchShareError extends Error {
 
 // ==================== Links (owner side) ====================
 
-/** The batch must belong to this account (owner) or to a farm they manage. */
+/** The batch must belong to this account (owner). */
 export async function ensureBatchOwner(batchId: string, userId?: string) {
   const batch = await prisma.batch.findUnique({
     where: { id: batchId },
     select: {
       id: true,
-      farm: { select: { ownerId: true, managers: { select: { id: true } } } },
+      farm: { select: { ownerId: true } },
     },
   });
   if (!batch) throw new BatchShareError("Batch not found", 404);
-  const allowed =
-    !!userId &&
-    (batch.farm.ownerId === userId || batch.farm.managers.some((manager) => manager.id === userId));
+  const allowed = !!userId && batch.farm.ownerId === userId;
   if (!allowed) throw new BatchShareError("You do not have access to this batch", 403);
   return batch;
 }

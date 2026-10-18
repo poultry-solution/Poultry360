@@ -111,7 +111,6 @@ export default function DealerSignupPage() {
             : null,
           language: user.language || "ENGLISH",
           calendarType: user.calendarType || "AD",
-          managedFarms: [],
           ownedFarms: [],
           dealer: user.dealer,
           company: null,

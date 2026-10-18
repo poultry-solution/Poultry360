@@ -49,7 +49,6 @@ import { toast } from "sonner";
 
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
-  MANAGER: "bg-purple-100 text-purple-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
   HATCHERY: "bg-amber-100 text-amber-800",
@@ -672,12 +671,6 @@ export default function AdminUserDetailPage({
     );
   }
 
-  // Compute stats for the stat cards
-  const farmCount = user.ownedFarms.length + user.managedFarms.length;
-  const batchCount =
-    user.ownedFarms.reduce((s, f) => s + f._count.batches, 0) +
-    user.managedFarms.reduce((s, f) => s + f._count.batches, 0);
-
   return (
     <div className="space-y-6">
       {/* Back */}
@@ -695,7 +688,6 @@ export default function AdminUserDetailPage({
           className={`h-2 ${
             {
               OWNER: "bg-blue-500",
-              MANAGER: "bg-purple-500",
               DEALER: "bg-orange-500",
               COMPANY: "bg-indigo-500",
               HATCHERY: "bg-amber-500",
@@ -833,33 +825,8 @@ export default function AdminUserDetailPage({
         isLoading={supportsAccountUsage && isUsageLoading}
       />
 
-      {/* Stat Cards Row */}
-      {user.role === "MANAGER" && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard
-            icon={Tractor}
-            value={farmCount}
-            label={farmCount !== 1 ? "Farms" : "Farm"}
-            color="bg-emerald-100 text-emerald-700"
-          />
-          <StatCard
-            icon={Layers}
-            value={batchCount}
-            label={batchCount !== 1 ? "Batches" : "Batch"}
-            color="bg-sky-100 text-sky-700"
-          />
-          <StatCard
-            icon={Users}
-            value={user.dealerAccounts.length}
-            label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
-            color="bg-orange-100 text-orange-700"
-          />
-        </div>
-      )}
-
       {/* Account Tables */}
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
-      <FarmsSection title="Managed Farms" farms={user.managedFarms} />
       <DealerAccountsSection accounts={user.dealerAccounts} />
     </div>
   );

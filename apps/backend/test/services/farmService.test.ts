@@ -30,7 +30,7 @@ describe("farm access", () => {
     await expect(findAccessibleFarm("farm-of-someone-else", "farmer-1")).rejects.toMatchObject({ status: 404 });
     const where = db.farm.findFirst.mock.calls[0][0].where;
     expect(where.id).toBe("farm-of-someone-else");
-    expect(where.OR).toEqual([{ ownerId: "farmer-1" }, { managers: { some: { id: "farmer-1" } } }]);
+    expect(where.ownerId).toBe("farmer-1");
   });
 
   it("does not update another account's farm", async () => {
@@ -39,10 +39,10 @@ describe("farm access", () => {
     expect(db.farm.update).not.toHaveBeenCalled();
   });
 
-  it("never lets an update change the owner or managers", async () => {
+  it("never lets an update change the owner", async () => {
     db.farm.findFirst.mockResolvedValue(myFarm);
     db.farm.update.mockResolvedValue(myFarm);
-    await updateFarm("farmer-1", "farm-1", { name: " New name ", capacity: "4500", ownerId: "attacker", managers: ["x"] });
+    await updateFarm("farmer-1", "farm-1", { name: " New name ", capacity: "4500", ownerId: "attacker" });
     expect(db.farm.update.mock.calls[0][0].data).toEqual({ name: "New name", capacity: 4500, description: null });
   });
 });

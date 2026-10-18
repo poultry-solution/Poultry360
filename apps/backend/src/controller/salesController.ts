@@ -45,29 +45,10 @@ export const getAllSalePayments = async (
     // Build where clause
     const where: any = {};
 
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see payments for sales from farms they manage
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.sale = {
-        farmId: { in: userFarms.map((farm) => farm.id) },
-      };
-    } else {
-      // Owners see payments for their sales (implicitly via sale.farm.ownerId or sale.userId if applicable)
-      // Assuming Sale model links to Farm/User, we constrain by Sale's farm owner or direct association
-      // For simplicity in this app's context where sales are linked to farms owned by the user:
-      where.sale = {
-        farm: { ownerId: currentUserId },
-      };
-    }
+    // Owners see payments for their sales — constrained by Sale's farm owner.
+    where.sale = {
+      farm: { ownerId: currentUserId },
+    };
 
     if (farmId) {
       where.sale = { ...where.sale, farmId: farmId as string };
@@ -265,21 +246,7 @@ export const getAllSales = async (
     // Build where clause
     const where: any = {};
 
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see sales from farms they manage
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.farmId = { in: userFarms.map((farm) => farm.id) };
-    } else if (currentUserRole === UserRole.OWNER) {
-      // Owners can only see sales from farms they own
+    if (currentUserRole === UserRole.OWNER) {
       where.farm = { ownerId: currentUserId };
     }
 
@@ -553,9 +520,7 @@ export const getBatchSales = async (
     // Embed ownership in the query — non-owners get 404, not 403, to prevent enumeration.
     let batchOwnershipWhere: any = {};
     if (currentUserRole !== UserRole.SUPER_ADMIN) {
-      batchOwnershipWhere = currentUserRole === UserRole.MANAGER
-        ? { farm: { OR: [{ ownerId: currentUserId }, { managers: { some: { id: currentUserId } } }] } }
-        : { farm: { ownerId: currentUserId } };
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
     }
     const batch = await prisma.batch.findFirst({
       where: { id: batchId, ...batchOwnershipWhere },
@@ -563,7 +528,6 @@ export const getBatchSales = async (
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
       },
@@ -711,7 +675,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         where: { id: farmId },
         include: {
           owner: true,
-          managers: true,
         },
       });
 
@@ -719,14 +682,8 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         return res.status(404).json({ message: "Farm not found" });
       }
 
-      if (currentUserRole === UserRole.MANAGER) {
-        const hasAccess =
-          farm.ownerId === currentUserId ||
-          farm.managers.some((manager) => manager.id === currentUserId);
-
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Access denied to farm" });
-        }
+      if (currentUserRole === UserRole.OWNER && farm.ownerId !== currentUserId) {
+        return res.status(403).json({ message: "Access denied to farm" });
       }
     }
 
@@ -746,7 +703,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
           farm: {
             include: {
               owner: true,
-              managers: true,
             },
           },
           mortalities: true,
@@ -757,14 +713,8 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
         return res.status(404).json({ message: "Batch not found" });
       }
 
-      if (currentUserRole === UserRole.MANAGER) {
-        const hasAccess =
-          batch.farm.ownerId === currentUserId ||
-          batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Access denied to batch" });
-        }
+      if (currentUserRole === UserRole.OWNER && batch.farm.ownerId !== currentUserId) {
+        return res.status(403).json({ message: "Access denied to batch" });
       }
 
       // Validate egg type(s) for EGGS sales

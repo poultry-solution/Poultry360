@@ -50,7 +50,6 @@ const ensureBatchAccess = async (batchId: string, userId?: string) => {
       farm: {
         select: {
           ownerId: true,
-          managers: { select: { id: true } },
         },
       },
     },
@@ -60,10 +59,7 @@ const ensureBatchAccess = async (batchId: string, userId?: string) => {
     throw new BatchNoteError("Batch not found", 404);
   }
 
-  const hasAccess =
-    !!userId &&
-    (batch.farm.ownerId === userId ||
-      batch.farm.managers.some((manager) => manager.id === userId));
+  const hasAccess = !!userId && batch.farm.ownerId === userId;
 
   if (!hasAccess) {
     throw new BatchNoteError("You do not have access to this batch", 403);

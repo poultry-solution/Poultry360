@@ -31,7 +31,7 @@ import {
 } from "@/common/lib/pushNotifications";
 
 interface TopbarProps {
-  role?: "OWNER" | "MANAGER" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
