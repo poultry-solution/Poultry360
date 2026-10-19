@@ -5,7 +5,6 @@ import {
   getBatchSales,
   createSale,
   deleteSale,
-  addSalePayment,
   getSalesCategories,
   createSalesCategory,
   getCustomersForSales,
@@ -88,8 +87,5 @@ router.get("/:id", getSaleById);
 
 // DELETE /api/sales/:id - Delete sale by ID
 router.delete("/:id", deleteSale);
-
-// POST /api/sales/:id/payments - Add payment to sale
-router.post("/:id/payments", addSalePayment);
 
 export default router;

@@ -638,17 +638,6 @@ export const SalePaymentSchema = BaseSchema.extend({
 
 export type SalePayment = z.infer<typeof SalePaymentSchema>;
 
-export const CreateSalePaymentSchema = z.object({
-  amount: z.number().positive(),
-  date: z
-    .date()
-    .optional()
-    .default(() => new Date()),
-  description: z.string().optional(),
-  saleId: z.string(),
-});
-
-export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
 
 // ==================== INVENTORY SCHEMAS ====================
 
@@ -1625,7 +1614,6 @@ export const schemas = {
   CreateSale: CreateSaleSchema,
 
   SalePayment: SalePaymentSchema,
-  CreateSalePayment: CreateSalePaymentSchema,
 
   // Inventory
   InventoryItem: InventoryItemSchema,

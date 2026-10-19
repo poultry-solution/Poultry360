@@ -251,62 +251,6 @@ export const useDeleteSale = () => {
   });
 };
 
-// Add payment to sale
-export const useAddSalePayment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      saleId,
-      data,
-    }: {
-      saleId: string;
-      data: {
-        amount: number;
-        date?: string;
-        description?: string;
-        receiptUrl?: string;
-      };
-    }) => {
-      const response = await axiosInstance.post(
-        `/sales/${saleId}/payments`,
-        data
-      );
-      return response.data;
-    },
-    onSuccess: (data, variables) => {
-      // Analytics tiles ("Money to receive" etc.) read from customer.balance,
-      // which this payment just changed. Without this refresh the tile shows
-      // the pre-payment number from React Query's cache.
-      refreshFarmerData(queryClient);
-      // Home tiles and the profit-per-batch graph read from the dashboard.
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      // Invalidate and refetch the specific sale
-      queryClient.invalidateQueries({
-        queryKey: saleQueryKeys.detail(variables.saleId),
-      });
-
-      // Invalidate sales lists
-      queryClient.invalidateQueries({ queryKey: saleQueryKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: [...saleQueryKeys.all, "payments"] });
-
-
-      // Invalidate customers for sales (to refresh customer balances after payment)
-      queryClient.invalidateQueries({ queryKey: ["customers", "sales"] });
-      queryClient.invalidateQueries({
-        queryKey: [...saleQueryKeys.all, "batch"],
-      });
-
-      // If the sale has a customer, also invalidate that specific customer
-      if (data?.data?.customerId) {
-        queryClient.invalidateQueries({
-          queryKey: ["customers", "detail", data.data.customerId],
-        });
-      }
-    },
-  });
-};
-
 export const useSoftDeleteCustomerPayment = () => {
   const queryClient = useQueryClient();
 
@@ -411,7 +355,6 @@ export const useBatchSalesManagement = (
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
   const deleteSaleMutation = useDeleteSale();
-  const addPaymentMutation = useAddSalePayment();
 
   // Helper: invalidate weights for this batch
   const invalidateWeights = () => {
@@ -438,12 +381,10 @@ export const useBatchSalesManagement = (
       invalidateWeights();
       return res;
     },
-    addPayment: addPaymentMutation.mutateAsync,
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
-    isAddingPayment: addPaymentMutation.isPending,
 
     // Refetch
     refetch: () => {
@@ -469,7 +410,6 @@ export const useSalesManagement = (params?: {
   const categoriesQuery = useGetSalesCategories();
   const createSaleMutation = useCreateSale();
   const deleteSaleMutation = useDeleteSale();
-  const addPaymentMutation = useAddSalePayment();
   const createCategoryMutation = useCreateSalesCategory();
 
   return {
@@ -483,13 +423,11 @@ export const useSalesManagement = (params?: {
     // Mutations
     createSale: createSaleMutation.mutateAsync,
     deleteSale: deleteSaleMutation.mutateAsync,
-    addPayment: addPaymentMutation.mutateAsync,
     createCategory: createCategoryMutation.mutateAsync,
 
     // Mutation states
     isCreating: createSaleMutation.isPending,
     isDeleting: deleteSaleMutation.isPending,
-    isAddingPayment: addPaymentMutation.isPending,
     isCreatingCategory: createCategoryMutation.isPending,
 
     // Refetch
