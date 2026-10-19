@@ -126,6 +126,11 @@ router.post('/setup-users', async (req, res) => {
       prisma.dealerSalePayment.deleteMany({}),
       prisma.dealerSaleItem.deleteMany({}),
       prisma.dealerSale.deleteMany({}),
+      // BroilerSaleSettlement.farmerId -> Customer with onDelete: Restrict,
+      // so settlements must be gone before customers are deleted below.
+      // DealerSale.settlementId -> this table (also Restrict), so dealer
+      // sales must be deleted first (above). Prod data caught this.
+      prisma.broilerSaleSettlement.deleteMany({}),
       prisma.dealerLedgerEntry.deleteMany({}),
       prisma.dealerProductTransaction.deleteMany({}),
       prisma.dealerProduct.deleteMany({}),
@@ -142,6 +147,11 @@ router.post('/setup-users', async (req, res) => {
       // ==================== INVENTORY & TRANSACTIONS ====================
       prisma.entityTransaction.deleteMany({}),
       prisma.inventoryUsage.deleteMany({}),
+      // Farmer production runs reference inventory transactions via
+      // FarmerProductionInput/Output with onDelete: Restrict, so the runs
+      // must be deleted BEFORE the transactions they point at. Prod data
+      // caught this on the first setup-users run against a real snapshot.
+      prisma.farmerProductionRun.deleteMany({}),
       prisma.inventoryTransaction.deleteMany({}),
       prisma.inventoryItem.deleteMany({}),
 

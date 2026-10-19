@@ -6,10 +6,9 @@ role="${1:-all}"
 confirmation="${2:-}"
 
 case "$role" in
-  # Only the farmer demo seed exists for now; dealer, company and hatchery come later.
-  farmer|all) ;;
+  farmer|dealer|hatchery|all) ;;
   *)
-    echo "Usage: $0 {farmer|all} [--yes]" >&2
+    echo "Usage: $0 {farmer|dealer|hatchery|all} [--yes]" >&2
     exit 2
     ;;
 esac
@@ -31,8 +30,8 @@ if ! docker inspect "$container_name" >/dev/null 2>&1; then
   exit 1
 fi
 
-# The farmer seed refuses non-local databases unless this is set; this script only
-# gets here after the backup confirmation above.
+# Each demo seed refuses non-local databases unless this is set; this script
+# only gets here after the backup confirmation above.
 docker_exec=(docker exec --env P360_DEMO_SEED_CONFIRMED=1)
 for variable_name in P360_DEMO_PASSWORD P360_DEMO_FARMER_PASSWORD P360_DEMO_DEALER_PASSWORD P360_DEMO_COMPANY_PASSWORD P360_DEMO_HATCHERY_PASSWORD; do
   if [[ -n "${!variable_name:-}" ]]; then
@@ -47,6 +46,14 @@ run_seed() {
   "${docker_exec[@]}" "$container_name" node "$script_path"
 }
 
-run_seed farmer
+if [[ "$role" == "all" || "$role" == "farmer" ]]; then
+  run_seed farmer
+fi
+if [[ "$role" == "all" || "$role" == "dealer" ]]; then
+  run_seed dealer
+fi
+if [[ "$role" == "all" || "$role" == "hatchery" ]]; then
+  run_seed hatchery
+fi
 
 echo "Demo seed completed successfully."
