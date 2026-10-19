@@ -1191,23 +1191,21 @@ export const setDealerCustomerOpeningBalance = async (
         .json({ message: "openingBalance (number) is required" });
     }
 
-    const customer = await prisma.customer.findFirst({
-      where: { id, userId: currentUserId },
-      select: { id: true, balance: true },
-    });
-    if (!customer) {
-      return res.status(404).json({ message: "Customer not found" });
-    }
-
-    const latest = await prisma.customerTransaction.findFirst({
-      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      select: { amount: true },
-    });
-    const prevOpening = latest ? Number(latest.amount) : 0;
-    const delta = nextOpening - prevOpening;
-
     const updated = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findFirst({
+        where: { id, userId: currentUserId },
+        select: { id: true, balance: true },
+      });
+      if (!customer) throw new Error("Customer not found");
+
+      const latest = await tx.customerTransaction.findFirst({
+        where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { amount: true },
+      });
+      const prevOpening = latest ? Number(latest.amount) : 0;
+      const delta = nextOpening - prevOpening;
+
       await tx.customerTransaction.create({
         data: {
           type: TransactionType.OPENING_BALANCE,
@@ -1221,14 +1219,22 @@ export const setDealerCustomerOpeningBalance = async (
         where: { id },
         data: { balance: Number(customer.balance) + delta },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return res.status(200).json({
       success: true,
       data: { id: updated.id, balance: Number(updated.balance) },
       message: "Opening balance updated",
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another opening balance was being saved at the same time. Please try again.",
+      });
+    }
+    if (error?.message === "Customer not found") {
+      return res.status(404).json({ message: "Customer not found" });
+    }
     console.error("Set dealer customer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

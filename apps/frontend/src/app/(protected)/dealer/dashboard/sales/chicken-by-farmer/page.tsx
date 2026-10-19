@@ -58,6 +58,7 @@ function ChickenSalesByFarmerContent() {
   // Today in Nepal (toISOString gave yesterday before 5:45 AM).
   const [settlementDate, setSettlementDate] = useState(() => getNepalTodayAd());
   const [notes, setNotes] = useState("");
+  const [reference, setReference] = useState("");
   const sourceFarmerSelect = useSearchableCustomerSelect();
   const {
     data,
@@ -99,6 +100,7 @@ function ChickenSalesByFarmerContent() {
     setPaymentMethod("CASH");
     setSettlementDate(getNepalTodayAd());
     setNotes("");
+    setReference("");
   };
 
   const submitReverse = async () => {
@@ -129,6 +131,7 @@ function ChickenSalesByFarmerContent() {
         paymentMethod,
         date: settlementDate,
         notes: notes.trim() || undefined,
+        reference: reference.trim() || undefined,
       });
       toast.success("Broiler sales settled successfully");
       setSettlementTarget(null);
@@ -279,6 +282,7 @@ function ChickenSalesByFarmerContent() {
                 </div>
                 <div className="space-y-2"><Label>Payment Method</Label><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CASH">Cash</SelectItem><SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem><SelectItem value="CHEQUE">Cheque</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>
               </div>
+              <div className="space-y-2"><Label htmlFor="settlementReference">Reference (optional)</Label><Input id="settlementReference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Receipt or bank reference" /></div>
               <div className="space-y-2"><Label htmlFor="settlementNotes">Notes (optional)</Label><Textarea id="settlementNotes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></div>
             </div>
           )}
@@ -311,6 +315,7 @@ function ChickenSalesByFarmerContent() {
                       <p className="text-sm text-muted-foreground">
                         <DateDisplay date={settlement.date} /> · {settlement.saleCount} Broiler sale{settlement.saleCount === 1 ? "" : "s"}
                       </p>
+                      {settlement.reference && <p className="mt-1 text-sm text-muted-foreground">Reference: {settlement.reference}</p>}
                       {settlement.notes && <p className="mt-1 text-sm text-muted-foreground">{settlement.notes}</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:text-right">

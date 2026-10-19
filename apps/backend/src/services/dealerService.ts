@@ -1053,8 +1053,30 @@ export class DealerService {
       prisma.dealerLedgerEntry.count({ where }),
     ]);
 
+    const settlementIds = entries
+      .map((entry) => entry.reference?.match(/^BROILER-SETTLEMENT-(.+)$/)?.[1])
+      .filter((id): id is string => Boolean(id));
+    const settlements = settlementIds.length === 0
+      ? []
+      : await prisma.broilerSaleSettlement.findMany({
+          where: { dealerId, id: { in: settlementIds } },
+          select: { id: true, reference: true },
+        });
+    const settlementReferenceById = new Map(
+      settlements
+        .filter((settlement) => Boolean(settlement.reference?.trim()))
+        .map((settlement) => [settlement.id, settlement.reference!.trim()])
+    );
+
     const normalizedEntries = entries.map((entry) => ({
       ...entry,
+      // The database key must remain unique so reversing a settlement cannot
+      // touch an unrelated row. Return the user's settlement reference for
+      // display instead of exposing that internal key in ledger screens.
+      reference:
+        settlementReferenceById.get(
+          entry.reference?.match(/^BROILER-SETTLEMENT-(.+)$/)?.[1] || ""
+        ) || entry.reference,
       direction:
         entry.type === "PAYMENT_RECEIVED"
           ? "RECEIVED"
