@@ -3,7 +3,9 @@
  * normal API so stock, balances, ledger rows and audit history are created
  * exactly as when a hatchery uses the app.
  *
- * - LOCAL ONLY. Refuses to run unless DATABASE_URL and the API URL are localhost.
+ * - LOCAL ONLY unless `P360_DEMO_SEED_CONFIRMED=1` is set (the production
+ *   helper `scripts/seed-demo-prod.sh` sets it after its backup prompt).
+ *   Refuses to run against a remote DB without that confirmation.
  * - Creates (or reuses) the reserved demo hatchery login only. Never touches other users.
  * - Refuses to run if that hatchery already has suppliers (re-running would duplicate data).
  *   `--reset` first deletes ONLY the demo hatchery account's data, then seeds again.
@@ -713,9 +715,15 @@ function isLocalUrl(url: string) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  // Paying users are on production: this seed never runs anywhere else.
-  if (!isLocalDatabase() || !isLocalUrl(API_URL)) {
-    throw new Error("Hatchery demo seed is local only (DATABASE_URL and P360_API_URL must be localhost).");
+  // Paying users are on production: block the seed unless either the DB
+  // and API are explicitly local, or P360_DEMO_SEED_CONFIRMED=1 is set
+  // (the scripts/seed-demo-prod.sh helper sets it after prompting for a
+  // backup). Matches the farmer and dealer seeds' guard shape.
+  const isLocalTarget = isLocalDatabase() && isLocalUrl(API_URL);
+  if (!isLocalTarget && process.env.P360_DEMO_SEED_CONFIRMED !== "1") {
+    throw new Error(
+      "Hatchery demo seed targets a remote DB or API. Set P360_DEMO_SEED_CONFIRMED=1 after confirming a backup, or run against a local DATABASE_URL and P360_API_URL.",
+    );
   }
   console.log(`Seeding demo hatchery through ${API_URL} (Nepal today ${NEPAL_TODAY})...`);
 
