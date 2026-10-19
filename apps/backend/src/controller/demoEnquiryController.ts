@@ -119,31 +119,3 @@ export const createDemoEnquiry = async (
   }
 };
 
-export const getDemoEnquiries = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const limitRaw = req.query.limit;
-    const limitNum = limitRaw ? Number(limitRaw) : 200;
-    const take = Number.isFinite(limitNum) ? Math.max(1, Math.min(limitNum, 200)) : 200;
-
-    const enquiries = await prisma.demoEnquiry.findMany({
-      orderBy: { createdAt: "desc" },
-      take,
-      select: {
-        id: true,
-        companyName: true,
-        phoneNumber: true,
-        businessTypes: true,
-        message: true,
-        createdAt: true,
-      },
-    });
-
-    return res.json({ success: true, data: enquiries });
-  } catch (error) {
-    console.error("getDemoEnquiries error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
-  }
-};

@@ -2534,10 +2534,15 @@ model LandingContact {
   farmType  String? // broiler | layer | hatchery | feed-dealer | mixed | other
   message   String  @db.Text
 
+  // Admin follow-up: null = New, set = Contacted (who: super admin user id).
+  contactedAt   DateTime?
+  contactedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+  @@index([contactedAt])
 }
 
 // ==================== BOOK A DEMO ENQUIRIES (PUBLIC) ====================
@@ -2550,10 +2555,15 @@ model DemoEnquiry {
   businessTypes String[] @default([])
   message       String?  @db.Text
 
+  // Admin follow-up: null = New, set = Contacted (who: super admin user id).
+  contactedAt   DateTime?
+  contactedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+  @@index([contactedAt])
 }
 
 // ==================== SEO BLOG POSTS ====================

@@ -3299,6 +3299,31 @@
       "businessType": "Business Type",
       "message": "Message",
       "createdAt": "Submitted At"
+    },
+    "enquiries": {
+      "tabNew": "New",
+      "tabContacted": "Contacted",
+      "markContacted": "Mark contacted",
+      "moveToNew": "Move to New",
+      "saving": "Saving…",
+      "markedContacted": "Marked as contacted",
+      "movedToNew": "Moved to New",
+      "updateFailed": "Could not save. Please try again.",
+      "emptyNew": "No new enquiries. 🎉",
+      "emptyContacted": "Nobody marked as contacted yet.",
+      "loadFailed": "Could not load. Press Refresh to try again.",
+      "loading": "Loading…",
+      "refresh": "Refresh",
+      "contactedAt": "Contacted",
+      "action": "Action",
+      "contactTitle": "Contact form messages",
+      "contactSubtitle": "Messages sent from the contact form on the website.",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "farmType": "Farm type",
+      "message": "Message",
+      "submittedAt": "Sent at"
     }
   },
   "cashInHand": {

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { publicApi } from "@/common/lib/axios";
 
 // ==================== TYPES ====================
@@ -24,11 +24,6 @@ export interface CreateContactBody {
   message: string;
 }
 
-interface ContactsResponse {
-  success: boolean;
-  data: LandingContact[];
-}
-
 interface CreateContactResponse {
   success: boolean;
   data: LandingContact;
@@ -43,18 +38,6 @@ export const landingContactKeys = {
 };
 
 // ==================== QUERIES ====================
-
-export function useLandingContacts(limit = 100) {
-  return useQuery<ContactsResponse>({
-    queryKey: landingContactKeys.list(limit),
-    queryFn: async () => {
-      const { data } = await publicApi.get<ContactsResponse>(
-        `/public/contacts?limit=${limit}`
-      );
-      return data;
-    },
-  });
-}
 
 // ==================== MUTATIONS ====================
 
