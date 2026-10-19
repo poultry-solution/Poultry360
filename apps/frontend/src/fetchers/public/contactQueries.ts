@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { publicApi } from "@/common/lib/axios";
+import axiosInstance, { publicApi } from "@/common/lib/axios";
 
 // ==================== TYPES ====================
 
@@ -44,11 +44,12 @@ export const landingContactKeys = {
 
 // ==================== QUERIES ====================
 
+// Admin only: the list needs the super admin's login. Submitting stays public.
 export function useLandingContacts(limit = 100) {
   return useQuery<ContactsResponse>({
     queryKey: landingContactKeys.list(limit),
     queryFn: async () => {
-      const { data } = await publicApi.get<ContactsResponse>(
+      const { data } = await axiosInstance.get<ContactsResponse>(
         `/public/contacts?limit=${limit}`
       );
       return data;

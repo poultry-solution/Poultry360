@@ -23,11 +23,13 @@ export default function AdminDemoEnquiriesPage() {
   const {
     data: demoData,
     isLoading: isDemoLoading,
+    isError: isDemoError,
     refetch: refetchDemo,
   } = useGetAdminDemoEnquiries(limit);
   const {
     data: contactData,
     isLoading: isContactLoading,
+    isError: isContactError,
     refetch: refetchContacts,
   } = useLandingContacts(limit);
 
@@ -58,6 +60,8 @@ export default function AdminDemoEnquiriesPage() {
         <CardContent>
           {isDemoLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : isDemoError ? (
+            <p className="text-sm text-red-600">Could not load demo requests. Press Refresh to try again.</p>
           ) : enquiries.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("admin.demoEnquiries.empty")}</p>
           ) : (
@@ -128,6 +132,8 @@ export default function AdminDemoEnquiriesPage() {
         <CardContent>
           {isContactLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : isContactError ? (
+            <p className="text-sm text-red-600">Could not load contact form submissions. Press Refresh to try again.</p>
           ) : contacts.length === 0 ? (
             <p className="text-sm text-muted-foreground">No contact form submissions found.</p>
           ) : (
