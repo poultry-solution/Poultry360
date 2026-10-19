@@ -200,24 +200,26 @@ export const createAdjustment = async (
       return res.status(404).json({ message: "Dealer not found" });
     }
 
-    // Get current balance
-    const currentBalance = await DealerService.calculateBalance(dealer.id);
+    const adjustment = await prisma.$transaction(async (tx) => {
+      const lastLedgerEntry = await tx.dealerLedgerEntry.findFirst({
+        where: { dealerId: dealer.id },
+        orderBy: { createdAt: "desc" },
+        select: { balance: true },
+      });
+      const currentBalance = Number(lastLedgerEntry?.balance || 0);
 
-    // Calculate new balance
-    const newBalance = currentBalance + Number(amount);
-
-    // Create adjustment entry
-    const adjustment = await prisma.dealerLedgerEntry.create({
-      data: {
-        type: "ADJUSTMENT",
-        amount: new Prisma.Decimal(Math.abs(amount)),
-        balance: new Prisma.Decimal(newBalance),
-        date: date ? new Date(date) : new Date(),
-        description,
-        reference,
-        dealerId: dealer.id,
-      },
-    });
+      return tx.dealerLedgerEntry.create({
+        data: {
+          type: "ADJUSTMENT",
+          amount: new Prisma.Decimal(Math.abs(amount)),
+          balance: new Prisma.Decimal(currentBalance + Number(amount)),
+          date: date ? new Date(date) : new Date(),
+          description,
+          reference,
+          dealerId: dealer.id,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await writeBusinessAudit(req, {
       action: "dealer.balance.adjusted",
@@ -235,6 +237,11 @@ export const createAdjustment = async (
       message: "Adjustment created successfully",
     });
   } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another ledger entry was being saved at the same time. Please try again.",
+      });
+    }
     console.error("Create adjustment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

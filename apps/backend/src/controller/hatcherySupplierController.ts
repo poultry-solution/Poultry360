@@ -6,7 +6,6 @@ import {
   HatcherySex,
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
-import { writeBusinessAudit } from "../services/businessAuditService";
 import bcrypt from "bcrypt";
 import {
   ACCOUNT_FEATURE_KEYS,
@@ -159,16 +158,10 @@ export const createHatcherySupplier = async (
       },
     });
 
-    await writeBusinessAudit(req, {
-      action: "hatchery.suppliers.created",
-      targetType: "HatcherySupplier",
-      targetId: supplier.id,
-      description: "Added a supplier",
-      businessType: "HATCHERY",
-      businessId: userId,
-      metadata: { name: supplier.name },
-    });
-
+    // The route has no `:id` on create. Give the shared audit middleware the
+    // newly created supplier id so its one activity row points to this record.
+    res.locals.auditTargetId = supplier.id;
+    // Audit is written by `auditSuccessfulHatcheryMutation` on the router.
     return res
       .status(201)
       .json({ success: true, data: supplier, message: "Supplier created" });
@@ -213,16 +206,7 @@ export const updateHatcherySupplier = async (
       },
     });
 
-    await writeBusinessAudit(req, {
-      action: "hatchery.suppliers.updated",
-      targetType: "HatcherySupplier",
-      targetId: updated.id,
-      description: "Updated a supplier",
-      businessType: "HATCHERY",
-      businessId: userId,
-      metadata: { name: updated.name },
-    });
-
+    // Audit is written by `auditSuccessfulHatcheryMutation` on the router.
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.error("updateHatcherySupplier:", err);
@@ -255,16 +239,7 @@ export const deleteHatcherySupplier = async (
 
     await prisma.hatcherySupplier.delete({ where: { id } });
 
-    await writeBusinessAudit(req, {
-      action: "hatchery.suppliers.deleted",
-      targetType: "HatcherySupplier",
-      targetId: id,
-      description: "Deleted a supplier",
-      businessType: "HATCHERY",
-      businessId: userId,
-      metadata: { name: supplier.name },
-    });
-
+    // Audit is written by `auditSuccessfulHatcheryMutation` on the router.
     return res.json({ success: true, message: "Supplier deleted" });
   } catch (err) {
     console.error("deleteHatcherySupplier:", err);

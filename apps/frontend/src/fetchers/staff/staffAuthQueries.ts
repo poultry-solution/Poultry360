@@ -2,16 +2,13 @@ import { useMutation } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { useAuthStore } from "@/common/store/store";
 
-// Staff self-serve: set a new password.
-// - When mustChangePassword=true (first login or owner reset), currentPassword
-//   can be omitted — the server will accept the new password directly.
-// - Otherwise (voluntary change from the user menu), currentPassword is
-//   required and verified server-side.
+// Staff self-serve: set a new password. The current password is always
+// required and verified server-side, including after first login or a reset.
 // The server rotates sessionVersion and returns a fresh accessToken so the
 // current device stays signed in.
 export function useChangeStaffPassword() {
   return useMutation({
-    mutationFn: async (input: { currentPassword?: string; newPassword: string }) => {
+    mutationFn: async (input: { currentPassword: string; newPassword: string }) => {
       const { data } = await axiosInstance.post<{ success: boolean; accessToken: string }>(
         "/staff-auth/change-password",
         input,

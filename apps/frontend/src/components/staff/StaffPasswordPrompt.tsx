@@ -24,6 +24,7 @@ import {
 // password or explicitly keep the one the owner picked.
 export function StaffPasswordPrompt() {
   const user = useUser();
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +36,7 @@ export function StaffPasswordPrompt() {
   if (!open) return null;
 
   const reset = () => {
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setError(null);
@@ -43,6 +45,10 @@ export function StaffPasswordPrompt() {
 
   const onSave = async () => {
     setError(null);
+    if (!currentPassword) {
+      setError("Enter your current password.");
+      return;
+    }
     if (newPassword.length < 8) {
       setError("New password must be at least 8 characters.");
       return;
@@ -52,7 +58,7 @@ export function StaffPasswordPrompt() {
       return;
     }
     try {
-      await change.mutateAsync({ newPassword });
+      await change.mutateAsync({ currentPassword, newPassword });
       reset();
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Could not change password");
@@ -83,6 +89,17 @@ export function StaffPasswordPrompt() {
         </AlertDialogHeader>
 
         <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="staff-current-password-prompt">Current password</Label>
+            <Input
+              id="staff-current-password-prompt"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={busy}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="staff-new-password">New password</Label>
             <div className="relative">
@@ -124,7 +141,7 @@ export function StaffPasswordPrompt() {
           <Button variant="outline" onClick={onKeep} disabled={busy}>
             Keep current password
           </Button>
-          <Button onClick={onSave} disabled={busy || !newPassword || !confirmPassword}>
+          <Button onClick={onSave} disabled={busy || !currentPassword || !newPassword || !confirmPassword}>
             {change.isPending ? "Saving…" : "Save new password"}
           </Button>
         </AlertDialogFooter>
