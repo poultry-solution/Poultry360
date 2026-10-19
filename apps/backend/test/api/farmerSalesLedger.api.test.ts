@@ -117,7 +117,6 @@ describe("Farmer sales ledger API journey", () => {
       totalCount: 1,
       totalAmount: 600,
       creditSales: 1,
-      creditDueAmount: 500,
     });
     expect(salesList.body.data[0]).toMatchObject({ id: saleId, invoiceNumber: expect.any(String) });
     expect(batchSales.status).toBe(200);

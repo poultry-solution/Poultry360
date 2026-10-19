@@ -30,12 +30,6 @@ export interface AdminCompany {
     companySales: number;
     ledgerEntries: number;
   };
-  managedBy?: Array<{
-    id: string;
-    name: string;
-    phone: string;
-    status: string;
-  }>;
 }
 
 export interface AdminCompanyDetail {
@@ -57,12 +51,6 @@ export interface AdminCompanyDetail {
     companySales: number;
     ledgerEntries: number;
   };
-  managedBy: {
-    id: string;
-    name: string;
-    phone: string;
-    status: string;
-  } | null;
   dealerAccounts: Array<{
     accountCreatedAt: string;
     dealer: {

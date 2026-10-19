@@ -4,6 +4,7 @@ import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Button } from "@/common/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { formatRupeesExact } from "@/common/lib/utils";
 
 interface MoneyDetailsModalProps {
   isOpen: boolean;
@@ -52,10 +53,10 @@ export function MoneyDetailsModal({
             Due Amount
           </th>
           <th className="border border-gray-300 px-3 py-2 text-center font-semibold text-sm">
-            Sales
+            Credit sales
           </th>
           <th className="border border-gray-300 px-3 py-2 text-left font-semibold text-sm">
-            Recent Sales
+            Recent credit sales
           </th>
         </tr>
       </thead>
@@ -72,7 +73,7 @@ export function MoneyDetailsModal({
               {item[itemPhoneKey]}
             </td>
             <td className="border border-gray-300 px-3 py-2 text-right font-bold text-green-600 text-sm">
-              ₹{Number(item[amountKey]).toLocaleString()}
+              {formatRupeesExact(Number(item[amountKey] || 0))}
             </td>
             <td className="border border-gray-300 px-3 py-2 text-center text-sm">
               {item[countKey]}
@@ -89,7 +90,7 @@ export function MoneyDetailsModal({
                         )}
                       </span>
                       <span className="font-semibold text-green-600">
-                        ₹{Number(detail.dueAmount || detail.amount).toLocaleString()}
+                        {formatRupeesExact(Number(detail.amount || 0))}
                       </span>
                     </div>
                     <div className="text-gray-500 truncate">
@@ -156,7 +157,7 @@ export function MoneyDetailsModal({
               {item.supplierAddress || "-"}
             </td>
             <td className="border border-gray-300 px-3 py-2 text-right font-bold text-red-600 text-sm">
-              ₹{Number(item[amountKey]).toLocaleString()}
+              {formatRupeesExact(Number(item[amountKey] || 0))}
             </td>
             <td className="border border-gray-300 px-3 py-2 text-center text-sm">
               {item[countKey]}
@@ -173,7 +174,7 @@ export function MoneyDetailsModal({
                         )}
                       </span>
                       <span className="font-semibold text-red-600">
-                        ₹{Number(detail.amount).toLocaleString()}
+                        {formatRupeesExact(Number(detail.amount || 0))}
                       </span>
                     </div>
                     <div className="text-gray-500 truncate">

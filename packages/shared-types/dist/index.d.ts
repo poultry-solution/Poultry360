@@ -691,13 +691,6 @@ export declare const SalePaymentSchema: z.ZodObject<{
     saleId: z.ZodString;
 }, z.core.$strip>;
 export type SalePayment = z.infer<typeof SalePaymentSchema>;
-export declare const CreateSalePaymentSchema: z.ZodObject<{
-    amount: z.ZodNumber;
-    date: z.ZodDefault<z.ZodOptional<z.ZodDate>>;
-    description: z.ZodOptional<z.ZodString>;
-    saleId: z.ZodString;
-}, z.core.$strip>;
-export type CreateSalePayment = z.infer<typeof CreateSalePaymentSchema>;
 export declare const InventoryItemTypeSchema: z.ZodEnum<{
     FEED: "FEED";
     MEDICINE: "MEDICINE";
@@ -2798,12 +2791,6 @@ export declare const schemas: {
         amount: z.ZodNumber;
         date: z.ZodDate;
         description: z.ZodNullable<z.ZodString>;
-        saleId: z.ZodString;
-    }, z.core.$strip>;
-    readonly CreateSalePayment: z.ZodObject<{
-        amount: z.ZodNumber;
-        date: z.ZodDefault<z.ZodOptional<z.ZodDate>>;
-        description: z.ZodOptional<z.ZodString>;
         saleId: z.ZodString;
     }, z.core.$strip>;
     readonly InventoryItem: z.ZodObject<{

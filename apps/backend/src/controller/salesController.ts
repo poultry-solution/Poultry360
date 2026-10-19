@@ -311,7 +311,6 @@ export const getAllSales = async (
       totalAmount,
       creditSales,
       creditAmount,
-      creditDueAmount,
       cashSales,
       cashAmount,
     ] = await Promise.all([
@@ -389,10 +388,6 @@ export const getAllSales = async (
         where: { ...where, isCredit: true },
         _sum: { amount: true },
       }),
-      prisma.sale.aggregate({
-        where: { ...where, isCredit: true },
-        _sum: { dueAmount: true },
-      }),
       prisma.sale.count({ where: { ...where, isCredit: false } }),
       prisma.sale.aggregate({
         where: { ...where, isCredit: false },
@@ -414,7 +409,6 @@ export const getAllSales = async (
         pageAmount,
         creditSales,
         creditAmount: Number(creditAmount._sum.amount || 0),
-        creditDueAmount: Number(creditDueAmount._sum.dueAmount || 0),
         cashSales,
         cashAmount: Number(cashAmount._sum.amount || 0),
       },
@@ -1286,152 +1280,6 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error) {
     console.error("Delete sale error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==================== ADD SALE PAYMENT ====================
-export const addSalePayment = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const { id } = req.params;
-    const { amount, date, description, receiptUrl } = req.body;
-    const currentUserId = req.userId;
-
-    // Validate required fields
-    if (!amount || amount <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Valid payment amount is required" });
-    }
-
-    // Only the farmer's own sale; anyone else gets "not found".
-    const sale = await prisma.sale.findFirst({
-      where: ownSaleWhere(id, currentUserId),
-      include: { customer: true, payments: true },
-    });
-
-    if (!sale) {
-      return res.status(404).json({ message: "Sale not found" });
-    }
-
-    // Calculate current due amount
-    const totalPaid = sale.payments.reduce(
-      (sum, payment) => sum + Number(payment.amount),
-      0
-    );
-    const currentDue = Number(sale.amount) - totalPaid;
-
-    if (Number(amount) > currentDue) {
-      return res.status(400).json({
-        message: `Payment amount (${amount}) cannot exceed due amount (${currentDue})`,
-      });
-    }
-
-    return await prisma.$transaction(async (tx) => {
-      // Create payment record
-      const payment = await tx.salePayment.create({
-        data: {
-          amount: Number(amount),
-          date: date ? new Date(date) : new Date(),
-          description: description || "Payment received",
-          receiptUrl: receiptUrl || null,
-          saleId: id,
-        },
-      });
-
-      // Update sale paid amount
-      const newPaidAmount = totalPaid + Number(amount);
-      const newDueAmount = Number(sale.amount) - newPaidAmount;
-
-      await tx.sale.update({
-        where: { id },
-        data: {
-          paidAmount: newPaidAmount,
-          dueAmount: newDueAmount > 0 ? newDueAmount : null,
-        },
-      });
-
-      // Update customer balance if it's a credit sale
-      if (sale.isCredit && sale.customerId) {
-        await tx.customer.update({
-          where: { id: sale.customerId },
-          data: {
-            balance: {
-              decrement: Number(amount),
-            },
-          },
-        });
-
-        // Create customer transaction record
-        await tx.customerTransaction.create({
-          data: {
-            type: TransactionType.RECEIPT,
-            amount: Number(amount),
-            date: date ? new Date(date) : new Date(),
-            description: description || "Payment received",
-            reference: payment.id,
-            imageUrl: receiptUrl || null,
-            customerId: sale.customerId,
-          },
-        });
-      }
-
-      // Fetch updated sale with payments
-      const updatedSale = await tx.sale.findUnique({
-        where: { id },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              category: true,
-              balance: true,
-            },
-          },
-          farm: {
-            select: {
-              id: true,
-              name: true,
-              owner: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          batch: {
-            select: {
-              id: true,
-              batchNumber: true,
-              status: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
-          payments: {
-            orderBy: { date: "desc" },
-          },
-        },
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: updatedSale,
-        message: "Payment added successfully",
-      });
-    });
-  } catch (error) {
-    console.error("Add sale payment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

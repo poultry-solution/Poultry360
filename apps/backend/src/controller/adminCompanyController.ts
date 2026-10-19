@@ -114,14 +114,6 @@ export const getCompanyById = async (
             ledgerEntries: true,
           },
         },
-        managedBy: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            status: true,
-          },
-        },
         dealerAccounts: {
           select: {
             createdAt: true,

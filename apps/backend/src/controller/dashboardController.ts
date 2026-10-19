@@ -720,17 +720,35 @@ export const getMoneyToReceiveDetails = async (
       }),
     ]);
 
-    // Recent unpaid credit sales of these customers, for context in the popup.
-    const recentSales = customers.length
-      ? await prisma.sale.findMany({
-          where: { customerId: { in: customers.map((c) => c.id) }, isCredit: true, dueAmount: { gt: 0 } },
-          include: { farm: { select: { name: true } }, category: { select: { name: true } } },
-          orderBy: { date: "desc" },
-        })
-      : [];
+    // Recent credit sales of these customers, for context in the popup. What is
+    // owed now is Customer.balance; a bill's dueAmount is only what was left
+    // unpaid on the sale day (payments go to the customer account).
+    const customerIds = customers.map((c) => c.id);
+    const [recentByCustomer, creditCounts] = customerIds.length
+      ? await Promise.all([
+          Promise.all(
+            customerIds.map((customerId) =>
+              prisma.sale.findMany({
+                where: { customerId, isCredit: true },
+                include: { farm: { select: { name: true } }, category: { select: { name: true } } },
+                orderBy: { date: "desc" },
+                take: 5,
+              })
+            )
+          ),
+          prisma.sale.groupBy({
+            by: ["customerId"],
+            where: { customerId: { in: customerIds }, isCredit: true },
+            _count: { _all: true },
+          }),
+        ])
+      : [[], []];
+    const creditCountByCustomer = new Map(
+      creditCounts.map((row) => [row.customerId, row._count._all])
+    );
 
-    const rows = customers.map((customer) => {
-      const sales = recentSales.filter((sale) => sale.customerId === customer.id);
+    const rows = customers.map((customer, index) => {
+      const sales = recentByCustomer[index] ?? [];
       const balance = Number(customer.balance);
       return {
         customerId: customer.id,
@@ -738,12 +756,11 @@ export const getMoneyToReceiveDetails = async (
         customerPhone: customer.phone,
         totalBalance: balance,
         totalDueAmount: balance,
-        salesCount: sales.length,
+        salesCount: creditCountByCustomer.get(customer.id) ?? 0,
         lastSaleDate: sales[0]?.date ?? null,
-        sales: sales.slice(0, 5).map((sale) => ({
+        sales: sales.map((sale) => ({
           saleId: sale.id,
           amount: Number(sale.amount),
-          dueAmount: Number(sale.dueAmount || 0),
           date: sale.date,
           farmName: sale.farm?.name,
           categoryName: sale.category.name,

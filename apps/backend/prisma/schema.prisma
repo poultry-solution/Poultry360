@@ -196,8 +196,6 @@ model User {
 
   company Company? @relation("CompanyOwner")
 
-  managedCompanies Company[] @relation("CompanyManagedBy")
-
   hatcheryBusiness HatcheryBusiness?
 
   // Hatchery supplier ledger + inventory
@@ -371,7 +369,6 @@ model Company {
   ownerId String @unique
   owner   User   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  managedBy      User[]                 @relation("CompanyManagedBy")
   companySales   CompanySale[]
   ledgerEntries  CompanyLedgerEntry[]
   dealerCarts    DealerCart[]
@@ -776,6 +773,8 @@ model Sale {
   eggType     EggType?      @relation(fields: [eggTypeId], references: [id], onDelete: SetNull)
   // Credit tracking (simplified)
   isCredit    Boolean       @default(false)
+  // Set once when the sale is saved: paid now / left unpaid. Payments after the
+  // sale go to the customer account (Customer.balance), not to the bill.
   paidAmount  Decimal       @default(0) @db.Decimal(10, 2)
   dueAmount   Decimal?      @default(0) @db.Decimal(10, 2)
   // Relationships

@@ -420,8 +420,9 @@ export default function SalesLedgerPage() {
             row.subtotalAmount != null ? (Number(row.subtotalAmount) - Number(row.amount || 0)).toFixed(2) : "",
         },
         { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
-        { label: "Paid", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
-        { label: "Due", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
+        // Set when the sale was saved; later payments go to the customer account.
+        { label: "Paid at sale", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
+        { label: "Unpaid at sale", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
         {
           label: "Payment",
           value: (row: any) => {

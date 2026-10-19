@@ -12,7 +12,7 @@ jest.mock("../../src/services/farmerFcrService", () => ({
 }));
 
 import prisma from "../../src/utils/prisma";
-import { addSalePayment, deleteSale, getSaleById } from "../../src/controller/salesController";
+import { deleteSale, getSaleById } from "../../src/controller/salesController";
 
 const db = prisma as any;
 
@@ -35,7 +35,6 @@ describe("A farmer sale can only be reached by its owner", () => {
   it.each([
     ["open", getSaleById, {}],
     ["delete", deleteSale, {}],
-    ["add a payment to", addSalePayment, { amount: 100 }],
   ])("another account cannot %s it", async (_label, handler, body) => {
     const res = makeResponse();
     await (handler as any)(request(body), res);

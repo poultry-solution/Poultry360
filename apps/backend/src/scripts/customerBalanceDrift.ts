@@ -103,7 +103,8 @@ async function computeExpectedBalance(
     }),
 
     // All sale-linked payment ids for this customer. CT[RECEIPT] rows whose
-    // `reference` matches one of these were created by addSalePayment and
+    // `reference` matches one of these were created by the old pay-per-bill
+    // route (removed; old data only) and
     // are already reflected in Sale.dueAmount — skip them to avoid double
     // subtraction. CT[RECEIPT]s whose reference is not in this set are
     // addCustomerPayment / addAccountPayment manual payments.
