@@ -5,6 +5,7 @@ import {
   HatcherySex,
 } from "@prisma/client";
 import { HatcheryInventoryService } from "./hatcheryInventoryService";
+import { cleanupUploadedImage } from "../utils/cloudinary";
 
 export class HatcherySupplierService {
   // ==================== BALANCE HELPERS ====================
@@ -221,7 +222,8 @@ export class HatcherySupplierService {
   }) {
     const { txnId, supplierId, hatcheryOwnerId } = data;
 
-    return prisma.$transaction(
+    let purgedReceipt: string | null = null;
+    const result = await prisma.$transaction(
       async (tx) => {
         const supplier = await tx.hatcherySupplier.findFirst({
           where: { id: supplierId, hatcheryOwnerId },
@@ -248,6 +250,7 @@ export class HatcherySupplierService {
         );
         const newBalance = Number(supplier.balance) - delta;
 
+        purgedReceipt = txnToDelete.receiptImageUrl;
         await tx.hatcherySupplierTxn.delete({ where: { id: txnId } });
 
         await tx.hatcherySupplier.update({
@@ -259,5 +262,8 @@ export class HatcherySupplierService {
       },
       { timeout: 20000 }
     );
+
+    cleanupUploadedImage(purgedReceipt, hatcheryOwnerId);
+    return result;
   }
 }

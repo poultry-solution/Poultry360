@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
+import { cleanupUploadedImage, cleanupUploadedImages } from "../utils/cloudinary";
 import { Prisma, StaffAttendanceStatus, StaffPayType, StaffStatus } from "@prisma/client";
 import {
   listStaffForOwner,
@@ -529,6 +530,7 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
     }
 
     await prisma.staffPayment.delete({ where: { id: payment.id } });
+    cleanupUploadedImage(payment.receiptImageUrl, ownerId);
     res.json({
       success: true,
       data: { paymentId: payment.id, staffId: staff.id },
@@ -595,7 +597,16 @@ export const deleteStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
+    // Grab payment receipts before the cascade: deleting Staff removes every
+    // StaffPayment via onDelete: Cascade, so there is no second chance to
+    // read their Cloudinary URLs after the delete lands.
+    const paymentReceipts = await prisma.staffPayment.findMany({
+      where: { staffId: staff.id },
+      select: { receiptImageUrl: true },
+    });
+
     await prisma.staff.delete({ where: { id: staff.id } });
+    cleanupUploadedImages(paymentReceipts.map((p) => p.receiptImageUrl), ownerId);
     res.json({ success: true, data: { staffId: staff.id }, message: "Staff deleted" });
   } catch (error) {
     console.error("Delete staff error:", error);

@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { DealerService } from "../services/dealerService";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -742,6 +743,7 @@ export const deleteDealerManualGeneralPayment = async (
     const deletedCreatedAt = entry.createdAt;
     const deletedId = entry.id;
 
+    const purgedImageUrls: Array<string | null> = [entry.imageUrl];
     await prisma.$transaction(async (tx) => {
       // Handle legacy FIFO-linked DealerSalePayment rows (pre-migration payments)
       const legacySplits = await tx.dealerSalePayment.findMany({
@@ -769,6 +771,8 @@ export const deleteDealerManualGeneralPayment = async (
             },
           });
 
+          // DealerSalePayment does not carry an image URL (payment receipt
+          // images live on the ledger entry's imageUrl, already collected).
           await tx.dealerSalePayment.delete({ where: { id: sp.id } });
         }
       }
@@ -822,6 +826,8 @@ export const deleteDealerManualGeneralPayment = async (
         },
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    cleanupUploadedImages(purgedImageUrls, userId as string);
 
     return res.status(200).json({
       success: true,

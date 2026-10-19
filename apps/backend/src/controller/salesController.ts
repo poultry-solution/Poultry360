@@ -1579,6 +1579,12 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
 
       // A receipt made by paying a sale also lives on the sale. Remove that
       // payment too, so the sale shows the money as due again.
+      //
+      // Do NOT purge the Cloudinary receipt here. `SalePayment.receiptUrl`
+      // and the soft-deleted `CustomerTransaction.imageUrl` are the same
+      // string. Destroying the file would leave a dangling 404 in the
+      // ledger history that the row still points at. Orphan assets are a
+      // sweep-later problem.
       const salePayment = txn.reference
         ? await tx.salePayment.findUnique({ where: { id: txn.reference }, include: { sale: true } })
         : null;

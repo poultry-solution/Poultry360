@@ -2,6 +2,23 @@
 
 ## Open
 
+### Dealer ledger can count old connected-farmer balances twice
+
+- Area: Dealer ledger summary
+- Endpoint: `GET /api/v1/dealer/ledger/summary`
+- Severity: Medium
+- Found: 2026-10-19
+
+The summary says it uses manual customers only, but its `manualCustomerAgg`
+query filters only by `userId`. It therefore includes old `Customer` rows with
+`farmerId` set. The same summary then adds `DealerFarmerAccount` balances.
+When old linked data exists, the net customer balance can include the old
+dealer--farmer balance twice.
+
+Suggested fix: while the old link data still exists, filter the customer
+aggregate with `farmerId: null`. When the old connection system is removed,
+delete both the old rows/data and the account aggregate together.
+
 ### Parallel raw-material creation can return a server error
 
 - Area: Farmer inventory and self-feed production

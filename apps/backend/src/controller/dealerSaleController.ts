@@ -6,6 +6,7 @@ import { DealerService } from "../services/dealerService";
 import { getDealerSalesTrend } from "../services/dealerSalesTrendService";
 import bcrypt from "bcrypt";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 import {
   ACCOUNT_FEATURE_DEFINITIONS,
   ACCOUNT_FEATURE_KEYS,
@@ -1595,6 +1596,7 @@ export const reverseSettlement = async (
     });
     if (!dealer) return res.status(404).json({ message: "Dealer not found" });
 
+    const purgedImageUrls: Array<string | null> = [];
     await prisma.$transaction(async (tx) => {
       const settlement = await tx.broilerSaleSettlement.findUnique({
         where: { id: settlementId },
@@ -1605,6 +1607,8 @@ export const reverseSettlement = async (
       });
       if (!settlement) throw new Error("Settlement not found");
       if (settlement.dealerId !== dealer.id) throw new Error("Settlement not found");
+
+      purgedImageUrls.push(settlement.receiptUrl);
 
       // The reference stored in ledger entries — mirrors what settleBroilerSales writes.
       const settlementReference =
@@ -1636,6 +1640,9 @@ export const reverseSettlement = async (
         where: { dealerId: dealer.id, reference: settlementReference },
         orderBy: { createdAt: "asc" },
       });
+      for (const entry of settlementLedgerEntries) {
+        purgedImageUrls.push(entry.imageUrl);
+      }
 
       // Net effect on the running balance: only PAYMENT_RECEIVED entries reduce it;
       // PAYMENT_MADE (payout, no balance effect) and BROILER_SALE_MARGIN both leave
@@ -1687,6 +1694,8 @@ export const reverseSettlement = async (
         },
       }, tx);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    cleanupUploadedImages(purgedImageUrls, userId);
 
     return res.status(200).json({ success: true, message: "Settlement reversed successfully" });
   } catch (error: any) {
@@ -1827,6 +1836,7 @@ export const deleteDealerSale = async (
     await DealerService.deleteDealerSale({
       saleId: id,
       dealerId: dealer.id,
+      ownerUserId: userId as string,
     });
 
     await writeBusinessAudit(req, {

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 import { PurchaseCategory, UserRole, TransactionType } from "@prisma/client";
 import {
   CreateDealerSchema,
@@ -1118,11 +1119,16 @@ export const deleteDealerTransaction = async (
         description: true,
         inventoryItemId: true,
         expenseId: true,
+        imageUrl: true,
       },
     });
     if (!txn) {
       return res.status(404).json({ message: "Transaction not found" });
     }
+
+    // Accumulate Cloudinary URLs across all deleted rows so we can purge them
+    // from Cloudinary once the DB transaction commits.
+    const purgedImageUrls: Array<string | null> = [txn.imageUrl];
 
     console.log("🔍 Deleting transaction:", txn);
     console.log("🔍 Transaction type:", txn.type);
@@ -1166,6 +1172,7 @@ export const deleteDealerTransaction = async (
         // Delete related payment transactions
         for (const paymentTxn of relatedPaymentTxns) {
           console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
+          purgedImageUrls.push(paymentTxn.imageUrl);
           await tx.entityTransaction.delete({ where: { id: paymentTxn.id } });
         }
 
@@ -1187,6 +1194,7 @@ export const deleteDealerTransaction = async (
             orderBy: { date: 'desc' },
           });
           if (paidInvTxn) {
+            // InventoryTransaction has no image field; nothing to purge.
             await tx.inventoryTransaction.delete({ where: { id: paidInvTxn.id } });
           }
         }
@@ -1253,6 +1261,10 @@ export const deleteDealerTransaction = async (
     } else {
       console.log("✅ Transaction successfully deleted and verified");
     }
+
+    // Purge Cloudinary assets outside the DB transaction so a Cloudinary
+    // outage can't roll back a verified delete. Non-blocking.
+    cleanupUploadedImages(purgedImageUrls, currentUserId as string);
 
     // Update stored balance on dealer for manual suppliers.
     if (isManualDealer) {

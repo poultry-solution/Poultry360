@@ -7,6 +7,7 @@ import {
 } from "../utils/discountHelpers";
 import { generateNextInvoiceNumber } from "../utils/invoiceNumber";
 import { computeLineCost, getNetUnitCosts } from "./dealerCostService";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 
 export class DealerService {
   /**
@@ -848,8 +849,12 @@ export class DealerService {
   static async deleteDealerSale(data: {
     saleId: string;
     dealerId: string;
+    // Owner user id (JWT subject) of the dealer account; used to scope
+    // Cloudinary cleanup to this account's own uploaded files.
+    ownerUserId: string;
   }) {
-    return await prisma.$transaction(async (tx) => {
+    const imageUrlsToPurge: Array<string | null> = [];
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Fetch sale with items and customer
       const sale = await tx.dealerSale.findUnique({
         where: { id: data.saleId },
@@ -909,11 +914,18 @@ export class DealerService {
         });
       }
 
+      // DealerSale and DealerSalePayment do not carry image URLs today;
+      // only the cascaded DealerLedgerEntry rows do. We collect those below
+      // just before they are deleted.
+
       // 4. Fix ledger: find sale-related entries, compute net effect, delete, fix running balances
       const saleLedgerEntries = await tx.dealerLedgerEntry.findMany({
         where: { saleId: data.saleId, dealerId: data.dealerId },
         orderBy: { createdAt: "asc" },
       });
+      for (const entry of saleLedgerEntries) {
+        imageUrlsToPurge.push(entry.imageUrl);
+      }
 
       // Net effect: sale proceeds add to balance, received payments subtract.
       let netLedgerEffect = 0;
@@ -960,6 +972,13 @@ export class DealerService {
 
       return { success: true };
     });
+
+    // Purge Cloudinary assets AFTER the transaction commits. If this runs
+    // inside the transaction and Cloudinary fails, we would roll back a
+    // perfectly good DB delete; running after means a Cloudinary outage
+    // leaves orphaned assets, which is strictly recoverable. Non-blocking.
+    cleanupUploadedImages(imageUrlsToPurge, data.ownerUserId);
+    return result;
   }
 
 
