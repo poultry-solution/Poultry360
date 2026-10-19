@@ -1,14 +1,16 @@
 import { ApiHelper } from '../helpers/api.helper';
 import { AuthHelper } from '../helpers/auth.helper';
+import { DatabaseHelper } from '../helpers/database.helper';
 import { TEST_USERS } from '../fixtures/users';
 
 describe('Authentication API', () => {
   let apiHelper: ApiHelper;
   let authHelper: AuthHelper;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     apiHelper = new ApiHelper();
     authHelper = new AuthHelper(apiHelper);
+    await DatabaseHelper.setupTestUsers(TEST_USERS.dealer, TEST_USERS.farmer);
   });
 
   afterEach(() => {

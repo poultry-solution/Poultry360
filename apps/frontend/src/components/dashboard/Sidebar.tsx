@@ -385,7 +385,6 @@ const adminNavigation: NavigationItem[] = [
 interface SidebarProps {
   role?:
     | "OWNER"
-    | "MANAGER"
     | "SUPER_ADMIN"
     | "DEALER"
     | "COMPANY"

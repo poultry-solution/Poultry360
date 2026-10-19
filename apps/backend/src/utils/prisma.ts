@@ -4,6 +4,20 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
+const prismaDatabaseUrl = (() => {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (process.env.NODE_ENV !== "test" || !databaseUrl) return databaseUrl;
+
+  // Jest creates one module environment per test file. A default Prisma pool in
+  // every environment exhausts local PostgreSQL during a full serial run. Test
+  // requests are serial, so one connection per client is enough and does not
+  // interrupt fire-and-forget audit writes between assertions.
+  const url = new URL(databaseUrl);
+  url.searchParams.set("connection_limit", "1");
+  url.searchParams.set("pool_timeout", "10");
+  return url.toString();
+})();
+
 // Enhanced Prisma client configuration for Neon and connection resilience
 const prisma: PrismaClient = global.prisma || new PrismaClient({
   log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
@@ -17,7 +31,7 @@ const prisma: PrismaClient = global.prisma || new PrismaClient({
   },
   datasources: {
     db: {
-      url: process.env.DATABASE_URL,
+      url: prismaDatabaseUrl,
     },
   },
 }) as PrismaClient;

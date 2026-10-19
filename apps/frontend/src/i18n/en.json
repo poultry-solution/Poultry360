@@ -2676,7 +2676,8 @@
         "percent": "Percent (%)",
         "flat": "Flat (रू)",
         "value": "Value",
-        "label": "Discount: {amount} ({percent}%)"
+        "label": "Discount: {amount} ({percent}%)",
+        "labelFlat": "Discount: रू {amount}"
       },
       "payment": {
         "title": "Payment Information",
@@ -3282,7 +3283,6 @@
     "goToLogin": "Go to login",
     "roles": {
       "OWNER": "Layer / Broiler farmer",
-      "MANAGER": "Farm manager",
       "DEALER": "Feed dealer",
       "COMPANY": "Company",
       "HATCHERY": "Hatchery",

@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { useAuthStore } from "@/common/store/store";
 import {
-  ALL_TIME_FILTERS,
   AnalyticsFilters,
+  filtersFromSearchParams,
+  filtersToSearchParams,
   toParams,
   type AnalyticsFilterState,
 } from "@/components/analytics/farmer/AnalyticsFilters";
@@ -30,11 +32,26 @@ type Tab = "overview" | "money" | "batches" | "health" | "eggs";
 
 function FarmerAnalyticsContent() {
   const { t } = useI18n();
-  // Always opens on "All time"; custom dates are optional.
-  const [filters, setFilters] = useState<AnalyticsFilterState>(ALL_TIME_FILTERS);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Initial state comes from the URL so filters survive back/forward and
+  // navigating away and returning. Lazy initializer avoids a re-render.
+  const [filters, setFilters] = useState<AnalyticsFilterState>(() =>
+    filtersFromSearchParams(searchParams)
+  );
   const [tab, setTab] = useState<Tab>("overview");
   const [downloadOpen, setDownloadOpen] = useState(false);
   const params = useMemo(() => toParams(filters), [filters]);
+
+  // Sync state → URL. `router.replace` (not `push`) keeps browser history
+  // clean. `scroll: false` prevents the page from jumping to top on each
+  // filter change.
+  useEffect(() => {
+    const sp = filtersToSearchParams(filters);
+    const query = sp.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [filters, pathname, router]);
 
   const overview = useFarmerAnalyticsOverview(params);
   const money = useFarmerMoneyAnalytics(params, tab === "money");

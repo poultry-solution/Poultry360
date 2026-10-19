@@ -4,6 +4,7 @@ import { PushNotificationInit } from "@/common/components/PushNotificationInit";
 import { InventoryProvider } from "@/common/contexts/InventoryContext";
 import { AuthProvider } from "@/common/providers/AuthProvider";
 import { LoadingProvider } from "@/common/providers/LoadingProvider";
+import { StaffPasswordPrompt } from "@/components/staff/StaffPasswordPrompt";
 
 export default function ProtectedLayout({
   children,
@@ -17,6 +18,7 @@ export default function ProtectedLayout({
           <RoleBasedMiddleware>
             <AuthGuard requireAuth={true}>
               <PushNotificationInit />
+              <StaffPasswordPrompt />
               {children}
             </AuthGuard>
           </RoleBasedMiddleware>

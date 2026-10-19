@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -77,7 +78,7 @@ function fmtNPR(n: number | string) {
 }
 
 function today() {
-  return new Date().toISOString().split("T")[0];
+  return getNepalTodayAd();
 }
 
 const ALL_CATEGORIES = "All";

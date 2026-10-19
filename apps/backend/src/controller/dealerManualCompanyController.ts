@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import { parseDealerExpiryDate } from "../utils/dealerExpiryDate";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 
 type ManualCompanyPaymentDirection = "RECEIVED" | "MADE";
 
@@ -332,7 +333,29 @@ export const deleteManualCompany = async (
             });
         }
 
+        // The guard above blocks only live transactions. Voided purchases and
+        // payments still exist and will cascade-delete with the company, so
+        // their bill/receipt images need to be collected before the DB wipe.
+        const [voidedPurchases, voidedPayments] = await Promise.all([
+            prisma.dealerManualPurchase.findMany({
+                where: { manualCompanyId: id, voidedAt: { not: null } },
+                select: { billImageUrl: true },
+            }),
+            prisma.dealerManualCompanyPayment.findMany({
+                where: { manualCompanyId: id, voidedAt: { not: null } },
+                select: { receiptUrl: true },
+            }),
+        ]);
+
         await prisma.dealerManualCompany.delete({ where: { id } });
+
+        cleanupUploadedImages(
+            [
+                ...voidedPurchases.map((p) => p.billImageUrl),
+                ...voidedPayments.map((p) => p.receiptUrl),
+            ],
+            userId as string,
+        );
 
         return res.status(200).json({
             success: true,
@@ -368,23 +391,27 @@ export const setManualCompanyOpeningBalance = async (
             return res.status(404).json({ message: "Dealer not found" });
         }
 
-        const company = await prisma.dealerManualCompany.findUnique({ where: { id } });
-        if (!company || company.dealerId !== dealer.id) {
-            return res.status(404).json({ message: "Manual company not found" });
-        }
-
-        const latest = await prisma.dealerManualCompanyAdjustment.findFirst({
-            where: { manualCompanyId: id, type: "OPENING_BALANCE" },
-            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-            select: { amount: true },
-        });
-        const prevOpening = latest ? Number(latest.amount) : 0;
-        const delta = nextOpening - prevOpening;
-        const newBalance = Number(company.balance) + delta;
-
         const adjDate = date ? new Date(date) : new Date();
 
+        // Reads and writes happen inside a Serializable transaction so that two
+        // concurrent edits cannot both read the same stale balance and overwrite
+        // each other. One of them will get a serialization error and the client
+        // can retry.
         const updated = await prisma.$transaction(async (tx) => {
+            const company = await tx.dealerManualCompany.findUnique({ where: { id } });
+            if (!company || company.dealerId !== dealer.id) {
+                throw new Error("Manual company not found");
+            }
+
+            const latest = await tx.dealerManualCompanyAdjustment.findFirst({
+                where: { manualCompanyId: id, type: "OPENING_BALANCE" },
+                orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+                select: { amount: true },
+            });
+            const prevOpening = latest ? Number(latest.amount) : 0;
+            const delta = nextOpening - prevOpening;
+            const newBalance = Number(company.balance) + delta;
+
             await tx.dealerManualCompanyAdjustment.create({
                 data: {
                     manualCompanyId: id,
@@ -399,7 +426,7 @@ export const setManualCompanyOpeningBalance = async (
                 where: { id },
                 data: { balance: new Prisma.Decimal(newBalance) },
             });
-        });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
         return res.status(200).json({
             success: true,
@@ -417,6 +444,9 @@ export const setManualCompanyOpeningBalance = async (
             message: "Opening balance updated",
         });
     } catch (error: any) {
+        if (error.message === "Manual company not found") {
+            return res.status(404).json({ message: "Manual company not found" });
+        }
         console.error("Set opening balance error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
@@ -774,6 +804,8 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
             return res.status(404).json({ message: "Manual company not found" });
         }
 
+        // 404 vs "already voided" are a pre-check for a clean error message;
+        // the race-safe guard lives inside the transaction below.
         const purchase = await prisma.dealerManualPurchase.findUnique({
             where: { id: purchaseId },
             include: { items: true },
@@ -781,39 +813,72 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
         if (!purchase || purchase.manualCompanyId !== companyId) {
             return res.status(404).json({ message: "Purchase not found" });
         }
-        if ((purchase as any).voidedAt) {
+        if (purchase.voidedAt) {
             return res.status(400).json({ message: "Purchase already voided" });
         }
 
         const result = await prisma.$transaction(async (tx) => {
-            // Stock safety checks
-            for (const item of purchase.items) {
-                if (!item.dealerProductId) continue;
-                const product = await tx.dealerProduct.findUnique({
-                    where: { id: item.dealerProductId },
-                    select: { id: true, currentStock: true },
-                });
-                if (!product) continue;
-                const currentStock = Number(product.currentStock || 0);
-                const qty = Number(item.quantity || 0);
-                if (currentStock < qty) {
-                    throw new Error(
-                        `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}.`
-                    );
-                }
+            // Claim the void atomically before doing any reversals. The
+            // conditional update takes a row lock, so a concurrent request
+            // sees count=0 and bails — otherwise both callers would apply
+            // the inventory + balance reversals and corrupt the ledger.
+            const claim = await tx.dealerManualPurchase.updateMany({
+                where: {
+                    id: purchaseId,
+                    manualCompanyId: companyId,
+                    voidedAt: null,
+                },
+                data: {
+                    voidedAt: new Date(),
+                    voidedReason: reason ? String(reason).trim() || null : null,
+                },
+            });
+            if (claim.count === 0) {
+                // Another request got here first (or the record was moved).
+                // A thrown Error with this exact message gets mapped to a 400
+                // response in the catch block below.
+                throw new Error("Purchase already voided");
             }
 
-            // Reverse inventory + create reversal transactions
+            // Reverse inventory + create reversal transactions.
+            //
+            // Use a single guarded updateMany per item: Prisma emits one SQL
+            // UPDATE with both the stock check and the decrement, so two
+            // concurrent voids on different purchases that touch the same
+            // product cannot both pass the check and drive stock negative.
+            // Any failure here still rolls the void (including voidedAt)
+            // back via the enclosing transaction.
             for (const item of purchase.items) {
                 if (!item.dealerProductId) continue;
-                const qty = Number(item.quantity || 0);
+                // Use baseQuantity (base unit) to mirror what the original
+                // purchase added. Fall back to quantity for older records
+                // that predate baseQuantity.
+                const qty = Number(item.baseQuantity ?? item.quantity ?? 0);
                 const cost = Number(item.costPrice || 0);
                 const totalAmount = qty * cost;
 
-                await tx.dealerProduct.update({
-                    where: { id: item.dealerProductId },
+                const decremented = await tx.dealerProduct.updateMany({
+                    where: {
+                        id: item.dealerProductId,
+                        currentStock: { gte: new Prisma.Decimal(qty) },
+                    },
                     data: { currentStock: { decrement: new Prisma.Decimal(qty) } },
                 });
+
+                if (decremented.count === 0) {
+                    // count=0 can mean (a) product no longer exists or
+                    // (b) stock is below qty. Distinguish by re-reading so
+                    // the message to the dealer is accurate; a missing
+                    // product is silently skipped to match prior behaviour.
+                    const product = await tx.dealerProduct.findUnique({
+                        where: { id: item.dealerProductId },
+                        select: { currentStock: true },
+                    });
+                    if (!product) continue;
+                    throw new Error(
+                        `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${Number(product.currentStock || 0)}.`
+                    );
+                }
 
                 await tx.dealerProductTransaction.create({
                     data: {
@@ -840,16 +905,7 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
                 },
             });
 
-            // Mark voided
-            const updated = await tx.dealerManualPurchase.update({
-                where: { id: purchaseId },
-                data: {
-                    voidedAt: new Date(),
-                    voidedReason: reason ? String(reason).trim() || null : null,
-                },
-            });
-
-            return updated;
+            return tx.dealerManualPurchase.findUnique({ where: { id: purchaseId } });
         });
 
         return res.status(200).json({
@@ -859,7 +915,7 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
         });
     } catch (error: any) {
         const msg = error.message || "Internal server error";
-        if (msg.startsWith("Cannot delete:")) {
+        if (msg.startsWith("Cannot delete:") || msg === "Purchase already voided") {
             return res.status(400).json({ message: msg });
         }
         console.error("Void manual purchase error:", error);

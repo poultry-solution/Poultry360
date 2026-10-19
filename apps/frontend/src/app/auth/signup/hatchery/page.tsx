@@ -102,7 +102,6 @@ export default function HatcherySignupPage() {
             : null,
           language: user.language || "ENGLISH",
           calendarType: user.calendarType || "AD",
-          managedFarms: [],
           ownedFarms: [],
           dealer: null,
           company: null,

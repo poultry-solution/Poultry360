@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use((req, res, next) => {
-  authMiddleware(req, res, next, ["OWNER", "MANAGER"]); // Allow OWNER and MANAGER roles
+  authMiddleware(req, res, next, ["OWNER"]);
 });
 router.use(requireStaffAccountOwner);
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bird, CircleDollarSign, Users } from "lucide-react";
+import { Bird, CircleDollarSign, Users, Undo2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -10,13 +10,23 @@ import { Input } from "@/common/components/ui/input";
 import { Textarea } from "@/common/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { toast } from "sonner";
-import { ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer } from "@/fetchers/dealer/dealerSaleQueries";
+import { BroilerSettlement, ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer, useReverseBroilerSettlement } from "@/fetchers/dealer/dealerSaleQueries";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
 
@@ -60,6 +70,8 @@ function ChickenSalesByFarmerContent() {
     error: settlementsError,
   } = useGetBroilerSettlements(sourceFarmerId || undefined);
   const createSettlement = useCreateBroilerSettlement();
+  const reverseSettlement = useReverseBroilerSettlement();
+  const [reverseTarget, setReverseTarget] = useState<BroilerSettlement | null>(null);
   const rows = data?.data ?? [];
   const settlements = settlementsData?.data ?? [];
 
@@ -72,7 +84,7 @@ function ChickenSalesByFarmerContent() {
     }
   }, [chickenSalesError, router, settlementsError]);
 
-  const formatCurrency = (amount: number) => `रू ${Math.abs(Number(amount) || 0).toFixed(2)}`;
+  const formatCurrency = (amount: number) => `रू ${(Math.round(Math.abs(Number(amount) || 0) * 100) / 100).toFixed(2)}`;
   const settlementAmounts = settlementTarget ? (() => {
     const proceeds = Number(settlementTarget.tentativeRevenue) || 0;
     const margin = Number(marginAmount) || 0;
@@ -87,6 +99,21 @@ function ChickenSalesByFarmerContent() {
     setPaymentMethod("CASH");
     setSettlementDate(getNepalTodayAd());
     setNotes("");
+  };
+
+  const submitReverse = async () => {
+    if (!reverseTarget) return;
+    try {
+      await reverseSettlement.mutateAsync(reverseTarget.id);
+      toast.success("Settlement reversed");
+      setReverseTarget(null);
+    } catch (error: any) {
+      if (error.response?.data?.code === "ACCOUNT_FEATURE_DISABLED") {
+        router.replace("/dealer/dashboard/sales");
+        return;
+      }
+      toast.error(error.response?.data?.message || "Unable to reverse settlement");
+    }
   };
 
   const submitSettlement = async () => {
@@ -293,12 +320,46 @@ function ChickenSalesByFarmerContent() {
                       <div><div className="text-muted-foreground">Your margin</div><div className="font-semibold text-green-700">{formatCurrency(settlement.marginAmount)}</div></div>
                     </div>
                   </div>
+                  <div className="mt-3 flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReverseTarget(settlement)}
+                      disabled={reverseSettlement.isPending}
+                    >
+                      <Undo2 className="mr-2 h-4 w-4" />
+                      Reverse settlement
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!reverseTarget} onOpenChange={(open) => !open && setReverseTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse this settlement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This undoes the settlement for {reverseTarget?.farmer.name}: the {reverseTarget?.saleCount} Broiler sale{reverseTarget?.saleCount === 1 ? "" : "s"} will go back to waiting-for-settlement, the farmer&apos;s balance is restored, and your margin + payout are rolled back. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverseSettlement.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void submitReverse();
+              }}
+              disabled={reverseSettlement.isPending}
+            >
+              {reverseSettlement.isPending ? "Reversing…" : "Reverse settlement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -87,8 +87,11 @@ export const createLandingReview = async (req: Request, res: Response): Promise<
 
 // ==================== LANDING CONTACT SUBMISSIONS (PUBLIC, NO AUTH) ====================
 
-/** GET /public/contacts - List all contact form submissions */
+/** GET /public/contacts - List all contact form submissions (SUPER_ADMIN only) */
 export const getLandingContacts = async (req: Request, res: Response): Promise<any> => {
+  if ((req as any).role !== "SUPER_ADMIN") {
+    return res.status(403).json({ success: false, message: "Access denied" });
+  }
   try {
     const limit = Math.min(Number(req.query.limit) || 100, 500);
     const contacts = await prisma.landingContact.findMany({

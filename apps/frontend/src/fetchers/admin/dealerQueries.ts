@@ -38,12 +38,6 @@ export interface AdminDealer {
     sales: number;
     ledgerEntries: number;
   };
-  managers?: Array<{
-    id: string;
-    name: string;
-    phone: string;
-    status: string;
-  }>;
 }
 
 export interface AdminDealerDetail {
@@ -70,12 +64,6 @@ export interface AdminDealerDetail {
     companyAccounts: number;
     farmerAccounts: number;
   };
-  managers: Array<{
-    id: string;
-    name: string;
-    phone: string;
-    status: string;
-  }>;
   companies: Array<{
     accountCreatedAt: string;
     company: {

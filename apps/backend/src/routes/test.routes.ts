@@ -1,12 +1,33 @@
 import express from 'express';
 import prisma from '../utils/prisma';
 import bcrypt from 'bcrypt';
+import { UserOnboardingPaymentState } from '@prisma/client';
+import { authMiddleware } from '../middelware/middelware';
+import {
+  getAccountFeatureDefinition,
+  setAccountFeature,
+} from '../services/accountFeatureService';
 
 const router = express.Router();
 
-// Only enable in test environment
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('Test routes should only be loaded in test environment');
+// Only enable in test environment, and only against a local DB. The
+// router module performs the same check before requiring this file; the
+// repeat here is defense-in-depth so loading this file in any other
+// context fails loudly. The hostname comparison is strict (no substring
+// match) so prod URLs that happen to contain "localhost" in a password or
+// query parameter cannot slip through.
+const isLocalDb = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+})();
+if (process.env.NODE_ENV !== 'test' || !isLocalDb) {
+  throw new Error('Test routes require NODE_ENV=test and a local DATABASE_URL (localhost / 127.0.0.1 / ::1)');
 }
 
 interface TestUserSetup {
@@ -151,21 +172,22 @@ router.post('/setup-users', async (req, res) => {
 
     console.log('✅ Test database cleaned');
 
-    // 5. Recreate dealer-farmer connection (was deleted in cleanup)
-    console.log('🔗 Reconnecting dealer and farmer...');
+    // 5. Create a dealer-owned manual customer. Dealer customers and Farmer
+    // suppliers are separate modules; tests must not invent a cross-account
+    // dealer/farmer connection.
+    console.log('👤 Creating manual dealer customer...');
 
     await prisma.customer.create({
       data: {
         userId: dealerUser.id,
-        farmerId: farmerUser.id,
-        phone: farmerUser.phone,
-        name: farmerUser.name,
+        phone: '+9779800000099',
+        name: 'Test Manual Customer',
         balance: 0,
-        source: 'CONNECTED',
+        source: 'MANUAL',
       },
     });
 
-    console.log('✅ Dealer and farmer connected');
+    console.log('✅ Manual dealer customer created');
 
     // 6. Create a default product for testing (optional, tests can create their own)
     const existingProduct = await prisma.dealerProduct.findFirst({
@@ -206,6 +228,79 @@ router.post('/setup-users', async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+});
+
+/**
+ * Test-only equivalent of an admin approving a newly registered account.
+ *
+ * API tests can create their own account through /auth/register, then call
+ * this route as that same account. This keeps test code on the HTTP boundary
+ * and avoids the destructive global reset in /setup-users.
+ */
+router.post('/approve-current-user', authMiddleware, async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    await prisma.userOnboardingPayment.upsert({
+      where: { userId: req.userId },
+      create: {
+        userId: req.userId,
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+      },
+      update: {
+        state: UserOnboardingPaymentState.PAYMENT_APPROVED,
+        lockedUntilApproved: false,
+      },
+    });
+
+    return res.json({ success: true, message: 'Test account approved' });
+  } catch (error: any) {
+    console.error('Test account approval error:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * Test-only account feature switch. Some features are intentionally controlled
+ * by an admin in normal use, so API tests need a narrow HTTP-only way to turn
+ * them on for the account they created.
+ */
+router.put('/current-user/features/:featureKey', authMiddleware, async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const definition = getAccountFeatureDefinition(req.params.featureKey);
+    if (!definition) {
+      return res.status(404).json({ success: false, message: 'Feature not found' });
+    }
+    if (typeof req.body?.enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'enabled must be a boolean' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { role: true },
+    });
+    if (!user || !definition.applicableRoles.includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Feature is not available for this account' });
+    }
+
+    const feature = await setAccountFeature({
+      accountId: req.userId,
+      featureKey: definition.key,
+      enabled: req.body.enabled,
+      updatedById: req.userId,
+    });
+    return res.json({ success: true, data: feature });
+  } catch (error: any) {
+    console.error('Test feature update error:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 

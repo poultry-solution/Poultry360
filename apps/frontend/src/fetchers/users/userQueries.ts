@@ -17,7 +17,6 @@ export const userKeys = {
   detail: (id: string) => [...userKeys.details(), id] as const,
   current: () => [...userKeys.all, "current"] as const,
   owners: () => [...userKeys.all, "owners"] as const,
-  managers: () => [...userKeys.all, "managers"] as const,
   stats: () => [...userKeys.all, "stats"] as const,
 };
 
@@ -114,36 +113,6 @@ export const useGetOwnerUsers = (
   });
 };
 
-// Get manager users
-export const useGetManagerUsers = (
-  params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-  },
-  options?: { enabled?: boolean }
-) => {
-  return useQuery({
-    queryKey: [...userKeys.managers(), params || {}],
-    queryFn: async () => {
-      const searchParams = new URLSearchParams();
-      if (params?.page) searchParams.append("page", params.page.toString());
-      if (params?.limit) searchParams.append("limit", params.limit.toString());
-      if (params?.search) searchParams.append("search", params.search);
-
-      const response = await fetch(
-        `${API_BASE}/users/managers/list?${searchParams}`,
-        {
-          credentials: "include",
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch manager users");
-      return response.json();
-    },
-    enabled: options?.enabled !== false,
-  });
-};
-
 // Get user statistics
 export const useGetUserStatistics = (options?: { enabled?: boolean }) => {
   return useQuery({
@@ -207,7 +176,6 @@ export const useDeleteUser = () => {
       queryClient.removeQueries({ queryKey: userKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.invalidateQueries({ queryKey: userKeys.owners() });
-      queryClient.invalidateQueries({ queryKey: userKeys.managers() });
       queryClient.invalidateQueries({ queryKey: userKeys.stats() });
     },
   });
@@ -237,7 +205,6 @@ export const useUpdateUserStatus = () => {
       });
       queryClient.invalidateQueries({ queryKey: userKeys.lists() });
       queryClient.invalidateQueries({ queryKey: userKeys.owners() });
-      queryClient.invalidateQueries({ queryKey: userKeys.managers() });
       queryClient.invalidateQueries({ queryKey: userKeys.stats() });
     },
   });

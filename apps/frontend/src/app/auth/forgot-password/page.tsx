@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Eye, EyeOff, ArrowLeft, Phone, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Phone, ShieldCheck, KeyRound, CheckCircle2, UserRound } from "lucide-react";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Button } from "@/common/components/ui/button";
 import axiosInstance from "@/common/lib/axios";
 
-type Step = "phone" | "otp" | "new-password" | "success";
+type Step = "phone" | "otp" | "new-password" | "success" | "staff-contact-owner";
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>("phone");
@@ -28,7 +28,12 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
     try {
-      await axiosInstance.post("/auth/forgot-password/generate-otp", { phone: normalizedPhone });
+      const { data } = await axiosInstance.post("/auth/forgot-password/generate-otp", { phone: normalizedPhone });
+      // Staff accounts cannot self-reset — send them to the "ask your owner" screen.
+      if (data?.code === "STAFF_ACCOUNT_CONTACT_OWNER") {
+        setStep("staff-contact-owner");
+        return;
+      }
       setOtp("");
       setStep("otp");
     } catch (err: any) {
@@ -172,6 +177,27 @@ export default function ForgotPasswordPage() {
               <h1 className="text-xl font-semibold text-foreground">Password Reset Successful</h1>
               <p className="mb-6 mt-2 text-sm text-muted-foreground">Your password has been updated. You can now log in with it.</p>
               <Link href="/auth/login"><Button className="w-full">Go to Login</Button></Link>
+            </div>
+          )}
+
+          {step === "staff-contact-owner" && (
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-amber-100"><UserRound className="size-7 text-amber-600" /></div>
+              <h1 className="text-xl font-semibold text-foreground">Ask your owner</h1>
+              <p className="mb-6 mt-2 text-sm text-muted-foreground">
+                This phone number belongs to a staff account. The SMS reset flow is only for account owners.
+                Please contact your account owner — they can reset your password from the Staff access page.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Link href="/auth/login"><Button className="w-full">Back to login</Button></Link>
+                <button
+                  type="button"
+                  onClick={() => { setStep("phone"); setPhone(""); setError(null); }}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Use a different number
+                </button>
+              </div>
             </div>
           )}
         </div>

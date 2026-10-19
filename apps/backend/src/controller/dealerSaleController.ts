@@ -6,6 +6,7 @@ import { DealerService } from "../services/dealerService";
 import { getDealerSalesTrend } from "../services/dealerSalesTrendService";
 import bcrypt from "bcrypt";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { cleanupUploadedImages } from "../utils/cloudinary";
 import {
   ACCOUNT_FEATURE_DEFINITIONS,
   ACCOUNT_FEATURE_KEYS,
@@ -159,6 +160,11 @@ export const createDealerSale = async (
       message: "Sale created successfully",
     });
   } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another sale was being saved at the same time. Please try again.",
+      });
+    }
     console.error("Create dealer sale error:", error);
     return res.status(400).json({ message: error.message || "Internal server error" });
   }
@@ -233,6 +239,11 @@ export const createSupplierSettlementSale = async (
       message: "Supplier settlement sale created successfully",
     });
   } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another supplier settlement was being saved at the same time. Please try again.",
+      });
+    }
     console.error("Create supplier settlement sale error:", error);
     return res.status(400).json({ message: error.message || "Internal server error" });
   }
@@ -618,6 +629,8 @@ export const getDealerCustomers = async (
           phone: true,
           address: true,
           category: true,
+          source: true,
+          farmerId: true,
           balance: true,
           archivedAt: true,
           createdAt: true,
@@ -897,7 +910,7 @@ export const createCustomer = async (
 ): Promise<any> => {
   try {
     const userId = req.userId;
-    const { name, phone, address, category, openingBalance } = req.body;
+    const { name, phone, address, category, openingBalance, openingBalanceDate } = req.body;
     const normalizedName = typeof name === "string" ? name.trim() : "";
     const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
 
@@ -928,6 +941,20 @@ export const createCustomer = async (
     if (Number.isNaN(ob)) {
       return res.status(400).json({ message: "Opening balance must be a valid number" });
     }
+    // Opening balance is a BEFORE-the-app figure, so callers can specify the
+    // historical date they want it dated to. Falls back to now() when absent,
+    // matching the previous behaviour for UI callers that don't send one.
+    let openingTxnDate: Date = new Date();
+    if (openingBalanceDate !== undefined && openingBalanceDate !== null && openingBalanceDate !== "") {
+      const parsed = new Date(openingBalanceDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ message: "openingBalanceDate must be a valid ISO date" });
+      }
+      if (parsed.getTime() > Date.now() + 60 * 1000) {
+        return res.status(400).json({ message: "openingBalanceDate cannot be in the future" });
+      }
+      openingTxnDate = parsed;
+    }
 
     // Create customer (and opening balance transaction if provided)
     const customer = await prisma.$transaction(async (tx) => {
@@ -947,7 +974,7 @@ export const createCustomer = async (
           data: {
             type: "OPENING_BALANCE",
             amount: ob,
-            date: new Date(),
+            date: openingTxnDate,
             description: "Opening balance",
             customerId: created.id,
           },
@@ -964,6 +991,245 @@ export const createCustomer = async (
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET DEALER CUSTOMER BY ID ====================
+// Loads one dealer-owned customer plus their opening-balance history. Response
+// shape mirrors the farmer-side handler so both module UIs stay interchangeable.
+export const getDealerCustomerById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        userId: currentUserId,
+      },
+      include: {
+        sales: {
+          select: {
+            id: true,
+            amount: true,
+            date: true,
+            isCredit: true,
+            paidAmount: true,
+            dueAmount: true,
+          },
+          orderBy: { date: "desc" },
+        },
+        transactions: {
+          orderBy: { date: "desc" },
+          take: 50,
+        },
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const latestOpeningPromise = prisma.customerTransaction
+      .findFirst({
+        where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { amount: true, date: true, description: true, reference: true },
+      })
+      .catch((error) => {
+        console.warn("Could not load dealer customer opening balance:", error);
+        return null;
+      });
+
+    const openingBalanceHistoryPromise = prisma.customerTransaction
+      .findMany({
+        where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { id: true, amount: true, date: true, description: true, reference: true },
+      })
+      .catch((error) => {
+        console.warn("Could not load dealer customer opening balance history:", error);
+        return [] as Array<{
+          id: string;
+          amount: Prisma.Decimal;
+          date: Date;
+          description: string | null;
+          reference: string | null;
+        }>;
+      });
+
+    const [latestOpening, openingBalanceHistory] = await Promise.all([
+      latestOpeningPromise,
+      openingBalanceHistoryPromise,
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...customer,
+        openingBalance: latestOpening
+          ? {
+              amount: Number(latestOpening.amount),
+              date: latestOpening.date,
+              notes: latestOpening.description ?? null,
+              reference: latestOpening.reference ?? null,
+            }
+          : { amount: 0, date: null, notes: null, reference: null },
+        openingBalanceHistory: openingBalanceHistory.map((t) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          date: t.date,
+          notes: t.description ?? null,
+          reference: t.reference ?? null,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Get dealer customer by ID error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== UPDATE DEALER CUSTOMER ====================
+export const updateDealerCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { name, phone, category, address } = req.body;
+    const normalizedName =
+      typeof name === "string" ? name.trim() : undefined;
+    const normalizedPhone =
+      typeof phone === "string"
+        ? phone.trim() === ""
+          ? null
+          : phone.trim()
+        : phone === null
+          ? null
+          : undefined;
+
+    if (normalizedName === "") {
+      return res.status(400).json({
+        message: "Customer name is required",
+      });
+    }
+
+    const existingCustomer = await prisma.customer.findFirst({
+      where: { id, userId: currentUserId },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    if (normalizedName !== undefined || normalizedPhone !== undefined) {
+      const conflictCustomer = await prisma.customer.findFirst({
+        where: {
+          id: { not: id },
+          userId: currentUserId,
+          OR: [
+            ...(normalizedName ? [{ name: normalizedName }] : []),
+            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+          ],
+        },
+      });
+
+      if (conflictCustomer) {
+        return res.status(400).json({
+          message: "Customer with this name or phone already exists",
+        });
+      }
+    }
+
+    const updatedCustomer = await prisma.customer.update({
+      where: { id },
+      data: {
+        ...(normalizedName !== undefined && { name: normalizedName }),
+        ...(normalizedPhone !== undefined && { phone: normalizedPhone }),
+        ...(category !== undefined && { category }),
+        ...(address !== undefined && { address }),
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedCustomer,
+      message: "Customer updated successfully",
+    });
+  } catch (error) {
+    console.error("Update dealer customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== SET DEALER CUSTOMER OPENING BALANCE ====================
+// Appends a new OPENING_BALANCE transaction (history preserved) and adjusts the
+// customer balance by the delta between the new and most-recent opening value.
+export const setDealerCustomerOpeningBalance = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { openingBalance, notes, date } = req.body;
+
+    const nextOpening = Number(openingBalance);
+    if (
+      openingBalance === undefined ||
+      openingBalance === null ||
+      Number.isNaN(nextOpening)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "openingBalance (number) is required" });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId: currentUserId },
+      select: { id: true, balance: true },
+    });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const latest = await prisma.customerTransaction.findFirst({
+      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { amount: true },
+    });
+    const prevOpening = latest ? Number(latest.amount) : 0;
+    const delta = nextOpening - prevOpening;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.customerTransaction.create({
+        data: {
+          type: TransactionType.OPENING_BALANCE,
+          amount: nextOpening,
+          date: date ? new Date(date) : new Date(),
+          description: notes ? String(notes).trim() || null : "Opening balance",
+          customerId: id,
+        },
+      });
+      return tx.customer.update({
+        where: { id },
+        data: { balance: Number(customer.balance) + delta },
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { id: updated.id, balance: Number(updated.balance) },
+      message: "Opening balance updated",
+    });
+  } catch (error) {
+    console.error("Set dealer customer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
@@ -1253,7 +1519,13 @@ export const settleBroilerSales = async (
         throw new Error("One or more Broiler sales were already settled. Please refresh and try again.");
       }
 
-      const settlementReference = reference?.trim() || `BROILER-SETTLEMENT-${created.id.slice(-8).toUpperCase()}`;
+      // Always use a server-generated key for the ledger lookup. The user's
+      // own `reference` lives on `settlement.reference` for display only.
+      // Reusing it as the ledger key would let any unrelated DealerLedgerEntry
+      // (payment, adjustment) that happens to carry the same user text be
+      // deleted when this settlement is reversed. Full cuid, not sliced, so
+      // the key is globally unique.
+      const settlementReference = `BROILER-SETTLEMENT-${created.id}`;
       if (creditRecovered > 0) {
         await DealerService.recordAccountPayment(tx, {
           customerId: farmer.id,
@@ -1322,6 +1594,156 @@ export const settleBroilerSales = async (
   } catch (error: any) {
     console.error("Settle Broiler sales error:", error);
     return res.status(400).json({ message: error.message || "Unable to settle Broiler sales" });
+  }
+};
+
+// ==================== REVERSE BROILER SETTLEMENT ====================
+export const reverseSettlement = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const { settlementId } = req.params;
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    const purgedImageUrls: Array<string | null> = [];
+    await prisma.$transaction(async (tx) => {
+      const settlement = await tx.broilerSaleSettlement.findUnique({
+        where: { id: settlementId },
+        include: {
+          sales: { select: { id: true } },
+          farmer: { select: { id: true, name: true } },
+        },
+      });
+      if (!settlement) throw new Error("Settlement not found");
+      if (settlement.dealerId !== dealer.id) throw new Error("Settlement not found");
+
+      purgedImageUrls.push(settlement.receiptUrl);
+
+      // Resolve the key used on this settlement's ledger entries.
+      //
+      // Post-fix settlements use `BROILER-SETTLEMENT-${full-cuid}` for the
+      // ledger key regardless of whether the user also typed a settlement
+      // reference for display. Pre-fix settlements may still live in two
+      // legacy shapes:
+      //   - reference=null: ledger key is `BROILER-SETTLEMENT-${slice-8}`.
+      //   - reference="user text": ledger key is the user's text.
+      //
+      // The legacy user-text form is the collision risk the fix closes. We
+      // still read it so pre-fix settlements remain reversible for existing
+      // users, but we try the safe generated key first — only pre-fix
+      // settlements fall through to the legacy formula. The follow-up note
+      // in SECURITY_FOLLOWUPS.md explains the one-shot backfill that would
+      // migrate the remaining pre-fix rows to the safe shape.
+      const newKey = `BROILER-SETTLEMENT-${settlement.id}`;
+      const legacyKey =
+        settlement.reference?.trim() ||
+        `BROILER-SETTLEMENT-${settlement.id.slice(-8).toUpperCase()}`;
+
+      // 1. Unlink all sales from this settlement.
+      await tx.dealerSale.updateMany({
+        where: { settlementId: settlement.id },
+        data: { settlementId: null },
+      });
+
+      // 2. Reverse customer balance changes from credit recovery.
+      //    recordAccountPayment(direction=RECEIVED) decremented balance and incremented totalPayments.
+      const creditRecovered = Number(settlement.creditRecovered);
+      if (creditRecovered > 0) {
+        await tx.customer.update({
+          where: { id: settlement.farmerId },
+          data: {
+            balance: { increment: new Prisma.Decimal(creditRecovered) },
+            totalPayments: { decrement: new Prisma.Decimal(creditRecovered) },
+          },
+        });
+      }
+
+      // 3. Remove ledger entries written by this settlement and repair
+      //    running balances. Try the safe generated key first; fall back
+      //    to the legacy key only if nothing matched.
+      let settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
+        where: { dealerId: dealer.id, reference: newKey },
+        orderBy: { createdAt: "asc" },
+      });
+      let effectiveReference = newKey;
+      if (settlementLedgerEntries.length === 0 && legacyKey !== newKey) {
+        settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
+          where: { dealerId: dealer.id, reference: legacyKey },
+          orderBy: { createdAt: "asc" },
+        });
+        effectiveReference = legacyKey;
+      }
+      for (const entry of settlementLedgerEntries) {
+        purgedImageUrls.push(entry.imageUrl);
+      }
+
+      // Net effect on the running balance: only PAYMENT_RECEIVED entries reduce it;
+      // PAYMENT_MADE (payout, no balance effect) and BROILER_SALE_MARGIN both leave
+      // the running balance unchanged (their balance column equals the previous balance).
+      let netLedgerEffect = 0;
+      for (const entry of settlementLedgerEntries) {
+        if (entry.type === "PAYMENT_RECEIVED") netLedgerEffect -= Number(entry.amount);
+      }
+
+      const oldestEntry = settlementLedgerEntries[0];
+      await tx.dealerLedgerEntry.deleteMany({
+        where: { dealerId: dealer.id, reference: effectiveReference },
+      });
+
+      if (oldestEntry && netLedgerEffect !== 0) {
+        await tx.dealerLedgerEntry.updateMany({
+          where: {
+            dealerId: dealer.id,
+            OR: [
+              { createdAt: { gt: oldestEntry.createdAt } },
+              {
+                AND: [
+                  { createdAt: oldestEntry.createdAt },
+                  { id: { gt: oldestEntry.id } },
+                ],
+              },
+            ],
+          },
+          data: { balance: { decrement: new Prisma.Decimal(netLedgerEffect) } },
+        });
+      }
+
+      // 4. Delete the settlement record (sales are already unlinked above so Restrict constraint allows this).
+      await tx.broilerSaleSettlement.delete({ where: { id: settlement.id } });
+
+      await writeBusinessAudit(req, {
+        action: "dealer.broiler_settlement.reversed",
+        targetType: "BroilerSaleSettlement",
+        targetId: settlement.id,
+        description: `Reversed Broiler settlement for ${settlement.farmer.name}`,
+        businessType: "DEALER",
+        businessId: dealer.id,
+        metadata: {
+          totalProceeds: Number(settlement.totalProceeds),
+          marginAmount: Number(settlement.marginAmount),
+          creditRecovered,
+          farmerPayout: Number(settlement.farmerPayout),
+          saleCount: settlement.sales.length,
+        },
+      }, tx);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    cleanupUploadedImages(purgedImageUrls, userId);
+
+    return res.status(200).json({ success: true, message: "Settlement reversed successfully" });
+  } catch (error: any) {
+    if (error.message === "Settlement not found") {
+      return res.status(404).json({ message: "Settlement not found" });
+    }
+    console.error("Reverse settlement error:", error);
+    return res.status(400).json({ message: error.message || "Unable to reverse settlement" });
   }
 };
 
@@ -1454,6 +1876,7 @@ export const deleteDealerSale = async (
     await DealerService.deleteDealerSale({
       saleId: id,
       dealerId: dealer.id,
+      ownerUserId: userId as string,
     });
 
     await writeBusinessAudit(req, {

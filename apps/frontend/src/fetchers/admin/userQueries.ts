@@ -32,10 +32,8 @@ export interface AdminUser {
   createdAt: string;
   _count: {
     ownedFarms: number;
-    managedFarms: number;
   };
   ownedFarms: Array<{ id: string; name: string }>;
-  managedFarms: Array<{ id: string; name: string }>;
 }
 
 export interface AdminUserFilters {
@@ -43,7 +41,7 @@ export interface AdminUserFilters {
   limit?: number;
   search?: string;
   status?: "ACTIVE" | "INACTIVE" | "PENDING_VERIFICATION";
-  role?: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "DEALER" | "COMPANY" | "HATCHERY";
 }
 
 export interface AdminUsersResponse {
@@ -107,24 +105,6 @@ export interface AdminUserDetail {
   accountFeatures: AccountFeature[];
   accountPayments: AdminAccountPayment[];
   ownedFarms: Array<{
-    id: string;
-    name: string;
-    capacity: number;
-    description: string | null;
-    createdAt: string;
-    currentBirds: number;
-    activeInitialBirds: number;
-    _count: { batches: number };
-    batches: Array<{
-      id: string;
-      batchNumber: string;
-      batchType: "BROILER" | "LAYERS";
-      status: "ACTIVE" | "COMPLETED";
-      initialChicks: number;
-      currentBirds: number;
-    }>;
-  }>;
-  managedFarms: Array<{
     id: string;
     name: string;
     capacity: number;

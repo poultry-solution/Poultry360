@@ -8,6 +8,7 @@ import { Label } from "@/common/components/ui/label";
 import { Plus, Loader2, PlusCircle } from "lucide-react";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   useGetEggProductionByBatch,
   useCreateEggProduction,
@@ -33,7 +34,7 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
   const deleteMutation = useDeleteEggProduction(batchId);
   const createTypeMutation = useCreateEggType();
 
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(() => getNepalTodayAd());
   const [countByType, setCountByType] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
 

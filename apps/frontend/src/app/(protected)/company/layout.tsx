@@ -38,7 +38,7 @@ export default function CompanyLayout({
   return (
     <AuthGuard
       requireAuth={true}
-      allowedRoles={["OWNER", "MANAGER", "COMPANY"]} // Phase 2A: Using OWNER role for companies until COMPANY role is properly configured
+      allowedRoles={["OWNER", "COMPANY"]} // Phase 2A: Using OWNER role for companies until COMPANY role is properly configured
     >
       {children}
     </AuthGuard>

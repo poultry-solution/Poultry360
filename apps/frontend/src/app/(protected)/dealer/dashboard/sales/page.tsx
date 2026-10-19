@@ -90,7 +90,7 @@ export default function DealerSalesPage() {
         { label: "Note", value: (row: any) => row.notes || "" },
       ],
       rows,
-      summary: [{ label: "Total sales", value: rows.length }, { label: "Sales value", value: `Rs ${rows.reduce((sum: number, row: any) => sum + Number(row.totalAmount || 0), 0).toFixed(2)}` }],
+      summary: [{ label: "Total sales", value: rows.length }, { label: "Sales value", value: `Rs ${(Math.round(rows.reduce((sum: number, row: any) => sum + Number(row.totalAmount || 0), 0) * 100) / 100).toFixed(2)}` }],
     };
   };
 

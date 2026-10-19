@@ -15,9 +15,9 @@ import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddlewa
 
 const router = Router();
 
-// Only farmers (OWNER, MANAGER) can manage their listings
+// Only farmers (OWNER) can manage their listings
 router.use((req, res, next) => {
-  authMiddleware(req, res, next, ["OWNER", "MANAGER"]);
+  authMiddleware(req, res, next, ["OWNER"]);
 });
 router.use(requireStaffPermission(StaffPermission.FARMER_MANAGE_OPERATIONS));
 // List for sale is an optional feature (Settings → Optional features), off by default.

@@ -67,8 +67,24 @@ export const generateResetOtp = async (req: Request, res: Response): Promise<any
       select: { id: true, role: true },
     });
 
-    // Keep this response the same for missing/ineligible accounts to avoid exposing account existence.
-    if (!user || user.role === UserRole.SUPER_ADMIN) return res.json(resetResponse());
+    if (!user || user.role === UserRole.SUPER_ADMIN) {
+      // Staff accounts don't own this reset flow — the owner is the only one
+      // who can change their password. Return a specific hint so the UI can
+      // tell them to contact their owner instead of silently sending nothing.
+      const staff = await prisma.staffUser.findUnique({
+        where: { phone },
+        select: { id: true },
+      });
+      if (staff) {
+        return res.json({
+          success: false,
+          code: "STAFF_ACCOUNT_CONTACT_OWNER",
+          message: "This is a staff account. Ask your account owner to reset your password.",
+        });
+      }
+      // Keep the generic response for missing/ineligible accounts to avoid exposing account existence.
+      return res.json(resetResponse());
+    }
 
     const latestOtp = await prisma.passwordResetOtp.findFirst({
       where: { phone, used: false, expiresAt: { gt: new Date() } },

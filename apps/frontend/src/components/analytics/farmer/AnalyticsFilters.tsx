@@ -174,3 +174,37 @@ export function toParams(value: AnalyticsFilterState) {
     endDate: datesOk ? value.endDate : undefined,
   };
 }
+
+/**
+ * Read AnalyticsFilterState from URL search params. Missing keys default to
+ * "all" / empty, so a bare /analytics URL matches ALL_TIME_FILTERS.
+ * `custom` is derived — a URL with both `from` and `to` opens in custom mode.
+ */
+export function filtersFromSearchParams(
+  sp: URLSearchParams | { get(key: string): string | null }
+): AnalyticsFilterState {
+  const startDate = sp.get("from") || "";
+  const endDate = sp.get("to") || "";
+  return {
+    farmId: sp.get("farmId") || "all",
+    batchType: sp.get("batchType") || "all",
+    batchId: sp.get("batchId") || "all",
+    startDate,
+    endDate,
+    custom: Boolean(startDate && endDate),
+  };
+}
+
+/**
+ * AnalyticsFilterState → URLSearchParams. Omits "all" and empty values so the
+ * URL stays short when the user is on defaults.
+ */
+export function filtersToSearchParams(value: AnalyticsFilterState): URLSearchParams {
+  const sp = new URLSearchParams();
+  if (value.farmId && value.farmId !== "all") sp.set("farmId", value.farmId);
+  if (value.batchType && value.batchType !== "all") sp.set("batchType", value.batchType);
+  if (value.batchId && value.batchId !== "all") sp.set("batchId", value.batchId);
+  if (value.custom && value.startDate) sp.set("from", value.startDate);
+  if (value.custom && value.endDate) sp.set("to", value.endDate);
+  return sp;
+}

@@ -196,10 +196,21 @@ type SaleLine = [ProductKey, number];
 
 function sale(ago: number, minute: number, customer: string, lines: SaleLine[], pay: "cash" | "part" | "credit", discount?: { type: "PERCENT" | "FLAT"; value: number }) {
   on(ago, O.sale, `sale ${customer}`, async () => {
-    // Only sell what is in stock right now (the API rejects short stock).
-    const items = lines
-      .map(([key, qty]) => [key, Math.min(qty, stock[key])] as SaleLine)
-      .filter(([key, qty]) => qty > 0 && productIds[key]);
+    // Real dealer sales can repeat the same product on different lines
+    // (e.g. two bulk rows at different quantities). The backend aggregates per
+    // product before the stock check, so we send lines as-is. Clamp each line
+    // to the stock remaining after the prior same-product lines in this sale,
+    // so our local stock view and the API agree.
+    const perProduct: Partial<Record<ProductKey, number>> = {};
+    const items: SaleLine[] = [];
+    for (const [key, qty] of lines) {
+      const used = perProduct[key] || 0;
+      const take = Math.min(qty, stock[key] - used);
+      if (take > 0 && productIds[key]) {
+        items.push([key, take]);
+        perProduct[key] = used + take;
+      }
+    }
     if (items.length === 0) return;
 
     const subtotal = items.reduce((sum, [key, qty]) => sum + qty * PRODUCTS[key].sell, 0);
@@ -350,6 +361,12 @@ async function seedStaff(password: string) {
       password,
       permissions: ["DEALER_VIEW_FINANCIAL_SUMMARIES", "DEALER_VIEW_CASH_HISTORY"],
     });
+    // Demo staff should land straight on the dashboard, not on the first-login
+    // password prompt that createStaffUser sets for real new accounts.
+    await prisma.staffUser.updateMany({
+      where: { phone: STAFF_LOGIN_PHONE },
+      data: { mustChangePassword: false },
+    });
   }
 }
 
@@ -427,21 +444,20 @@ async function main() {
     supplierIds[key] = (await api("POST", "/dealer/manual-companies", { name, phone, address })).data.id;
   }
 
-  // Customers (opening balances are entered on day 100 so statements start with them).
+  // Customers. Opening balances go in at creation time via the dealer-scoped
+  // endpoint (/dealer/sales/customers accepts `openingBalance` + the optional
+  // `openingBalanceDate`). We date the opening ~100 days ago so it precedes the
+  // historical sales in the customer statement.
   for (const c of CUSTOMERS) {
-    const res = await api("POST", "/dealer/sales/customers", { name: c.name, phone: c.phone, address: c.address, category: c.category });
+    const res = await api("POST", "/dealer/sales/customers", {
+      name: c.name,
+      phone: c.phone,
+      address: c.address,
+      category: c.category,
+      ...(c.opening ? { openingBalance: c.opening, openingBalanceDate: at(100, 90) } : {}),
+    });
     customerIds[c.name] = res.data.id;
-    customerOwed[c.name] = 0;
-    if (c.opening) {
-      on(100, O.opening, `customer opening ${c.name}`, async () => {
-        await api("POST", `/sales/customers/${customerIds[c.name]}/opening-balance`, {
-          openingBalance: c.opening,
-          notes: "Balance before using Poultry360",
-          date: at(100, 90),
-        });
-        customerOwed[c.name] += c.opening;
-      });
-    }
+    customerOwed[c.name] = c.opening || 0;
   }
 
   // A customer who bought early, paid in full, then moved away (archived at the end).

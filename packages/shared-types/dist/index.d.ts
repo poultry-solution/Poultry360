@@ -1,7 +1,6 @@
 import { z } from "zod";
 export declare const UserRoleSchema: z.ZodEnum<{
     OWNER: "OWNER";
-    MANAGER: "MANAGER";
     DEALER: "DEALER";
     COMPANY: "COMPANY";
     HATCHERY: "HATCHERY";
@@ -126,7 +125,6 @@ export declare const UserSchema: z.ZodObject<{
     password: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -149,7 +147,6 @@ export declare const CreateUserSchema: z.ZodObject<{
     password: z.ZodString;
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -173,7 +170,6 @@ export declare const UpdateUserSchema: z.ZodObject<{
     phone: z.ZodOptional<z.ZodString>;
     role: z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -204,7 +200,6 @@ export declare const FarmSchema: z.ZodObject<{
     capacity: z.ZodNumber;
     description: z.ZodNullable<z.ZodString>;
     ownerId: z.ZodString;
-    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type Farm = z.infer<typeof FarmSchema>;
 export declare const FarmOwnerSchema: z.ZodObject<{
@@ -213,7 +208,6 @@ export declare const FarmOwnerSchema: z.ZodObject<{
     email: z.ZodNullable<z.ZodString>;
     role: z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -221,20 +215,6 @@ export declare const FarmOwnerSchema: z.ZodObject<{
     }>;
 }, z.core.$strip>;
 export type FarmOwner = z.infer<typeof FarmOwnerSchema>;
-export declare const FarmManagerSchema: z.ZodObject<{
-    id: z.ZodString;
-    name: z.ZodString;
-    email: z.ZodNullable<z.ZodString>;
-    role: z.ZodEnum<{
-        OWNER: "OWNER";
-        MANAGER: "MANAGER";
-        DEALER: "DEALER";
-        COMPANY: "COMPANY";
-        HATCHERY: "HATCHERY";
-        SUPER_ADMIN: "SUPER_ADMIN";
-    }>;
-}, z.core.$strip>;
-export type FarmManager = z.infer<typeof FarmManagerSchema>;
 export declare const FarmCountSchema: z.ZodObject<{
     batches: z.ZodNumber;
     activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -257,26 +237,12 @@ export declare const FarmResponseSchema: z.ZodObject<{
         email: z.ZodNullable<z.ZodString>;
         role: z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
             SUPER_ADMIN: "SUPER_ADMIN";
         }>;
     }, z.core.$strip>;
-    managers: z.ZodArray<z.ZodObject<{
-        id: z.ZodString;
-        name: z.ZodString;
-        email: z.ZodNullable<z.ZodString>;
-        role: z.ZodEnum<{
-            OWNER: "OWNER";
-            MANAGER: "MANAGER";
-            DEALER: "DEALER";
-            COMPANY: "COMPANY";
-            HATCHERY: "HATCHERY";
-            SUPER_ADMIN: "SUPER_ADMIN";
-        }>;
-    }, z.core.$strip>>;
     _count: z.ZodObject<{
         batches: z.ZodNumber;
         activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -291,7 +257,6 @@ export declare const CreateFarmSchema: z.ZodObject<{
     capacity: z.ZodNumber;
     description: z.ZodOptional<z.ZodString>;
     ownerId: z.ZodOptional<z.ZodString>;
-    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type CreateFarm = z.infer<typeof CreateFarmSchema>;
 export declare const UpdateFarmSchema: z.ZodObject<{
@@ -299,7 +264,6 @@ export declare const UpdateFarmSchema: z.ZodObject<{
     capacity: z.ZodOptional<z.ZodNumber>;
     description: z.ZodOptional<z.ZodString>;
     ownerId: z.ZodOptional<z.ZodString>;
-    managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type UpdateFarm = z.infer<typeof UpdateFarmSchema>;
 export declare const BatchSchema: z.ZodObject<{
@@ -1631,7 +1595,6 @@ export declare const SignupSchema: z.ZodObject<{
     password: z.ZodString;
     role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -1744,7 +1707,6 @@ export declare const UserResponseSchema: z.ZodObject<{
     phone: z.ZodString;
     role: z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -1760,7 +1722,6 @@ export declare const UserResponseSchema: z.ZodObject<{
         INACTIVE: "INACTIVE";
         PENDING_VERIFICATION: "PENDING_VERIFICATION";
     }>;
-    managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
     companyName: z.ZodOptional<z.ZodString>;
     companyFarmLocation: z.ZodOptional<z.ZodString>;
     companyFarmNumber: z.ZodOptional<z.ZodString>;
@@ -1776,7 +1737,6 @@ export declare const AuthResponseSchema: z.ZodObject<{
         phone: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -1792,7 +1752,6 @@ export declare const AuthResponseSchema: z.ZodObject<{
             INACTIVE: "INACTIVE";
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>;
-        managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
         companyName: z.ZodOptional<z.ZodString>;
         companyFarmLocation: z.ZodOptional<z.ZodString>;
         companyFarmNumber: z.ZodOptional<z.ZodString>;
@@ -1816,26 +1775,12 @@ export declare const FarmListResponseSchema: z.ZodObject<{
             email: z.ZodNullable<z.ZodString>;
             role: z.ZodEnum<{
                 OWNER: "OWNER";
-                MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
                 HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
-        managers: z.ZodArray<z.ZodObject<{
-            id: z.ZodString;
-            name: z.ZodString;
-            email: z.ZodNullable<z.ZodString>;
-            role: z.ZodEnum<{
-                OWNER: "OWNER";
-                MANAGER: "MANAGER";
-                DEALER: "DEALER";
-                COMPANY: "COMPANY";
-                HATCHERY: "HATCHERY";
-                SUPER_ADMIN: "SUPER_ADMIN";
-            }>;
-        }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
             activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -1869,26 +1814,12 @@ export declare const FarmDetailResponseSchema: z.ZodObject<{
             email: z.ZodNullable<z.ZodString>;
             role: z.ZodEnum<{
                 OWNER: "OWNER";
-                MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
                 HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
-        managers: z.ZodArray<z.ZodObject<{
-            id: z.ZodString;
-            name: z.ZodString;
-            email: z.ZodNullable<z.ZodString>;
-            role: z.ZodEnum<{
-                OWNER: "OWNER";
-                MANAGER: "MANAGER";
-                DEALER: "DEALER";
-                COMPANY: "COMPANY";
-                HATCHERY: "HATCHERY";
-                SUPER_ADMIN: "SUPER_ADMIN";
-            }>;
-        }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
             activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -2080,7 +2011,6 @@ export type BatchDetailResponse = z.infer<typeof BatchDetailResponseSchema>;
 export declare const schemas: {
     readonly UserRole: z.ZodEnum<{
         OWNER: "OWNER";
-        MANAGER: "MANAGER";
         DEALER: "DEALER";
         COMPANY: "COMPANY";
         HATCHERY: "HATCHERY";
@@ -2190,7 +2120,6 @@ export declare const schemas: {
         password: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -2212,7 +2141,6 @@ export declare const schemas: {
         password: z.ZodString;
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -2235,7 +2163,6 @@ export declare const schemas: {
         phone: z.ZodOptional<z.ZodString>;
         role: z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -2265,21 +2192,18 @@ export declare const schemas: {
         capacity: z.ZodNumber;
         description: z.ZodNullable<z.ZodString>;
         ownerId: z.ZodString;
-        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>;
     readonly CreateFarm: z.ZodObject<{
         name: z.ZodString;
         capacity: z.ZodNumber;
         description: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
-        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>;
     readonly UpdateFarm: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         capacity: z.ZodOptional<z.ZodNumber>;
         description: z.ZodOptional<z.ZodString>;
         ownerId: z.ZodOptional<z.ZodString>;
-        managers: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>;
     readonly FarmResponse: z.ZodObject<{
         id: z.ZodString;
@@ -2295,26 +2219,12 @@ export declare const schemas: {
             email: z.ZodNullable<z.ZodString>;
             role: z.ZodEnum<{
                 OWNER: "OWNER";
-                MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
                 HATCHERY: "HATCHERY";
                 SUPER_ADMIN: "SUPER_ADMIN";
             }>;
         }, z.core.$strip>;
-        managers: z.ZodArray<z.ZodObject<{
-            id: z.ZodString;
-            name: z.ZodString;
-            email: z.ZodNullable<z.ZodString>;
-            role: z.ZodEnum<{
-                OWNER: "OWNER";
-                MANAGER: "MANAGER";
-                DEALER: "DEALER";
-                COMPANY: "COMPANY";
-                HATCHERY: "HATCHERY";
-                SUPER_ADMIN: "SUPER_ADMIN";
-            }>;
-        }, z.core.$strip>>;
         _count: z.ZodObject<{
             batches: z.ZodNumber;
             activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -2329,20 +2239,6 @@ export declare const schemas: {
         email: z.ZodNullable<z.ZodString>;
         role: z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
-            DEALER: "DEALER";
-            COMPANY: "COMPANY";
-            HATCHERY: "HATCHERY";
-            SUPER_ADMIN: "SUPER_ADMIN";
-        }>;
-    }, z.core.$strip>;
-    readonly FarmManager: z.ZodObject<{
-        id: z.ZodString;
-        name: z.ZodString;
-        email: z.ZodNullable<z.ZodString>;
-        role: z.ZodEnum<{
-            OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -2372,26 +2268,12 @@ export declare const schemas: {
                 email: z.ZodNullable<z.ZodString>;
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
-                    MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
                     HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
-            managers: z.ZodArray<z.ZodObject<{
-                id: z.ZodString;
-                name: z.ZodString;
-                email: z.ZodNullable<z.ZodString>;
-                role: z.ZodEnum<{
-                    OWNER: "OWNER";
-                    MANAGER: "MANAGER";
-                    DEALER: "DEALER";
-                    COMPANY: "COMPANY";
-                    HATCHERY: "HATCHERY";
-                    SUPER_ADMIN: "SUPER_ADMIN";
-                }>;
-            }, z.core.$strip>>;
             _count: z.ZodObject<{
                 batches: z.ZodNumber;
                 activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -2418,26 +2300,12 @@ export declare const schemas: {
                 email: z.ZodNullable<z.ZodString>;
                 role: z.ZodEnum<{
                     OWNER: "OWNER";
-                    MANAGER: "MANAGER";
                     DEALER: "DEALER";
                     COMPANY: "COMPANY";
                     HATCHERY: "HATCHERY";
                     SUPER_ADMIN: "SUPER_ADMIN";
                 }>;
             }, z.core.$strip>;
-            managers: z.ZodArray<z.ZodObject<{
-                id: z.ZodString;
-                name: z.ZodString;
-                email: z.ZodNullable<z.ZodString>;
-                role: z.ZodEnum<{
-                    OWNER: "OWNER";
-                    MANAGER: "MANAGER";
-                    DEALER: "DEALER";
-                    COMPANY: "COMPANY";
-                    HATCHERY: "HATCHERY";
-                    SUPER_ADMIN: "SUPER_ADMIN";
-                }>;
-            }, z.core.$strip>>;
             _count: z.ZodObject<{
                 batches: z.ZodNumber;
                 activeBatches: z.ZodOptional<z.ZodNumber>;
@@ -3760,7 +3628,6 @@ export declare const schemas: {
         password: z.ZodString;
         role: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -3870,7 +3737,6 @@ export declare const schemas: {
         phone: z.ZodString;
         role: z.ZodEnum<{
             OWNER: "OWNER";
-            MANAGER: "MANAGER";
             DEALER: "DEALER";
             COMPANY: "COMPANY";
             HATCHERY: "HATCHERY";
@@ -3886,7 +3752,6 @@ export declare const schemas: {
             INACTIVE: "INACTIVE";
             PENDING_VERIFICATION: "PENDING_VERIFICATION";
         }>;
-        managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
         companyName: z.ZodOptional<z.ZodString>;
         companyFarmLocation: z.ZodOptional<z.ZodString>;
         companyFarmNumber: z.ZodOptional<z.ZodString>;
@@ -3901,7 +3766,6 @@ export declare const schemas: {
             phone: z.ZodString;
             role: z.ZodEnum<{
                 OWNER: "OWNER";
-                MANAGER: "MANAGER";
                 DEALER: "DEALER";
                 COMPANY: "COMPANY";
                 HATCHERY: "HATCHERY";
@@ -3917,7 +3781,6 @@ export declare const schemas: {
                 INACTIVE: "INACTIVE";
                 PENDING_VERIFICATION: "PENDING_VERIFICATION";
             }>;
-            managedFarms: z.ZodOptional<z.ZodArray<z.ZodString>>;
             companyName: z.ZodOptional<z.ZodString>;
             companyFarmLocation: z.ZodOptional<z.ZodString>;
             companyFarmNumber: z.ZodOptional<z.ZodString>;

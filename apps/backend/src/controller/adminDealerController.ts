@@ -144,14 +144,6 @@ export const getDealerById = async (
             farmerAccounts: true,
           },
         },
-        managers: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            status: true,
-          },
-        },
         companyAccounts: {
           select: {
             createdAt: true,

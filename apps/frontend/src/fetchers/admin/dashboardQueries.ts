@@ -8,7 +8,6 @@ export const adminDashboardKeys = {
 
 export type AdminDashboardRole =
   | "OWNER"
-  | "MANAGER"
   | "DEALER"
   | "COMPANY"
   | "HATCHERY";

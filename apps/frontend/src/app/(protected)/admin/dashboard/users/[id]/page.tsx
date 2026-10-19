@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import Link from "next/link";
 import {
   Card,
@@ -49,7 +50,6 @@ import { toast } from "sonner";
 
 const ROLE_COLORS: Record<string, string> = {
   OWNER: "bg-blue-100 text-blue-800",
-  MANAGER: "bg-purple-100 text-purple-800",
   DEALER: "bg-orange-100 text-orange-800",
   COMPANY: "bg-indigo-100 text-indigo-800",
   HATCHERY: "bg-amber-100 text-amber-800",
@@ -299,7 +299,7 @@ function AccountPaymentsSection({
   const [form, setForm] = useState({
     type: hasInitialPayment ? "MAINTENANCE" as const : "INITIAL" as const,
     amount: "",
-    paidAt: new Date().toISOString().slice(0, 10),
+    paidAt: getNepalTodayAd(),
   });
 
   const submitPayment = async (event: React.FormEvent) => {
@@ -312,7 +312,7 @@ function AccountPaymentsSection({
 
     try {
       await createPayment.mutateAsync({ accountId, type: form.type, amount, paidAt: form.paidAt });
-      setForm({ type: "MAINTENANCE", amount: "", paidAt: new Date().toISOString().slice(0, 10) });
+      setForm({ type: "MAINTENANCE", amount: "", paidAt: getNepalTodayAd() });
       toast.success("Payment recorded");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Could not record payment");
@@ -395,7 +395,7 @@ function AccountPaymentsSection({
             <Input
               id="payment-date"
               required
-              max={new Date().toISOString().slice(0, 10)}
+              max={getNepalTodayAd()}
               type="date"
               value={form.paidAt}
               onChange={(event) => setForm((current) => ({ ...current, paidAt: event.target.value }))}
@@ -672,12 +672,6 @@ export default function AdminUserDetailPage({
     );
   }
 
-  // Compute stats for the stat cards
-  const farmCount = user.ownedFarms.length + user.managedFarms.length;
-  const batchCount =
-    user.ownedFarms.reduce((s, f) => s + f._count.batches, 0) +
-    user.managedFarms.reduce((s, f) => s + f._count.batches, 0);
-
   return (
     <div className="space-y-6">
       {/* Back */}
@@ -695,7 +689,6 @@ export default function AdminUserDetailPage({
           className={`h-2 ${
             {
               OWNER: "bg-blue-500",
-              MANAGER: "bg-purple-500",
               DEALER: "bg-orange-500",
               COMPANY: "bg-indigo-500",
               HATCHERY: "bg-amber-500",
@@ -833,33 +826,8 @@ export default function AdminUserDetailPage({
         isLoading={supportsAccountUsage && isUsageLoading}
       />
 
-      {/* Stat Cards Row */}
-      {user.role === "MANAGER" && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard
-            icon={Tractor}
-            value={farmCount}
-            label={farmCount !== 1 ? "Farms" : "Farm"}
-            color="bg-emerald-100 text-emerald-700"
-          />
-          <StatCard
-            icon={Layers}
-            value={batchCount}
-            label={batchCount !== 1 ? "Batches" : "Batch"}
-            color="bg-sky-100 text-sky-700"
-          />
-          <StatCard
-            icon={Users}
-            value={user.dealerAccounts.length}
-            label={user.dealerAccounts.length !== 1 ? "Dealers" : "Dealer"}
-            color="bg-orange-100 text-orange-700"
-          />
-        </div>
-      )}
-
       {/* Account Tables */}
       <FarmsSection title="Owned Farms" farms={user.ownedFarms} />
-      <FarmsSection title="Managed Farms" farms={user.managedFarms} />
       <DealerAccountsSection accounts={user.dealerAccounts} />
     </div>
   );

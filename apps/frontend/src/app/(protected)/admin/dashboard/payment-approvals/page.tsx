@@ -46,7 +46,6 @@ const ROLE_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "OWNER", label: "Owner" },
-  { value: "MANAGER", label: "Manager" },
   { value: "DEALER", label: "Dealer" },
   { value: "COMPANY", label: "Company" },
   { value: "HATCHERY", label: "Hatchery" },

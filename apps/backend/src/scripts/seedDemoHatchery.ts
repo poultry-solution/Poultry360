@@ -648,6 +648,12 @@ async function seedStaff(password: string) {
       password,
       permissions: ["HATCHERY_MANAGE_OPERATIONS", "HATCHERY_VIEW_ANALYTICS"],
     });
+    // Demo staff should land straight on the dashboard, not on the first-login
+    // password prompt that createStaffUser sets for real new accounts.
+    await prisma.staffUser.updateMany({
+      where: { phone: STAFF_LOGIN_PHONE },
+      data: { mustChangePassword: false },
+    });
   }
 }
 

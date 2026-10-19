@@ -162,7 +162,7 @@ export default function DealerCompanyPage() {
 
     // Format currency
     const formatCurrency = (amount: number) => {
-        return `रू ${Math.abs(amount).toFixed(2)}`;
+        return `रू ${(Math.round(Math.abs(amount) * 100) / 100).toFixed(2)}`;
     };
 
     const filteredManualCompanies = manualCompanies.filter((company) => {

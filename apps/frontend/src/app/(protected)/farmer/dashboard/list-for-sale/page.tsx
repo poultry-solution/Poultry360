@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import {
   Card,
@@ -54,8 +55,8 @@ const defaultForm = (): CreateListForSaleBody => ({
   rate: null,
   quantity: 0,
   unit: "kg",
-  availabilityFrom: new Date().toISOString().split("T")[0] + "T00:00:00.000Z",
-  availabilityTo: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] + "T23:59:59.999Z",
+  availabilityFrom: getNepalTodayAd() + "T00:00:00.000Z",
+  availabilityTo: toNepalDayAd(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) + "T23:59:59.999Z",
   address: "",
   province: null,
   latitude: null,

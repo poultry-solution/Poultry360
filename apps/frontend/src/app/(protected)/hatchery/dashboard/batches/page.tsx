@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -68,7 +69,7 @@ export default function HatcheryBatchesPage() {
 
   // Create modal state
   const [showCreate, setShowCreate] = useState(false);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(getNepalTodayAd());
   const [notes, setNotes] = useState("");
   const [placements, setPlacements] = useState<PlacementRow[]>([
     { inventoryItemId: "", quantity: "" },
@@ -137,7 +138,7 @@ export default function HatcheryBatchesPage() {
   }
 
   function resetForm() {
-    setStartDate(new Date().toISOString().split("T")[0]);
+    setStartDate(getNepalTodayAd());
     setNotes("");
     setPlacements([{ inventoryItemId: "", quantity: "" }]);
     setFormError(null);

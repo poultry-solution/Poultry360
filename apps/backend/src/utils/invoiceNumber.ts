@@ -14,6 +14,15 @@ export async function generateNextInvoiceNumber(
 ): Promise<string> {
   const client = tx ?? prisma;
 
+  // Serialize concurrent invoice generation for the same dealer to prevent
+  // two simultaneous sales from reading the same MAX and producing a duplicate.
+  if (tx) {
+    await (client as any).$queryRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+      `dealer-sale-invoice:${dealerId}`
+    );
+  }
+
   // Find the max numeric invoice number for this dealer
   const result: any[] = await (client as any).$queryRawUnsafe(
     `SELECT MAX(CAST(SUBSTRING("invoiceNumber" FROM 5) AS INTEGER))::text as max_num

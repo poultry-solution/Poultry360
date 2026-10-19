@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
 import { applyBillDiscount, BillDiscountError, type BillDiscountResult } from "../utils/discountHelpers";
 import prisma from "../utils/prisma";
-import { UserRole, TransactionType, SalesItemType } from "@prisma/client";
+import { UserRole, TransactionType, SalesItemType, BatchStatus } from "@prisma/client";
 import {
   CreateSaleSchema,
   SaleSchema,
@@ -12,6 +12,12 @@ import {
   generateNextFarmerInvoiceNumber,
 } from "../utils/invoiceNumber";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
+import {
+  batchScopedBy,
+  farmScopedBy,
+  userOwnsBatch,
+  userOwnsFarm,
+} from "../services/ownershipService";
 
 /**
  * A farmer can only open, pay or delete their own sales. Every sale has the
@@ -45,29 +51,10 @@ export const getAllSalePayments = async (
     // Build where clause
     const where: any = {};
 
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see payments for sales from farms they manage
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.sale = {
-        farmId: { in: userFarms.map((farm) => farm.id) },
-      };
-    } else {
-      // Owners see payments for their sales (implicitly via sale.farm.ownerId or sale.userId if applicable)
-      // Assuming Sale model links to Farm/User, we constrain by Sale's farm owner or direct association
-      // For simplicity in this app's context where sales are linked to farms owned by the user:
-      where.sale = {
-        farm: { ownerId: currentUserId },
-      };
-    }
+    // Owners see payments for their sales — constrained by Sale's farm owner.
+    where.sale = {
+      farm: { ownerId: currentUserId },
+    };
 
     if (farmId) {
       where.sale = { ...where.sale, farmId: farmId as string };
@@ -265,29 +252,22 @@ export const getAllSales = async (
     // Build where clause
     const where: any = {};
 
-    // Role-based filtering
-    if (currentUserRole === UserRole.MANAGER) {
-      // Managers can only see sales from farms they manage
-      const userFarms = await prisma.farm.findMany({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
-        select: { id: true },
-      });
-      where.farmId = { in: userFarms.map((farm) => farm.id) };
-    } else if (currentUserRole === UserRole.OWNER) {
-      // Owners can only see sales from farms they own
-      where.farm = { ownerId: currentUserId };
+    const farmFragment = farmScopedBy(currentUserId!, currentUserRole);
+    if (Object.keys(farmFragment).length > 0) {
+      where.farm = farmFragment;
     }
 
     if (farmId) {
+      if (!(await userOwnsFarm(farmId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Farm not found" });
+      }
       where.farmId = farmId as string;
     }
 
     if (batchId) {
+      if (!(await userOwnsBatch(batchId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Batch not found" });
+      }
       where.batchId = batchId as string;
     }
 
@@ -550,14 +530,17 @@ export const getBatchSales = async (
     const limitNumber = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
     const skip = (pageNumber - 1) * limitNumber;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
+    // Embed ownership in the query — non-owners get 404, not 403, to prevent enumeration.
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id: batchId, ...batchOwnershipWhere },
       include: {
         farm: {
           include: {
             owner: true,
-            managers: true,
           },
         },
       },
@@ -565,17 +548,6 @@ export const getBatchSales = async (
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     const include = {
@@ -710,28 +682,17 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ message: "categoryId is required" });
     }
 
-    // Validate farm access if provided
+    // Validate farm access if provided — non-owner gets null -> 404.
     if (farmId) {
-      const farm = await prisma.farm.findUnique({
-        where: { id: farmId },
+      const farm = await prisma.farm.findFirst({
+        where: { id: farmId, ...farmScopedBy(currentUserId!, currentUserRole) },
         include: {
           owner: true,
-          managers: true,
         },
       });
 
       if (!farm) {
         return res.status(404).json({ message: "Farm not found" });
-      }
-
-      if (currentUserRole === UserRole.MANAGER) {
-        const hasAccess =
-          farm.ownerId === currentUserId ||
-          farm.managers.some((manager) => manager.id === currentUserId);
-
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Access denied to farm" });
-        }
       }
     }
 
@@ -742,16 +703,15 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    // Validate batch access if provided
+    // Validate batch access if provided — non-owner gets null -> 404.
     let batch = null;
     if (batchId) {
-      batch = await prisma.batch.findUnique({
-        where: { id: batchId },
+      batch = await prisma.batch.findFirst({
+        where: { id: batchId, ...batchScopedBy(currentUserId!, currentUserRole) },
         include: {
           farm: {
             include: {
               owner: true,
-              managers: true,
             },
           },
           mortalities: true,
@@ -760,16 +720,6 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
       if (!batch) {
         return res.status(404).json({ message: "Batch not found" });
-      }
-
-      if (currentUserRole === UserRole.MANAGER) {
-        const hasAccess =
-          batch.farm.ownerId === currentUserId ||
-          batch.farm.managers.some((manager) => manager.id === currentUserId);
-
-        if (!hasAccess) {
-          return res.status(403).json({ message: "Access denied to batch" });
-        }
       }
 
       // Validate egg type(s) for EGGS sales
@@ -1216,11 +1166,21 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
     // Only the farmer's own sale; anyone else gets "not found".
     const existingSale = await prisma.sale.findFirst({
       where: ownSaleWhere(id, currentUserId),
-      include: { eggLines: true },
+      include: { eggLines: true, batch: { select: { status: true } } },
     });
 
     if (!existingSale) {
       return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // Deleting a sale restocks birds / eggs. A closed batch has locked
+    // end-of-cycle totals; restocking would corrupt them. UI matches this
+    // guard (farmer sales ledger + batch sales table both hide the delete
+    // button when batch.status === COMPLETED).
+    if (existingSale.batch?.status === BatchStatus.COMPLETED) {
+      return res.status(400).json({
+        message: "Cannot delete a sale from a closed batch.",
+      });
     }
 
     const saleBatchId = existingSale.batchId;
@@ -1619,6 +1579,12 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
 
       // A receipt made by paying a sale also lives on the sale. Remove that
       // payment too, so the sale shows the money as due again.
+      //
+      // Do NOT purge the Cloudinary receipt here. `SalePayment.receiptUrl`
+      // and the soft-deleted `CustomerTransaction.imageUrl` are the same
+      // string. Destroying the file would leave a dangling 404 in the
+      // ledger history that the row still points at. Orphan assets are a
+      // sweep-later problem.
       const salePayment = txn.reference
         ? await tx.salePayment.findUnique({ where: { id: txn.reference }, include: { sale: true } })
         : null;

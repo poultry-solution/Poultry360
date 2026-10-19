@@ -31,7 +31,7 @@ export interface AdminAccountApprovalsFilters {
   page?: number;
   limit?: number;
   status?: AccountApprovalState;
-  role?: "OWNER" | "MANAGER" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "DEALER" | "COMPANY" | "HATCHERY";
   search?: string;
 }
 

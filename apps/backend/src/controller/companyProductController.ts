@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
+import { cleanupUploadedImage } from "../utils/cloudinary";
 
 // ==================== CREATE COMPANY PRODUCT ====================
 export const createCompanyProduct = async (
@@ -233,6 +234,17 @@ export const updateCompanyProduct = async (
       });
     });
 
+    // If the image was swapped (not just left alone), purge the old asset.
+    // Treat an explicit null (user removed the image) and a different URL both
+    // as "replaced"; same URL or undefined means no change to the image field.
+    if (
+      imageUrl !== undefined &&
+      existingProduct.imageUrl &&
+      existingProduct.imageUrl !== imageUrl
+    ) {
+      cleanupUploadedImage(existingProduct.imageUrl, userId as string);
+    }
+
     return res.status(200).json({
       success: true,
       data: updatedProduct,
@@ -280,6 +292,7 @@ export const deleteCompanyProduct = async (
     await prisma.product.delete({
       where: { id },
     });
+    cleanupUploadedImage(product.imageUrl, userId as string);
 
     return res.status(200).json({
       success: true,

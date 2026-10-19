@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User, Menu, Settings, LogOut, Bell, BellRing, CheckCheck, X } from "lucide-react";
+import { User, Menu, Settings, LogOut, Bell, BellRing, CheckCheck, X, KeyRound } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
+import { StaffChangePasswordDialog } from "@/components/staff/StaffChangePasswordDialog";
 
 import {
   DropdownMenu,
@@ -31,7 +32,7 @@ import {
 } from "@/common/lib/pushNotifications";
 
 interface TopbarProps {
-  role?: "OWNER" | "MANAGER" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
+  role?: "OWNER" | "SUPER_ADMIN" | "DEALER" | "COMPANY" | "HATCHERY";
   isCollapsed?: boolean;
   onToggle?: () => void;
 }
@@ -55,6 +56,8 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   const [displayLimit, setDisplayLimit] = useState(NOTIFICATION_PAGE_SIZE);
   const canUseOwnerNotifications = user ? !user.isStaff : false;
   const canUseOwnerSettings = user ? !user.isStaff : false;
+  const isStaff = !!user?.isStaff;
+  const [changePwOpen, setChangePwOpen] = useState(false);
 
   const { data: unreadData } = useGetUnreadCount({ enabled: canUseOwnerNotifications });
   const unreadCount = unreadData?.data?.count ?? 0;
@@ -273,6 +276,16 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
                 </Link>
               </DropdownMenuItem>
             </>}
+            {isStaff && <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => setChangePwOpen(true)}
+              >
+                <KeyRound className="mr-2 h-4 w-4" />
+                Change password
+              </DropdownMenuItem>
+            </>}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOutClick}
@@ -284,6 +297,10 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {isStaff && (
+        <StaffChangePasswordDialog open={changePwOpen} onOpenChange={setChangePwOpen} />
+      )}
     </div>
   );
 }

@@ -309,6 +309,24 @@ export const useCreateBroilerSettlement = () => {
   });
 };
 
+export const useReverseBroilerSettlement = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (settlementId: string) => {
+      const { data } = await axiosInstance.delete(
+        `/dealer/sales/broiler-settlements/${settlementId}`
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
+    },
+  });
+};
+
 // Search customers/farmers
 export const useSearchCustomers = (search: string) => {
   return useQuery({

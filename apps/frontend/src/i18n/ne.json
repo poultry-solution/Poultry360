@@ -2675,7 +2675,8 @@
         "percent": "प्रतिशत (%)",
         "flat": "फ्ल्याट (रू)",
         "value": "मूल्य",
-        "label": "छुट: {amount} ({percent}%)"
+        "label": "छुट: {amount} ({percent}%)",
+        "labelFlat": "छुट: रू {amount}"
       },
       "payment": {
         "title": "भुक्तानी जानकारी",
@@ -3281,7 +3282,6 @@
     "goToLogin": "लगइनमा जानुहोस्",
     "roles": {
       "OWNER": "लेयर / ब्रोइलर किसान",
-      "MANAGER": "फर्म प्रबन्धक",
       "DEALER": "फिड डिलर",
       "COMPANY": "कम्पनी",
       "HATCHERY": "ह्याचरी",

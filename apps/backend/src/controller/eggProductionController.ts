@@ -58,7 +58,6 @@ export const getEggProductionByBatch = async (
           select: {
             id: true,
             ownerId: true,
-            managers: { select: { id: true } },
           },
         },
       },
@@ -73,10 +72,7 @@ export const getEggProductionByBatch = async (
       });
     }
 
-    const hasAccess =
-      batch.farm.ownerId === currentUserId ||
-      batch.farm.managers.some((m: { id: string }) => m.id === currentUserId);
-    if (!hasAccess) {
+    if (batch.farm.ownerId !== currentUserId) {
       return res.status(403).json({ message: "Access denied to this batch" });
     }
 

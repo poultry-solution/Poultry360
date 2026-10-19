@@ -22,6 +22,11 @@ import {
   startOfNepalDay,
 } from "../services/farmerFcrService";
 import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
+import {
+  batchScopedBy,
+  farmScopedBy,
+  userOwnsFarm,
+} from "../services/ownershipService";
 
 const DEFAULT_CFCR_TARGET_WEIGHT_KG = 2;
 const DEFAULT_CFCR_CORRECTION_FACTOR_PER_KG = 0.4;
@@ -80,21 +85,12 @@ export const getAllBatches = async (
     // Build where clause
     const where: any = {};
 
-    // Role-based filtering
-    if (
-      currentUserRole === UserRole.MANAGER ||
-      currentUserRole === UserRole.OWNER
-    ) {
-      // Managers can only see batches from farms they manage or own
-      where.farm = {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      };
-    }
+    Object.assign(where, batchScopedBy(currentUserId!, currentUserRole));
 
     if (farmId) {
+      if (!(await userOwnsFarm(farmId as string, currentUserId!, currentUserRole))) {
+        return res.status(404).json({ message: "Farm not found" });
+      }
       where.farmId = farmId as string;
     }
 
@@ -240,8 +236,13 @@ export const getBatchById = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    // Embed ownership in the query so non-owners get 404 (not 403) to prevent enumeration.
+    let ownershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      ownershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...ownershipWhere },
       include: {
         farm: {
           select: {
@@ -249,12 +250,6 @@ export const getBatchById = async (
             name: true,
             capacity: true,
             owner: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            managers: {
               select: {
                 id: true,
                 name: true,
@@ -360,16 +355,6 @@ export const getBatchById = async (
       return res.status(404).json({ message: "Batch not found" });
     }
 
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.owner.id === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
     // Calculate current chicks
     const totalMortality = await prisma.mortality.aggregate({
       where: { batchId: batch.id },
@@ -409,17 +394,13 @@ export const getFarmBatches = async (
     // Check if user has access to this farm
     const farm = await prisma.farm.findUnique({
       where: { id: farmId },
-      include: { managers: true },
     });
 
     if (!farm) {
       return res.status(404).json({ message: "Farm not found" });
     }
 
-    const hasAccess =
-      farm.ownerId === currentUserId ||
-      farm.managers.some((manager) => manager.id === currentUserId);
-    if (!hasAccess) {
+    if (farm.ownerId !== currentUserId) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -509,15 +490,9 @@ export const createBatch = async (
     // Check if farm exists and user has access
     const farm = await prisma.farm.findUnique({
       where: { id: data.farmId },
-      include: { managers: true },
     });
 
-    // The farm must belong to this account (for every role, not only MANAGER).
-    const hasFarmAccess =
-      !!farm &&
-      (farm.ownerId === currentUserId ||
-        farm.managers.some((manager) => manager.id === currentUserId));
-    if (!farm || !hasFarmAccess) {
+    if (!farm || farm.ownerId !== currentUserId) {
       return res.status(404).json({ message: "Farm not found" });
     }
 
@@ -676,6 +651,7 @@ export const createBatch = async (
             date: allocationDate,
             description: `Chicks allocated to batch ${batch.batchNumber}`,
             itemId: alloc.itemId,
+            batchId: batch.id,
           },
         });
 
@@ -716,30 +692,19 @@ export const updateBatch = async (
       return res.status(400).json({ message: error?.message });
     }
 
-    // Check if batch exists
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const existingBatch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
     if (!existingBatch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingBatch.farm.ownerId === currentUserId ||
-        existingBatch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     const cfcrSettings = parseCfcrSettings(req.body, false);
@@ -848,13 +813,14 @@ export const deleteBatch = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if batch exists
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const existingBatch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
         _count: {
           select: {
             expenses: true,
@@ -870,18 +836,6 @@ export const deleteBatch = async (
 
     if (!existingBatch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingBatch.farm.ownerId === currentUserId ||
-        existingBatch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Identify initial, system-generated records to allow safe rollback
@@ -960,11 +914,24 @@ export const deleteBatch = async (
         });
       }
 
-      // 2) Remove related inventory transactions created for initial allocation
+      // 2) Remove related inventory transactions created for initial allocation.
+      //    Post-migration rows: scoped by FK. (Also handled by onDelete:Cascade
+      //    on tx.batch.delete below, but the explicit call keeps intent clear
+      //    and the restore->delete ordering tidy.)
+      await tx.inventoryTransaction.deleteMany({
+        where: { batchId: id, type: InventoryTransactionType.USAGE },
+      });
+
+      //    Legacy fallback for pre-migration rows (batchId IS NULL). Narrowing
+      //    on `batchId: null` means that after the backfill completes this
+      //    clause matches nothing, and even today it only touches rows that
+      //    predate the FK. Remove once backfill is verified complete.
       await tx.inventoryTransaction.deleteMany({
         where: {
-          type: "USAGE",
+          type: InventoryTransactionType.USAGE,
+          batchId: null,
           description: { contains: initialUsageDescContains },
+          itemId: { in: initialUsages.map((u) => u.itemId) },
         },
       });
 
@@ -1002,30 +969,19 @@ export const closeBatch = async (req: Request, res: Response): Promise<any> => {
 
     const { endDate, finalNotes, confirmRemainingAsDead } = data;
 
-    // Check if batch exists and get current data
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const existingBatch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
     if (!existingBatch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingBatch.farm.ownerId === currentUserId ||
-        existingBatch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Validate that batch is currently active
@@ -1207,30 +1163,16 @@ export const updateBatchStatus = async (
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Check if batch exists
-    const existingBatch = await prisma.batch.findUnique({
-      where: { id },
+    // Scoped find — non-owner (or admin-bypassed) gets null -> 404.
+    const existingBatch = await prisma.batch.findFirst({
+      where: { id, ...batchScopedBy(currentUserId!, currentUserRole) },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
     if (!existingBatch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        existingBatch.farm.ownerId === currentUserId ||
-        existingBatch.farm.managers.some(
-          (manager) => manager.id === currentUserId
-        );
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // If trying to close batch via status update, recommend using closeBatch endpoint
@@ -1280,28 +1222,19 @@ export const getBatchClosureSummary = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     // Only provide closure summary for completed batches
@@ -1467,18 +1400,15 @@ export const getBatchFcrHistory = async (
     const { id } = req.params;
     const currentUserId = req.userId;
     const currentUserRole = req.role;
-    const batch = await prisma.batch.findUnique({
-      where: { id },
-      include: { farm: { include: { managers: true } } },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
+      include: { farm: true },
     });
     if (!batch) return res.status(404).json({ message: "Batch not found" });
-
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) return res.status(403).json({ message: "Access denied" });
-    }
 
     const history = await getFarmerBatchFcrHistory(id);
     return res.json({ success: true, data: history });
@@ -1498,28 +1428,19 @@ export const getBatchAnalytics = async (
     const currentUserId = req.userId;
     const currentUserRole = req.role;
 
-    // Check if batch exists and user has access
-    const batch = await prisma.batch.findUnique({
-      where: { id },
+    let batchOwnershipWhere: any = {};
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
+      batchOwnershipWhere = { farm: { ownerId: currentUserId } };
+    }
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...batchOwnershipWhere },
       include: {
-        farm: {
-          include: { managers: true },
-        },
+        farm: true,
       },
     });
 
     if (!batch) {
       return res.status(404).json({ message: "Batch not found" });
-    }
-
-    // Check access permissions
-    if (currentUserRole === UserRole.MANAGER) {
-      const hasAccess =
-        batch.farm.ownerId === currentUserId ||
-        batch.farm.managers.some((manager) => manager.id === currentUserId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     await refreshFarmerFcrHistorySafely(id);

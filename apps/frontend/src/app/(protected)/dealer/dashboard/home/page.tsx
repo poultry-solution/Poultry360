@@ -56,7 +56,7 @@ export default function DealerHomePage() {
   const user = useAuthStore((state) => state.user);
   const canViewFinancialSummaries = !user?.isStaff || user.permissions?.includes("DEALER_VIEW_FINANCIAL_SUMMARIES");
 
-  const formatCurrency = (amount: number) => `रू ${Number(amount || 0).toFixed(2)}`;
+  const formatCurrency = (amount: number) => `रू ${(Math.round(Number(amount || 0) * 100) / 100).toFixed(2)}`;
 
   // Fetch real data
   const { data: inventoryData, isLoading: inventoryLoading } = useGetInventorySummary();

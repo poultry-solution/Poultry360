@@ -97,7 +97,7 @@ export function DataTable<T = any>({
         return typeof value === 'number' ? value.toLocaleString() : value;
       
       case 'currency':
-        return typeof value === 'number' ? `₹${value.toLocaleString()}` : value;
+        return typeof value === 'number' ? `रू ${value.toLocaleString()}` : value;
       
       case 'date':
         if (!value) return '—';

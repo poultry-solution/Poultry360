@@ -183,7 +183,7 @@ export default function ManualCompanyAccountPage() {
     };
 
     const formatCurrency = (amount: number) => {
-        return `रू ${Math.abs(amount).toFixed(2)}`;
+        return `रू ${(Math.round(Math.abs(amount) * 100) / 100).toFixed(2)}`;
     };
 
     const openEditOpening = () => {

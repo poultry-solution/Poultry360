@@ -3,7 +3,7 @@ import { z } from "zod";
 
 // ==================== ENUMS ====================
 
-export const UserRoleSchema = z.enum(["OWNER", "MANAGER", "DEALER", "COMPANY", "HATCHERY", "SUPER_ADMIN"]);
+export const UserRoleSchema = z.enum(["OWNER", "DEALER", "COMPANY", "HATCHERY", "SUPER_ADMIN"]);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const BatchStatusSchema = z.enum(["ACTIVE", "COMPLETED"]);
@@ -190,7 +190,6 @@ export const FarmSchema = BaseSchema.extend({
   capacity: z.number().int().positive(),
   description: z.string().nullable(),
   ownerId: z.string(), // Farm owner
-  managers: z.array(z.string()).optional(), // Farm managers (array of user IDs)
 });
 
 export type Farm = z.infer<typeof FarmSchema>;
@@ -205,15 +204,6 @@ export const FarmOwnerSchema = z.object({
 });
 
 export type FarmOwner = z.infer<typeof FarmOwnerSchema>;
-
-export const FarmManagerSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().nullable(),
-  role: UserRoleSchema,
-});
-
-export type FarmManager = z.infer<typeof FarmManagerSchema>;
 
 export const FarmCountSchema = z.object({
   batches: z.number().int().nonnegative(),
@@ -231,7 +221,6 @@ export const FarmResponseSchema = BaseSchema.extend({
   description: z.string().nullable(),
   ownerId: z.string(),
   owner: FarmOwnerSchema,
-  managers: z.array(FarmManagerSchema),
   _count: FarmCountSchema,
 });
 
@@ -242,7 +231,6 @@ export const CreateFarmSchema = z.object({
   capacity: z.number().int().positive(),
   description: z.string().optional(),
   ownerId: z.string().optional(), // Will be set by backend from auth
-  managers: z.array(z.string()).optional(),
 });
 
 export type CreateFarm = z.infer<typeof CreateFarmSchema>;
@@ -252,7 +240,6 @@ export const UpdateFarmSchema = z.object({
   capacity: z.number().int().positive().optional(),
   description: z.string().optional(),
   ownerId: z.string().optional(),
-  managers: z.array(z.string()).optional(),
 });
 
 export type UpdateFarm = z.infer<typeof UpdateFarmSchema>;
@@ -1501,7 +1488,6 @@ export const UserResponseSchema = z.object({
   role: UserRoleSchema,
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   status: z.enum(["ACTIVE", "INACTIVE", "PENDING_VERIFICATION"]),
-  managedFarms: z.array(z.string()).optional(), // For managers
   companyName: z.string().optional(),
   companyFarmLocation: z.string().optional(),
   companyFarmNumber: z.string().optional(),
@@ -1611,7 +1597,6 @@ export const schemas = {
   // Farm Response Types
   FarmResponse: FarmResponseSchema,
   FarmOwner: FarmOwnerSchema,
-  FarmManager: FarmManagerSchema,
   FarmCount: FarmCountSchema,
   FarmDetailResponse: FarmDetailResponseSchema,
   FarmListResponse: FarmListResponseSchema,

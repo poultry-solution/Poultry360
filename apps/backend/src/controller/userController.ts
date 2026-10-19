@@ -54,7 +54,6 @@ export const getAllUsers = async (
           _count: {
             select: {
               ownedFarms: true,
-              managedFarms: true,
             },
           },
         },
@@ -86,20 +85,19 @@ export const getUserById = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // A logged-in user can only look up their own profile. Admin lookups go
+    // through SUPER_ADMIN; no cross-tenant discovery via /users/:id.
+    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserId !== id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
         ownedFarms: {
-          select: {
-            id: true,
-            name: true,
-            capacity: true,
-            description: true,
-            createdAt: true,
-          },
-        },
-        managedFarms: {
           select: {
             id: true,
             name: true,
@@ -172,22 +170,6 @@ export const getCurrentUser = async (
             },
           },
         },
-        managedFarms: {
-          select: {
-            id: true,
-            name: true,
-            capacity: true,
-            description: true,
-            createdAt: true,
-            _count: {
-              select: {
-                batches: true,
-                expenses: true,
-                sales: true,
-              },
-            },
-          },
-        },
         categories: {
           select: {
             id: true,
@@ -238,15 +220,22 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Role-based access control
-    if (currentUserRole !== UserRole.OWNER && currentUserId !== id) {
+    // Self-service only (except SUPER_ADMIN who can edit any account for
+    // support flows). An OWNER editing another OWNER would be cross-tenant.
+    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserId !== id) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Only OWNER can change roles and status
-    if (currentUserRole !== UserRole.OWNER) {
+    // Role and status are account-administration fields; only SUPER_ADMIN can
+    // change them. Previously OWNERs could self-approve by setting their own
+    // status to ACTIVE or escalating their role.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       delete data.role;
       delete data.status;
+    } else if (data.role === UserRole.SUPER_ADMIN) {
+      // Keep an explicit guard even though only SUPER_ADMIN can reach here —
+      // it documents the invariant and protects against future callsites.
+      return res.status(403).json({ message: "Cannot assign SUPER_ADMIN role" });
     }
 
     // Build update payload with only fields that exist in Prisma User model
@@ -305,8 +294,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Only OWNER can delete users, and cannot delete themselves
-    if (currentUserRole !== UserRole.OWNER) {
+    // Route guard already restricts this to SUPER_ADMIN; the self-delete
+    // guard remains so an admin cannot nuke their own account by mistake.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -316,29 +306,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
         .json({ message: "Cannot delete your own account" });
     }
 
-    // Check if user has any farms
-    const userFarms = await prisma.farm.count({
-      where: {
-        OR: [{ ownerId: id }, { managers: { some: { id } } }],
-      },
-    });
-
-    if (userFarms > 0) {
-      return res.status(400).json({
-        message:
-          "Cannot delete user with associated farms. Please reassign farms first.",
-      });
-    }
-
-    // Delete user
-    await prisma.user.delete({
-      where: { id },
-    });
-
-    return res.json({
-      success: true,
-      message: "User deleted successfully",
-    });
+    return res.status(403).json({ message: "Access denied" });
   } catch (error) {
     console.error("Delete user error:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -436,7 +404,6 @@ export const getOwnerUsers = async (
           _count: {
             select: {
               ownedFarms: true,
-              managedFarms: true,
             },
           },
         },
@@ -461,68 +428,6 @@ export const getOwnerUsers = async (
   }
 };
 
-// ==================== GET MANAGER USERS ====================
-export const getManagerUsers = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const { page = 1, limit = 10, search } = req.query;
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const where: any = {
-      role: UserRole.MANAGER,
-    };
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: "insensitive" } },
-        { phone: { contains: search as string, mode: "insensitive" } },
-      ];
-    }
-
-    const [managers, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip,
-        take: Number(limit),
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          status: true,
-          companyName: true,
-          CompanyFarmLocation: true,
-          createdAt: true,
-          _count: {
-            select: {
-              ownedFarms: true,
-              managedFarms: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.user.count({ where }),
-    ]);
-
-    return res.json({
-      success: true,
-      data: managers,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit)),
-      },
-    });
-  } catch (error) {
-    console.error("Get manager users error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
 // ==================== UPDATE USER STATUS ====================
 export const updateUserStatus = async (
   req: Request,
@@ -533,8 +438,8 @@ export const updateUserStatus = async (
     const { status } = req.body;
     const currentUserRole = req.role;
 
-    // Only OWNER can update user status
-    if (currentUserRole !== UserRole.OWNER) {
+    // Account activation/suspension is a cross-tenant admin action.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -584,22 +489,20 @@ export const getUserStatistics = async (
   try {
     const currentUserRole = req.role;
 
-    // Only OWNER can view statistics
-    if (currentUserRole !== UserRole.OWNER) {
+    // Platform-wide stats are an admin surface.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const [
       totalUsers,
       totalOwners,
-      totalManagers,
       activeUsers,
       pendingUsers,
       inactiveUsers,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: UserRole.OWNER } }),
-      prisma.user.count({ where: { role: UserRole.MANAGER } }),
       prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
       prisma.user.count({ where: { status: UserStatus.PENDING_VERIFICATION } }),
       prisma.user.count({ where: { status: UserStatus.INACTIVE } }),
@@ -610,7 +513,6 @@ export const getUserStatistics = async (
       data: {
         totalUsers,
         totalOwners,
-        totalManagers,
         activeUsers,
         pendingUsers,
         inactiveUsers,

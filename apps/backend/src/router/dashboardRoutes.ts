@@ -1,6 +1,6 @@
 import express from "express";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
-import { StaffPermission } from "@prisma/client";
+import { StaffPermission, UserRole } from "@prisma/client";
 import {
   getDashboardOverview,
   getDashboardFinancialSummary,
@@ -12,8 +12,10 @@ import {
 
 const router = express.Router();
 
-// Apply authentication middleware to all routes
-router.use(authMiddleware);
+// Apply authentication middleware to all routes; farmer-only (staff inherit role=OWNER).
+router.use((req, res, next) => {
+  authMiddleware(req, res, next, [UserRole.OWNER]);
+});
 router.use(requireStaffPermission(StaffPermission.FARMER_VIEW_FINANCIAL_SUMMARIES));
 
 // ==================== DASHBOARD ROUTES ====================

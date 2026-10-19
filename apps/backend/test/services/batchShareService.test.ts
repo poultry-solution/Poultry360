@@ -151,7 +151,7 @@ describe("assembleShareReport", () => {
 });
 
 describe("share links", () => {
-  const ownedBatch = { id: "batch-1", farm: { ownerId: "farmer-1", managers: [] } };
+  const ownedBatch = { id: "batch-1", farm: { ownerId: "farmer-1" } };
 
   beforeEach(() => {
     jest.clearAllMocks();

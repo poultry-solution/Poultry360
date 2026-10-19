@@ -18,11 +18,12 @@ import {
   verifyOtpAndResetPassword,
 } from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
+import { loginLimiter, otpLimiter } from "../middelware/rateLimiters";
 
 const authRouter = Router();
 
-authRouter.post("/login", login);
-authRouter.post("/register", register);
+authRouter.post("/login", loginLimiter, login);
+authRouter.post("/register", loginLimiter, register);
 authRouter.post("/register-entity", registerEntity);
 authRouter.post("/logout", authMiddleware, (req, res, next) => {
   if (req.actorType !== "USER") return res.status(403).json({ error: "Use the staff logout route" });
@@ -37,8 +38,8 @@ authRouter.post("/verify-password", authMiddleware, verifyPassword);
 authRouter.post("/change-password", authMiddleware, changePassword);
 
 // Password reset (public - no auth required)
-authRouter.post("/forgot-password/generate-otp", generateResetOtp);
-authRouter.post("/forgot-password/verify-otp", verifyOtp);
-authRouter.post("/forgot-password/reset", verifyOtpAndResetPassword);
+authRouter.post("/forgot-password/generate-otp", otpLimiter, generateResetOtp);
+authRouter.post("/forgot-password/verify-otp", otpLimiter, verifyOtp);
+authRouter.post("/forgot-password/reset", otpLimiter, verifyOtpAndResetPassword);
 
 export default authRouter;

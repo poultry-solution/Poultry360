@@ -19,7 +19,6 @@ interface ProfitLossTabProps {
   };
   batch: any;
   isBatchClosed: boolean;
-  receivableTotal: number;
   perBirdRevenue: number;
   /** Full expense list of the batch (not the paged Expenses tab list). */
   expenses: any[];
@@ -54,13 +53,11 @@ export function ProfitLossTab({
   perBroilerExpenseData,
   batch,
   isBatchClosed,
-  receivableTotal,
   perBirdRevenue,
   expenses,
 }: ProfitLossTabProps) {
   const roundedProfit = Math.round(profit);
   const profitClass = roundedProfit > 0 ? "text-green-600" : roundedProfit < 0 ? "text-red-600" : "text-gray-900";
-  const received = salesTotal - receivableTotal;
   const initialBirds = Number(batch?.initialChicks || 0);
 
   const margin = Number(analytics?.profitMargin);
@@ -112,7 +109,7 @@ export function ProfitLossTab({
             label: "Sales",
             icon: TrendingUp,
             value: rupees(salesTotal),
-            sub: `${rupees(received)} received`,
+            sub: "",
           }}
         />
         <StatTile
@@ -188,16 +185,6 @@ export function ProfitLossTab({
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Total sales</span>
                 <span className="font-medium">{rupees(salesTotal)}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Received</span>
-                <span className="font-medium">{rupees(received)}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">Unpaid on bills</span>
-                <span className={`font-medium ${Math.round(receivableTotal) > 0 ? "text-orange-600" : ""}`}>
-                  {rupees(receivableTotal)}
-                </span>
               </div>
               <div className="flex justify-between gap-4 border-t pt-3">
                 <span className="text-muted-foreground">

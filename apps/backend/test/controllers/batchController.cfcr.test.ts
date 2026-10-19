@@ -4,6 +4,7 @@ jest.mock("../../src/utils/prisma", () => ({
     farm: { findUnique: jest.fn() },
     batch: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -34,7 +35,7 @@ import { createBatch, updateBatch } from "../../src/controller/batchController";
 
 const mockedPrisma = prisma as unknown as {
   farm: { findUnique: jest.Mock };
-  batch: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+  batch: { findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
   inventoryItem: { findFirst: jest.Mock; updateMany: jest.Mock };
   inventoryUsage: { create: jest.Mock };
   expense: { create: jest.Mock };
@@ -59,7 +60,6 @@ function existingBatch(status: "ACTIVE" | "COMPLETED") {
     status,
     farm: {
       ownerId: "farmer-1",
-      managers: [],
     },
   };
 }
@@ -78,7 +78,6 @@ describe("Farmer batch cFCR settings", () => {
     mockedPrisma.farm.findUnique.mockResolvedValue({
       id: "farm-1",
       ownerId: "farmer-1",
-      managers: [],
     });
     mockedPrisma.batch.findUnique.mockResolvedValue(null);
     mockedInventoryCosts.mockResolvedValue(new Map([["chicks-1", 10]]));
@@ -128,7 +127,10 @@ describe("Farmer batch cFCR settings", () => {
   });
 
   it("saves valid settings on an active batch and rebuilds history", async () => {
-    mockedPrisma.batch.findUnique.mockResolvedValue(existingBatch("ACTIVE"));
+    // updateBatch calls batch.findFirst (not findUnique) because the
+    // ownership scope requires composing `{ farm: { ownerId } }` into the
+    // where fragment — see batchController.ts:699.
+    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("ACTIVE"));
     mockedPrisma.batch.update.mockResolvedValue({
       ...existingBatch("ACTIVE"),
       cfcrTargetWeightKg: 2.2,
@@ -165,7 +167,7 @@ describe("Farmer batch cFCR settings", () => {
   });
 
   it("rejects cFCR setting changes after batch closure", async () => {
-    mockedPrisma.batch.findUnique.mockResolvedValue(existingBatch("COMPLETED"));
+    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("COMPLETED"));
     const response = makeResponse();
 
     await updateBatch(
@@ -184,7 +186,7 @@ describe("Farmer batch cFCR settings", () => {
   });
 
   it("rejects a negative correction factor", async () => {
-    mockedPrisma.batch.findUnique.mockResolvedValue(existingBatch("ACTIVE"));
+    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("ACTIVE"));
     const response = makeResponse();
 
     await updateBatch(

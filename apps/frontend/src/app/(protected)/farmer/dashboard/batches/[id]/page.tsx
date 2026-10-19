@@ -89,21 +89,17 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { ExpenseModal } from "@/components/batches/modals/ExpenseModal";
 import { MortalityModal } from "@/components/batches/modals/MortalityModal";
 import { WeightModal } from "@/components/batches/modals/WeightModal";
-import { PaymentModal } from "@/components/batches/modals/PaymentModal";
 import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
 import { useI18n } from "@/i18n/useI18n";
 import { nepalBatchAge } from "@/common/lib/nepali-date";
-import { TransactionsModal } from "@/components/batches/modals/TransactionsModal";
-import { CustomerTransactionsModal } from "@/components/batches/modals/CustomerTransactionsModal";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
 import { StatTile } from "@/components/dashboard/StatsCards";
 import { useCalendar } from "@/common/hooks/useCalendar";
 import { ExpensesTab, ExpenseCategoryFilter } from "@/components/batches/tabs/ExpensesTab";
 import { SalesTab } from "@/components/batches/tabs/SalesTab";
 import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
-import { SalesBalanceTab } from "@/components/batches/tabs/SalesBalanceTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
 import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
@@ -112,7 +108,6 @@ import { createExpenseColumns } from "@/components/batches/configs/expenseColumn
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
 import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { createMortalityColumns } from "@/components/batches/configs/mortalityColumns";
-import { createLedgerColumns } from "@/components/batches/configs/ledgerColumns";
 import { Banner } from "@/components/batches/sections/Banner";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { toast } from "sonner";
@@ -148,7 +143,6 @@ const BASE_TABS = [
   "Expenses",
   "Sales",
   "Mortality",
-  "Sales Balance",
   "Profit & Loss",
 ] as const;
 // Growth for Broiler, Egg Production for Layers
@@ -280,9 +274,7 @@ export default function BatchDetailPage() {
     error: salesError,
     createSale,
     deleteSale,
-    addPayment,
     isCreating,
-    isAddingPayment,
     refetch: refetchSales,
   } = useBatchSalesManagement(safeBatchId, { enabled: !!batchId });
 
@@ -572,54 +564,6 @@ export default function BatchDetailPage() {
   );
   const medicineInventory = inventoryItems.filter(
     (item: any) => item.itemType === "MEDICINE"
-  );
-
-  // Calculate customer balances from sales data
-  const customerBalances = useMemo(() => {
-    if (!batchSales) return [];
-
-    const customerMap = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        phone: string;
-        category: "Chicken" | "Other";
-        sales: number;
-        received: number;
-        balance: number;
-      }
-    >();
-
-    batchSales.forEach((sale: any) => {
-      if (sale.isCredit && sale.customerId) {
-        const customerId = sale.customerId;
-        const existing = customerMap.get(customerId) || {
-          id: customerId,
-          name: sale.customer?.name || `Customer ${customerId.slice(-4)}`,
-          phone: sale.customer?.phone || "—",
-          category:
-            (sale.customer?.category as "Chicken" | "Other") || "Chicken",
-          sales: 0,
-          received: 0,
-          balance: 0,
-        };
-
-        existing.sales += Number(sale.amount);
-        existing.received += Number(sale.paidAmount);
-        existing.balance += Number(sale.dueAmount || 0);
-
-        customerMap.set(customerId, existing);
-      }
-    });
-
-    return Array.from(customerMap.values());
-  }, [batchSales]);
-
-  // Calculate total receivable from customer balances
-  const receivableTotal = customerBalances.reduce(
-    (sum, customer) => sum + customer.balance,
-    0
   );
 
   // Expense mutations
@@ -1340,33 +1284,6 @@ export default function BatchDetailPage() {
     }
   }
 
-  // Payment management state
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<{
-    id: string;
-    name: string;
-    balance: number;
-  } | null>(null);
-
-  // Transactions modal state
-  const [isTransactionsModalOpen, setIsTransactionsModalOpen] = useState(false);
-  const [selectedSale, setSelectedSale] = useState<any>(null);
-
-  // Customer transactions modal state
-  const [isCustomerTransactionsModalOpen, setIsCustomerTransactionsModalOpen] =
-    useState(false);
-  const [selectedCustomerForTransactions, setSelectedCustomerForTransactions] =
-    useState<any>(null);
-  const [paymentForm, setPaymentForm] = useState({
-    amount: "",
-    date: getTodayLocalDate(),
-    description: "",
-    reference: "",
-  });
-  const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
-    {}
-  );
-
   // --- Mortality Modal ---
   const [isMortalityModalOpen, setIsMortalityModalOpen] = useState(false);
   const [editingMortalityId, setEditingMortalityId] = useState<string | null>(
@@ -1475,99 +1392,6 @@ export default function BatchDetailPage() {
     }
   }
 
-  // Transactions modal function
-  function openTransactionsModal(sale: any) {
-    setSelectedSale(sale);
-    setIsTransactionsModalOpen(true);
-  }
-
-  // Customer transactions modal function
-  function openCustomerTransactionsModal(customer: any) {
-    setSelectedCustomerForTransactions(customer);
-    setIsCustomerTransactionsModalOpen(true);
-  }
-
-  // Payment management functions
-  function openPaymentModal(customer: {
-    id: string;
-    name: string;
-    balance: number;
-  }) {
-    setSelectedCustomer(customer);
-    setPaymentForm({
-      amount: "",
-      date: getTodayLocalDate(),
-      description: `Payment from ${customer.name}`,
-      reference: "",
-    });
-    setPaymentErrors({});
-    setIsPaymentModalOpen(true);
-  }
-
-  function updatePaymentField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
-    const { name, value } = e.target;
-    setPaymentForm((prev) => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
-    if (paymentErrors[name]) {
-      setPaymentErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-  }
-
-  function validatePayment(): boolean {
-    const errors: Record<string, string> = {};
-    if (!paymentForm.amount) errors.amount = "Amount is required";
-    if (!paymentForm.date) errors.date = "Date is required";
-    if (
-      selectedCustomer &&
-      Number(paymentForm.amount) > selectedCustomer.balance
-    ) {
-      errors.amount = `Amount cannot exceed balance of ₹${selectedCustomer.balance.toLocaleString()}`;
-    }
-    setPaymentErrors(errors);
-    return Object.keys(errors).length === 0;
-  }
-
-  async function submitPayment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!validatePayment() || !selectedCustomer) return;
-
-    try {
-      // Find the first credit sale for this customer to add payment to
-      const customerSale = batchSales?.find(
-        (sale: any) => sale.isCredit && sale.customerId === selectedCustomer.id
-      );
-
-      if (!customerSale) {
-        flash("error", "No credit sale found for this customer");
-        return;
-      }
-
-      // Add payment using the existing addPayment function
-      await addPayment({
-        saleId: customerSale.id,
-        data: {
-          amount: Number(paymentForm.amount),
-          date: paymentForm.date,
-          description: paymentForm.description,
-        },
-      });
-
-      flash("success", "Payment recorded successfully!");
-      setIsPaymentModalOpen(false);
-      setPaymentForm({
-        amount: "",
-        date: getTodayLocalDate(),
-        description: "",
-        reference: "",
-      });
-      setSelectedCustomer(null);
-    } catch (error) {
-      console.error("Failed to record payment:", error);
-      flash("error", "Failed to record payment");
-    }
-  }
 
   // Early return if no batchId to prevent hooks execution differences
   if (!batchId) {
@@ -1627,7 +1451,6 @@ export default function BatchDetailPage() {
   const salesColumns = createSalesColumns({
     isBatchClosed,
     onDeleteSale: setSaleToDelete,
-    openTransactionsModal,
   });
 
   const mortalityColumns = createMortalityColumns({
@@ -1636,13 +1459,6 @@ export default function BatchDetailPage() {
     deleteMortalityMutation,
     openEditMortality,
     deleteMortality,
-  });
-
-  const ledgerColumns = createLedgerColumns({
-    isBatchClosed,
-    batchSales,
-    openCustomerTransactionsModal,
-    openPaymentModal,
   });
 
   return (
@@ -1865,15 +1681,6 @@ export default function BatchDetailPage() {
         />
       )}
 
-      {activeTab === "Sales Balance" && (
-        <SalesBalanceTab
-          isBatchClosed={isBatchClosed}
-          customerBalances={customerBalances}
-          receivableTotal={receivableTotal}
-          ledgerColumns={ledgerColumns}
-        />
-      )}
-
       {activeTab === "Profit & Loss" && (
         <ProfitLossTab
           batch={batch}
@@ -1882,7 +1689,6 @@ export default function BatchDetailPage() {
           expensesTotal={expensesTotal}
           profit={profit}
           perBroilerExpenseData={perBroilerExpenseData}
-          receivableTotal={receivableTotal}
           perBirdRevenue={perBirdRevenue}
           isBatchClosed={isBatchClosed}
           expenses={(batch as any).expenses || []}
@@ -2550,37 +2356,6 @@ export default function BatchDetailPage() {
         </form>
       </Modal>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => {
-          setIsPaymentModalOpen(false);
-          setSelectedCustomer(null);
-          setPaymentForm({
-            amount: "",
-            date: getTodayLocalDate(),
-            description: "",
-            reference: "",
-          });
-        }}
-        selectedCustomer={selectedCustomer}
-        paymentForm={paymentForm}
-        paymentErrors={paymentErrors}
-        onSubmit={submitPayment}
-        onFieldUpdate={updatePaymentField}
-        isPending={isAddingPayment}
-      />
-
-      {/* Transactions Modal */}
-      <TransactionsModal
-        isOpen={isTransactionsModalOpen}
-        onClose={() => {
-          setIsTransactionsModalOpen(false);
-          setSelectedSale(null);
-        }}
-        selectedSale={selectedSale}
-      />
-
       {/* Mortality Modal */}
       <MortalityModal
         isOpen={isMortalityModalOpen}
@@ -2598,17 +2373,6 @@ export default function BatchDetailPage() {
         onSubmit={submitMortality}
         onFieldUpdate={updateMortalityField}
         isPending={createMortalityMutation.isPending || updateMortalityMutation.isPending}
-      />
-
-      {/* Customer Transactions Modal */}
-      <CustomerTransactionsModal
-        isOpen={isCustomerTransactionsModalOpen}
-        onClose={() => {
-          setIsCustomerTransactionsModalOpen(false);
-          setSelectedCustomerForTransactions(null);
-        }}
-        selectedCustomerForTransactions={selectedCustomerForTransactions}
-        batchSales={batchSales}
       />
 
       {/* Weight Modal */}

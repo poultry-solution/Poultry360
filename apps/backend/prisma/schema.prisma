@@ -14,7 +14,6 @@ datasource db {
 
 enum UserRole {
   OWNER
-  MANAGER
   DEALER
   COMPANY
   HATCHERY
@@ -179,9 +178,6 @@ model User {
   // Farms this user owns
   ownedFarms Farm[]
 
-  // Farms this user manages
-  managedFarms Farm[] @relation("FarmManagers")
-
   customers       Customer[]    @relation("CustomerOwner")
   customerRecords Customer[]    @relation("CustomerFarmer") // Reverse relation for connected farmers
   vaccinations    Vaccination[]
@@ -197,8 +193,6 @@ model User {
   medicineSuppliers MedicineSupplier[]
 
   dealer Dealer? @relation("DealerOwner")
-
-  managedDealers Dealer[] @relation("DealerManagers")
 
   company Company? @relation("CompanyOwner")
 
@@ -410,9 +404,6 @@ model Farm {
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  // Managers (many-to-many)
-  managers User[] @relation("FarmManagers")
-
   batches         Batch[]
   expenses        Expense[]
   sales           Sale[]
@@ -465,6 +456,7 @@ model Batch {
   feedConsumptions FeedConsumption[]
   birdWeights      BirdWeight[]
   inventoryUsages  InventoryUsage[]
+  inventoryTransactions InventoryTransaction[]
 
   // Layers: daily egg production (one record per batch per day)
   eggProductions      EggProduction[]
@@ -903,6 +895,12 @@ model InventoryTransaction {
   itemId String
   item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
+  // Optional link to the batch this transaction was created for. Cascade on
+  // batch delete so initial-allocation rows clean up canonically, without the
+  // fragile description/batchNumber matching the old deleteBatch used.
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
   productionInput  FarmerProductionInput?  @relation("FarmerProductionInputTxn")
   productionOutput FarmerProductionOutput? @relation("FarmerProductionOutputTxn")
 
@@ -910,6 +908,7 @@ model InventoryTransaction {
   updatedAt DateTime @updatedAt
 
   @@index([itemId, date])
+  @@index([batchId])
 }
 
 // Usage records that automatically update stock
@@ -1123,9 +1122,6 @@ model Dealer {
   // Owner (dealer authentication / access control)
   ownerId String? @unique
   owner   User?   @relation("DealerOwner", fields: [ownerId], references: [id])
-
-  // NEW: Managers of this dealer (many-to-many)
-  managers User[] @relation("DealerManagers")
 
   transactions           EntityTransaction[]
   products               DealerProduct[]
@@ -1480,9 +1476,12 @@ model DealerFarmerPayment {
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)
 
-  // User who recorded the payment (dealer or farmer)
-  recordedById String
-  recordedBy   User   @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id])
+  // User who recorded the payment (dealer or farmer). Nullable + SetNull
+  // so admin can delete the recorder's user account without a FK failure;
+  // the payment itself belongs to the dealer-farmer account, not to the
+  // recorder, so losing the "who keyed this in" link is acceptable.
+  recordedById String?
+  recordedBy   User?  @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -2019,9 +2018,12 @@ model CompanyDealerPayment {
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)
 
-  // User who recorded the payment
-  recordedById String
-  recordedBy   User   @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id])
+  // User who recorded the payment. Nullable + SetNull so admin can delete
+  // the recorder's user account without a FK failure; the payment itself
+  // belongs to the company-dealer account, not to the recorder, so losing
+  // the "who keyed this in" link is acceptable.
+  recordedById String?
+  recordedBy   User?  @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -2695,6 +2697,10 @@ model StaffUser {
   phone          String            @unique
   passwordHash   String
   isActive       Boolean           @default(true)
+  // true when the staff must set a new password before using the app:
+  // auto-set on create and on owner-triggered password reset. Cleared when
+  // the staff self-changes or acknowledges "keep current" from the modal.
+  mustChangePassword Boolean       @default(false)
   permissions    StaffPermission[] @default([])
   sessionVersion Int               @default(1)
   createdAt      DateTime          @default(now())

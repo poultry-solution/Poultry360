@@ -422,7 +422,15 @@ export default function SalesLedgerPage() {
         { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },
         { label: "Paid", value: (row: any) => Number(row.paidAmount || 0).toFixed(2) },
         { label: "Due", value: (row: any) => Number(row.dueAmount || 0).toFixed(2) },
-        { label: "Payment", value: (row: any) => row.isCredit ? "Credit" : "Cash" },
+        {
+          label: "Payment",
+          value: (row: any) => {
+            const paid = Number(row.paidAmount) || 0;
+            const total = Number(row.amount || row.totalAmount) || 0;
+            if (paid > 0 && paid < total) return "Partially Paid";
+            return row.isCredit ? "Credit" : "Cash";
+          },
+        },
         { label: "Note", value: (row: any) => row.description || "" },
       ],
       rows,
@@ -1280,16 +1288,25 @@ export default function SalesLedgerPage() {
           >
             <ReceiptText className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
-            onClick={() => setSaleToDelete(row)}
-            title={t("saleDelete.delete")}
-            aria-label={t("saleDelete.delete")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {/* Mirror the batch-page guard (components/batches/configs/salesColumns.tsx):
+              deleting a sale on a closed batch would restock birds into a batch
+              whose end-of-cycle totals are already locked. */}
+          {row?.batch?.status === "COMPLETED" ? (
+            <Badge variant="secondary" className="bg-gray-100 text-gray-500 text-xs">
+              Closed
+            </Badge>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-red-50 hover:border-red-300"
+              onClick={() => setSaleToDelete(row)}
+              title={t("saleDelete.delete")}
+              aria-label={t("saleDelete.delete")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       ),
     },

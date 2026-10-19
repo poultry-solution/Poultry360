@@ -3,7 +3,7 @@
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { useCalendar } from "@/common/hooks/useCalendar";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 
 interface DateInputProps {
@@ -91,7 +91,7 @@ export function DateInput({
 
     // Fallback to today
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getNepalTodayAd();
       return convertADtoBS(today);
     } catch (err) {
       console.error("Error getting today's BS date:", err);

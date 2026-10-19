@@ -48,6 +48,7 @@ function publicStaff(staff: any, business: any) {
     status: staff.isActive ? "ACTIVE" : "INACTIVE",
     isStaff: true,
     permissions: staff.permissions,
+    mustChangePassword: !!staff.mustChangePassword,
     ...(staff.accountRole === UserRole.DEALER ? { dealer: business } : {}),
     ...(staff.accountRole === UserRole.HATCHERY ? { hatchery: business } : {}),
     ...(staff.accountRole === UserRole.OWNER ? { farmer: business } : {}),
@@ -183,7 +184,7 @@ export const listStaffUsers = async (req: Request, res: Response): Promise<any> 
   if (!context) return res.status(404).json({ message: "Business account not found" });
   const staff = await prisma.staffUser.findMany({
     where: { ownerId: req.userId!, accountRole: context.module.role },
-    select: { id: true, name: true, phone: true, isActive: true, permissions: true, createdAt: true, updatedAt: true },
+    select: { id: true, name: true, phone: true, isActive: true, permissions: true, mustChangePassword: true, createdAt: true, updatedAt: true },
     orderBy: { createdAt: "desc" },
   });
   return res.json({ success: true, data: staff });
@@ -212,8 +213,10 @@ export const createStaffUser = async (req: Request, res: Response): Promise<any>
       phone,
       passwordHash: await bcrypt.hash(password, 10),
       permissions,
+      // New staff must set their own password on first login (or keep the one the owner picked).
+      mustChangePassword: true,
     },
-    select: { id: true, name: true, phone: true, isActive: true, permissions: true, createdAt: true, updatedAt: true },
+    select: { id: true, name: true, phone: true, isActive: true, permissions: true, mustChangePassword: true, createdAt: true, updatedAt: true },
   });
   await writeBusinessAudit(req, {
     action: `${context.module.businessType.toLowerCase()}.staff_login.created`,
@@ -260,11 +263,13 @@ export const updateStaffUser = async (req: Request, res: Response): Promise<any>
     if (typeof req.body.password !== "string" || req.body.password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
     data.passwordHash = await bcrypt.hash(req.body.password, 10);
     data.sessionVersion = { increment: 1 };
+    // Owner-triggered password change should prompt the staff to set their own on next login.
+    data.mustChangePassword = true;
   }
   const staff = await prisma.staffUser.update({
     where: { id: existing.id },
     data,
-    select: { id: true, name: true, phone: true, isActive: true, permissions: true, createdAt: true, updatedAt: true },
+    select: { id: true, name: true, phone: true, isActive: true, permissions: true, mustChangePassword: true, createdAt: true, updatedAt: true },
   });
   const changes = [
     ...(req.body?.name !== undefined ? ["name"] : []),
@@ -285,4 +290,76 @@ export const updateStaffUser = async (req: Request, res: Response): Promise<any>
     metadata: { changedFields: changes, ...(req.body?.permissions !== undefined ? { permissions: staff.permissions } : {}) },
   });
   return res.json({ success: true, data: staff });
+};
+
+// Staff self-serve password change. currentPassword is always required —
+// even for the forced first-login case where mustChangePassword=true, since
+// the staff member knows the owner-issued password (they logged in with
+// it). The forced-prompt "keep current password" button calls
+// acknowledgeStaffPassword below, which clears the flag without needing
+// the old password.
+export const changeStaffPassword = async (req: Request, res: Response): Promise<any> => {
+  if (req.actorType !== "STAFF" || !req.staffUserId) {
+    return res.status(403).json({ message: "Staff authentication required" });
+  }
+  const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+  const currentPassword = typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: "New password must be at least 8 characters" });
+  }
+  const staff = await prisma.staffUser.findUnique({ where: { id: req.staffUserId } });
+  if (!staff || !staff.isActive) return res.status(401).json({ message: "Staff account is not available" });
+
+  // Always require the current password, even on the forced first-login
+  // change. The staff member knows the owner-issued password (they logged
+  // in with it), and requiring it closes a narrow stolen-session edge where
+  // mustChangePassword=true would otherwise let the attacker lock the
+  // staff out without knowing the credential.
+  if (!currentPassword || !(await bcrypt.compare(currentPassword, staff.passwordHash))) {
+    return res.status(401).json({ message: "Current password is incorrect" });
+  }
+
+  const updated = await prisma.staffUser.update({
+    where: { id: staff.id },
+    data: {
+      passwordHash: await bcrypt.hash(newPassword, 10),
+      mustChangePassword: false,
+      // Invalidate every other active session on password change.
+      sessionVersion: { increment: 1 },
+    },
+  });
+
+  // Reissue tokens for this device so the staff stays signed in after changing.
+  const tokens = makeTokens(updated);
+  res.cookie(STAFF_REFRESH_COOKIE, tokens.refreshToken, cookieOptions);
+
+  const context = await ownerStaffContext(staff.ownerId);
+  if (context) {
+    await writeBusinessAudit(req, {
+      action: `${context.module.businessType.toLowerCase()}.staff_login.self_password_changed`,
+      targetType: "StaffUser",
+      targetId: staff.id,
+      description: `Staff ${staff.name} changed their password`,
+      businessType: context.module.businessType,
+      businessId: context.business.id,
+    });
+  }
+  return res.json({ success: true, accessToken: tokens.accessToken });
+};
+
+// Lets the staff dismiss the first-login prompt without actually changing the
+// password ("keep current"). Only valid when the flag is set; the regular user
+// menu will never surface this.
+export const acknowledgeStaffPassword = async (req: Request, res: Response): Promise<any> => {
+  if (req.actorType !== "STAFF" || !req.staffUserId) {
+    return res.status(403).json({ message: "Staff authentication required" });
+  }
+  const staff = await prisma.staffUser.findUnique({ where: { id: req.staffUserId } });
+  if (!staff || !staff.isActive) return res.status(401).json({ message: "Staff account is not available" });
+  if (!staff.mustChangePassword) return res.json({ success: true });
+  await prisma.staffUser.update({
+    where: { id: staff.id },
+    data: { mustChangePassword: false },
+  });
+  return res.json({ success: true });
 };

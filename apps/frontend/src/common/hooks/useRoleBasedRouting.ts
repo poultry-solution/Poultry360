@@ -24,13 +24,6 @@ export const ROLE_ROUTES: RoleRouteConfig = {
     isCrossPort: false,
     allowedPaths: ["/farmer", "/auth", "/payment"],
   },
-  MANAGER: {
-    basePath: "/farmer",
-    defaultRoute: "/farmer/dashboard/home",
-    port: 3000,
-    isCrossPort: false,
-    allowedPaths: ["/farmer", "/auth", "/payment"],
-  },
   SUPER_ADMIN: {
     basePath: "/admin",
     defaultRoute: "/admin/dashboard",

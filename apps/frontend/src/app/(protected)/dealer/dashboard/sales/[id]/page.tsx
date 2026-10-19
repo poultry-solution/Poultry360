@@ -40,7 +40,7 @@ export default function SaleDetailPage() {
   const sale = saleData?.data;
 
   const formatCurrency = (amount: number) => {
-    return `रू ${amount.toFixed(2)}`;
+    return `रू ${(Math.round(amount * 100) / 100).toFixed(2)}`;
   };
 
   if (isLoading) {
@@ -223,9 +223,18 @@ export default function SaleDetailPage() {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Payment Type</span>
-                  <Badge variant={sale.isCredit ? "destructive" : "default"}>
-                    {sale.isCredit ? "Credit" : "Cash"}
-                  </Badge>
+                  {(() => {
+                    // Match the three-state convention on the sales list page
+                    // (dealer/dashboard/sales/page.tsx) so a partly-paid sale
+                    // is not labelled "Cash".
+                    if (paidAmount > 0 && paidAmount >= totalAmount) {
+                      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Cash</Badge>;
+                    }
+                    if (paidAmount > 0) {
+                      return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Partly Paid</Badge>;
+                    }
+                    return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Credit</Badge>;
+                  })()}
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Payment Method</span>

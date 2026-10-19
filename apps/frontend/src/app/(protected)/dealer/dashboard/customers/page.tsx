@@ -33,6 +33,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
 import { Label } from "@/common/components/ui/label";
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
@@ -77,6 +87,16 @@ export default function DealerCustomersPage() {
   // Add Payment dialog
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
+  // Shared confirm dialog state. Replaces browser confirm() so the prompt is
+  // consistent with the rest of the app and themeable.
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description?: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    action: () => void;
+  } | null>(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -103,6 +123,25 @@ export default function DealerCustomersPage() {
     },
   });
   const isLoading = customersLoading;
+
+  // Full customer list for the Add Payment picker. The paginated table above
+  // only has one page in memory at a time, so the picker needs its own fetch —
+  // otherwise users on page 2 can't pick a customer from page 1.
+  const { data: allCustomersForPicker = [] } = useQuery<Customer[]>({
+    queryKey: ["dealer-customers-all", customerTab],
+    enabled: isAddPaymentOpen,
+    queryFn: async () =>
+      fetchAllPages<Customer>(async (p, limit) => {
+        const { data } = await axiosInstance.get("/dealer/sales/customers", {
+          params: {
+            page: p,
+            limit,
+            archived: customerTab === "archived" ? "true" : "false",
+          },
+        });
+        return { rows: data.data || [], totalPages: data.pagination?.totalPages };
+      }),
+  });
 
   const pagination = customersData?.pagination;
   const totalCustomers = Number(pagination?.total ?? 0);
@@ -183,12 +222,12 @@ export default function DealerCustomersPage() {
       data: {
         name: string;
         phone?: string | null;
-        category?: string;
-        address?: string;
+        category?: string | null;
+        address?: string | null;
       };
     }) => {
       const { data: resData } = await axiosInstance.put(
-        `/sales/customers/${id}`,
+        `/dealer/sales/customers/${id}`,
         data
       );
       return resData;
@@ -307,13 +346,15 @@ export default function DealerCustomersPage() {
       const categoryTrimmed = formData.category.trim();
       const addressTrimmed = formData.address.trim();
 
+      // Always send the field so the backend sees the user's clear-the-value
+      // intent; omitting it was treated as "no change" and kept the old value.
       updateMutation.mutate({
         id: editingCustomer.id,
         data: {
           name,
           phone: phone || null,
-          ...(categoryTrimmed ? { category: categoryTrimmed } : {}),
-          ...(addressTrimmed ? { address: addressTrimmed } : {}),
+          category: categoryTrimmed || null,
+          address: addressTrimmed || null,
         },
       });
     } else {
@@ -338,19 +379,29 @@ export default function DealerCustomersPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(t("dealer.customers.messages.deleteConfirm", { name }))) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: string, name: string) => {
+    setConfirmState({
+      title: t("dealer.customers.messages.deleteConfirm", { name }),
+      confirmLabel: "Delete",
+      destructive: true,
+      action: () => deleteMutation.mutate(id),
+    });
   };
 
-  const handleArchive = async (id: string, name: string) => {
-    if (!confirm(`Archive customer "${name}"?`)) return;
-    archiveMutation.mutate(id);
+  const handleArchive = (id: string, name: string) => {
+    setConfirmState({
+      title: `Archive customer "${name}"?`,
+      confirmLabel: "Archive",
+      action: () => archiveMutation.mutate(id),
+    });
   };
 
-  const handleUnarchive = async (id: string, name: string) => {
-    if (!confirm(`Unarchive customer "${name}"?`)) return;
-    unarchiveMutation.mutate(id);
+  const handleUnarchive = (id: string, name: string) => {
+    setConfirmState({
+      title: `Unarchive customer "${name}"?`,
+      confirmLabel: "Unarchive",
+      action: () => unarchiveMutation.mutate(id),
+    });
   };
   return (
     <div className="space-y-6">
@@ -418,7 +469,9 @@ export default function DealerCustomersPage() {
               <CardTitle className="text-base md:text-lg">{t("dealer.customers.table.title")}</CardTitle>
               <CardDescription className="text-xs md:text-sm">
                 {pagination
-                  ? `Showing ${((currentPage - 1) * pagination.limit) + 1}-${Math.min(currentPage * pagination.limit, totalCustomers)} of ${totalCustomers} customers`
+                  ? totalCustomers === 0
+                    ? "No customers"
+                    : `Showing ${((currentPage - 1) * pagination.limit) + 1}-${Math.min(currentPage * pagination.limit, totalCustomers)} of ${totalCustomers} customers`
                   : t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
               </CardDescription>
             </div>
@@ -722,11 +775,34 @@ export default function DealerCustomersPage() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={!!confirmState} onOpenChange={(open) => !open && setConfirmState(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmState?.title}</AlertDialogTitle>
+            {confirmState?.description && (
+              <AlertDialogDescription>{confirmState.description}</AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmState?.destructive ? "bg-red-600 hover:bg-red-700 text-white" : ""}
+              onClick={() => {
+                confirmState?.action();
+                setConfirmState(null);
+              }}
+            >
+              {confirmState?.confirmLabel ?? "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <DealerAddPaymentDialog
         open={isAddPaymentOpen}
         onOpenChange={setIsAddPaymentOpen}
         mode="select"
-        customers={customers.map((c) => ({
+        customers={allCustomersForPicker.map((c) => ({
           id: c.id,
           name: c.name,
           phone: c.phone ?? undefined,

@@ -21,7 +21,7 @@ The vision in [UNIFIED_APP_REFACTOR_PLAN.md](./UNIFIED_APP_REFACTOR_PLAN.md) is 
 
 - Consolidate into a **single Next.js app** under something like `apps/web/` with **modular route groups** by role: `(farmer)/`, `(dealer)/`, `(company)/`, `(hatchery)/`, `(admin)/`, plus shared `(auth)/`, `(shared)/`, etc.
 - Use **subdomain-based routing** so each role is accessed via its own subdomain (e.g. `dealer.p360.com`).
-- Reduce **shared package pain** by moving auth and most shared code into the app and keeping only minimal shared packages (`shared-types`, `utils`).
+- Reduce **shared package pain** by moving auth and most shared code into the app and keeping only minimal shared packages (`shared-types`).
 - Improve **developer experience** (single install, single dev server, no cross-port auth) and **performance** (role-based code splitting, single deployment).
 
 Current `apps/frontend` already follows this idea (one app, role routes, subdomains); the refactor plan is about restructuring that app and trimming shared packages rather than “multiple apps → one app.”
@@ -70,7 +70,7 @@ For auth to work across subdomains, the refresh-token cookie must be set with a 
 | `DATABASE_URL`       | PostgreSQL connection string     | Prisma requirement                                   |
 | `JWT_SECRET`         | Access token signing             | Required in production                               |
 | `JWT_REFRESH_SECRET` | Refresh token signing            | Required in production                               |
-| `TRUST_PROXY_HOPS`   | Trusted proxy hops for sign-in IP capture | Keep `0` unless the API origin is protected by a trusted proxy |
+| `TRUST_PROXY_HOPS`   | Trusted proxy hops for sign-in IP capture **and** per-IP rate limiting | Defaults to `1` when `NODE_ENV=production` (matches the Nginx → Docker topology on EC2) and `0` otherwise. Override only for chained-proxy setups (e.g. Cloudflare in front of Nginx → set `2`). Setting a value higher than the real hop count lets clients forge `X-Forwarded-For` to spoof their IP |
 | `TRUSTED_GEO_HEADER_SOURCE` | Trusted approximate-location header source | `none` (default), `cloudflare`, or `vercel`; requires proxy trust |
 | `AUDIT_SECURITY_RETENTION_DAYS` | Sign-in IP/device retention | Defaults to `30`; security metadata is deleted after this period |
 | `VAPID_PUBLIC_KEY`   | Web Push (notifications)         | Optional; required for push                          |
@@ -115,13 +115,12 @@ No app-specific env vars at repo root. Each app may use its own `.env` or `.env.
 | `pnpm lint`    | `pnpm -r run lint`                                                      | Lint all packages |
 | `pnpm build:types`  | `rm -rf packages/shared-types/dist && pnpm --filter @myapp/shared-types build`  | Build shared-types only |
 | `pnpm build:auth`   | `rm -rf packages/shared-auth/dist && pnpm --filter @myapp/shared-auth build`   | Build shared-auth only |
-| `pnpm build:utils`  | `rm -rf packages/utils/dist && pnpm --filter @myapp/utils build`              | Build utils only |
 | `pnpm watch:types`  | `pnpm --filter @myapp/shared-types exec tsc -w`                        | Watch and rebuild shared-types |
 | `pnpm watch:auth`   | `pnpm --filter @myapp/shared-auth exec tsc -w`                         | Watch and rebuild shared-auth |
 
 ### 4.3 Build Order and TypeScript
 
-- **Shared packages** (`@myapp/shared-types`, `@myapp/shared-auth`, `@myapp/utils`) are built first (frontend and backend depend on them). Root `pnpm build` runs `pnpm -r run build`, which respects workspace dependency order.
+- **Shared packages** (`@myapp/shared-types`, `@myapp/shared-auth`) are built first (frontend and backend depend on them). Root `pnpm build` runs `pnpm -r run build`, which respects workspace dependency order.
 - **TypeScript**: Each package compiles with `tsc` (or Next.js for the frontend). Frontend uses Next.js build (`next build`); backend and shared packages use `tsc` emitting to `dist/`.
 - **Deployment**: Build the frontend with `pnpm --filter frontend build` (or from `apps/frontend`: `pnpm build`). Backend: `pnpm --filter backend build` if a build step is defined, then run Node against compiled output or use `ts-node`/nodemon in development.
 
@@ -191,7 +190,6 @@ So “migration” here means refactoring the current single app and decommissio
 |---------------------|-----------------------------|------------------|
 | `@myapp/shared-types` | Zod schemas, TS types, enums | backend, frontend |
 | `@myapp/shared-auth`  | Auth helpers, types         | frontend (and optionally backend) |
-| `@myapp/utils`        | Calendar, Nepali date, etc. | frontend (and optionally backend) |
 
 ### 7.2 Pain Points
 
@@ -202,7 +200,7 @@ So “migration” here means refactoring the current single app and decommissio
 
 ### 7.3 Target Strategy (from UNIFIED_APP_REFACTOR_PLAN.md)
 
-- **Keep minimal**: Only `shared-types` (and possibly `utils`) as thin, stable packages.
+- **Keep minimal**: Only `shared-types` as a thin, stable package.
 - **In-app auth**: Move `shared-auth` logic into the unified app so the frontend (and backend if needed) no longer depend on a separate auth package for UI/auth flows.
 - **Fewer packages**: Prefer code in the app’s `(shared)/` or `lib/` over new shared packages to avoid rebuild and sync issues.
 

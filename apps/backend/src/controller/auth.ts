@@ -29,7 +29,6 @@ const generateTokens = (userId: string, role: UserRole) => {
 const requiresAdminApproval = (role: UserRole): boolean => {
   return (
     role === UserRole.OWNER ||
-    role === UserRole.MANAGER ||
     role === UserRole.DEALER ||
     role === UserRole.COMPANY ||
     role === UserRole.HATCHERY
@@ -50,7 +49,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         phone: emailOrPhone,
       },
       include: {
-        managedFarms: true,
         ownedFarms: true,
         dealer: true,
         company: true,
@@ -100,7 +98,6 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       status: user.status,
       language: user.language,
       calendarType: user.calendarType,
-      managedFarms: user.managedFarms?.map((farm) => farm.id),
       ownedFarms: user.ownedFarms?.map((farm) => farm.id),
       dealer: user.dealer,
       company: user.company,
@@ -139,6 +136,10 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       calendarType,
     } = data;
 
+    if (role === UserRole.SUPER_ADMIN) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
     // Check if phone number already exists (phone must be unique)
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -175,14 +176,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           calendarType: calendarType || "BS",
         },
         include: {
-          managedFarms: {
-            select: {
-              id: true,
-              name: true,
-              capacity: true,
-              description: true,
-            },
-          },
           ownedFarms: true,
         },
       });
@@ -231,7 +224,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         status: user.status,
         language: user.language,
         calendarType: user.calendarType,
-        managedFarms: user.managedFarms,
         ownedFarms: user.ownedFarms,
       },
       requiresApproval: approvalRequired,
@@ -343,14 +335,6 @@ export const getUserInfo = async (
   const userData = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      managedFarms: {
-        select: {
-          id: true,
-          name: true,
-          capacity: true,
-          description: true,
-        },
-      },
       ownedFarms: true,
       dealer: true,
       company: true,
@@ -369,7 +353,6 @@ export const getUserInfo = async (
     status: userData.status,
     language: userData.language,
     calendarType: userData.calendarType,
-    managedFarms: userData.managedFarms,
     ownedFarms: userData.ownedFarms,
     role: userData.role,
     dealer: userData.dealer,
@@ -408,14 +391,6 @@ export const validateToken = async (
     const userData = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: {
-        managedFarms: {
-          select: {
-            id: true,
-            name: true,
-            capacity: true,
-            description: true,
-          },
-        },
         ownedFarms: true,
         dealer: true,
         company: true,
@@ -444,7 +419,7 @@ export const validateToken = async (
     });
 
     // Prepare user response
-    let userResponse: any = {
+    const userResponse = {
       id: userData.id,
       name: userData.name,
       phone: userData.phone,
@@ -454,7 +429,6 @@ export const validateToken = async (
       status: userData.status,
       language: userData.language,
       calendarType: userData.calendarType,
-      managedFarms: userData.managedFarms,
       ownedFarms: userData.ownedFarms,
       dealer: userData.dealer,
       company: userData.company,
@@ -465,16 +439,6 @@ export const validateToken = async (
           }
         : null,
     };
-
-    // Add storeId for farm managers
-    if (userData.role === UserRole.MANAGER) {
-      const farm = await prisma.farm.findMany({
-        where: { managers: { some: { id: userData.id } } },
-      });
-      if (farm) {
-        userResponse.managedFarms = farm.map((farm) => farm.id);
-      }
-    }
 
     return res.json({
       isValid: true,

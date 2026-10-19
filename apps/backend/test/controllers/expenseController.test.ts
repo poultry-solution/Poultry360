@@ -1,7 +1,7 @@
 jest.mock("../../src/utils/prisma", () => ({
   __esModule: true,
   default: {
-    batch: { findUnique: jest.fn() },
+    batch: { findFirst: jest.fn() },
     expense: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -24,7 +24,7 @@ import {
 } from "../../src/controller/expenseController";
 
 const mocked = prisma as unknown as {
-  batch: { findUnique: jest.Mock };
+  batch: { findFirst: jest.Mock };
   expense: {
     findMany: jest.Mock;
     count: jest.Mock;
@@ -145,9 +145,9 @@ describe("saved Other expense names", () => {
   });
 
   it("includes custom expense names in the Other filter", async () => {
-    mocked.batch.findUnique.mockResolvedValue({
+    mocked.batch.findFirst.mockResolvedValue({
       id: "batch-1",
-      farm: { ownerId: "farmer-1", owner: {}, managers: [] },
+      farm: { ownerId: "farmer-1", owner: {} },
     });
     mocked.expense.findMany.mockResolvedValue([]);
     mocked.expense.count.mockResolvedValue(0);

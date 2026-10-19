@@ -60,12 +60,7 @@ export const getDashboardOverview = async (
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
-      where: {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      },
+      where: { ownerId: currentUserId },
       select: { id: true },
     });
 
@@ -113,12 +108,7 @@ export const getDashboardOverview = async (
     ] = await Promise.all([
       // Total farms
       prisma.farm.count({
-        where: {
-          OR: [
-            { ownerId: currentUserId },
-            { managers: { some: { id: currentUserId } } },
-          ],
-        },
+        where: { ownerId: currentUserId },
       }),
 
       // Active batches
@@ -330,12 +320,7 @@ export const getDashboardFinancialSummary = async (
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
-      where: {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      },
+      where: { ownerId: currentUserId },
       select: { id: true },
     });
 
@@ -506,12 +491,7 @@ export const getDashboardPerformanceMetrics = async (
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
-      where: {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      },
+      where: { ownerId: currentUserId },
       select: { id: true },
     });
 
@@ -1025,12 +1005,7 @@ export const getBatchPerformanceList = async (
 
     // Get user's farms
     const userFarms = await prisma.farm.findMany({
-      where: {
-        OR: [
-          { ownerId: currentUserId },
-          { managers: { some: { id: currentUserId } } },
-        ],
-      },
+      where: { ownerId: currentUserId },
       select: { id: true },
     });
 

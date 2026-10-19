@@ -38,7 +38,7 @@ function makeWeight(overrides: Record<string, unknown> = {}) {
     source: "MANUAL",
     batch: {
       status: "ACTIVE",
-      farm: { ownerId: "owner-1", managers: [] },
+      farm: { ownerId: "owner-1" },
     },
     ...overrides,
   };
@@ -114,7 +114,7 @@ describe("deleteBirdWeight", () => {
     mockedPrisma.birdWeight.findUnique.mockResolvedValue(makeWeight({
       batch: {
         status: "COMPLETED",
-        farm: { ownerId: "owner-1", managers: [] },
+        farm: { ownerId: "owner-1" },
       },
     }));
     const response = makeResponse();

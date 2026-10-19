@@ -41,7 +41,7 @@ export function parseFarmInput(body: unknown) {
 }
 
 const accessWhere = (userId: string): Prisma.FarmWhereInput => ({
-  OR: [{ ownerId: userId }, { managers: { some: { id: userId } } }],
+  ownerId: userId,
 });
 
 /** The farm if this account may use it; otherwise "not found" (never reveals other farms). */

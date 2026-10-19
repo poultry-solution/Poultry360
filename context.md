@@ -84,12 +84,15 @@ account.
 
 | Role | Route Prefix | Default Dashboard |
 |------|--------------|-------------------|
-| `OWNER`, `MANAGER` | `/farmer/*` | `/farmer/dashboard/home` |
+| `OWNER` | `/farmer/*` | `/farmer/dashboard/home` |
 | `DEALER` | `/dealer/*` | `/dealer/dashboard/home` |
 | `COMPANY` | `/company/*` | `/company/dashboard/home` |
+| `HATCHERY` | `/hatchery/*` | `/hatchery/dashboard/home` |
 | `SUPER_ADMIN` | `/admin/*` | `/admin/dashboard` |
 
-Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection.
+Backend enforces roles via `authMiddleware(req, res, next, [allowedRoles])`. Frontend uses `AuthGuard` + `RoleBasedMiddleware` for route protection. The `MANAGER` role was removed on 2026-10-18 (migration `20261018000000_remove_manager_role`); it was never surfaced in any UI and left prod with zero rows.
+
+Ownership is enforced at the handler level, not just the route. Farmer by-id and list handlers compose `batchScopedBy(userId, role)` / `farmScopedBy(userId, role)` from `apps/backend/src/services/ownershipService.ts` into their Prisma `where`, and list filters (`?farmId=`, `?batchId=`) are pre-checked with `userOwnsFarm` / `userOwnsBatch`. Non-matching requests return 404 (not 403), to prevent id enumeration. `SUPER_ADMIN` returns an empty where fragment (admin bypass).
 
 ### Account Relationships
 
@@ -186,6 +189,7 @@ Services handle transactions, state machines, and domain logic. Controllers hand
 | `CompanyDealerAccountService` | Active Company-owned dealer sale/payment ledger; keep it one-sided and do not turn it into account sync |
 | `DealerService` | Dealer operations, farmer/customer balance-based ledger |
 | `farmerFcrService` | Raw FCR, cFCR, freshness, history rebuilds, and dashboard totals for Farmer Broiler batches |
+| `ownershipService` | Scoped-WHERE fragments (`batchScopedBy`, `farmScopedBy`) and ownership asserts (`userOwnsFarm`, `userOwnsBatch`) for farmer by-id and list endpoints. SUPER_ADMIN bypasses. |
 | `SocketService` | JWT socket auth, room management, real-time events |
 | `webpushService` | Web Push notifications |
 | `ReminderCronService` | Cron job for vaccination/reminder notifications |
@@ -325,6 +329,72 @@ poller, provider, or socket work starts, and reuse the same TanStack Query cache
   Never store credentials, tokens, cookies, session IDs, raw user-agent strings, browser versions,
   precise location, or data from an external geo-IP provider. Do not audit page views, exports,
   failed actions, token refreshes, or notifications.
+
+---
+
+## Date Handling (Nepal Timezone)
+
+The app is Nepal-only (UTC+05:45). All stored and transmitted dates are AD (Gregorian); BS (Bikram Sambat) is a display-only concern — the AD/BS toggle UI exists but is hidden (`EFFECTIVE_CALENDAR_TYPE = "BS"`, `CALENDAR_TOGGLE_VISIBLE = false` in `apps/frontend/src/common/config/calendar.ts`), so every user sees BS in the UI.
+
+### Convention
+
+- A `DateTime` field in storage represents a **Nepal wall-clock calendar day**, serialized as `YYYY-MM-DDT00:00:00.000Z` (UTC midnight of the AD day). The UTC-midnight wire format is just the chosen encoding — semantically it means "the Nepal day the user picked".
+- Writers normalize via `date: new Date(payload.date)`. Readers must apply the Nepal offset (+05:45) before extracting day/month/year, or they drift one day between 00:00 and 05:45 Nepal time.
+- Do calculations in AD. Only convert to BS at display time.
+
+### Where the helpers live
+
+| Module | Purpose |
+|---|---|
+| `apps/frontend/src/common/lib/nepali-date.ts` | **Primary frontend module.** All date work on the client goes through here. |
+| `apps/backend/src/utils/nepalBsDate.ts` | **Primary backend module** for Nepal-day logic (today, day keys, BS month windows). |
+| `apps/backend/src/services/farmerFcrService.ts` | Exports `startOfNepalDay` / `endOfNepalDay`. Used by weight, batch, FCR controllers for `gte`/`lte` filters. |
+| `apps/backend/src/utils/dealerSaleDateRange.ts` | `parseNepalBoundary` + `parseDealerDateRange` for dealer list/filter endpoints. |
+| `apps/frontend/src/common/hooks/useCalendar.ts` | React hook wrapping the lib. Provides `toDisplayDate` + `formatRelativeDate` used by `<DateDisplay/>` and forms. |
+
+### Cheat sheet — what to use when
+
+| Situation | Frontend | Backend |
+|---|---|---|
+| "today" default for a form | `getNepalTodayAd()` | `getNepaliNow()` / `toNepalDayKey(new Date())` |
+| Day a timestamp falls on | `toNepalDayAd(x)` | `toNepalDayKey(x)` |
+| Display AD as BS | `convertADtoBS(x)` or `<DateDisplay/>` | — (never display server-side) |
+| `gte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.startDate` | `startOfNepalDay(x)` or `parseNepalBoundary(x, "start")` |
+| `lte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.endDate` | `endOfNepalDay(x)` or `parseNepalBoundary(x, "end")` |
+| Parse `YYYY-MM-DD` from UI | `parseDateStringLocal(s)` (noon-local; avoids UTC-midnight trap) | `new Date(s)` + wrap with `startOfNepalDay` if used for day logic |
+| Current BS month boundaries | — (ask backend) | `getNepalBsMonthWindow()` |
+| Batch day number | `nepalBatchAge(start)` | `nepalBatchDay(start, now)` |
+| "N days from today" | `toNepalDayAd(new Date(Date.now() + n*86400000))` | `toNepalDayKey(new Date(Date.now() + n*86400000))` |
+
+### Flow
+
+```
+BS picker (NepaliDatePicker) → DateInput emits AD YYYY-MM-DD or ISO
+  → form state (AD string)
+  → POST { date: "2026-10-19T00:00:00.000Z" }
+  → backend `date: new Date(payload.date)` (UTC midnight)
+  → Prisma DateTime column
+  → GET response (ISO string)
+  → <DateDisplay/> → convertADtoBS() → "Magh 5, 2082" shown to user
+```
+
+### Anti-patterns (will cause bugs between 00:00–05:45 Nepal time)
+
+```ts
+new Date().toISOString().split("T")[0]      // ❌ UTC day, not Nepal day
+new Date().toISOString().slice(0, 10)       // ❌ same bug
+new Date(dateStr).getDate()                 // ❌ reads device-local, not Nepal
+new Date(a) > new Date(b)                   // ❌ for day-boundary comparisons — use startOfNepalDay
+date_trunc('day', col) in raw SQL           // ❌ Postgres groups by server UTC
+```
+
+### Known open items
+
+- **Dealer sales list filter** uses UTC days while stats use Nepal days — mismatch near midnight. Fix: route the list through `parseDealerDateRange`.
+- **Broiler settlement** default date uses UTC — can show yesterday before 05:45. Fix: swap default to `getNepalTodayAd()`.
+- **`useCalendar.formatRelativeDate`** (`apps/frontend/src/common/hooks/useCalendar.ts:71`) compares `new Date().getTime() - dateObj.getTime()` with no Nepal shift, so "Today"/"Yesterday"/"N days ago" labels can be off by one between 00:00 and 05:45 Nepal time.
+- **`useCalendar.toDisplayDate`** AD-format branch (line 42) uses `toLocaleDateString` which reads device-local time — latent only; the AD branch is dead code while `EFFECTIVE_CALENDAR_TYPE === "BS"` is forced.
+- Final sweep for stray `.toISOString().split('T')[0]` / `.slice(0, 10)` and bare `new Date()` sentinels (both backend and frontend) is still open.
 
 ---
 
