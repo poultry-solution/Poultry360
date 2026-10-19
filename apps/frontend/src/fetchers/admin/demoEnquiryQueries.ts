@@ -1,10 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import axiosInstance from "@/common/lib/axios";
-
-export const adminDemoEnquiriesKeys = {
-  all: ["admin-demo-enquiries"] as const,
-  list: (limit: number) => [...adminDemoEnquiriesKeys.all, "list", limit] as const,
-};
+import { makeEnquiryFollowUpHooks } from "./enquiryFollowUp";
 
 export interface AdminDemoEnquiry {
   id: string;
@@ -12,24 +6,9 @@ export interface AdminDemoEnquiry {
   phoneNumber: string;
   businessTypes: string[];
   message?: string | null;
-  createdAt: string;
 }
 
-export interface AdminDemoEnquiriesResponse {
-  success: boolean;
-  data: AdminDemoEnquiry[];
-}
-
-export function useGetAdminDemoEnquiries(limit = 200) {
-  return useQuery<AdminDemoEnquiriesResponse>({
-    queryKey: adminDemoEnquiriesKeys.list(limit),
-    queryFn: async () => {
-      const { data } = await axiosInstance.get<AdminDemoEnquiriesResponse>(
-        `/admin/demo-enquiries?limit=${limit}`
-      );
-      return data;
-    },
-    staleTime: 3000,
-    refetchOnWindowFocus: false,
-  });
-}
+export const demoEnquiryFollowUp = makeEnquiryFollowUpHooks<AdminDemoEnquiry>(
+  "/admin/demo-enquiries",
+  "admin-demo-enquiries",
+);

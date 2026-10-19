@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authMiddleware } from "../middelware/middelware";
+import { authMiddleware, auditSuccessfulAdminMutation } from "../middelware/middelware";
 import { UserRole } from "@prisma/client";
-import { getDemoEnquiries } from "../controller/demoEnquiryController";
+import { demoEnquiryAdmin } from "../controller/adminEnquiryController";
 
 const router = Router();
 
@@ -9,8 +9,11 @@ const router = Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
 });
+router.use(auditSuccessfulAdminMutation("DemoEnquiry"));
 
-router.get("/", getDemoEnquiries);
+// ?status=new|contacted|all (default new)
+router.get("/", demoEnquiryAdmin.list);
+router.patch("/:id/contacted", demoEnquiryAdmin.markContacted);
+router.patch("/:id/new", demoEnquiryAdmin.markNew);
 
 export default router;
-

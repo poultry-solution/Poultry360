@@ -3298,6 +3298,31 @@
       "businessType": "व्यवसाय प्रकार",
       "message": "सन्देश",
       "createdAt": "पठाइएको मिति"
+    },
+    "enquiries": {
+      "tabNew": "नयाँ",
+      "tabContacted": "सम्पर्क गरिएको",
+      "markContacted": "सम्पर्क गरियो",
+      "moveToNew": "नयाँमा फर्काउनुहोस्",
+      "saving": "सेभ हुँदैछ…",
+      "markedContacted": "सम्पर्क गरिएको भनी राखियो",
+      "movedToNew": "नयाँमा फर्काइयो",
+      "updateFailed": "सेभ भएन। फेरि प्रयास गर्नुहोस्।",
+      "emptyNew": "नयाँ अनुरोध छैन। 🎉",
+      "emptyContacted": "अहिलेसम्म कसैलाई सम्पर्क गरिएको छैन।",
+      "loadFailed": "लोड भएन। Refresh थिच्नुहोस्।",
+      "loading": "लोड हुँदैछ…",
+      "refresh": "Refresh",
+      "contactedAt": "सम्पर्क गरिएको",
+      "action": "काम",
+      "contactTitle": "सम्पर्क फारमका सन्देश",
+      "contactSubtitle": "वेबसाइटको सम्पर्क फारमबाट आएका सन्देश।",
+      "name": "नाम",
+      "email": "इमेल",
+      "phone": "फोन",
+      "farmType": "फार्म प्रकार",
+      "message": "सन्देश",
+      "submittedAt": "पठाएको समय"
     }
   },
   "cashInHand": {
