@@ -840,37 +840,45 @@ export const voidManualPurchase = async (req: Request, res: Response): Promise<a
                 throw new Error("Purchase already voided");
             }
 
-            // Stock safety checks. These run AFTER the claim so a failure
-            // rolls the void back (including the voidedAt we just set).
+            // Reverse inventory + create reversal transactions.
+            //
+            // Use a single guarded updateMany per item: Prisma emits one SQL
+            // UPDATE with both the stock check and the decrement, so two
+            // concurrent voids on different purchases that touch the same
+            // product cannot both pass the check and drive stock negative.
+            // Any failure here still rolls the void (including voidedAt)
+            // back via the enclosing transaction.
             for (const item of purchase.items) {
                 if (!item.dealerProductId) continue;
-                const product = await tx.dealerProduct.findUnique({
-                    where: { id: item.dealerProductId },
-                    select: { id: true, currentStock: true },
-                });
-                if (!product) continue;
-                const currentStock = Number(product.currentStock || 0);
-                // Use baseQuantity (base unit) to mirror what the original purchase added.
-                // Fall back to quantity for older records that predate baseQuantity.
-                const qty = Number(item.baseQuantity ?? item.quantity ?? 0);
-                if (currentStock < qty) {
-                    throw new Error(
-                        `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${currentStock}.`
-                    );
-                }
-            }
-
-            // Reverse inventory + create reversal transactions
-            for (const item of purchase.items) {
-                if (!item.dealerProductId) continue;
+                // Use baseQuantity (base unit) to mirror what the original
+                // purchase added. Fall back to quantity for older records
+                // that predate baseQuantity.
                 const qty = Number(item.baseQuantity ?? item.quantity ?? 0);
                 const cost = Number(item.costPrice || 0);
                 const totalAmount = qty * cost;
 
-                await tx.dealerProduct.update({
-                    where: { id: item.dealerProductId },
+                const decremented = await tx.dealerProduct.updateMany({
+                    where: {
+                        id: item.dealerProductId,
+                        currentStock: { gte: new Prisma.Decimal(qty) },
+                    },
                     data: { currentStock: { decrement: new Prisma.Decimal(qty) } },
                 });
+
+                if (decremented.count === 0) {
+                    // count=0 can mean (a) product no longer exists or
+                    // (b) stock is below qty. Distinguish by re-reading so
+                    // the message to the dealer is accurate; a missing
+                    // product is silently skipped to match prior behaviour.
+                    const product = await tx.dealerProduct.findUnique({
+                        where: { id: item.dealerProductId },
+                        select: { currentStock: true },
+                    });
+                    if (!product) continue;
+                    throw new Error(
+                        `Cannot delete: ${qty} units from purchase have been partially consumed. Available stock: ${Number(product.currentStock || 0)}.`
+                    );
+                }
 
                 await tx.dealerProductTransaction.create({
                     data: {

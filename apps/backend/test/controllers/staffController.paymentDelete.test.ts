@@ -4,6 +4,7 @@ jest.mock("../../src/utils/prisma", () => ({
     staff: { findFirst: jest.fn(), delete: jest.fn() },
     staffPayment: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       delete: jest.fn(),
     },
     user: { findUnique: jest.fn() },
@@ -30,7 +31,7 @@ import { deletePayment, deleteStaff } from "../../src/controller/staffController
 
 const mockedPrisma = prisma as unknown as {
   staff: { findFirst: jest.Mock; delete: jest.Mock };
-  staffPayment: { findFirst: jest.Mock; delete: jest.Mock };
+  staffPayment: { findFirst: jest.Mock; findMany: jest.Mock; delete: jest.Mock };
   user: { findUnique: jest.Mock };
 };
 function makeResponse() {
@@ -107,6 +108,7 @@ describe("Delete staff payment", () => {
     it("deletes a stopped staff member after the password checks out", async () => {
       mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
       mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      mockedPrisma.staffPayment.findMany.mockResolvedValue([]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       const response = makeResponse();
 
@@ -125,6 +127,7 @@ describe("Delete staff payment", () => {
       // could never reach. Delete must not reintroduce that gate.
       mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
       mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      mockedPrisma.staffPayment.findMany.mockResolvedValue([]);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       const response = makeResponse();
 

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { cleanupUploadedImages } from "../utils/cloudinary";
-import { PurchaseCategory, UserRole, TransactionType } from "@prisma/client";
+import { Prisma, PurchaseCategory, UserRole, TransactionType } from "@prisma/client";
 import {
   CreateDealerSchema,
   UpdateDealerSchema,
@@ -1010,46 +1010,59 @@ export const setDealerOpeningBalance = async (req: Request, res: Response): Prom
       return res.status(400).json({ message: "Opening balance can only be set for manual suppliers" });
     }
 
-    const prev = await prisma.entityTransaction.findFirst({
-      where: { dealerId: id, type: TransactionType.OPENING_BALANCE },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      select: { amount: true },
-    });
+    // Serializable so a concurrent opening-balance edit cannot race the
+    // read of `prev` with our write of `delta`. Previously `prev` was read
+    // outside the transaction, so two edits could both see the same
+    // previous amount and apply conflicting deltas to the dealer balance.
+    const txn = await prisma.$transaction(
+      async (tx) => {
+        const prev = await tx.entityTransaction.findFirst({
+          where: { dealerId: id, type: TransactionType.OPENING_BALANCE },
+          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+          select: { amount: true },
+        });
 
-    const prevAmount = prev ? Number(prev.amount) : 0;
-    const delta = numericOpening - prevAmount;
+        const prevAmount = prev ? Number(prev.amount) : 0;
+        const delta = numericOpening - prevAmount;
 
-    const [txn] = await prisma.$transaction([
-      prisma.entityTransaction.create({
-        data: {
-          type: TransactionType.OPENING_BALANCE,
-          amount: numericOpening,
-          quantity: null,
-          itemName: null,
-          date: new Date(),
-          description: notes ? String(notes) : null,
-          reference: null,
-          imageUrl: null,
-          dealerId: id,
-          entityType: "DEALER",
-          entityId: id,
-          paymentToPurchaseId: null,
-        },
-      }),
-      prisma.dealer.update({
-        where: { id },
-        data: {
-          balance: { increment: delta },
-        },
-      }),
-    ]);
+        const created = await tx.entityTransaction.create({
+          data: {
+            type: TransactionType.OPENING_BALANCE,
+            amount: numericOpening,
+            quantity: null,
+            itemName: null,
+            date: new Date(),
+            description: notes ? String(notes) : null,
+            reference: null,
+            imageUrl: null,
+            dealerId: id,
+            entityType: "DEALER",
+            entityId: id,
+            paymentToPurchaseId: null,
+          },
+        });
+        await tx.dealer.update({
+          where: { id },
+          data: {
+            balance: { increment: delta },
+          },
+        });
+        return created;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     return res.status(200).json({
       success: true,
       data: txn,
       message: "Opening balance updated successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Opening balance was being updated at the same time. Please try again.",
+      });
+    }
     console.error("Set dealer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

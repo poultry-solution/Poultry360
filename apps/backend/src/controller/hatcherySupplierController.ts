@@ -6,6 +6,7 @@ import {
   HatcherySex,
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
+import { writeBusinessAudit } from "../services/businessAuditService";
 import bcrypt from "bcrypt";
 import {
   ACCOUNT_FEATURE_KEYS,
@@ -158,6 +159,16 @@ export const createHatcherySupplier = async (
       },
     });
 
+    await writeBusinessAudit(req, {
+      action: "hatchery.suppliers.created",
+      targetType: "HatcherySupplier",
+      targetId: supplier.id,
+      description: "Added a supplier",
+      businessType: "HATCHERY",
+      businessId: userId,
+      metadata: { name: supplier.name },
+    });
+
     return res
       .status(201)
       .json({ success: true, data: supplier, message: "Supplier created" });
@@ -202,6 +213,16 @@ export const updateHatcherySupplier = async (
       },
     });
 
+    await writeBusinessAudit(req, {
+      action: "hatchery.suppliers.updated",
+      targetType: "HatcherySupplier",
+      targetId: updated.id,
+      description: "Updated a supplier",
+      businessType: "HATCHERY",
+      businessId: userId,
+      metadata: { name: updated.name },
+    });
+
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.error("updateHatcherySupplier:", err);
@@ -233,6 +254,16 @@ export const deleteHatcherySupplier = async (
       });
 
     await prisma.hatcherySupplier.delete({ where: { id } });
+
+    await writeBusinessAudit(req, {
+      action: "hatchery.suppliers.deleted",
+      targetType: "HatcherySupplier",
+      targetId: id,
+      description: "Deleted a supplier",
+      businessType: "HATCHERY",
+      businessId: userId,
+      metadata: { name: supplier.name },
+    });
 
     return res.json({ success: true, message: "Supplier deleted" });
   } catch (err) {

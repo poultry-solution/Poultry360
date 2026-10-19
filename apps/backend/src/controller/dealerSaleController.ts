@@ -160,6 +160,11 @@ export const createDealerSale = async (
       message: "Sale created successfully",
     });
   } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another sale was being saved at the same time. Please try again.",
+      });
+    }
     console.error("Create dealer sale error:", error);
     return res.status(400).json({ message: error.message || "Internal server error" });
   }
@@ -234,6 +239,11 @@ export const createSupplierSettlementSale = async (
       message: "Supplier settlement sale created successfully",
     });
   } catch (error: any) {
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        message: "Another supplier settlement was being saved at the same time. Please try again.",
+      });
+    }
     console.error("Create supplier settlement sale error:", error);
     return res.status(400).json({ message: error.message || "Internal server error" });
   }
@@ -1509,7 +1519,13 @@ export const settleBroilerSales = async (
         throw new Error("One or more Broiler sales were already settled. Please refresh and try again.");
       }
 
-      const settlementReference = reference?.trim() || `BROILER-SETTLEMENT-${created.id.slice(-8).toUpperCase()}`;
+      // Always use a server-generated key for the ledger lookup. The user's
+      // own `reference` lives on `settlement.reference` for display only.
+      // Reusing it as the ledger key would let any unrelated DealerLedgerEntry
+      // (payment, adjustment) that happens to carry the same user text be
+      // deleted when this settlement is reversed. Full cuid, not sliced, so
+      // the key is globally unique.
+      const settlementReference = `BROILER-SETTLEMENT-${created.id}`;
       if (creditRecovered > 0) {
         await DealerService.recordAccountPayment(tx, {
           customerId: farmer.id,
@@ -1610,8 +1626,23 @@ export const reverseSettlement = async (
 
       purgedImageUrls.push(settlement.receiptUrl);
 
-      // The reference stored in ledger entries — mirrors what settleBroilerSales writes.
-      const settlementReference =
+      // Resolve the key used on this settlement's ledger entries.
+      //
+      // Post-fix settlements use `BROILER-SETTLEMENT-${full-cuid}` for the
+      // ledger key regardless of whether the user also typed a settlement
+      // reference for display. Pre-fix settlements may still live in two
+      // legacy shapes:
+      //   - reference=null: ledger key is `BROILER-SETTLEMENT-${slice-8}`.
+      //   - reference="user text": ledger key is the user's text.
+      //
+      // The legacy user-text form is the collision risk the fix closes. We
+      // still read it so pre-fix settlements remain reversible for existing
+      // users, but we try the safe generated key first — only pre-fix
+      // settlements fall through to the legacy formula. The follow-up note
+      // in SECURITY_FOLLOWUPS.md explains the one-shot backfill that would
+      // migrate the remaining pre-fix rows to the safe shape.
+      const newKey = `BROILER-SETTLEMENT-${settlement.id}`;
+      const legacyKey =
         settlement.reference?.trim() ||
         `BROILER-SETTLEMENT-${settlement.id.slice(-8).toUpperCase()}`;
 
@@ -1634,12 +1665,21 @@ export const reverseSettlement = async (
         });
       }
 
-      // 3. Remove ledger entries written by this settlement and repair running balances.
-      //    All settlement-related entries share the same settlementReference.
-      const settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
-        where: { dealerId: dealer.id, reference: settlementReference },
+      // 3. Remove ledger entries written by this settlement and repair
+      //    running balances. Try the safe generated key first; fall back
+      //    to the legacy key only if nothing matched.
+      let settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
+        where: { dealerId: dealer.id, reference: newKey },
         orderBy: { createdAt: "asc" },
       });
+      let effectiveReference = newKey;
+      if (settlementLedgerEntries.length === 0 && legacyKey !== newKey) {
+        settlementLedgerEntries = await tx.dealerLedgerEntry.findMany({
+          where: { dealerId: dealer.id, reference: legacyKey },
+          orderBy: { createdAt: "asc" },
+        });
+        effectiveReference = legacyKey;
+      }
       for (const entry of settlementLedgerEntries) {
         purgedImageUrls.push(entry.imageUrl);
       }
@@ -1654,7 +1694,7 @@ export const reverseSettlement = async (
 
       const oldestEntry = settlementLedgerEntries[0];
       await tx.dealerLedgerEntry.deleteMany({
-        where: { dealerId: dealer.id, reference: settlementReference },
+        where: { dealerId: dealer.id, reference: effectiveReference },
       });
 
       if (oldestEntry && netLedgerEffect !== 0) {

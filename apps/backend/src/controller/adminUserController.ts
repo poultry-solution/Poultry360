@@ -505,18 +505,6 @@ async function hardDeleteUserData(userId: string) {
       },
     });
 
-    await tx.companyDealerPayment.deleteMany({
-      where: {
-        recordedById: userId,
-      },
-    });
-
-    await tx.dealerFarmerPayment.deleteMany({
-      where: {
-        recordedById: userId,
-      },
-    });
-
     await tx.companyDealerAccount.updateMany({
       where: {
         balanceLimitSetBy: userId,
@@ -580,6 +568,15 @@ async function hardDeleteUserData(userId: string) {
         },
       });
     }
+
+    // FarmerProductionInput/Output.inventoryTxn use onDelete: Restrict, so the
+    // inventory transactions below cannot be deleted while a production run
+    // still references them. Delete the runs first; the input/output rows
+    // cascade out via the FarmerProductionRun relation. Mirrors the hatchery
+    // handling below.
+    await tx.farmerProductionRun.deleteMany({
+      where: { farmerId: userId },
+    });
 
     if (inventoryItemIds.length > 0) {
       await tx.inventoryUsage.deleteMany({

@@ -292,9 +292,12 @@ export const updateStaffUser = async (req: Request, res: Response): Promise<any>
   return res.json({ success: true, data: staff });
 };
 
-// Staff self-serve: used both for the forced first-login change (currentPassword
-// not required when mustChangePassword=true) and for voluntary later changes
-// from the topbar (currentPassword required).
+// Staff self-serve password change. currentPassword is always required —
+// even for the forced first-login case where mustChangePassword=true, since
+// the staff member knows the owner-issued password (they logged in with
+// it). The forced-prompt "keep current password" button calls
+// acknowledgeStaffPassword below, which clears the flag without needing
+// the old password.
 export const changeStaffPassword = async (req: Request, res: Response): Promise<any> => {
   if (req.actorType !== "STAFF" || !req.staffUserId) {
     return res.status(403).json({ message: "Staff authentication required" });
@@ -307,10 +310,13 @@ export const changeStaffPassword = async (req: Request, res: Response): Promise<
   const staff = await prisma.staffUser.findUnique({ where: { id: req.staffUserId } });
   if (!staff || !staff.isActive) return res.status(401).json({ message: "Staff account is not available" });
 
-  if (!staff.mustChangePassword) {
-    if (!currentPassword || !(await bcrypt.compare(currentPassword, staff.passwordHash))) {
-      return res.status(401).json({ message: "Current password is incorrect" });
-    }
+  // Always require the current password, even on the forced first-login
+  // change. The staff member knows the owner-issued password (they logged
+  // in with it), and requiring it closes a narrow stolen-session edge where
+  // mustChangePassword=true would otherwise let the attacker lock the
+  // staff out without knowing the credential.
+  if (!currentPassword || !(await bcrypt.compare(currentPassword, staff.passwordHash))) {
+    return res.status(401).json({ message: "Current password is incorrect" });
   }
 
   const updated = await prisma.staffUser.update({

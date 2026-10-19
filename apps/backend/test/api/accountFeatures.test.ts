@@ -294,7 +294,9 @@ describe("Account feature API", () => {
     expect(response.body.user.permissions).toEqual([]);
 
     apiHelper.setAuthToken(response.body.accessToken);
-    const customer = await apiHelper.get(`/sales/customers/${dealerCustomerId}`);
+    // Dealer screens moved from the shared /sales/customers to the
+    // dealer-scoped route when the farmer /sales router became OWNER-only.
+    const customer = await apiHelper.get(`/dealer/sales/customers/${dealerCustomerId}`);
     expect(customer.status).toBe(200);
     expect(customer.body.data).toMatchObject({
       id: dealerCustomerId,
@@ -302,8 +304,10 @@ describe("Account feature API", () => {
     });
 
     // Sales and customer operations are deliberately available to active
-    // dealer staff, scoped to their dealer owner's records.
-    expect((await apiHelper.get("/sales")).status).toBe(200);
+    // dealer staff, scoped to their dealer owner's records. The dealer
+    // routes moved to /dealer/sales when the farmer /sales router became
+    // OWNER-only.
+    expect((await apiHelper.get("/dealer/sales")).status).toBe(200);
   });
 
   it("allows staff devices to subscribe to their business notifications", async () => {

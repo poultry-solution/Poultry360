@@ -88,3 +88,109 @@ Two options, in order of invasiveness:
 - **Option B:** change every "date" column that represents a calendar day (not a moment) from `DateTime` to `@db.Date`. Database-level date-only semantics mean no TZ math anywhere. Correct in theory, requires a schema migration + every Prisma query + seeds + test fixtures. Only worth it if a broader date-handling cleanup is already in flight.
 
 Grep hotspots if revisiting: `grep -rn "setHours(0, 0, 0, 0)\|interval '5 hours 45 minutes'\|parseNepalBoundary\|getNepalBsMonthWindow" src/`.
+
+---
+
+## 4. Automatic retry on P2034 for dealer Serializable writes
+
+**Status:** deferred (identified 2026-10-19). Current behaviour is already safe (409 "please try again"); automatic retry is a UX improvement, not a correctness fix.
+
+### Current state
+
+Four dealer write paths use `Prisma.TransactionIsolationLevel.Serializable` to protect ledger balance from write-skew. All four translate a `P2034` (`serialization_failure`) into a 409 "please try again" response so the user retries by hand:
+
+- `DealerService.createDealerSale` (`dealerService.ts:102`)
+- `DealerService.createSupplierSettlementSale` (`dealerService.ts:355` area)
+- `DealerService.recordAccountPayment` / `recordDealerPayment` (`dealerService.ts:738`)
+- `setDealerOpeningBalance` (`dealerController.ts:1013`, Serializable block added 2026-10-19)
+
+### Reviewer's suggestion
+
+Catch the first `P2034` server-side and run the same transaction once more before giving up. One retry absorbs the common case where the conflicting transaction has already committed by the time we retry, so the user never sees the error. A second `P2034` falls through to the existing 409.
+
+### Why we are NOT doing this yet
+
+Need to confirm in production **what actually triggers P2034 today** before adding a silent retry. Two scenarios to distinguish:
+
+1. **Legitimate concurrent writers on the same dealer ledger.** Two staff users on the same account posting sales within the same millisecond, or an API client firing parallel requests. Auto-retry is the correct answer here — it preserves the user's intent.
+
+2. **Duplicate submission from a single user (double-click, flaky network retry).** The two writes represent the *same* sale, not two different ones. Current behaviour: one succeeds, the other returns 409 and the user sees "please try again" and (usually correctly) does nothing. **Auto-retry here is harmful** — the server would silently create two sales when the user only intended one.
+
+Suspicion from product owner: on a normal day, the standard single-click flow should never hit P2034. If it does happen in practice, it's likely scenario 2, which auto-retry would make *worse*, not better.
+
+### Investigation checklist for whoever picks this up
+
+1. Add structured logging to each `P2034` catch (dealerId, actor userId / staffUserId, request IP, timestamp, endpoint). Deploy and let it run for one to two weeks.
+2. Classify the samples:
+   - Same dealer + same actor within 2 seconds → almost certainly double-submit.
+   - Same dealer + two different staff actors → genuine concurrent write.
+   - Different dealers → shouldn't be possible (balances are per-dealer); if seen, something else is going on and needs investigation on its own.
+3. Based on the mix, pick one of:
+   - **Mostly scenario 1** → add the one-shot retry helper. Wrap the four Serializable tx blocks.
+   - **Mostly scenario 2** → the real fix is request idempotency (an `Idempotency-Key` header stored for N minutes), not a retry. The frontend already debounces most submit buttons; add one on any that doesn't, and verify no accidental auto-resubmission on auth-token refresh.
+   - **Both roughly even** → add idempotency *first*, then auto-retry on top.
+
+### Shape of the retry (for whenever we are ready)
+
+```ts
+// apps/backend/src/utils/retryOnSerializationFailure.ts
+export async function retryOnceOnSerializationFailure<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    if (error?.code === "P2034") return await fn(); // second P2034 bubbles up to the 409 catch
+    throw error;
+  }
+}
+```
+
+Then at each of the four sites, wrap the existing `prisma.$transaction(... Serializable ...)` call in `retryOnceOnSerializationFailure(() => prisma.$transaction(...))`. The current 409 catches stay as the final safety net.
+
+### Do NOT
+
+- Retry more than once. A real logic bug or saturation would spin.
+- Add retry at the controller layer where the result object is already built — must wrap the transaction itself so the entire read-compute-write runs again from a fresh snapshot.
+- Add retry on anything other than `P2034`. Validation errors, FK violations, etc. must not be retried.
+
+---
+
+## 5. Legacy Broiler settlements still match ledger entries by user text
+
+**Status:** informational only (identified 2026-10-19). Forward fix shipped the same day. Product owner confirmed no production settlements predate the fix, so no backfill is required right now. This note remains as a reference in case legacy data appears later (e.g., import from another environment).
+
+### What the forward fix did
+
+Before: `settleBroilerSales` used `settlement.reference?.trim() || BROILER-SETTLEMENT-${slice-8}` as the key stored on every ledger entry it created, and `reverseSettlement` matched by the same string. A dealer who typed any value as the settlement reference and later typed the same string on an unrelated payment would see the payment's ledger entry destroyed on reverse — references are not unique.
+
+After (2026-10-19, `dealerSaleController.ts:1522`): the create path always writes `BROILER-SETTLEMENT-${full-cuid}` as the ledger key, independent of any user input. New settlements can never collide. The user's own text still lives on `settlement.reference` for display.
+
+### What the reverse path currently does
+
+`reverseSettlement` (`dealerSaleController.ts:1629` onward) tries the safe generated key first and only falls back to the legacy formula (user reference, then slice-8 fallback) when nothing matches. Post-fix settlements never fall through. Pre-fix settlements fall through to the legacy formula — same unsafe matching as before the fix, kept so existing users can still reverse them.
+
+### Risk that remains
+
+A pre-fix settlement whose `settlement.reference` is a non-null, non-generated string. On reverse, we `deleteMany({ dealerId, reference: <user text> })` and could still take out any unrelated ledger entry on the same dealer that reuses that string.
+
+The forward fix stops new occurrences; this note is about the historical set.
+
+### Suggested one-shot backfill
+
+A dedicated script, run once per environment after confirming no in-flight reversals:
+
+1. For each `BroilerSaleSettlement` with `reference IS NOT NULL`:
+   - `settlementId = row.id`, `legacyRef = row.reference.trim()`, `newRef = "BROILER-SETTLEMENT-" + row.id`.
+   - Find candidate ledger rows: `prisma.dealerLedgerEntry.findMany({ where: { dealerId: row.dealerId, reference: legacyRef } })`.
+   - Expected row count = 1 (margin row) + (`creditRecovered > 0` ? 1 : 0) + (`farmerPayout > 0` ? 1 : 0). Compare and classify:
+     - count == expected → rewrite `reference = newRef` on each row. Safe.
+     - count > expected → ambiguous (user reused the string on an unrelated payment); do NOT touch, log to a report for admin review.
+     - count < expected → inconsistent historical data; log for admin review.
+2. Produce a CSV: `settlementId, dealerId, legacyRef, rowsFound, action`.
+
+Rows the backfill rewrites are safe to reverse later. Rows flagged ambiguous need admin intervention.
+
+### Do NOT
+
+- Backfill without the expected-count check — the whole point of the fix is to stop blind matching on user text.
+- Edit `settlement.reference`; it is a display field and users may be referring to it in external records.
+- Run while the dealer sales UI is live for the affected dealer — the window between row read and row write should be as short as possible per-settlement.

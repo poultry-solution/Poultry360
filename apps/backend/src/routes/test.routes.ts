@@ -10,9 +10,24 @@ import {
 
 const router = express.Router();
 
-// Only enable in test environment
-if (process.env.NODE_ENV !== 'test') {
-  throw new Error('Test routes should only be loaded in test environment');
+// Only enable in test environment, and only against a local DB. The
+// router module performs the same check before requiring this file; the
+// repeat here is defense-in-depth so loading this file in any other
+// context fails loudly. The hostname comparison is strict (no substring
+// match) so prod URLs that happen to contain "localhost" in a password or
+// query parameter cannot slip through.
+const isLocalDb = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+})();
+if (process.env.NODE_ENV !== 'test' || !isLocalDb) {
+  throw new Error('Test routes require NODE_ENV=test and a local DATABASE_URL (localhost / 127.0.0.1 / ::1)');
 }
 
 interface TestUserSetup {

@@ -53,7 +53,15 @@ export const getAllExpenses = async (
 
     const farmFragment = farmScopedBy(currentUserId!, currentUserRole);
     if (Object.keys(farmFragment).length > 0) {
-      where.farm = farmFragment;
+      // Farm-linked expenses must belong to the caller's farms. Farm-less
+      // expenses (e.g. inventory purchases save with farmId: null) stay
+      // owned via category.userId above; include them so the list doesn't
+      // silently hide them. Composed under AND so a search `where.OR`
+      // below doesn't clobber this scoping.
+      where.AND = [
+        ...(where.AND ?? []),
+        { OR: [{ farm: farmFragment }, { farmId: null }] },
+      ];
     }
 
     if (farmId) {

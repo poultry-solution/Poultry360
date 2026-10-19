@@ -63,9 +63,25 @@ import farmerProductionRoutes from "./farmerProductionRoutes";
 import accountFeatureRoutes from "./accountFeatureRoutes";
 import { accountBusinessAuditRoutes, adminBusinessAuditRoutes, dealerBusinessAuditRoutes } from "./businessAuditRoutes";
 
-// Test routes (only in test environment)
+// Test routes (only in test environment). Two independent gates on
+// purpose — these routes nuke the DB and bypass onboarding, so setting
+// NODE_ENV=test alone must never be enough to light them up. Also require
+// the DB to be a local one, verified by parsing DATABASE_URL and comparing
+// hostname against an exact allowlist. The earlier regex was unsafe: a
+// prod URL whose password, username, or query carried the substring
+// "localhost" or "_test" would have slipped through.
 let testRoutes: express.Router | null = null;
-if (process.env.NODE_ENV === 'test') {
+const isLocalDb = (() => {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+})();
+if (process.env.NODE_ENV === 'test' && isLocalDb) {
   testRoutes = require('../routes/test.routes').default;
 }
 

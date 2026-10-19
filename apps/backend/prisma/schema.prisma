@@ -1476,9 +1476,12 @@ model DealerFarmerPayment {
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)
 
-  // User who recorded the payment (dealer or farmer)
-  recordedById String
-  recordedBy   User   @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id])
+  // User who recorded the payment (dealer or farmer). Nullable + SetNull
+  // so admin can delete the recorder's user account without a FK failure;
+  // the payment itself belongs to the dealer-farmer account, not to the
+  // recorder, so losing the "who keyed this in" link is acceptable.
+  recordedById String?
+  recordedBy   User?  @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -2015,9 +2018,12 @@ model CompanyDealerPayment {
   // Balance snapshot after this payment
   balanceAfter Decimal @db.Decimal(10, 2)
 
-  // User who recorded the payment
-  recordedById String
-  recordedBy   User   @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id])
+  // User who recorded the payment. Nullable + SetNull so admin can delete
+  // the recorder's user account without a FK failure; the payment itself
+  // belongs to the company-dealer account, not to the recorder, so losing
+  // the "who keyed this in" link is acceptable.
+  recordedById String?
+  recordedBy   User?  @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
