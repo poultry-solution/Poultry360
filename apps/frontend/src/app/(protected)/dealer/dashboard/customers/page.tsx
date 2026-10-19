@@ -227,7 +227,7 @@ export default function DealerCustomersPage() {
       };
     }) => {
       const { data: resData } = await axiosInstance.put(
-        `/sales/customers/${id}`,
+        `/dealer/sales/customers/${id}`,
         data
       );
       return resData;

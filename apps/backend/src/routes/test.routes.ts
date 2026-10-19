@@ -157,21 +157,22 @@ router.post('/setup-users', async (req, res) => {
 
     console.log('✅ Test database cleaned');
 
-    // 5. Recreate dealer-farmer connection (was deleted in cleanup)
-    console.log('🔗 Reconnecting dealer and farmer...');
+    // 5. Create a dealer-owned manual customer. Dealer customers and Farmer
+    // suppliers are separate modules; tests must not invent a cross-account
+    // dealer/farmer connection.
+    console.log('👤 Creating manual dealer customer...');
 
     await prisma.customer.create({
       data: {
         userId: dealerUser.id,
-        farmerId: farmerUser.id,
-        phone: farmerUser.phone,
-        name: farmerUser.name,
+        phone: '+9779800000099',
+        name: 'Test Manual Customer',
         balance: 0,
-        source: 'CONNECTED',
+        source: 'MANUAL',
       },
     });
 
-    console.log('✅ Dealer and farmer connected');
+    console.log('✅ Manual dealer customer created');
 
     // 6. Create a default product for testing (optional, tests can create their own)
     const existingProduct = await prisma.dealerProduct.findFirst({

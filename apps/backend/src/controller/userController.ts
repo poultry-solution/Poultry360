@@ -85,6 +85,14 @@ export const getUserById = async (
 ): Promise<any> => {
   try {
     const { id } = req.params;
+    const currentUserId = req.userId;
+    const currentUserRole = req.role;
+
+    // A logged-in user can only look up their own profile. Admin lookups go
+    // through SUPER_ADMIN; no cross-tenant discovery via /users/:id.
+    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserId !== id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -212,29 +220,22 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Role-based access control
-    if (
-      currentUserRole !== UserRole.OWNER &&
-      currentUserRole !== UserRole.SUPER_ADMIN &&
-      currentUserId !== id
-    ) {
+    // Self-service only (except SUPER_ADMIN who can edit any account for
+    // support flows). An OWNER editing another OWNER would be cross-tenant.
+    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserId !== id) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Block SUPER_ADMIN role assignment from non-SUPER_ADMIN callers.
-    if (data.role === UserRole.SUPER_ADMIN && currentUserRole !== UserRole.SUPER_ADMIN) {
-      return res.status(403).json({ message: "Cannot assign SUPER_ADMIN role" });
-    }
-
-    // OWNER can only modify their own account (tenant isolation).
-    if (currentUserRole === UserRole.OWNER && currentUserId !== id) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    // Only OWNER/SUPER_ADMIN can change roles and status
-    if (currentUserRole !== UserRole.OWNER && currentUserRole !== UserRole.SUPER_ADMIN) {
+    // Role and status are account-administration fields; only SUPER_ADMIN can
+    // change them. Previously OWNERs could self-approve by setting their own
+    // status to ACTIVE or escalating their role.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       delete data.role;
       delete data.status;
+    } else if (data.role === UserRole.SUPER_ADMIN) {
+      // Keep an explicit guard even though only SUPER_ADMIN can reach here —
+      // it documents the invariant and protects against future callsites.
+      return res.status(403).json({ message: "Cannot assign SUPER_ADMIN role" });
     }
 
     // Build update payload with only fields that exist in Prisma User model
@@ -293,9 +294,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Only OWNER can reach this endpoint (and only ever against themselves),
-    // which is explicitly blocked below. Any other target returns 403.
-    if (currentUserRole !== UserRole.OWNER) {
+    // Route guard already restricts this to SUPER_ADMIN; the self-delete
+    // guard remains so an admin cannot nuke their own account by mistake.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -437,8 +438,8 @@ export const updateUserStatus = async (
     const { status } = req.body;
     const currentUserRole = req.role;
 
-    // Only OWNER can update user status
-    if (currentUserRole !== UserRole.OWNER) {
+    // Account activation/suspension is a cross-tenant admin action.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -488,8 +489,8 @@ export const getUserStatistics = async (
   try {
     const currentUserRole = req.role;
 
-    // Only OWNER can view statistics
-    if (currentUserRole !== UserRole.OWNER) {
+    // Platform-wide stats are an admin surface.
+    if (currentUserRole !== UserRole.SUPER_ADMIN) {
       return res.status(403).json({ message: "Access denied" });
     }
 

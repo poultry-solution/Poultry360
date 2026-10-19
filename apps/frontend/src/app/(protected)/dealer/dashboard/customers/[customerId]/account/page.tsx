@@ -84,7 +84,7 @@ export default function CustomerAccountPage() {
   const { data: customerData, isLoading: customerLoading } = useQuery({
     queryKey: ["dealer-customer", customerId],
     queryFn: async () => {
-      const { data } = await axiosInstance.get(`/sales/customers/${customerId}`);
+      const { data } = await axiosInstance.get(`/dealer/sales/customers/${customerId}`);
       return data;
     },
     enabled: !!customerId,
@@ -203,7 +203,7 @@ export default function CustomerAccountPage() {
     }
     const signed = amt === 0 ? 0 : openingDirection === "ADVANCE" ? -amt : amt;
     try {
-      await axiosInstance.post(`/sales/customers/${customerId}/opening-balance`, {
+      await axiosInstance.post(`/dealer/sales/customers/${customerId}/opening-balance`, {
         openingBalance: signed,
         notes: openingNotes.trim() || undefined,
       });

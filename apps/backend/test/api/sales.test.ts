@@ -7,27 +7,21 @@ describe('Dealer Sales Workflow', () => {
   let apiHelper: ApiHelper;
   let authHelper: AuthHelper;
   let dealerId: string;
-  let farmerId: string;
   let customerId: string;
   let productId: string;
-  let saleRequestId: string;
 
   beforeAll(async () => {
     apiHelper = new ApiHelper();
     authHelper = new AuthHelper(apiHelper);
 
-    // Setup test users (create if missing, connect, and clean data)
-    const { farmerId: setupFarmerId } = await DatabaseHelper.setupTestUsers(
+    // Setup separate dealer and farmer accounts plus a dealer-owned manual customer.
+    await DatabaseHelper.setupTestUsers(
       TEST_USERS.dealer,
       TEST_USERS.farmer
     );
-    farmerId = setupFarmerId;
 
-    // Login both dealer and farmer to get auth tokens
+    // Dealer sales are fully within the Dealer module.
     await authHelper.loginDealer();
-    await authHelper.loginFarmer();
-    
-    // Start with dealer auth
     authHelper.setDealerAuth();
   }, 60000); // Increase timeout for database setup/cleanup
 
@@ -36,50 +30,24 @@ describe('Dealer Sales Workflow', () => {
   });
 
   describe('Setup: Get Customer and Product', () => {
-    it('should get connected customer (farmer)', async () => {
+    it('should get the dealer-owned manual customer', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.get('/dealer/sales/customers');
       
       console.log('✓ Customers response status:', response.status);
       console.log('✓ Customers count:', response.body.data?.length || 0);
-      console.log('✓ Customers:', JSON.stringify(response.body.data?.map((c: any) => ({ 
-        id: c.id, name: c.name, source: c.source, farmerId: c.farmerId 
-      })), null, 2));
-      console.log('✓ Looking for farmerId:', farmerId);
       
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.length).toBeGreaterThan(0);
 
-      // First try to find a connected customer for our farmer
-      let connectedCustomer = response.body.data.find(
-        (c: any) => c.source === 'CONNECTED' && c.farmerId === farmerId
+      const manualCustomer = response.body.data.find(
+        (c: any) => c.name === 'Test Manual Customer' && c.source === 'MANUAL'
       );
-
-      // If not found, try any connected customer
-      if (!connectedCustomer) {
-        console.log('⚠ No exact match, trying any CONNECTED customer');
-        connectedCustomer = response.body.data.find(
-          (c: any) => c.source === 'CONNECTED'
-        );
-      }
-
-      // If still no connected customer, use the first customer (for testing)
-      if (!connectedCustomer) {
-        console.log('⚠ No connected customer found, using first customer');
-        connectedCustomer = response.body.data[0];
-      }
-
-      expect(connectedCustomer).toBeDefined();
-      customerId = connectedCustomer.id;
-      
-      // Update farmerId if we found a connected customer with different farmer
-      if (connectedCustomer.farmerId) {
-        farmerId = connectedCustomer.farmerId;
-      }
-
-      console.log('✓ Customer ID:', customerId, 'Source:', connectedCustomer.source);
+      expect(manualCustomer).toBeDefined();
+      expect(manualCustomer.farmerId).toBeNull();
+      customerId = manualCustomer.id;
     });
 
     it('should get or create a product', async () => {
@@ -110,8 +78,8 @@ describe('Dealer Sales Workflow', () => {
     });
   });
 
-  describe('Step 1: Dealer Creates Sale (becomes Sale Request)', () => {
-    it('should create sale request for connected farmer', async () => {
+  describe('Step 1: Dealer creates a direct manual-customer sale', () => {
+    it('should create a sale with the correct due amount', async () => {
       authHelper.setDealerAuth();
 
       const saleData = {
@@ -125,7 +93,7 @@ describe('Dealer Sales Workflow', () => {
         ],
         paidAmount: 100, // Partial payment
         paymentMethod: 'CASH',
-        notes: 'Test sale request',
+        notes: 'Test manual-customer sale',
         date: new Date().toISOString(),
       };
 
@@ -137,108 +105,13 @@ describe('Dealer Sales Workflow', () => {
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       
-      // For connected farmers, creates a sale request
-      // For manual customers, creates a direct sale
-      if (response.body.isRequest) {
-        expect(response.body.data).toHaveProperty('requestNumber');
-        expect(response.body.data.status).toBe('PENDING');
-        saleRequestId = response.body.data.id;
-        dealerId = response.body.data.dealerId;
-        console.log('✓ Created sale REQUEST:', saleRequestId);
-      } else {
-        // Direct sale created
-        saleRequestId = ''; // Mark as empty for subsequent tests
-        dealerId = response.body.data.dealerId || '';
-        console.log('✓ Created direct SALE (manual customer)');
-      }
-    });
-
-    it('should show sale request in dealer list', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - direct sale, no request to find');
-        return;
-      }
-      
-      authHelper.setDealerAuth();
-
-      const response = await apiHelper.get('/dealer/sales/requests');
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      
-      const saleRequest = response.body.data.find((r: any) => r.id === saleRequestId);
-      expect(saleRequest).toBeDefined();
-      expect(saleRequest.status).toBe('PENDING');
+      expect(response.body.data).toMatchObject({ customerId, totalAmount: '500', paidAmount: '100', dueAmount: '400' });
+      dealerId = response.body.data.dealerId;
     });
   });
 
-  describe('Step 2: Farmer Views and Approves Sale Request', () => {
-    it('should show sale request in farmer list', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - direct sale, no request to view');
-        return;
-      }
-      
-      authHelper.setFarmerAuth();
-
-      const response = await apiHelper.get('/farmer/sale-requests');
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      
-      const saleRequest = response.body.data.find((r: any) => r.id === saleRequestId);
-      expect(saleRequest).toBeDefined();
-      expect(saleRequest.status).toBe('PENDING');
-      expect(saleRequest.dealer).toHaveProperty('name');
-      expect(saleRequest.items.length).toBeGreaterThan(0);
-
-      console.log('✓ Farmer sees sale request from:', saleRequest.dealer.name);
-    });
-
-    it('should approve sale request', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - direct sale, no request to approve');
-        return;
-      }
-      
-      authHelper.setFarmerAuth();
-
-      const response = await apiHelper.post(
-        `/farmer/sale-requests/${saleRequestId}/approve`
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.message).toContain('approved');
-
-      console.log('✓ Sale request approved successfully');
-    });
-
-    it('should show approved status in farmer list', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - direct sale, no request to check');
-        return;
-      }
-      
-      authHelper.setFarmerAuth();
-
-      const response = await apiHelper.get('/farmer/sale-requests');
-      
-      const saleRequest = response.body.data.find((r: any) => r.id === saleRequestId);
-      expect(saleRequest.status).toBe('APPROVED');
-    });
-  });
-
-  describe('Step 3: Verify Sale Created on Both Sides', () => {
+  describe('Step 2: Verify the dealer sale and ledger', () => {
     it('should show actual sale in dealer sales list', async () => {
-      // For sale requests, need to wait for approval first
-      // For direct sales, sale is already created
-      if (saleRequestId) {
-        console.log('✓ Sale request was approved, checking for created sale');
-      } else {
-        console.log('✓ Direct sale created, checking sales list');
-      }
-      
       authHelper.setDealerAuth();
 
       const response = await apiHelper.get('/dealer/sales');
@@ -253,52 +126,14 @@ describe('Dealer Sales Workflow', () => {
         return s.customerId === customerId && Number(s.totalAmount) === 500;
       });
 
-      if (sale) {
-        expect(Number(sale.totalAmount)).toBe(500); // 10 * 50
-        expect(Number(sale.paidAmount)).toBe(100);
-        expect(Number(sale.dueAmount)).toBe(400); // 500 - 100
-
-        console.log('✓ Sale created on dealer side');
-        console.log('  Total: रू', sale.totalAmount);
-        console.log('  Paid: रू', sale.paidAmount);
-        console.log('  Due: रू', sale.dueAmount);
-      } else {
-        console.log('⚠ Sale not found - may still be pending approval or different amount');
-        // Only fail if we expected a direct sale
-        if (!saleRequestId) {
-          expect(sale).toBeDefined();
-        }
-      }
-    });
-
-    it('should show purchase entry on farmer side', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - direct sale, no farmer-side entry expected');
-        return;
-      }
-      
-      authHelper.setFarmerAuth();
-
-      // Check farmer's dealer ledger (EntityTransactions)
-      const response = await apiHelper.get('/dealers');
-
-      expect(response.status).toBe(200);
-      
-      // Farmer should have transactions with this dealer
-      const dealers = response.body.data || [];
-      console.log('✓ Dealers found:', dealers.length);
-      
-      const dealer = dealers.find((d: any) => d.id === dealerId);
-      
-      if (dealer) {
-        console.log('✓ Purchase recorded on farmer side');
-      } else {
-        console.log('⚠ Dealer not found in farmer list - dealerId:', dealerId);
-      }
+      expect(sale).toBeDefined();
+      expect(Number(sale.totalAmount)).toBe(500);
+      expect(Number(sale.paidAmount)).toBe(100);
+      expect(Number(sale.dueAmount)).toBe(400);
     });
   });
 
-  describe('Step 4: Verify Customer Balance Updated', () => {
+  describe('Step 3: Verify manual customer balance', () => {
     it('should show correct customer balance', async () => {
       authHelper.setDealerAuth();
 
@@ -333,87 +168,26 @@ describe('Dealer Sales Workflow', () => {
       const entries = response.body.data || [];
       console.log('✓ Ledger entries count:', entries.length);
       
-      if (entries.length > 0) {
-        // Should have SALE entry
-        const saleEntry = entries.find((e: any) => e.type === 'SALE');
-        if (saleEntry) {
-          console.log('✓ SALE entry found:', saleEntry.amount);
-        }
-
-        // Should have PAYMENT_RECEIVED entry
-        const paymentEntry = entries.find((e: any) => e.type === 'PAYMENT_RECEIVED');
-        if (paymentEntry) {
-          console.log('✓ PAYMENT_RECEIVED entry found:', paymentEntry.amount);
-        }
-      } else {
-        console.log('⚠ No ledger entries found');
-      }
+      expect(entries).toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: 'SALE' }),
+        expect.objectContaining({ type: 'PAYMENT_RECEIVED' }),
+      ]));
     });
   });
 
   describe('Error Cases', () => {
-    it('should reject sale request with rejection reason', async () => {
-      // This test only works for connected customers (creates sale requests)
-      // First create another sale request
+    it('should reject another dealer account customer', async () => {
       authHelper.setDealerAuth();
       
       const saleData = {
-        customerId: customerId,
+        customerId: 'not-owned-customer',
         items: [{ productId: productId, quantity: 5, unitPrice: 50 }],
         paidAmount: 0,
         paymentMethod: 'CASH',
       };
 
       const createResponse = await apiHelper.post('/dealer/sales', saleData);
-      console.log('✓ Create sale response:', createResponse.status, createResponse.body.isRequest);
-      
-      // If it's not a request (manual customer), skip this test
-      if (!createResponse.body.isRequest) {
-        console.log('⏭ Skipping - manual customer creates direct sale, not a request');
-        return;
-      }
-      
-      const newRequestId = createResponse.body.data.id;
-
-      // Now reject it as farmer
-      authHelper.setFarmerAuth();
-
-      const response = await apiHelper.post(
-        `/farmer/sale-requests/${newRequestId}/reject`,
-        {
-          rejectionReason: 'Price too high',
-        }
-      );
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-
-      // Verify status
-      const listResponse = await apiHelper.get('/farmer/sale-requests');
-      const rejectedRequest = listResponse.body.data.find((r: any) => r.id === newRequestId);
-      expect(rejectedRequest.status).toBe('REJECTED');
-      expect(rejectedRequest.rejectionReason).toBe('Price too high');
-
-      console.log('✓ Sale request rejected successfully');
-    });
-
-    it('should not allow approving already approved request', async () => {
-      if (!saleRequestId) {
-        console.log('⏭ Skipping - no sale request to test');
-        return;
-      }
-      
-      authHelper.setFarmerAuth();
-
-      const response = await apiHelper.post(`/farmer/sale-requests/${saleRequestId}/approve`);
-      
-      expect(response.status).toBe(400);
-      // Check for either error message variant
-      expect(
-        response.body.message === 'Request is already approved' ||
-        response.body.message.includes('already been processed')
-      ).toBe(true);
-      console.log('✓ Correctly rejected duplicate approval:', response.body.message);
+      expect(createResponse.status).toBe(404);
     });
   });
 });

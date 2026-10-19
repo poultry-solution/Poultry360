@@ -1,5 +1,4 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
 import {
   login,
   register,
@@ -19,26 +18,9 @@ import {
   verifyOtpAndResetPassword,
 } from "../controller/passwordResetController";
 import { authMiddleware } from "../middelware/middelware";
+import { loginLimiter, otpLimiter } from "../middelware/rateLimiters";
 
 const authRouter = Router();
-
-// 10 attempts per 15 minutes per IP — stops brute force while allowing a few mistyped passwords.
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many attempts, please try again later" },
-});
-
-// 5 OTP requests per hour per IP — password reset is rare; 6-digit OTP has 1M combinations.
-const otpLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many OTP requests, please try again later" },
-});
 
 authRouter.post("/login", loginLimiter, login);
 authRouter.post("/register", loginLimiter, register);

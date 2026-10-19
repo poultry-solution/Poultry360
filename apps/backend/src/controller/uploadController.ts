@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateSignedUploadParams, deleteImage, extractPublicIdFromUrl } from "../utils/cloudinary";
+import { generateSignedUploadParams, deleteImage, extractPublicIdFromUrl, buildScopedUploadFolder, isUserOwnedUploadFolder } from "../utils/cloudinary";
 
 /**
  * Get upload signature for direct browser-to-Cloudinary uploads.
@@ -12,9 +12,18 @@ export const getUploadSignature = async (
 ): Promise<any> => {
     try {
         const { folder = "products" } = req.query;
+        const ownerId = req.userId;
 
-        // Generate signed params for the upload
-        const params = generateSignedUploadParams(`poultry360/${folder}`);
+        if (!ownerId) {
+            return res.status(401).json({ message: "Authentication required" });
+        }
+
+        // Scope the Cloudinary folder to the acting account so deletions can
+        // verify ownership without a per-field DB lookup. Staff act under the
+        // owner's scope (middleware sets req.userId = ownerId), so uploads are
+        // keyed to the business, not the individual staff identity.
+        const scopedFolder = buildScopedUploadFolder(String(folder), ownerId);
+        const params = generateSignedUploadParams(scopedFolder);
 
         return res.status(200).json({
             success: true,
@@ -36,9 +45,13 @@ export const deleteUploadedImage = async (
 ): Promise<any> => {
     try {
         const { imageUrl } = req.body;
+        const ownerId = req.userId;
 
         if (!imageUrl) {
             return res.status(400).json({ message: "Image URL is required" });
+        }
+        if (!ownerId) {
+            return res.status(401).json({ message: "Authentication required" });
         }
 
         // Restrict deletion to images in this app's own Cloudinary account and folder.
@@ -49,6 +62,13 @@ export const deleteUploadedImage = async (
             !imageUrl.includes("/poultry360/")
         ) {
             return res.status(400).json({ message: "Invalid image URL" });
+        }
+
+        // Ownership check: the URL must sit inside the caller's own
+        // per-account folder. This stops a user from deleting another user's
+        // bill or receipt image just because it is in our Cloudinary account.
+        if (!isUserOwnedUploadFolder(imageUrl, ownerId)) {
+            return res.status(403).json({ message: "You do not own this image" });
         }
 
         // Extract public ID from URL

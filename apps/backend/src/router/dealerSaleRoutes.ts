@@ -7,6 +7,9 @@ import {
   searchCustomers,
   searchCompanies,
   createCustomer,
+  getDealerCustomerById,
+  updateDealerCustomer,
+  setDealerCustomerOpeningBalance,
   getDealerCustomers,
   getSalesStatistics,
   getSalesTrend,
@@ -87,6 +90,15 @@ router.get("/companies/search", searchCompanies);
 
 // Create customer on-the-fly
 router.post("/customers", createCustomer);
+
+// Customer account page: load one dealer customer by id
+router.get("/customers/:id", getDealerCustomerById);
+
+// Edit customer (name/phone/category/address)
+router.put("/customers/:id", updateDealerCustomer);
+
+// Append a new opening-balance entry (history preserved)
+router.post("/customers/:id/opening-balance", setDealerCustomerOpeningBalance);
 
 // Archive / Unarchive / Delete dealer customers
 router.post("/customers/:id/archive", archiveDealerCustomer);

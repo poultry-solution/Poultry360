@@ -52,6 +52,31 @@ export const deleteImage = async (publicId: string): Promise<boolean> => {
     }
 };
 
+// Only accept folder names made of safe characters so a caller cannot escape
+// their scope by passing "../" or injecting Cloudinary parameters.
+const SAFE_FOLDER_SEGMENT = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/**
+ * Build the per-account Cloudinary folder for an upload. The owner id is
+ * embedded so deletions can confirm ownership from the URL alone, without a
+ * cross-table lookup for every image-bearing field in the schema.
+ */
+export const buildScopedUploadFolder = (folder: string, ownerId: string): string => {
+    const safeFolder = SAFE_FOLDER_SEGMENT.test(folder) ? folder : "products";
+    const safeOwner = SAFE_FOLDER_SEGMENT.test(ownerId) ? ownerId : "unknown";
+    return `poultry360/${safeFolder}/u_${safeOwner}`;
+};
+
+/**
+ * Verify that a Cloudinary URL lives inside the given owner's scoped folder.
+ * Returns false for legacy (pre-scoping) uploads so the delete endpoint cannot
+ * be used to remove other users' bill/receipt images.
+ */
+export const isUserOwnedUploadFolder = (url: string, ownerId: string): boolean => {
+    if (!url || !ownerId) return false;
+    return url.includes(`/poultry360/`) && url.includes(`/u_${ownerId}/`);
+};
+
 /**
  * Extract public ID from a Cloudinary URL.
  * Example: https://res.cloudinary.com/demo/image/upload/v1234/folder/image.jpg

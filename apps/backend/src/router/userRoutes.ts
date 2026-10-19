@@ -25,11 +25,13 @@ userRouter.use(requireStaffAccountOwner);
 
 // ==================== USER ROUTES ====================
 
-// Get all users (with pagination, filtering, search)
+// Cross-tenant administration — SUPER_ADMIN only. OWNERs do not have authority
+// over other tenants' accounts; the dedicated /admin/users surface is the
+// scoped admin UI.
 userRouter.get(
   "/",
   (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]); // Only OWNER can view all users
+    authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
   },
   getAllUsers
 );
@@ -40,50 +42,47 @@ userRouter.get("/me", getCurrentUser);
 // Update user preferences (language, calendar type)
 userRouter.patch("/preferences", updateUserPreferences);
 
-// Get user by ID
-userRouter.get("/:id", getUserById);
-
-// Update user
-userRouter.put("/:id", updateUser);
-
-// Delete user (only OWNER, cannot delete self)
-userRouter.delete(
-  "/:id",
-  (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]);
-  },
-  deleteUser
-);
-
-// ==================== ROLE-SPECIFIC ROUTES ====================
-
-// Get all owner users
+// Static admin sub-paths MUST be registered before "/:id" or Express will treat
+// "owners" and "stats" as id values and shadow them.
 userRouter.get(
   "/owners/list",
   (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]);
+    authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
   },
   getOwnerUsers
 );
 
-// ==================== ADMIN ROUTES ====================
-
-// Update user status (only OWNER)
-userRouter.patch(
-  "/:id/status",
-  (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]);
-  },
-  updateUserStatus
-);
-
-// Get user statistics (only OWNER)
 userRouter.get(
   "/stats/overview",
   (req, res, next) => {
-    authMiddleware(req, res, next, [UserRole.OWNER]);
+    authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
   },
   getUserStatistics
+);
+
+// Lookup is self-service only — ownership check runs inside the controller
+// (SUPER_ADMIN can look up anyone for admin workflows).
+userRouter.get("/:id", getUserById);
+
+// Self-service profile edits; role/status writes are rejected in the
+// controller for everyone except SUPER_ADMIN.
+userRouter.put("/:id", updateUser);
+
+userRouter.delete(
+  "/:id",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
+  },
+  deleteUser
+);
+
+// Suspend/activate accounts is a cross-tenant admin action.
+userRouter.patch(
+  "/:id/status",
+  (req, res, next) => {
+    authMiddleware(req, res, next, [UserRole.SUPER_ADMIN]);
+  },
+  updateUserStatus
 );
 
 export default userRouter;

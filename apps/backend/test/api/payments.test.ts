@@ -17,11 +17,12 @@ describe('Payment Workflow', () => {
     apiHelper = new ApiHelper();
     authHelper = new AuthHelper(apiHelper);
 
-    // Setup test users (create if missing, connect, and clean data)
-    await DatabaseHelper.setupTestUsers(
+    // Setup separate accounts and a dealer-owned manual customer.
+    const setup = await DatabaseHelper.setupTestUsers(
       TEST_USERS.dealer,
       TEST_USERS.farmer
     );
+    dealerId = setup.dealerId;
 
     // Login and setup
     await authHelper.loginDealer();
@@ -29,10 +30,12 @@ describe('Payment Workflow', () => {
 
     // Get customer
     const customersResponse = await apiHelper.get('/dealer/sales/customers');
-    const connectedCustomer = customersResponse.body.data.find(
-      (c: any) => c.source === 'CONNECTED'
+    const manualCustomer = customersResponse.body.data.find(
+      (c: any) => c.name === 'Test Manual Customer' && c.source === 'MANUAL'
     );
-    customerId = connectedCustomer.id;
+    expect(manualCustomer).toBeDefined();
+    expect(manualCustomer.farmerId).toBeNull();
+    customerId = manualCustomer.id;
 
     // Get product
     const productsResponse = await apiHelper.get('/dealer/products');
@@ -53,22 +56,7 @@ describe('Payment Workflow', () => {
 
       expect(response.status).toBe(201);
       
-      // Extract dealer ID from the first sale request
-      if (!dealerId) {
-        dealerId = response.body.data.dealerId;
-      }
-      
-      // Approve as farmer
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response.body.data.id}/approve`);
-      
-      // Get the created sale ID
-      authHelper.setDealerAuth();
-      const salesResponse = await apiHelper.get(`/dealer/sales?customerId=${customerId}&limit=100`);
-      
-      sale1Id = salesResponse.body.data.find(
-        (s: any) => Number(s.totalAmount) === 1000 && Number(s.dueAmount) === 1000
-      )?.id;
+      sale1Id = response.body.data.id;
 
       expect(sale1Id).toBeDefined();
       console.log('✓ Sale 1 created: रू 1000 (unpaid)');
@@ -85,17 +73,7 @@ describe('Payment Workflow', () => {
         notes: 'Sale 2 - Middle',
       });
 
-      // Approve as farmer
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response.body.data.id}/approve`);
-
-      // Get the created sale ID
-      authHelper.setDealerAuth();
-      const salesResponse = await apiHelper.get(`/dealer/sales?customerId=${customerId}&limit=100`);
-      
-      sale2Id = salesResponse.body.data.find(
-        (s: any) => Number(s.totalAmount) === 500 && Number(s.dueAmount) === 500
-      )?.id;
+      sale2Id = response.body.data.id;
 
       expect(sale2Id).toBeDefined();
       console.log('✓ Sale 2 created: रू 500 (unpaid)');
@@ -112,17 +90,7 @@ describe('Payment Workflow', () => {
         notes: 'Sale 3 - Newest',
       });
 
-      // Approve as farmer
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response.body.data.id}/approve`);
-
-      // Get the created sale ID
-      authHelper.setDealerAuth();
-      const salesResponse = await apiHelper.get(`/dealer/sales?customerId=${customerId}&limit=100`);
-      
-      sale3Id = salesResponse.body.data.find(
-        (s: any) => Number(s.totalAmount) === 300 && Number(s.dueAmount) === 300
-      )?.id;
+      sale3Id = response.body.data.id;
 
       expect(sale3Id).toBeDefined();
       console.log('✓ Sale 3 created: रू 300 (unpaid)');
@@ -140,8 +108,8 @@ describe('Payment Workflow', () => {
     });
   });
 
-  describe('Test 1: General Payment - Account-only (Dealer ↔ Farmer)', () => {
-    it('should pay रू 1800 to farmer account', async () => {
+  describe('Test 1: General payment for a manual customer', () => {
+    it('should pay रू 1800 to the customer account', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.post('/dealer/ledger/payments', {
@@ -175,17 +143,12 @@ describe('Payment Workflow', () => {
       console.log('✓ Sale amounts unchanged (account-only model)');
     });
 
-    it('should show farmer account balance as zero', async () => {
+    it('should show the manual customer account balance as zero', async () => {
       authHelper.setDealerAuth();
 
-      const saleResponse = await apiHelper.get(`/dealer/sales/${sale1Id}`);
-      const farmerId = saleResponse.body.data.farmerId || saleResponse.body.data.customer?.farmerId;
-      expect(farmerId).toBeDefined();
-
-      const accountResponse = await apiHelper.get(`/dealer/farmer-accounts/${farmerId}`);
-      expect(accountResponse.status).toBe(200);
-      expect(Number(accountResponse.body.data.balance)).toBe(0);
-      console.log('✓ Farmer account balance cleared: रू 0');
+      const parties = await apiHelper.get('/dealer/ledger/parties');
+      const customer = parties.body.data.find((party: any) => party.id === customerId);
+      expect(Number(customer.balance)).toBe(0);
     });
   });
 
@@ -203,9 +166,6 @@ describe('Payment Workflow', () => {
         paidAmount: 0,
         paymentMethod: 'CASH',
       });
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response1.body.data.id}/approve`);
-
       // Sale 2: रू 500
       authHelper.setDealerAuth();
       const response2 = await apiHelper.post('/dealer/sales', {
@@ -214,25 +174,14 @@ describe('Payment Workflow', () => {
         paidAmount: 0,
         paymentMethod: 'CASH',
       });
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response2.body.data.id}/approve`);
-
-      // Get IDs
-      authHelper.setDealerAuth();
-      const salesResponse = await apiHelper.get(`/dealer/sales?customerId=${customerId}&limit=100`);
-      
-      const unpaidSales = salesResponse.body.data.filter(
-        (s: any) => Number(s.dueAmount) > 0
-      );
-      
-      newSale1Id = unpaidSales.find((s: any) => Number(s.totalAmount) === 1000)?.id;
-      newSale2Id = unpaidSales.find((s: any) => Number(s.totalAmount) === 500)?.id;
+      newSale1Id = response1.body.data.id;
+      newSale2Id = response2.body.data.id;
 
       expect(newSale1Id).toBeDefined();
       expect(newSale2Id).toBeDefined();
     });
 
-    it('should pay रू 1200 (fully pays sale 1, partially pays sale 2)', async () => {
+    it('should pay रू 1200 against the customer account', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.post('/dealer/ledger/payments', {
@@ -247,26 +196,24 @@ describe('Payment Workflow', () => {
       console.log('✓ Partial payment of रू 1200 applied');
     });
 
-    it('should fully pay first sale', async () => {
+    it('keeps the first sale payment fields frozen', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.get(`/dealer/sales/${newSale1Id}`);
       const sale = response.body.data;
 
-      expect(Number(sale.paidAmount)).toBe(1000);
-      expect(sale.dueAmount).toBeNull();
-      console.log('✓ First sale: Fully paid (रू 1000)');
+      expect(Number(sale.paidAmount)).toBe(0);
+      expect(Number(sale.dueAmount)).toBe(1000);
     });
 
-    it('should partially pay second sale', async () => {
+    it('keeps the second sale payment fields frozen', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.get(`/dealer/sales/${newSale2Id}`);
       const sale = response.body.data;
 
-      expect(Number(sale.paidAmount)).toBe(200); // 1200 - 1000 = 200
-      expect(Number(sale.dueAmount)).toBe(300); // 500 - 200 = 300
-      console.log('✓ Second sale: Partially paid (रू 200 of रू 500)');
+      expect(Number(sale.paidAmount)).toBe(0);
+      expect(Number(sale.dueAmount)).toBe(500);
     });
 
     it('should show correct customer balance', async () => {
@@ -318,12 +265,7 @@ describe('Payment Workflow', () => {
         paymentMethod: 'CASH',
       });
 
-      // Approve
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${createResponse.body.data.id}/approve`);
-
       // Check customer balance
-      authHelper.setDealerAuth();
       const balanceResponse = await apiHelper.get('/dealer/ledger/parties');
       const customer = balanceResponse.body.data.find((c: any) => c.id === customerId);
 
@@ -333,7 +275,7 @@ describe('Payment Workflow', () => {
     });
   });
 
-  describe('Test 4: Bill-wise Payment (Specific Sale)', () => {
+  describe('Test 4: Account payment made with a sale reference', () => {
     let specificSaleId: string;
 
     it('setup: create a specific sale', async () => {
@@ -346,57 +288,44 @@ describe('Payment Workflow', () => {
         paymentMethod: 'CASH',
       });
 
-      authHelper.setFarmerAuth();
-      await apiHelper.post(`/farmer/sale-requests/${response.body.data.id}/approve`);
-
-      authHelper.setDealerAuth();
-      const salesResponse = await apiHelper.get(`/dealer/sales?customerId=${customerId}&limit=100`);
-      
-      specificSaleId = salesResponse.body.data.find(
-        (s: any) => Number(s.dueAmount) === 500
-      )?.id;
+      specificSaleId = response.body.data.id;
 
       expect(specificSaleId).toBeDefined();
     });
 
-    it('should pay specific sale directly (bill-wise)', async () => {
+    it('should record an account payment', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.post('/dealer/ledger/payments', {
-        saleId: specificSaleId, // Bill-wise payment (not customerId)
+        saleId: specificSaleId,
         amount: 300,
         paymentMethod: 'CASH',
-        notes: 'Direct payment to specific sale',
+        notes: 'Account payment with a sale reference',
       });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      console.log('✓ Bill-wise payment of रू 300 to specific sale');
+      expect(response.body.data).toMatchObject({ newCustomerBalance: 300 });
     });
 
-    it('should update only the specified sale', async () => {
+    it('does not turn the reference sale into a bill-wise payment', async () => {
       authHelper.setDealerAuth();
 
       const response = await apiHelper.get(`/dealer/sales/${specificSaleId}`);
       const sale = response.body.data;
 
-      expect(Number(sale.paidAmount)).toBe(300);
-      expect(Number(sale.dueAmount)).toBe(200); // 500 - 300
-      console.log('✓ Specific sale updated: रू 300 paid, रू 200 remaining');
+      expect(Number(sale.paidAmount)).toBe(0);
+      expect(Number(sale.dueAmount)).toBe(500);
     });
   });
 
-  describe('Test 5: Payment Sync to Farmer Side', () => {
-    it('should sync general payment to farmer EntityTransactions', async () => {
+  describe('Test 5: Manual-customer data isolation', () => {
+    it('does not create a Farmer-side dealer record', async () => {
+      await authHelper.loginFarmer();
       authHelper.setFarmerAuth();
-
       const response = await apiHelper.get('/dealers');
-      
-      const dealer = response.body.data.find((d: any) => d.id === dealerId);
-      expect(dealer).toBeDefined();
-      
-      // Should have payment transactions
-      console.log('✓ Payments synced to farmer side');
+      expect(response.status).toBe(200);
+      expect(response.body.data.some((dealer: any) => dealer.id === dealerId)).toBe(false);
     });
   });
 });

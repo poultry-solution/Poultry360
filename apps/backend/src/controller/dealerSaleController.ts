@@ -618,6 +618,8 @@ export const getDealerCustomers = async (
           phone: true,
           address: true,
           category: true,
+          source: true,
+          farmerId: true,
           balance: true,
           archivedAt: true,
           createdAt: true,
@@ -978,6 +980,245 @@ export const createCustomer = async (
     });
   } catch (error: any) {
     console.error("Create customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== GET DEALER CUSTOMER BY ID ====================
+// Loads one dealer-owned customer plus their opening-balance history. Response
+// shape mirrors the farmer-side handler so both module UIs stay interchangeable.
+export const getDealerCustomerById = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        userId: currentUserId,
+      },
+      include: {
+        sales: {
+          select: {
+            id: true,
+            amount: true,
+            date: true,
+            isCredit: true,
+            paidAmount: true,
+            dueAmount: true,
+          },
+          orderBy: { date: "desc" },
+        },
+        transactions: {
+          orderBy: { date: "desc" },
+          take: 50,
+        },
+      },
+    });
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const latestOpeningPromise = prisma.customerTransaction
+      .findFirst({
+        where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { amount: true, date: true, description: true, reference: true },
+      })
+      .catch((error) => {
+        console.warn("Could not load dealer customer opening balance:", error);
+        return null;
+      });
+
+    const openingBalanceHistoryPromise = prisma.customerTransaction
+      .findMany({
+        where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        select: { id: true, amount: true, date: true, description: true, reference: true },
+      })
+      .catch((error) => {
+        console.warn("Could not load dealer customer opening balance history:", error);
+        return [] as Array<{
+          id: string;
+          amount: Prisma.Decimal;
+          date: Date;
+          description: string | null;
+          reference: string | null;
+        }>;
+      });
+
+    const [latestOpening, openingBalanceHistory] = await Promise.all([
+      latestOpeningPromise,
+      openingBalanceHistoryPromise,
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...customer,
+        openingBalance: latestOpening
+          ? {
+              amount: Number(latestOpening.amount),
+              date: latestOpening.date,
+              notes: latestOpening.description ?? null,
+              reference: latestOpening.reference ?? null,
+            }
+          : { amount: 0, date: null, notes: null, reference: null },
+        openingBalanceHistory: openingBalanceHistory.map((t) => ({
+          id: t.id,
+          amount: Number(t.amount),
+          date: t.date,
+          notes: t.description ?? null,
+          reference: t.reference ?? null,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Get dealer customer by ID error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== UPDATE DEALER CUSTOMER ====================
+export const updateDealerCustomer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { name, phone, category, address } = req.body;
+    const normalizedName =
+      typeof name === "string" ? name.trim() : undefined;
+    const normalizedPhone =
+      typeof phone === "string"
+        ? phone.trim() === ""
+          ? null
+          : phone.trim()
+        : phone === null
+          ? null
+          : undefined;
+
+    if (normalizedName === "") {
+      return res.status(400).json({
+        message: "Customer name is required",
+      });
+    }
+
+    const existingCustomer = await prisma.customer.findFirst({
+      where: { id, userId: currentUserId },
+    });
+
+    if (!existingCustomer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    if (normalizedName !== undefined || normalizedPhone !== undefined) {
+      const conflictCustomer = await prisma.customer.findFirst({
+        where: {
+          id: { not: id },
+          userId: currentUserId,
+          OR: [
+            ...(normalizedName ? [{ name: normalizedName }] : []),
+            ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
+          ],
+        },
+      });
+
+      if (conflictCustomer) {
+        return res.status(400).json({
+          message: "Customer with this name or phone already exists",
+        });
+      }
+    }
+
+    const updatedCustomer = await prisma.customer.update({
+      where: { id },
+      data: {
+        ...(normalizedName !== undefined && { name: normalizedName }),
+        ...(normalizedPhone !== undefined && { phone: normalizedPhone }),
+        ...(category !== undefined && { category }),
+        ...(address !== undefined && { address }),
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: updatedCustomer,
+      message: "Customer updated successfully",
+    });
+  } catch (error) {
+    console.error("Update dealer customer error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== SET DEALER CUSTOMER OPENING BALANCE ====================
+// Appends a new OPENING_BALANCE transaction (history preserved) and adjusts the
+// customer balance by the delta between the new and most-recent opening value.
+export const setDealerCustomerOpeningBalance = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.userId;
+    const { openingBalance, notes, date } = req.body;
+
+    const nextOpening = Number(openingBalance);
+    if (
+      openingBalance === undefined ||
+      openingBalance === null ||
+      Number.isNaN(nextOpening)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "openingBalance (number) is required" });
+    }
+
+    const customer = await prisma.customer.findFirst({
+      where: { id, userId: currentUserId },
+      select: { id: true, balance: true },
+    });
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const latest = await prisma.customerTransaction.findFirst({
+      where: { customerId: id, type: TransactionType.OPENING_BALANCE },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      select: { amount: true },
+    });
+    const prevOpening = latest ? Number(latest.amount) : 0;
+    const delta = nextOpening - prevOpening;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.customerTransaction.create({
+        data: {
+          type: TransactionType.OPENING_BALANCE,
+          amount: nextOpening,
+          date: date ? new Date(date) : new Date(),
+          description: notes ? String(notes).trim() || null : "Opening balance",
+          customerId: id,
+        },
+      });
+      return tx.customer.update({
+        where: { id },
+        data: { balance: Number(customer.balance) + delta },
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: { id: updated.id, balance: Number(updated.balance) },
+      message: "Opening balance updated",
+    });
+  } catch (error) {
+    console.error("Set dealer customer opening balance error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
