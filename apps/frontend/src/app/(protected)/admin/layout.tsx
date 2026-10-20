@@ -20,7 +20,8 @@ export default function AdminDashboardLayout({
     <AuthGuard allowedRoles={["SUPER_ADMIN"]}>
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar role="SUPER_ADMIN" isCollapsed={isCollapsed} onToggle={handleToggle} />
-        <div className="flex-1 flex flex-col">
+        {/* min-w-0 lets wide tables scroll inside their card instead of widening the page. */}
+        <div className="flex-1 flex flex-col min-w-0">
           <Topbar role="SUPER_ADMIN" isCollapsed={isCollapsed} onToggle={handleToggle} />
           <main className="flex-1 p-4 md:p-6 overflow-auto">{children}</main>
         </div>
