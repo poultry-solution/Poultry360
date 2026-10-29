@@ -20,6 +20,16 @@ import type { EnquiryStatus, makeEnquiryFollowUpHooks } from "@/fetchers/admin/e
 
 const LIST_LIMIT = 200;
 
+/** "20 Oct 2026, 11:39": short enough to keep the table narrow. */
+const formatWhen = (value: string) =>
+  new Date(value).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 type FollowUpHooks<T> = ReturnType<typeof makeEnquiryFollowUpHooks<T>>;
 type Column<T> = { label: string; render: (row: T) => ReactNode };
 
@@ -132,11 +142,11 @@ function EnquirySection<T extends { id: string }>({
                       <TableCell key={column.label}>{column.render(row)}</TableCell>
                     ))}
                     <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {new Date(row.createdAt).toLocaleString()}
+                      {formatWhen(row.createdAt)}
                     </TableCell>
                     {status === "contacted" && (
                       <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {row.contactedAt ? new Date(row.contactedAt).toLocaleString() : "--"}
+                        {row.contactedAt ? formatWhen(row.contactedAt) : "--"}
                       </TableCell>
                     )}
                     <TableCell className="text-right">
