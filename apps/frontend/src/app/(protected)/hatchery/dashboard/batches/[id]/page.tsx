@@ -12,12 +12,25 @@ import {
   CheckCircle,
   LockIcon,
   UnlockIcon,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
+import { formatRupeesExact } from "@/common/lib/utils";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
@@ -55,6 +68,9 @@ import {
   type HatcheryInventoryItem,
 } from "@/fetchers/hatchery/hatcheryInventoryQueries";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
+import { SaleSavedPrompt } from "../../sales/_components/SaleSavedPrompt";
+import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
 
 type Tab =
   | "overview"
@@ -74,7 +90,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 function fmtNPR(n: number | string) {
-  return `NPR ${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatRupeesExact(n);
 }
 
 function today() {
@@ -149,16 +165,20 @@ export default function HatcheryBatchDetailPage() {
   const reopenMutation = useReopenHatcheryBatch(id);
   const deleteBatchMutation = useDeleteHatcheryBatch(id);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Replaces the two legacy `window.confirm` prompts in this file; see §2.1-4
+  // of the hatchery handoff.
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
 
   const isClosed = batch?.status === "CLOSED";
 
   async function handleDeleteBatch() {
+    setShowDeleteDialog(false);
     setActionError(null);
     const password = window.prompt(
       "Enter your password to delete this batch. This is allowed only when no operational data exists."
     );
     if (!password) return;
-    if (!confirm("Delete this batch permanently?")) return;
     try {
       await deleteBatchMutation.mutateAsync({ password });
       router.push("/hatchery/dashboard/batches");
@@ -225,7 +245,7 @@ export default function HatcheryBatchDetailPage() {
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={handleDeleteBatch}
+              onClick={() => setShowDeleteDialog(true)}
               disabled={deleteBatchMutation.isPending}
             >
               {deleteBatchMutation.isPending ? (
@@ -249,7 +269,7 @@ export default function HatcheryBatchDetailPage() {
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={handleDeleteBatch}
+              onClick={() => setShowDeleteDialog(true)}
               disabled={deleteBatchMutation.isPending}
             >
               {deleteBatchMutation.isPending ? (
@@ -262,9 +282,7 @@ export default function HatcheryBatchDetailPage() {
             <Button
               variant="outline"
               className="border-gray-300 text-gray-700"
-              onClick={() => {
-                if (confirm("Mark this batch as CLOSED?")) closeMutation.mutate();
-              }}
+              onClick={() => setShowCloseDialog(true)}
               disabled={closeMutation.isPending}
             >
               <LockIcon className="h-4 w-4 mr-1" />
@@ -328,6 +346,50 @@ export default function HatcheryBatchDetailPage() {
           currentFemale={batch.currentFemaleParents ?? 0}
         />
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this batch?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the batch and all its records. You will be asked for
+              your password next.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBatch}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Close this batch?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Closed batches can be reopened later, but no new entries can be
+              added while the batch is closed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowCloseDialog(false);
+                closeMutation.mutate();
+              }}
+            >
+              Close batch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -685,7 +747,7 @@ function MortalityTab({
         <h3 className="font-semibold text-gray-900">Record Mortality</h3>
         {formError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{formError}</p>}
         <div className="flex flex-wrap gap-2">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
+          <DateInput value={date} onChange={setDate} className="w-40" />
           <Input
             type="number"
             min="0"
@@ -1011,7 +1073,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
+          <DateInput value={date} onChange={setDate} className="w-40" />
 
           {expenseType === "INVENTORY" && (
             <select
@@ -1055,7 +1117,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                   options={filteredInventoryItems.map((item) => ({
                     value: item.id,
                     label: item.name,
-                    subtitle: `${item.itemType === "SELF_MADE" ? "Self Feed · " : ""}${Number(item.currentStock)} ${item.unit} in stock · NPR ${Number(item.effectiveUnitCost ?? item.unitPrice)}/${item.unit}`,
+                    subtitle: `${item.itemType === "SELF_MADE" ? "Self Feed · " : ""}${Number(item.currentStock)} ${item.unit} in stock · ${formatRupeesExact(item.effectiveUnitCost ?? item.unitPrice)}/${item.unit}`,
                     data: item,
                   }))}
                   placeholder="Search inventory item"
@@ -1358,7 +1420,7 @@ function EggProductionTab({
         <div className="flex flex-wrap gap-2 items-end">
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">Date</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-40" />
+            <DateInput value={date} onChange={setDate} className="w-40" />
           </div>
 
           {eggTypes.map((type) => (
@@ -1552,6 +1614,8 @@ function SalesTab({
   const [eggNote, setEggNote] = useState("");
   const [eggFormError, setEggFormError] = useState<string | null>(null);
   const [deleteEggSaleId, setDeleteEggSaleId] = useState<string | null>(null);
+  const [billSale, setBillSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
+  const [savedSale, setSavedSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
 
   // Parent sale form
   const [parentDate, setParentDate] = useState(today());
@@ -1607,7 +1671,7 @@ function SalesTab({
   async function handleAddEggSale() {
     setEggFormError(null);
     try {
-      await addEggSaleMutation.mutateAsync({
+      const sale = await addEggSaleMutation.mutateAsync({
         eggTypeId,
         date: eggDate,
         count: parseInt(eggCount),
@@ -1619,6 +1683,7 @@ function SalesTab({
       setEggUnitPrice("");
       setEggPartyId("");
       setEggNote("");
+      if (sale?.id) setSavedSale({ type: "egg_sale", id: sale.id });
     } catch (err: any) {
       setEggFormError(err?.response?.data?.error ?? "Failed to record sale");
     }
@@ -1638,7 +1703,7 @@ function SalesTab({
       return;
     }
     try {
-      await addParentSaleMutation.mutateAsync({
+      const sale = await addParentSaleMutation.mutateAsync({
         date: parentDate,
         maleCount: parentMale,
         femaleCount: parentFemale,
@@ -1653,6 +1718,7 @@ function SalesTab({
       setParentRatePerKg("");
       setParentPartyId("");
       setParentNote("");
+      if (sale?.id) setSavedSale({ type: "parent_sale", id: sale.id });
     } catch (err: any) {
       setParentFormError(err?.response?.data?.error ?? "Failed to record sale");
     }
@@ -1667,6 +1733,20 @@ function SalesTab({
       key: "partyId",
       label: "Party",
       render: (_, r) => <span className="text-gray-500 text-sm">{r.party?.name ?? (r.partyId ? "—" : "Cash")}</span>,
+    },
+    {
+      key: "__bill",
+      label: "",
+      align: "right",
+      render: (_, r) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setBillSale({ type: "egg_sale", id: r.id })}
+        >
+          <FileText className="h-3 w-3 mr-1" /> Bill
+        </Button>
+      ),
     },
     {
       key: "__actions",
@@ -1703,12 +1783,26 @@ function SalesTab({
     },
     { key: "totalWeightKg", label: "Total Wt (kg)", align: "right", render: (_, r) => Number(r.totalWeightKg).toFixed(2) },
     { key: "avgWeightKg", label: "Avg Wt (kg)", align: "right", render: (_, r) => Number(r.avgWeightKg).toFixed(3) },
-    { key: "ratePerKg", label: "Rate/kg", align: "right", render: (_, r) => `Rs ${Number(r.ratePerKg).toFixed(2)}` },
+    { key: "ratePerKg", label: "Rate/kg", align: "right", render: (_, r) => formatRupeesExact(r.ratePerKg) },
     { key: "amount", label: "Amount", align: "right", render: (_, r) => <span className="font-medium">{fmtNPR(r.amount)}</span> },
     {
       key: "partyId",
       label: "Party",
       render: (_, r) => <span className="text-gray-500 text-sm">{r.party?.name ?? (r.partyId ? "—" : "Cash")}</span>,
+    },
+    {
+      key: "__bill",
+      label: "",
+      align: "right",
+      render: (_, r) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setBillSale({ type: "parent_sale", id: r.id })}
+        >
+          <FileText className="h-3 w-3 mr-1" /> Bill
+        </Button>
+      ),
     },
     {
       key: "__actions",
@@ -1730,6 +1824,17 @@ function SalesTab({
 
   return (
     <div className="space-y-6">
+      <HatcherySaleBill
+        saleType={billSale?.type ?? null}
+        saleId={billSale?.id ?? null}
+        onClose={() => setBillSale(null)}
+      />
+      <SaleSavedPrompt
+        savedSale={savedSale}
+        onDismiss={() => setSavedSale(null)}
+        onShare={(s) => setBillSale(s)}
+      />
+
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Egg Sale Revenue" value={fmtNPR(totalEggRevenue)} variant="primary" />
@@ -1748,7 +1853,7 @@ function SalesTab({
           <h4 className="text-sm font-medium text-gray-700">Record Egg Sale</h4>
           {eggFormError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{eggFormError}</p>}
           <div className="flex flex-wrap gap-2">
-            <Input type="date" value={eggDate} onChange={(e) => setEggDate(e.target.value)} className="w-40" />
+            <DateInput value={eggDate} onChange={setEggDate} className="w-40" />
             <select
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-w-36"
               value={eggTypeId}
@@ -1802,7 +1907,7 @@ function SalesTab({
           <h4 className="text-sm font-medium text-gray-700">Record Parent Sale</h4>
           {parentFormError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{parentFormError}</p>}
           <div className="flex flex-wrap gap-2">
-            <Input type="date" value={parentDate} onChange={(e) => setParentDate(e.target.value)} className="w-40" />
+            <DateInput value={parentDate} onChange={setParentDate} className="w-40" />
             <Input type="number" min="0" max={currentFemale} placeholder="Female" value={parentFemaleCount} onChange={(e) => setParentFemaleCount(e.target.value)} className="w-28" />
             <Input type="number" min="0" max={currentMale} placeholder="Male" value={parentMaleCount} onChange={(e) => setParentMaleCount(e.target.value)} className="w-28" />
             <div className="flex items-center px-2 text-sm text-gray-600">
@@ -1827,7 +1932,7 @@ function SalesTab({
           {(parentAmount !== null || parentAvgWeight !== null) && (
             <p className="text-xs text-muted-foreground">
               {parentAvgWeight !== null && <>Avg weight: <span className="font-medium">{parentAvgWeight} kg/bird</span>{" · "}</>}
-              {parentAmount !== null && <>Total amount: <span className="font-medium text-foreground">Rs {parentAmount.toFixed(2)}</span></>}
+              {parentAmount !== null && <>Total amount: <span className="font-medium text-foreground">{formatRupeesExact(parentAmount)}</span></>}
             </p>
           )}
         </div>

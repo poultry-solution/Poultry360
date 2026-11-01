@@ -22,6 +22,7 @@ import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
   useHatcheryBatches,
@@ -45,7 +46,7 @@ export default function HatcheryBatchesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useHatcheryBatches({
+  const { data, isLoading, isError } = useHatcheryBatches({
     status: statusFilter || undefined,
     search: search || undefined,
     page,
@@ -277,7 +278,7 @@ export default function HatcheryBatchesPage() {
           data={batches}
           columns={columns}
           loading={isLoading}
-          emptyMessage="No batches found. Create your first batch."
+          emptyMessage={isError ? "Could not load batches. Check your connection and try again." : "No batches yet. Tap New batch to add one."}
           getRowKey={(row) => row.id}
         />
         <LedgerPagination
@@ -310,11 +311,7 @@ export default function HatcheryBatchesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date
               </label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <DateInput value={startDate} onChange={setStartDate} />
             </div>
 
             <div>

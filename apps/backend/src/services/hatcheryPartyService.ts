@@ -3,6 +3,29 @@ import { HatcheryPartyTxnType, Prisma } from "@prisma/client";
 type PrismaTx = Prisma.TransactionClient;
 
 export class HatcheryPartyService {
+  /**
+   * Upfront ownership check used by sale controllers before entering the
+   * sale-create transaction. Catches both "party does not exist" and "party
+   * belongs to another tenant" with the same clean 400 "Party not found"
+   * error. Without this guard, a bogus partyId would reach the FK constraint
+   * on `tx.hatcheryEggSale.create()` first and leak a raw Prisma error with
+   * a server file path (bug §7 MEDIUM — "database error showing server file
+   * paths"). `recordSale` keeps its own ownership check as belt-and-braces
+   * so a future caller cannot bypass this one.
+   */
+  static async assertPartyBelongsToHatchery(
+    hatcheryOwnerId: string,
+    partyId: string
+  ): Promise<void> {
+    const party = await prisma.hatcheryParty.findFirst({
+      where: { id: partyId, hatcheryOwnerId },
+      select: { id: true },
+    });
+    if (!party) {
+      throw new Error("Party not found");
+    }
+  }
+
   // ─── Party CRUD ───────────────────────────────────────────────────────────
 
   static async createParty(
@@ -125,7 +148,14 @@ export class HatcheryPartyService {
         data: { partyId, date, amount, method, note },
       });
 
-      const newBalance = Number(party.balance) - amount;
+      // Atomic decrement so two concurrent payments cannot both read the
+      // same stale balance (fixes bug §9 HIGH "party payments lost on
+      // same-time saves"). Mirrors the fix already in `recordSale`.
+      const updated = await tx.hatcheryParty.update({
+        where: { id: partyId },
+        data: { balance: { decrement: amount } },
+        select: { balance: true },
+      });
 
       await tx.hatcheryPartyTxn.create({
         data: {
@@ -133,16 +163,11 @@ export class HatcheryPartyService {
           type: HatcheryPartyTxnType.PAYMENT,
           date,
           amount: -amount,
-          balanceAfter: newBalance,
+          balanceAfter: updated.balance,
           sourceType: "payment",
           sourceId: payment.id,
           note,
         },
-      });
-
-      await tx.hatcheryParty.update({
-        where: { id: partyId },
-        data: { balance: newBalance },
       });
 
       return payment;
@@ -163,11 +188,12 @@ export class HatcheryPartyService {
         where: { sourceType: "payment", sourceId: paymentId },
       });
 
-      const newBalance = Number(payment.party.balance) + Number(payment.amount);
-
+      // Atomic reversal: a payment subtracted `amount` from balance, so
+      // deleting it must add the same amount back. Independent of any
+      // other concurrent write.
       await tx.hatcheryParty.update({
         where: { id: payment.partyId },
-        data: { balance: newBalance },
+        data: { balance: { increment: Number(payment.amount) } },
       });
 
       await tx.hatcheryPartyPayment.delete({ where: { id: paymentId } });
@@ -229,20 +255,40 @@ export class HatcheryPartyService {
   /**
    * Write a SALE txn and increment party balance.
    * Called inside a transaction from sale create handlers.
+   *
+   * `hatcheryOwnerId` is required so the party lookup is scoped to this
+   * hatchery — fixes bug §5 CRITICAL (sales could be posted to another
+   * hatchery's party when the client supplied a partyId from another tenant).
+   * Rejecting as "Party not found" matches the convention used elsewhere and
+   * does not reveal whether the id exists in a different tenant.
    */
   static async recordSale(
     tx: Prisma.TransactionClient,
+    hatcheryOwnerId: string,
     partyId: string,
     saleId: string,
     saleType: string,
     amount: number,
     date: Date
   ) {
-    const party = await tx.hatcheryParty.findUniqueOrThrow({
-      where: { id: partyId },
+    const party = await tx.hatcheryParty.findFirst({
+      where: { id: partyId, hatcheryOwnerId },
+      select: { id: true },
     });
+    if (!party) {
+      throw new Error("Party not found");
+    }
 
-    const newBalance = Number(party.balance) + amount;
+    // Atomic balance update. { increment } compiles to
+    // `UPDATE "HatcheryParty" SET balance = balance + :amount` which Postgres
+    // serialises per-row — fixes bug §9 HIGH ("party payments lost on
+    // same-time saves") in the sale write path. `reverseSale` already uses
+    // the matching { decrement } idiom.
+    const updated = await tx.hatcheryParty.update({
+      where: { id: partyId },
+      data: { balance: { increment: amount } },
+      select: { balance: true },
+    });
 
     await tx.hatcheryPartyTxn.create({
       data: {
@@ -250,15 +296,10 @@ export class HatcheryPartyService {
         type: HatcheryPartyTxnType.SALE,
         date,
         amount,
-        balanceAfter: newBalance,
+        balanceAfter: updated.balance,
         sourceType: saleType,
         sourceId: saleId,
       },
-    });
-
-    await tx.hatcheryParty.update({
-      where: { id: partyId },
-      data: { balance: newBalance },
     });
   }
 

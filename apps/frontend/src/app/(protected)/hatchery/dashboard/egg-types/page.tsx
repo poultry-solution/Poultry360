@@ -207,7 +207,7 @@ export default function HatcheryEggTypesPage() {
           data={types}
           columns={columns}
           loading={isLoading}
-          emptyMessage="No egg types yet. Add your first type above."
+          emptyMessage="Add your first egg type, e.g. Hatching, Table, Cracked."
           getRowKey={(row) => row.id}
         />
       </div>

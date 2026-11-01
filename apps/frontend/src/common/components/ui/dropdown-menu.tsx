@@ -34,12 +34,16 @@ interface DropdownMenuSeparatorProps {
   className?: string
 }
 
+const DropdownMenuContext = React.createContext<{ close: () => void }>({
+  close: () => {},
+})
+
 const DropdownMenu = ({ children }: DropdownMenuProps) => {
   const [isOpen, setIsOpen] = React.useState(false)
   const dropdownRef = React.useRef<HTMLDivElement>(null)
 
   const toggleDropdown = () => setIsOpen(!isOpen)
-  const closeDropdown = () => setIsOpen(false)
+  const closeDropdown = React.useCallback(() => setIsOpen(false), [])
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -56,26 +60,28 @@ const DropdownMenu = ({ children }: DropdownMenuProps) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen])
+  }, [isOpen, closeDropdown])
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {React.Children.map(children, (child) => {
-        if (React.isValidElement(child)) {
-          if (child.type === DropdownMenuTrigger) {
-            return (
-              <div onClick={toggleDropdown}>
-                {child}
-              </div>
-            )
+    <DropdownMenuContext.Provider value={{ close: closeDropdown }}>
+      <div className="relative" ref={dropdownRef}>
+        {React.Children.map(children, (child) => {
+          if (React.isValidElement(child)) {
+            if (child.type === DropdownMenuTrigger) {
+              return (
+                <div onClick={toggleDropdown}>
+                  {child}
+                </div>
+              )
+            }
+            if (child.type === DropdownMenuContent) {
+              return isOpen ? child : null
+            }
           }
-          if (child.type === DropdownMenuContent) {
-            return isOpen ? child : null
-          }
-        }
-        return child
-      })}
-    </div>
+          return child
+        })}
+      </div>
+    </DropdownMenuContext.Provider>
   )
 }
 
@@ -121,6 +127,7 @@ const DropdownMenuItem = React.forwardRef<
   HTMLDivElement,
   DropdownMenuItemProps
 >(({ children, className, onClick, ...props }, ref) => {
+  const { close } = React.useContext(DropdownMenuContext)
   return (
     <div
       ref={ref}
@@ -128,7 +135,13 @@ const DropdownMenuItem = React.forwardRef<
         "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
         className
       )}
-      onClick={onClick}
+      onClick={() => {
+        onClick?.()
+        // Menus close on item pick — matches user expectation and §2.3 point 11
+        // of the hatchery handoff. onClick runs first in case it needs to focus
+        // or trigger something that depends on the menu still being open.
+        close()
+      }}
       {...props}
     >
       {children}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Plus, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -27,6 +27,27 @@ import {
 } from "@/fetchers/hatchery/hatcheryPartyQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
+import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
+import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
+import { formatRupeesExact } from "@/common/lib/utils";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
+import { DateInput } from "@/common/components/ui/date-input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
+
+const BILLABLE_SALE_SOURCES: HatcherySaleType[] = [
+  "egg_sale",
+  "parent_sale",
+  "chick_sale",
+];
 
 const TXN_TYPE_LABEL: Record<string, { label: string; color: string }> = {
   SALE: { label: "Sale", color: "bg-red-100 text-red-800" },
@@ -40,6 +61,8 @@ export default function HatcheryPartyDetailPage() {
   const [activeTab, setActiveTab] = useState<"ledger" | "payments">("ledger");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ date: "", amount: "", method: "", note: "" });
+  const [billSale, setBillSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
+  const [pendingDeletePayment, setPendingDeletePayment] = useState<string | null>(null);
 
   const { data: party, isLoading: partyLoading } = useHatcheryParty(id);
   const { data: txnsData, isLoading: txnsLoading } = useHatcheryPartyTxns(id);
@@ -79,16 +102,40 @@ export default function HatcheryPartyDetailPage() {
       label: "Amount",
       render: (_, row) => (
         <span className={Number(row.amount) > 0 ? "text-red-600" : "text-green-600"}>
-          {Number(row.amount) > 0 ? "+" : ""}Rs {Number(row.amount).toFixed(2)}
+          {Number(row.amount) > 0 ? "+" : ""}{formatRupeesExact(row.amount)}
         </span>
       ),
     },
     {
       key: "balanceAfter",
       label: "Balance After",
-      render: (_, row) => <span>Rs {Number(row.balanceAfter).toFixed(2)}</span>,
+      render: (_, row) => <span>{formatRupeesExact(row.balanceAfter)}</span>,
     },
     { key: "note", label: "Note" },
+    {
+      key: "bill",
+      label: "",
+      render: (_, row) => {
+        const sourceType = row.sourceType as HatcherySaleType | null;
+        if (
+          row.type !== "SALE" ||
+          !row.sourceId ||
+          !sourceType ||
+          !BILLABLE_SALE_SOURCES.includes(sourceType)
+        ) {
+          return null;
+        }
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setBillSale({ type: sourceType, id: row.sourceId! })}
+          >
+            <FileText className="h-4 w-4 mr-1" /> Bill
+          </Button>
+        );
+      },
+    },
   ];
 
   const paymentColumns: Column<HatcheryPartyPayment>[] = [
@@ -101,7 +148,7 @@ export default function HatcheryPartyDetailPage() {
       key: "amount",
       label: "Amount",
       render: (_, row) => (
-        <span className="text-green-600 font-semibold">Rs {Number(row.amount).toFixed(2)}</span>
+        <span className="text-green-600 font-semibold">{formatRupeesExact(row.amount)}</span>
       ),
     },
     { key: "method", label: "Method" },
@@ -115,7 +162,7 @@ export default function HatcheryPartyDetailPage() {
           size="icon"
           className="text-red-500 hover:text-red-700"
           onClick={() => {
-            if (confirm("Delete this payment?")) deletePayment.mutate(row.id);
+            setPendingDeletePayment(row.id);
           }}
         >
           <Trash2 className="h-4 w-4" />
@@ -131,7 +178,7 @@ export default function HatcheryPartyDetailPage() {
     });
     const rows = filterRowsByDate(allRows, range, (row: HatcheryPartyTxn) => row.date);
     const columns = [
-        { label: "Date", value: (row: HatcheryPartyTxn) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: HatcheryPartyTxn) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: HatcheryPartyTxn) => TXN_TYPE_LABEL[row.type]?.label || row.type },
         { label: "Amount", value: (row: HatcheryPartyTxn) => Number(row.amount || 0).toFixed(2) },
         { label: "Balance", value: (row: HatcheryPartyTxn) => Number(row.balanceAfter || 0).toFixed(2) },
@@ -143,7 +190,7 @@ export default function HatcheryPartyDetailPage() {
         { title: "Payments", columns, rows: rows.filter((row: HatcheryPartyTxn) => String(row.type).includes("PAYMENT")) },
         { title: "Other records", columns, rows: rows.filter((row: HatcheryPartyTxn) => !String(row.type).includes("SALE") && !String(row.type).includes("PAYMENT")) },
       ],
-      summary: [{ label: "Current balance", value: `Rs ${Number(party?.balance || 0).toFixed(2)}` }, { label: "Total sales", value: `Rs ${Number(party?.totalSales || 0).toFixed(2)}` }, { label: "Total payments", value: `Rs ${Number(party?.totalPayments || 0).toFixed(2)}` }],
+      summary: [{ label: "Current balance", value: formatRupeesExact(party?.balance || 0) }, { label: "Total sales", value: formatRupeesExact(party?.totalSales || 0) }, { label: "Total payments", value: formatRupeesExact(party?.totalPayments || 0) }],
     };
   };
 
@@ -182,20 +229,20 @@ export default function HatcheryPartyDetailPage() {
         <div className="rounded-xl border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Outstanding Balance</p>
           <p className={`text-xl font-bold ${balance > 0 ? "text-red-600" : "text-green-600"}`}>
-            Rs {balance.toFixed(2)}
+            {formatRupeesExact(balance)}
           </p>
         </div>
         <div className="rounded-xl border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Total Sales</p>
-          <p className="text-xl font-bold">Rs {Number(party.totalSales).toFixed(2)}</p>
+          <p className="text-xl font-bold">{formatRupeesExact(party.totalSales)}</p>
         </div>
         <div className="rounded-xl border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Total Payments</p>
-          <p className="text-xl font-bold text-green-600">Rs {Number(party.totalPayments).toFixed(2)}</p>
+          <p className="text-xl font-bold text-green-600">{formatRupeesExact(party.totalPayments)}</p>
         </div>
         <div className="rounded-xl border p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Opening Balance</p>
-          <p className="text-xl font-bold">Rs {Number(party.openingBalance).toFixed(2)}</p>
+          <p className="text-xl font-bold">{formatRupeesExact(party.openingBalance)}</p>
         </div>
       </div>
 
@@ -241,6 +288,42 @@ export default function HatcheryPartyDetailPage() {
         </div>
       )}
 
+      {/* Sale bill pop-up */}
+      <HatcherySaleBill
+        saleType={billSale?.type ?? null}
+        saleId={billSale?.id ?? null}
+        onClose={() => setBillSale(null)}
+      />
+
+      <AlertDialog
+        open={!!pendingDeletePayment}
+        onOpenChange={(open) => !open && setPendingDeletePayment(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the payment and adjusts the party balance. You can
+              re-record it if needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDeletePayment) {
+                  deletePayment.mutate(pendingDeletePayment);
+                }
+                setPendingDeletePayment(null);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete payment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Payment modal */}
       <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
         <DialogContent className="max-w-md">
@@ -251,15 +334,13 @@ export default function HatcheryPartyDetailPage() {
           <form onSubmit={handleAddPayment} className="space-y-3">
             <div>
               <label className="text-sm font-medium">Date *</label>
-              <Input
-                type="date"
+              <DateInput
                 value={paymentForm.date}
-                onChange={(e) => setPaymentForm((f) => ({ ...f, date: e.target.value }))}
-                required
+                onChange={(v) => setPaymentForm((f) => ({ ...f, date: v }))}
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Amount (Rs) *</label>
+              <label className="text-sm font-medium">Amount (रू) *</label>
               <Input
                 type="number"
                 min="0.01"

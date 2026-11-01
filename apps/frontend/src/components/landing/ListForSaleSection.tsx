@@ -70,7 +70,7 @@ export default function ListForSaleSection() {
               value={province ?? "ALL"}
               onValueChange={(val) => setProvince(val === "ALL" ? null : val)}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label={t("landing.listForSale.provinceFilterPlaceholder")}>
                 <SelectValue placeholder={t("landing.listForSale.provinceFilterPlaceholder")} />
               </SelectTrigger>
               <SelectContent>

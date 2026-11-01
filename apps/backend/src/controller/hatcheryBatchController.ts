@@ -13,6 +13,7 @@ import { HatcheryBatchService } from "../services/hatcheryBatchService";
 import { HatcheryBatchExpenseService } from "../services/hatcheryBatchExpenseService";
 import { HatcheryEggService } from "../services/hatcheryEggService";
 import { HatcheryLayRateService } from "../services/hatcheryLayRateService";
+import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
 
 // Categories whose consumption can be attributed to a parent group. Feed is
 // bought as one total stock; the split only ever happens at consumption.
@@ -980,18 +981,41 @@ export async function addHatcheryExpense(req: Request, res: Response) {
           ...feed,
         });
       } else {
-        if (!itemName || !amount) {
+        if (!itemName || amount === undefined || amount === null || amount === "") {
           throw new Error("itemName and amount are required for manual expense");
+        }
+        // Fixes bug §5 HIGH ("minus money accepted") on the expense path.
+        // The sale handlers were tightened earlier; the manual-expense path
+        // was left open and silently accepted `amount: -500`.
+        const amountNum = Number(amount);
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+          throw new Error("amount must be greater than 0");
+        }
+        // Optional quantity / unitPrice — only validate when provided. Zero
+        // doesn't make sense for either, and negatives were being accepted.
+        let quantityNum: number | undefined;
+        if (quantity !== undefined && quantity !== null && quantity !== "") {
+          quantityNum = Number(quantity);
+          if (!Number.isFinite(quantityNum) || quantityNum <= 0) {
+            throw new Error("quantity must be greater than 0");
+          }
+        }
+        let unitPriceNum: number | undefined;
+        if (unitPrice !== undefined && unitPrice !== null && unitPrice !== "") {
+          unitPriceNum = Number(unitPrice);
+          if (!Number.isFinite(unitPriceNum) || unitPriceNum < 0) {
+            throw new Error("unitPrice cannot be negative");
+          }
         }
         expense = await HatcheryBatchExpenseService.createManualExpense(tx, {
           batchId,
           date: new Date(date),
           category,
           itemName,
-          quantity: quantity ? Number(quantity) : undefined,
+          quantity: quantityNum,
           unit,
-          unitPrice: unitPrice ? Number(unitPrice) : undefined,
-          amount: Number(amount),
+          unitPrice: unitPriceNum,
+          amount: amountNum,
           note,
           ...feed,
         });
@@ -1056,21 +1080,40 @@ export async function createEggType(req: Request, res: Response) {
     const ownerId = getOwnerId(req);
     const { name, isHatchable = false } = req.body;
 
-    if (!name) return res.status(400).json({ error: "name is required" });
-
-    if (isHatchable) {
-      const existing = await prisma.hatcheryEggType.findFirst({
-        where: { hatcheryOwnerId: ownerId, isHatchable: true },
-      });
-      if (existing) {
-        return res.status(400).json({
-          error: "A HATCHABLE egg type already exists. Only one is allowed.",
-        });
-      }
+    if (typeof name !== "string" || name.trim().length === 0) {
+      return res.status(400).json({ error: "name is required" });
+    }
+    if (typeof isHatchable !== "boolean") {
+      return res.status(400).json({ error: "isHatchable must be a boolean" });
     }
 
-    const type = await prisma.hatcheryEggType.create({
-      data: { hatcheryOwnerId: ownerId, name, isHatchable },
+    const type = await prisma.$transaction(async (tx) => {
+      // Keep the one-HATCHABLE check and insert under the same owner lock.
+      // Without this lock, two quick creates can both pass the check.
+      await (tx as any).$queryRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+        `hatchery-egg-type:${ownerId}`
+      );
+
+      if (isHatchable) {
+        const existing = await tx.hatcheryEggType.findFirst({
+          where: { hatcheryOwnerId: ownerId, isHatchable: true },
+          select: { id: true },
+        });
+        if (existing) {
+          throw new Error(
+            "A HATCHABLE egg type already exists. Only one is allowed."
+          );
+        }
+      }
+
+      return tx.hatcheryEggType.create({
+        data: {
+          hatcheryOwnerId: ownerId,
+          name: name.trim(),
+          isHatchable,
+        },
+      });
     });
 
     return res.status(201).json(type);
@@ -1088,18 +1131,46 @@ export async function updateEggType(req: Request, res: Response) {
     const { id } = req.params;
     const { name } = req.body;
 
-    const existing = await prisma.hatcheryEggType.findFirst({
-      where: { id, hatcheryOwnerId: ownerId },
-    });
-    if (!existing) return res.status(404).json({ error: "Egg type not found" });
+    if (typeof name !== "string" || name.trim().length === 0) {
+      return res.status(400).json({ error: "name is required" });
+    }
 
-    const updated = await prisma.hatcheryEggType.update({
-      where: { id },
-      data: { name },
+    const updated = await prisma.$transaction(async (tx) => {
+      await (tx as any).$queryRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+        `hatchery-egg-type:${ownerId}`
+      );
+
+      const existing = await tx.hatcheryEggType.findFirst({
+        where: { id, hatcheryOwnerId: ownerId },
+        select: { id: true },
+      });
+      if (!existing) return null;
+
+      const duplicate = await tx.hatcheryEggType.findFirst({
+        where: {
+          hatcheryOwnerId: ownerId,
+          name: name.trim(),
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new Error("Egg type with this name already exists");
+      }
+
+      return tx.hatcheryEggType.update({
+        where: { id },
+        data: { name: name.trim() },
+      });
     });
+    if (!updated) return res.status(404).json({ error: "Egg type not found" });
 
     return res.json(updated);
   } catch (err: any) {
+    if (err.code === "P2002") {
+      return res.status(400).json({ error: "Egg type with this name already exists" });
+    }
     return res.status(400).json({ error: err.message });
   }
 }
@@ -1118,16 +1189,28 @@ export async function deleteEggType(req: Request, res: Response) {
       return res.status(400).json({ error: "Cannot delete the HATCHABLE egg type" });
     }
 
-    // Check for references
-    const [prodCount, stockCount, saleCount] = await Promise.all([
-      prisma.hatcheryEggProductionLine.count({ where: { eggTypeId: id } }),
-      prisma.hatcheryEggStock.count({ where: { eggTypeId: id } }),
-      prisma.hatcheryEggSale.count({ where: { eggTypeId: id } }),
-    ]);
+    // Fixes bug §4 LOW "Egg type delete misses some 'in use' links". The
+    // model has six relations; previously only three were pre-checked, so
+    // the other three bubbled up as a raw Prisma FK-violation 500.
+    const [prodCount, stockCount, saleCount, txnCount, incubCount, moveCount] =
+      await Promise.all([
+        prisma.hatcheryEggProductionLine.count({ where: { eggTypeId: id } }),
+        prisma.hatcheryEggStock.count({ where: { eggTypeId: id } }),
+        prisma.hatcheryEggSale.count({ where: { eggTypeId: id } }),
+        prisma.hatcheryEggTxn.count({ where: { eggTypeId: id } }),
+        prisma.hatcheryIncubationBatch.count({
+          where: { hatchableEggTypeId: id },
+        }),
+        prisma.hatcheryEggMove.count({ where: { eggTypeId: id } }),
+      ]);
 
-    if (prodCount + stockCount + saleCount > 0) {
+    if (
+      prodCount + stockCount + saleCount + txnCount + incubCount + moveCount >
+      0
+    ) {
       return res.status(400).json({
-        error: "Cannot delete: egg type is referenced by production, stock, or sale records",
+        error:
+          "Cannot delete: egg type is referenced by production, stock, sales, transactions, incubations, or egg movements.",
       });
     }
 
@@ -1217,6 +1300,24 @@ export async function addEggProduction(req: Request, res: Response) {
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
+    // Fixes bug §5 MEDIUM "Another hatchery's egg type accepted". Production
+    // upserts into HatcheryEggStock, so without this check a cross-tenant
+    // eggTypeId would create a stock row keyed to another hatchery's egg
+    // type name on this batch. (The sale path is already safe because the
+    // batch-scoped stock composite key stops it short — see sellEggs.)
+    const requestedTypeIds = Array.isArray(lines)
+      ? [...new Set(lines.map((l: any) => l?.eggTypeId).filter((x: any) => typeof x === "string"))]
+      : [];
+    if (requestedTypeIds.length > 0) {
+      const ownedTypes = await prisma.hatcheryEggType.findMany({
+        where: { id: { in: requestedTypeIds }, hatcheryOwnerId: ownerId },
+        select: { id: true },
+      });
+      if (ownedTypes.length !== requestedTypeIds.length) {
+        return res.status(404).json({ error: "Egg type not found" });
+      }
+    }
+
     const production = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       return HatcheryEggService.addProduction(tx, {
         batchId,
@@ -1275,8 +1376,13 @@ export async function getEggInventory(req: Request, res: Response) {
     const ownerId = getOwnerId(req);
     const { batchId, typeId, page = "1", limit = "10" } = req.query as Record<string, string>;
 
+    // §6 MEDIUM "Eggs of a closed batch disappear". Previously filtered to
+    // ACTIVE batches, which hid any leftover egg stock on a closed parent
+    // batch while leaving those eggs still sellable/settable via the batch
+    // detail page. Dropping the status filter makes the two surfaces agree
+    // on what stock exists; the owner can decide what to do with it.
     const where: any = {
-      batch: { hatcheryOwnerId: ownerId, status: HatcheryBatchStatus.ACTIVE },
+      batch: { hatcheryOwnerId: ownerId },
     };
     if (batchId) where.batchId = batchId;
     if (typeId) where.eggTypeId = typeId;
@@ -1373,8 +1479,24 @@ export async function addEggSale(req: Request, res: Response) {
     const { id: batchId } = req.params;
     const { eggTypeId, date, count, unitPrice, partyId, note } = req.body;
 
-    if (!eggTypeId || !date || !count || !unitPrice) {
-      return res.status(400).json({ error: "eggTypeId, date, count, and unitPrice are required" });
+    if (!eggTypeId || !date) {
+      return res.status(400).json({ error: "eggTypeId and date are required" });
+    }
+    const countNum = Number(count);
+    if (!Number.isInteger(countNum) || countNum <= 0) {
+      return res
+        .status(400)
+        .json({ error: "count must be a positive whole number" });
+    }
+    // `unitPrice === ""` / undefined / null → missing. 0 is allowed (free).
+    if (unitPrice === undefined || unitPrice === null || unitPrice === "") {
+      return res.status(400).json({ error: "unitPrice is required" });
+    }
+    const unitPriceNum = Number(unitPrice);
+    if (!Number.isFinite(unitPriceNum) || unitPriceNum < 0) {
+      return res
+        .status(400)
+        .json({ error: "unitPrice cannot be negative" });
     }
 
     const batch = await prisma.hatcheryBatch.findFirst({
@@ -1382,13 +1504,19 @@ export async function addEggSale(req: Request, res: Response) {
     });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
 
+    if (partyId) {
+      const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
+      await HatcheryPartyService.assertPartyBelongsToHatchery(ownerId, partyId);
+    }
+
     const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       return HatcheryEggService.sellEggs(tx, {
         batchId,
+        hatcheryOwnerId: ownerId,
         eggTypeId,
         date: new Date(date),
-        count: parseInt(count),
-        unitPrice: Number(unitPrice),
+        count: countNum,
+        unitPrice: unitPriceNum,
         partyId: partyId || undefined,
         note,
       });
@@ -1482,7 +1610,15 @@ export async function addParentSale(req: Request, res: Response) {
     const male = Number(maleCount ?? 0);
     const female = Number(femaleCount ?? 0);
 
-    if (!date || !totalWeightKg || !ratePerKg) {
+    if (
+      !date ||
+      totalWeightKg === undefined ||
+      totalWeightKg === null ||
+      totalWeightKg === "" ||
+      ratePerKg === undefined ||
+      ratePerKg === null ||
+      ratePerKg === ""
+    ) {
       return res.status(400).json({
         error: "date, totalWeightKg, and ratePerKg are required",
       });
@@ -1503,6 +1639,19 @@ export async function addParentSale(req: Request, res: Response) {
         .status(400)
         .json({ error: "Sell at least one male or female bird" });
     }
+    const totalKg = Number(totalWeightKg);
+    if (!Number.isFinite(totalKg) || totalKg <= 0) {
+      return res
+        .status(400)
+        .json({ error: "totalWeightKg must be greater than 0" });
+    }
+    const rate = Number(ratePerKg);
+    // 0 is allowed (free parent sale); negative is not.
+    if (!Number.isFinite(rate) || rate < 0) {
+      return res
+        .status(400)
+        .json({ error: "ratePerKg cannot be negative" });
+    }
 
     const batch = await prisma.hatcheryBatch.findFirst({
       where: { id: batchId, hatcheryOwnerId: ownerId },
@@ -1518,8 +1667,11 @@ export async function addParentSale(req: Request, res: Response) {
       });
     }
 
-    const totalKg = parseFloat(totalWeightKg);
-    const rate = parseFloat(ratePerKg);
+    if (partyId) {
+      const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
+      await HatcheryPartyService.assertPartyBelongsToHatchery(ownerId, partyId);
+    }
+
     const avgWeightKg = saleCount > 0 ? Math.round((totalKg / saleCount) * 1000) / 1000 : 0;
     const amount = Math.round(totalKg * rate * 100) / 100;
 
@@ -1541,6 +1693,8 @@ export async function addParentSale(req: Request, res: Response) {
         throw new Error("Not enough live birds of that sex remaining");
       }
 
+      const invoiceNumber = await generateNextHatcheryInvoiceNumber(tx, ownerId);
+
       const created = await tx.hatcheryParentSale.create({
         data: {
           batchId,
@@ -1554,12 +1708,22 @@ export async function addParentSale(req: Request, res: Response) {
           amount,
           partyId: partyId || null,
           note,
+          invoiceNumber,
+          hatcheryOwnerId: ownerId,
         },
       });
 
       if (partyId) {
         const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
-        await HatcheryPartyService.recordSale(tx, partyId, created.id, "parent_sale", amount, new Date(date));
+        await HatcheryPartyService.recordSale(
+          tx,
+          ownerId,
+          partyId,
+          created.id,
+          "parent_sale",
+          amount,
+          new Date(date)
+        );
       }
 
       return created;

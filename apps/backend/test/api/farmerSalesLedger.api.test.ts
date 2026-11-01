@@ -3,10 +3,15 @@ import { ApiHelper } from "../helpers/api.helper";
 /**
  * Sales-ledger journey through public HTTP APIs only.
  *
- * A customer starts with Rs. 100 owed. A Rs. 600 credit sale with Rs. 100
- * paid makes the balance Rs. 600. A Rs. 200 payment lowers it to Rs. 400.
- * Deleting that payment restores Rs. 600. Deleting the sale restores the
- * original Rs. 100 opening balance.
+ * Customer starts with Rs. 100 owed. A Rs. 600 credit sale with Rs. 100
+ * already paid makes the balance Rs. 600 (opening 100 + due 500). A Rs. 200
+ * customer-account payment lowers the balance to Rs. 400. Deleting that
+ * payment restores Rs. 600. Deleting the sale restores Rs. 100 (the opening).
+ *
+ * Payments are recorded against the *customer account*, not against a
+ * specific sale. The sale's own `paidAmount` / `dueAmount` are set once at
+ * sale creation and are not moved by later payments — the customer's
+ * `balance` is the ledger truth.
  */
 describe("Farmer sales ledger API journey", () => {
   const api = new ApiHelper();
@@ -140,29 +145,35 @@ describe("Farmer sales ledger API journey", () => {
     expect(tooManyBirds.status).toBe(400);
     expect(tooManyBirds.body.message).toContain("Only 7 birds available");
 
-    const payment = await api.post(`/sales/${saleId}/payments`, {
+    // Payments are now recorded against the *customer account*, not a specific
+    // sale (changed by commit aeb7852 "farmer: one payment path (customer
+    // account); remove pay-per-bill"). The per-sale `paidAmount` / `dueAmount`
+    // are set at sale creation and are no longer moved by subsequent payments —
+    // the customer's `balance` is the ledger truth.
+    const payment = await api.post(`/sales/customers/${customerId}/payments`, {
       amount: 200,
       date: now,
       description: "Part payment",
     });
     expect(payment.status).toBe(201);
-    expect(Number(payment.body.data.paidAmount)).toBe(300);
-    expect(Number(payment.body.data.dueAmount)).toBe(300);
-
-    const overPayment = await api.post(`/sales/${saleId}/payments`, { amount: 301 });
-    expect(overPayment.status).toBe(400);
-    expect(overPayment.body.message).toContain("cannot exceed due amount");
+    expect(payment.body.data.transaction).toMatchObject({
+      type: "RECEIPT",
+      amount: 200,
+      customerId,
+    });
+    customerPaymentId = payment.body.data.transaction.id;
 
     const [payments, customerAfterPayment] = await Promise.all([
       api.get(`/sales/payments?customerId=${customerId}&limit=20`),
       api.get(`/sales/customers/${customerId}`),
     ]);
     expect(payments.status).toBe(200);
-    const receipt = payments.body.data.find((entry: { source: string; amount: number }) =>
-      entry.source === "CUSTOMER_RECEIPT" && entry.amount === 200
+    const receipt = payments.body.data.find(
+      (entry: { id: string; source: string; amount: number }) =>
+        entry.source === "CUSTOMER_RECEIPT" && entry.id === customerPaymentId
     );
     expect(receipt).toBeDefined();
-    customerPaymentId = receipt.id;
+    expect(receipt.amount).toBe(200);
     expect(Number(customerAfterPayment.body.data.balance)).toBe(400);
 
     const wrongPassword = await api.delete(`/sales/customers/${customerId}/payments/${customerPaymentId}`, {
@@ -177,6 +188,8 @@ describe("Farmer sales ledger API journey", () => {
       api.get(`/sales/${saleId}`),
       api.get(`/sales/customers/${customerId}`),
     ]);
+    // Sale's own paid/due were never touched by the customer-level payment,
+    // so they are still at the values set at sale creation.
     expect(Number(saleAfterPaymentDelete.body.data.paidAmount)).toBe(100);
     expect(Number(saleAfterPaymentDelete.body.data.dueAmount)).toBe(500);
     expect(Number(customerAfterPaymentDelete.body.data.balance)).toBe(600);

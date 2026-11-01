@@ -10,11 +10,14 @@ import {
   Plus,
   FlaskConical,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import { apiErrorText, formatRupeesExact } from "@/common/lib/utils";
 import {
   useIncubationBatch,
   useIncubationLosses,
@@ -22,6 +25,7 @@ import {
   useTransferToHatcher,
   useHatchResults,
   useAddHatchResult,
+  useDeleteHatchResult,
   useChickSales,
   useAddChickSale,
   useDeleteChickSale,
@@ -30,7 +34,21 @@ import {
   type ChickSale,
   type ChickGrade,
 } from "@/fetchers/hatchery/hatcheryIncubationQueries";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/common/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
+import { SaleSavedPrompt } from "../../sales/_components/SaleSavedPrompt";
+import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
 
 type Tab = "overview" | "candling" | "transfer" | "hatch-results" | "chick-stock" | "chick-sales";
 
@@ -138,7 +156,7 @@ function OverviewTab({ batch }: { batch: any }) {
         <StatCard label="Hatchability" value={`${s.hatchability}%`} />
         <StatCard label="Hatch of Total" value={`${s.hatchOfTotal}%`} />
         <StatCard label="Chicks Sold" value={s.totalSalesCount} />
-        <StatCard label="Sales Revenue" value={`₹${s.totalSalesRevenue.toLocaleString()}`} />
+        <StatCard label="Sales Revenue" value={formatRupeesExact(s.totalSalesRevenue)} />
       </div>
 
       <div className="border rounded-lg p-4 space-y-2 text-sm">
@@ -165,26 +183,15 @@ function OverviewTab({ batch }: { batch: any }) {
       {batch.eggMoves?.length > 0 && (
         <div>
           <h3 className="font-semibold mb-2">Egg Consumption</h3>
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-left px-4 py-2">Date</th>
-                  <th className="text-left px-4 py-2">Egg Type</th>
-                  <th className="text-right px-4 py-2">Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batch.eggMoves.map((m: any) => (
-                  <tr key={m.id} className="border-t">
-                    <td className="px-4 py-2"><DateDisplay date={m.date} /></td>
-                    <td className="px-4 py-2">{m.eggType?.name ?? m.eggTypeId}</td>
-                    <td className="px-4 py-2 text-right font-semibold">{m.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={batch.eggMoves}
+            getRowKey={(row: any) => row.id}
+            columns={[
+              { key: "date", label: "Date", render: (_, m: any) => <DateDisplay date={m.date} /> },
+              { key: "eggType", label: "Egg type", render: (_, m: any) => m.eggType?.name ?? m.eggTypeId },
+              { key: "count", label: "Count", align: "right", render: (_, m: any) => <span className="font-semibold">{m.count}</span> },
+            ]}
+          />
         </div>
       )}
     </div>
@@ -226,7 +233,7 @@ function CandlingTab({ batch, batchId }: { batch: any; batchId: string }) {
       setEarlyDead("");
       setNote("");
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
+      setErr(e?.response?.data?.error ?? e?.response?.data?.message ?? e.message);
     }
   }
 
@@ -252,7 +259,7 @@ function CandlingTab({ batch, batchId }: { batch: any; batchId: string }) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Date</label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput value={date} onChange={setDate} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Infertile</label>
@@ -311,7 +318,7 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
     try {
       await transferMutation.mutateAsync({ date });
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
+      setErr(e?.response?.data?.error ?? e?.response?.data?.message ?? e.message);
     }
   }
 
@@ -342,7 +349,7 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
           <div className="flex gap-3 items-end">
             <div>
               <label className="block text-sm font-medium mb-1">Transfer Date</label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput value={date} onChange={setDate} />
             </div>
             <Button onClick={handleTransfer} disabled={transferMutation.isPending}>
               {transferMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -368,6 +375,7 @@ function TransferTab({ batch, batchId }: { batch: any; batchId: string }) {
 function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
   const { data: results, isLoading } = useHatchResults(batchId);
   const addMutation = useAddHatchResult(batchId);
+  const deleteMutation = useDeleteHatchResult(batchId);
 
   const [date, setDate] = useState(getNepalTodayAd());
   const [hatchedA, setHatchedA] = useState("");
@@ -377,11 +385,30 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
   const [unhatched, setUnhatched] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const hasHatchResult = (results?.length ?? 0) > 0;
   const canAddHatchResult =
     !isLoading && batch.stage === "HATCHER" && !!batch.transferredAt && !hasHatchResult;
   const isFinalized = batch.stage === "COMPLETED" || hasHatchResult;
+  // Backend allows deleting the hatch result when none of the produced chicks
+  // have been sold (service re-checks per-grade). Exposing the button here
+  // closes bug §7 MEDIUM "A wrong hatch result can never be fixed" on the UI
+  // side — the API already supported it, the page just hadn't caught up.
+  const existingHatchResult = results?.[0];
+
+  async function handleDeleteHatchResult() {
+    if (!existingHatchResult) return;
+    try {
+      await deleteMutation.mutateAsync(existingHatchResult.id);
+      toast.success("Hatch result removed. You can enter a new one.");
+      setConfirmDeleteOpen(false);
+    } catch (e: any) {
+      // Backend message surfaces the per-grade "chicks sold" guard, which
+      // is the main reason this can fail.
+      toast.error(apiErrorText(e, "Failed to delete hatch result"));
+    }
+  }
   const fertileEggs = Number(batch?.summary?.fertileEggs ?? 0);
   const enteredTotal = [hatchedA, hatchedB, cull, lateDead, unhatched].reduce(
     (sum, value) => sum + (Number(value) || 0),
@@ -414,7 +441,7 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
       setUnhatched("");
       setNote("");
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
+      setErr(e?.response?.data?.error ?? e?.response?.data?.message ?? e.message);
     }
   }
 
@@ -441,14 +468,54 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
       )}
 
       {isFinalized && (
-        <div className="flex items-center gap-3 border rounded-lg p-4 bg-green-50 text-green-800">
-          <CheckCircle className="h-5 w-5" />
-          <div>
-            <p className="font-semibold">Hatch result finalized</p>
-            <p className="text-sm">This hatch result is read-only after completion.</p>
+        <div className="flex items-start gap-3 border rounded-lg p-4 bg-green-50 text-green-800">
+          <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold">Hatch result saved</p>
+            <p className="text-sm">
+              You can delete this result and record a new one — but only while
+              none of the produced chicks have been sold.
+            </p>
           </div>
+          {existingHatchResult && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-red-700 border-red-200 hover:bg-red-50"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete result
+            </Button>
+          )}
         </div>
       )}
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete hatch result?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the hatch result and the produced chick stock it
+              created. The incubation goes back to the Hatcher stage so you can
+              record a corrected result. If any of these chicks have already
+              been sold, the server will block the delete.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteHatchResult}
+              disabled={deleteMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete result"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {canAddHatchResult && (
         <div className="border rounded-lg p-4 space-y-3">
@@ -475,7 +542,7 @@ function HatchResultsTab({ batch, batchId }: { batch: any; batchId: string }) {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">Date</label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput value={date} onChange={setDate} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Grade A Chicks</label>
@@ -564,6 +631,8 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [billSaleId, setBillSaleId] = useState<string | null>(null);
+  const [savedSale, setSavedSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
 
   const stocks: Array<{ grade: ChickGrade; currentStock: number }> = batch.chickStocks ?? [];
   const parties = partiesData?.parties ?? [];
@@ -573,7 +642,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
     if (!count || parseInt(count) <= 0) return setErr("Count must be greater than 0");
     if (!unitPrice || parseFloat(unitPrice) < 0) return setErr("Unit price is required");
     try {
-      await addMutation.mutateAsync({
+      const sale = await addMutation.mutateAsync({
         grade,
         date,
         count: parseInt(count),
@@ -585,8 +654,9 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
       setUnitPrice("");
       setPartyId("");
       setNote("");
+      if (sale?.id) setSavedSale({ type: "chick_sale", id: sale.id });
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
+      setErr(e?.response?.data?.error ?? e?.response?.data?.message ?? e.message);
     }
   }
 
@@ -595,7 +665,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
     try {
       await deleteMutation.mutateAsync(saleId);
     } catch (e: any) {
-      setErr(e?.response?.data?.error ?? e.message);
+      setErr(e?.response?.data?.error ?? e?.response?.data?.message ?? e.message);
     } finally {
       setDeletingId(null);
     }
@@ -613,10 +683,23 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
       ),
     },
     { key: "count", label: "Count", render: (_, s) => <span className="font-semibold">{s.count}</span> },
-    { key: "unitPrice", label: "Unit Price", render: (_, s) => `₹${Number(s.unitPrice).toFixed(2)}` },
-    { key: "amount", label: "Amount", render: (_, s) => <span className="font-semibold">₹{Number(s.amount).toLocaleString()}</span> },
+    { key: "unitPrice", label: "Unit Price", render: (_, s) => formatRupeesExact(s.unitPrice) },
+    { key: "amount", label: "Amount", render: (_, s) => <span className="font-semibold">{formatRupeesExact(s.amount)}</span> },
     { key: "partyId", label: "Party", render: (_, s) => s.party?.name ?? (s.partyId ? "—" : "Cash") },
     { key: "note", label: "Note", render: (_, s) => s.note ?? "—" },
+    {
+      key: "bill",
+      label: "",
+      render: (_, s) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setBillSaleId(s.id)}
+        >
+          <FileText className="h-4 w-4 mr-1" /> Bill
+        </Button>
+      ),
+    },
     {
       key: "actions",
       label: "",
@@ -640,6 +723,16 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
 
   return (
     <div className="space-y-6">
+      <HatcherySaleBill
+        saleType={billSaleId ? "chick_sale" : null}
+        saleId={billSaleId}
+        onClose={() => setBillSaleId(null)}
+      />
+      <SaleSavedPrompt
+        savedSale={savedSale}
+        onDismiss={() => setSavedSale(null)}
+        onShare={({ id }) => setBillSaleId(id)}
+      />
       {/* Stock summary */}
       <div className="grid grid-cols-3 gap-3">
         {(["A", "B", "CULL"] as ChickGrade[]).map((g) => {
@@ -670,14 +763,14 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Date</label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput value={date} onChange={setDate} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Count</label>
             <Input type="number" min={1} value={count} onChange={(e) => setCount(e.target.value)} placeholder="0" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Unit Price (₹)</label>
+            <label className="block text-sm font-medium mb-1">Unit price (रू)</label>
             <Input type="number" min={0} step={0.01} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="0.00" />
           </div>
           <div>
@@ -700,7 +793,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
         </div>
         {count && unitPrice && (
           <p className="text-sm text-muted-foreground">
-            Total: <span className="font-semibold text-foreground">₹{(parseInt(count) * parseFloat(unitPrice)).toLocaleString()}</span>
+            Total: <span className="font-semibold text-foreground">{formatRupeesExact(parseInt(count) * parseFloat(unitPrice))}</span>
           </p>
         )}
         <div className="flex justify-end">

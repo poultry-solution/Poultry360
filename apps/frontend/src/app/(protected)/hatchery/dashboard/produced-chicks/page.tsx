@@ -40,7 +40,7 @@ export default function HatcheryProducedChicksPage() {
     parentBatchId: selectedParentBatchId || undefined,
     limit: 200,
   });
-  const { data: stockRes, isLoading } = useProducedChickStock({
+  const { data: stockRes, isLoading, isError } = useProducedChickStock({
     parentBatchId: selectedParentBatchId || undefined,
     incubationBatchId: selectedIncubationBatchId || undefined,
     page,
@@ -203,7 +203,7 @@ export default function HatcheryProducedChicksPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          emptyMessage="No produced chick stock found. Add hatch results in an incubation batch to see stock here."
+          emptyMessage={isError ? "Could not load produced chicks. Check your connection and try again." : "No produced chicks yet. Add hatch results in an incubation batch to see stock here."}
           getRowKey={(row) => row.id}
           rowClassName={(row) => (row.currentStock === 0 ? "opacity-50" : "")}
         />

@@ -23,3 +23,7 @@ output/
 # macOS Finder metadata
 .DS_Store
 **/.DS_Store
+
+backup.sql
+.firecrawl
+HATCHERY_PLAN.md

@@ -19,8 +19,9 @@ import {
   Trash2,
   AlertTriangle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { apiErrorText, formatRatePerUnit, getNowLocalDateTime } from "@/common/lib/utils";
 import {
   useGetHatcheryInventoryTable,
   useGetHatcheryInventoryStatistics,
@@ -216,7 +217,7 @@ export default function HatcheryInventoryPage() {
       toast.success("Reorder purchase created and inventory updated");
       setIsReorderOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to reorder");
+      toast.error(apiErrorText(err, "Failed to reorder"));
     }
   };
 
@@ -240,7 +241,7 @@ export default function HatcheryInventoryPage() {
       toast.success("Item updated");
       setIsEditOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to update item");
+      toast.error(apiErrorText(err, "Failed to update item"));
     }
   };
 
@@ -251,7 +252,7 @@ export default function HatcheryInventoryPage() {
       toast.success("Item removed");
       setIsDeleteOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete item");
+      toast.error(apiErrorText(err, "Failed to delete item"));
     }
   };
 
@@ -273,7 +274,7 @@ export default function HatcheryInventoryPage() {
       setEditingProduct(null);
       setIsProductOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to create product");
+      toast.error(apiErrorText(err, "Failed to create product"));
     }
   };
 
@@ -333,12 +334,10 @@ export default function HatcheryInventoryPage() {
       width: "140px",
       render: (_value, row) => (
         <span className="text-muted-foreground">
-          Rs.{" "}
-          {Number(row.effectiveUnitCost ?? row.unitPrice ?? 0).toLocaleString("en-NP", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 4,
-          })}
-          /{row.unit}
+          {formatRatePerUnit(
+            row.effectiveUnitCost ?? row.unitPrice ?? 0,
+            row.unit
+          )}
         </span>
       ),
     },
@@ -400,7 +399,7 @@ export default function HatcheryInventoryPage() {
   const productColumns: Column<HatcheryManufacturedProduct>[] = [
     { key: "name", label: "Product", render: (_, row) => <span className="font-medium">{row.name}</span> },
     { key: "currentStock", label: "Stock", align: "right", render: (value, row) => <span className="font-semibold">{fmtStock(value)} <span className="font-normal text-muted-foreground">{row.unit}</span></span> },
-    { key: "unitCost", label: "Cost / Unit", align: "right", render: (value, row) => value == null ? "—" : <span className="text-muted-foreground">Rs. {Number(value).toLocaleString("en-NP", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}/{row.unit}</span> },
+    { key: "unitCost", label: "Cost / Unit", align: "right", render: (value, row) => value == null ? "—" : <span className="text-muted-foreground">{formatRatePerUnit(value, row.unit)}</span> },
     { key: "lotCount", label: "Production Lots", align: "right" },
     { key: "minStock", label: "Min Stock", align: "right", render: (value, row) => value == null ? "—" : `${fmtStock(value)} ${row.unit}` },
     { key: "__actions", label: "", align: "right", render: (_, row) => <div className="flex justify-end gap-1">
@@ -411,7 +410,7 @@ export default function HatcheryInventoryPage() {
       }}>Edit</Button>
       {Number(row.currentStock) === 0 && <Button variant="ghost" size="sm" className="text-red-500" onClick={async () => {
         try { await archiveProduct.mutateAsync(row.id); toast.success("Product archived"); }
-        catch (err: any) { toast.error(err?.response?.data?.message || "Failed to archive product"); }
+        catch (err: any) { toast.error(apiErrorText(err, "Failed to archive product")); }
       }}><Trash2 className="h-3.5 w-3.5 mr-1" /> Archive</Button>}
     </div> },
   ];
@@ -518,7 +517,7 @@ export default function HatcheryInventoryPage() {
 
       {/* Inventory table */}
       {activeTab === "SELF_MADE" ? (
-        productsLoading ? <div className="text-center text-muted-foreground py-8">Loading...</div> : manufacturedProducts.length === 0 ? (
+        productsLoading ? <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div> : manufacturedProducts.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
             <p className="font-medium">No Self Feed products</p>
@@ -526,7 +525,7 @@ export default function HatcheryInventoryPage() {
           </div>
         ) : <DataTable data={manufacturedProducts} columns={productColumns} emptyMessage="No Self Feed products" />
       ) : isLoading ? (
-        <div className="text-center text-muted-foreground py-8">Loading...</div>
+        <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : items.length === 0 ? (
         <div className="text-center text-muted-foreground py-8">
           <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />

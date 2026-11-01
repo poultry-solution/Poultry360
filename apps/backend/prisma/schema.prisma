@@ -3273,46 +3273,54 @@ model HatcheryEggTxn {
 
 // Egg sale record (reduces egg stock for the batch)
 model HatcheryEggSale {
-  id        String          @id @default(cuid())
-  batchId   String
-  batch     HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  eggTypeId String
-  eggType   HatcheryEggType @relation(fields: [eggTypeId], references: [id])
-  date      DateTime
-  count     Int
-  unitPrice Decimal         @db.Decimal(12, 4)
-  amount    Decimal         @db.Decimal(12, 2)
-  partyId   String?
-  party     HatcheryParty?  @relation("EggSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
-  note      String?
-  createdAt DateTime        @default(now())
+  id              String          @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  eggTypeId       String
+  eggType         HatcheryEggType @relation(fields: [eggTypeId], references: [id])
+  date            DateTime
+  count           Int
+  unitPrice       Decimal         @db.Decimal(12, 4)
+  amount          Decimal         @db.Decimal(12, 2)
+  partyId         String?
+  party           HatcheryParty?  @relation("EggSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note            String?
+  invoiceNumber   String?
+  hatcheryOwnerId String?
+  createdAt       DateTime        @default(now())
 
+  @@unique([hatcheryOwnerId, invoiceNumber])
   @@index([batchId])
   @@index([date])
   @@index([partyId])
+  @@index([hatcheryOwnerId])
 }
 
 // Parent bird sale record (reduces currentParents)
 model HatcheryParentSale {
-  id            String         @id @default(cuid())
-  batchId       String
-  batch         HatcheryBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  date          DateTime
-  count         Int // derived: maleCount + femaleCount
-  maleCount     Int            @default(0)
-  femaleCount   Int            @default(0)
-  totalWeightKg Decimal        @db.Decimal(12, 3)
-  avgWeightKg   Decimal        @db.Decimal(12, 3)
-  ratePerKg     Decimal        @db.Decimal(12, 4)
-  amount        Decimal        @db.Decimal(12, 2)
-  partyId       String?
-  party         HatcheryParty? @relation("ParentSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
-  note          String?
-  createdAt     DateTime       @default(now())
+  id              String         @id @default(cuid())
+  batchId         String
+  batch           HatcheryBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  date            DateTime
+  count           Int // derived: maleCount + femaleCount
+  maleCount       Int            @default(0)
+  femaleCount     Int            @default(0)
+  totalWeightKg   Decimal        @db.Decimal(12, 3)
+  avgWeightKg     Decimal        @db.Decimal(12, 3)
+  ratePerKg       Decimal        @db.Decimal(12, 4)
+  amount          Decimal        @db.Decimal(12, 2)
+  partyId         String?
+  party           HatcheryParty? @relation("ParentSaleParty", fields: [partyId], references: [id], onDelete: SetNull)
+  note            String?
+  invoiceNumber   String?
+  hatcheryOwnerId String?
+  createdAt       DateTime       @default(now())
 
+  @@unique([hatcheryOwnerId, invoiceNumber])
   @@index([batchId])
   @@index([date])
   @@index([partyId])
+  @@index([hatcheryOwnerId])
 }
 
 // ==================== HATCHERY INCUBATION + CHICK OUTPUT ====================
@@ -3476,11 +3484,15 @@ model HatcheryChickSale {
   note              String?
   inventoryItemId   String?
   inventoryItem     HatcheryInventoryItem?  @relation("ChickSaleInventory", fields: [inventoryItemId], references: [id])
+  invoiceNumber     String?
+  hatcheryOwnerId   String?
   createdAt         DateTime                @default(now())
 
+  @@unique([hatcheryOwnerId, invoiceNumber])
   @@index([incubationBatchId])
   @@index([date])
   @@index([partyId])
+  @@index([hatcheryOwnerId])
 }
 
 // ==================== HATCHERY PARTIES (CUSTOMER LEDGER) ====================

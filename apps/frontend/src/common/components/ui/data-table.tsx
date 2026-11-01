@@ -50,6 +50,10 @@ export interface DataTableProps<T = any> {
   getRowKey?: (row: T, index: number) => string;
   rowClassName?: (row: T, index: number) => string;
   isRowSelectable?: (row: T) => boolean;
+  /** Per-row opt-out for the row click handler + hand cursor. Returning false
+   *  leaves the row un-clickable even when `onRowClick` is set, which lets a
+   *  table mix clickable detail rows with inert summary rows. */
+  isRowClickable?: (row: T) => boolean;
 }
 
 export function DataTable<T = any>({
@@ -74,6 +78,7 @@ export function DataTable<T = any>({
   getRowKey,
   rowClassName,
   isRowSelectable,
+  isRowClickable,
 }: DataTableProps<T>) {
   const handleSort = (key: string) => {
     if (!onSort) return;
@@ -243,25 +248,28 @@ export function DataTable<T = any>({
                 </td>
               </tr>
             ) : (
-              data.map((row, index) => (
+              data.map((row, index) => {
+                const rowClickable =
+                  !!onRowClick && (isRowClickable ? isRowClickable(row) : true);
+                return (
                 <tr
                   key={getRowKey ? getRowKey(row, index) : index}
-                  role={onRowClick ? "button" : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
-                  onClick={onRowClick ? () => onRowClick(row, index) : undefined}
+                  role={rowClickable ? "button" : undefined}
+                  tabIndex={rowClickable ? 0 : undefined}
+                  onClick={rowClickable ? () => onRowClick!(row, index) : undefined}
                   onKeyDown={
-                    onRowClick
+                    rowClickable
                       ? (e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            onRowClick(row, index);
+                            onRowClick!(row, index);
                           }
                         }
                       : undefined
                   }
                   className={cn(
                     "border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors duration-150",
-                    onRowClick && "cursor-pointer",
+                    rowClickable && "cursor-pointer",
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/30",
                     rowClassName?.(row, index)
                   )}
@@ -295,7 +303,8 @@ export function DataTable<T = any>({
                     </td>
                   ))}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

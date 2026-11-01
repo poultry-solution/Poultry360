@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { createElement, useState } from "react";
 import Script from "next/script";
 import { Button } from "@/common/components/ui/button";
 import { Monitor } from "lucide-react";
@@ -56,20 +56,22 @@ export default function Hero() {
         {/* Right Column - Demo Video */}
         <div className="relative flex justify-center lg:justify-end">
           <Script
-            src={`https://fast.wistia.com/embed/medias/${WISTIA_MEDIA_ID}.jsonp`}
+            src="https://fast.wistia.com/player.js"
             strategy="afterInteractive"
           />
           <Script
-            src="https://fast.wistia.com/assets/external/E-v1.js"
+            src={`https://fast.wistia.com/embed/${WISTIA_MEDIA_ID}.js`}
+            type="module"
             strategy="afterInteractive"
           />
 
           <div className="w-full max-w-[300px] overflow-hidden rounded-2xl border border-gray-200 bg-black shadow-2xl sm:max-w-[340px] lg:max-w-[380px]">
             <div className="aspect-[9/16] w-full">
-              <div
-                className={`wistia_embed wistia_async_${WISTIA_MEDIA_ID} videoFoam=true`}
-                style={{ height: "100%", width: "100%" }}
-              />
+              {createElement("wistia-player", {
+                "media-id": WISTIA_MEDIA_ID,
+                aspect: "0.5625",
+                style: { height: "100%", width: "100%" },
+              })}
             </div>
           </div>
         </div>

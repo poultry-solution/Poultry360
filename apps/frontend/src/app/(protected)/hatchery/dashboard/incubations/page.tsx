@@ -8,6 +8,7 @@ import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DateInput } from "@/common/components/ui/date-input";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import {
@@ -66,7 +67,7 @@ export default function IncubationsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data, isLoading } = useIncubationBatches({
+  const { data, isLoading, isError } = useIncubationBatches({
     stage: stageFilter || undefined,
     parentBatchId: parentBatchFilter === "all" ? undefined : parentBatchFilter,
     search: search || undefined,
@@ -238,7 +239,7 @@ export default function IncubationsPage() {
         columns={columns}
         data={batches}
         loading={isLoading}
-        emptyMessage="No incubation batches yet"
+        emptyMessage={isError ? "Could not load incubations. Check your connection and try again." : "No incubations yet. Tap New incubation to start one."}
       />
       <LedgerPagination
         page={paginationPage}
@@ -287,11 +288,7 @@ export default function IncubationsPage() {
                 <label className="block text-sm font-medium mb-1">
                   Start Date <span className="text-destructive">*</span>
                 </label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+                <DateInput value={startDate} onChange={setStartDate} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma, HatcheryBatchStatus, HatcheryChickGrade } from "@prisma/client";
+import { Prisma, HatcheryChickGrade } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { HatcheryIncubationService } from "../services/hatcheryIncubationService";
 import { HatcheryChickSalesService } from "../services/hatcheryChickSalesService";
@@ -57,15 +57,26 @@ export async function createIncubationBatch(req: Request, res: Response) {
     const ownerId = getOwnerId(req);
     const { parentBatchId, startDate, eggsSetCount, notes, name } = req.body;
 
-    if (!parentBatchId || !startDate || !eggsSetCount) {
-      return res.status(400).json({ error: "parentBatchId, startDate, and eggsSetCount are required" });
+    if (!parentBatchId || !startDate) {
+      return res.status(400).json({ error: "parentBatchId and startDate are required" });
+    }
+    // `eggsSetCount` must be a positive whole number. Previously the handler
+    // took `parseInt(eggsSetCount)` directly, which silently accepted `-5`
+    // (bug §7 HIGH "minus eggs set adds eggs"), floats like `12.7`, and
+    // scientific-notation inputs like `1e3`. Convert via Number and reject
+    // anything that's not a positive integer.
+    const eggsSetNum = Number(eggsSetCount);
+    if (!Number.isInteger(eggsSetNum) || eggsSetNum <= 0) {
+      return res
+        .status(400)
+        .json({ error: "eggsSetCount must be a positive whole number" });
     }
 
     const batch = await HatcheryIncubationService.createIncubationBatch({
       hatcheryOwnerId: ownerId,
       parentBatchId,
       startDate: new Date(startDate),
-      eggsSetCount: parseInt(eggsSetCount),
+      eggsSetCount: eggsSetNum,
       notes,
       name,
     });
@@ -257,7 +268,16 @@ export async function addHatchResult(req: Request, res: Response) {
 export async function deleteHatchResult(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { hatchResultId } = req.params;
+    const { id: incubationBatchId, hatchResultId } = req.params;
+
+    // §8 LOW — same shape as deleteChickSale: scope the id by the URL's
+    // incubation. Prevents a crafted URL from deleting a hatch result on
+    // a different incubation.
+    const result = await prisma.hatcheryHatchResult.findFirst({
+      where: { id: hatchResultId, incubationBatchId },
+      select: { id: true },
+    });
+    if (!result) return res.status(404).json({ error: "Hatch result not found" });
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await HatcheryIncubationService.deleteHatchResult(tx, hatchResultId, ownerId);
@@ -321,12 +341,43 @@ export async function addChickSale(req: Request, res: Response) {
     const { id: incubationBatchId } = req.params;
     const { grade, date, count, unitPrice, partyId, note } = req.body;
 
-    if (!grade || !date || !count || !unitPrice) {
-      return res.status(400).json({ error: "grade, date, count, and unitPrice are required" });
+    if (!grade || !date) {
+      return res.status(400).json({ error: "grade and date are required" });
     }
-
     if (!Object.values(HatcheryChickGrade).includes(grade as HatcheryChickGrade)) {
       return res.status(400).json({ error: "grade must be A, B, or CULL" });
+    }
+    const countNum = Number(count);
+    if (!Number.isInteger(countNum) || countNum <= 0) {
+      return res
+        .status(400)
+        .json({ error: "count must be a positive whole number" });
+    }
+    // 0 is allowed (free cull sale); negative is not.
+    if (unitPrice === undefined || unitPrice === null || unitPrice === "") {
+      return res.status(400).json({ error: "unitPrice is required" });
+    }
+    const unitPriceNum = Number(unitPrice);
+    if (!Number.isFinite(unitPriceNum) || unitPriceNum < 0) {
+      return res
+        .status(400)
+        .json({ error: "unitPrice cannot be negative" });
+    }
+
+    // Scope incubation batch lookup to this hatchery — fixes bug §8 CRITICAL
+    // ("Another hatchery can sell our chicks"). Matches the pattern used by
+    // addEggSale and addParentSale.
+    const incubation = await prisma.hatcheryIncubationBatch.findFirst({
+      where: { id: incubationBatchId, hatcheryOwnerId: ownerId },
+      select: { id: true },
+    });
+    if (!incubation) {
+      return res.status(404).json({ error: "Incubation batch not found" });
+    }
+
+    if (partyId) {
+      const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
+      await HatcheryPartyService.assertPartyBelongsToHatchery(ownerId, partyId);
     }
 
     const sale = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -335,8 +386,8 @@ export async function addChickSale(req: Request, res: Response) {
         hatcheryOwnerId: ownerId,
         grade: grade as HatcheryChickGrade,
         date: new Date(date),
-        count: parseInt(count),
-        unitPrice: Number(unitPrice),
+        count: countNum,
+        unitPrice: unitPriceNum,
         partyId: partyId || undefined,
         note,
       });
@@ -351,7 +402,17 @@ export async function addChickSale(req: Request, res: Response) {
 export async function deleteChickSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { saleId } = req.params;
+    const { id: incubationBatchId, saleId } = req.params;
+
+    // Fixes bug §8 LOW "Child id not matched to URL". Owner check still
+    // lives in the service; this adds a URL-level scope so a crafted URL
+    // like /incubations/<some-other-id>/chick-sales/:saleId cannot act on
+    // a sale from a different incubation.
+    const sale = await prisma.hatcheryChickSale.findFirst({
+      where: { id: saleId, incubationBatchId },
+      select: { id: true },
+    });
+    if (!sale) return res.status(404).json({ error: "Chick sale not found" });
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await HatcheryChickSalesService.deleteChickSale(tx, saleId, ownerId);
@@ -373,9 +434,6 @@ export async function listProducedChickStock(req: Request, res: Response) {
     const where: any = {
       incubationBatch: {
         hatcheryOwnerId: ownerId,
-        parentBatch: {
-          status: HatcheryBatchStatus.ACTIVE,
-        },
       },
     };
 

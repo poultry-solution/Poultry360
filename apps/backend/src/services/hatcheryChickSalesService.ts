@@ -1,5 +1,6 @@
 import { Prisma, HatcheryChickGrade, HatcheryChickTxnType } from "@prisma/client";
 import { HatcheryPartyService } from "./hatcheryPartyService";
+import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
 
 export class HatcheryChickSalesService {
   /**
@@ -33,17 +34,32 @@ export class HatcheryChickSalesService {
       throw new Error("Sale count must be a positive integer");
     }
 
-    // Validate batch-wise chick stock
-    const chickStock = await tx.hatcheryChickStock.findUnique({
-      where: { incubationBatchId_grade: { incubationBatchId, grade } },
+    // Guarded decrement — fixes bug §8 HIGH ("chicks oversold on same-time
+    // sales"). Same pattern as sellEggs: one conditional UPDATE instead of
+    // check-then-decrement so concurrent sales cannot drive stock negative.
+    const decrement = await tx.hatcheryChickStock.updateMany({
+      where: {
+        incubationBatchId,
+        grade,
+        currentStock: { gte: count },
+      },
+      data: { currentStock: { decrement: count } },
     });
-    if (!chickStock || chickStock.currentStock < count) {
+    if (decrement.count === 0) {
+      const chickStock = await tx.hatcheryChickStock.findUnique({
+        where: { incubationBatchId_grade: { incubationBatchId, grade } },
+      });
       throw new Error(
         `Insufficient chick stock for grade ${grade}: have ${chickStock?.currentStock ?? 0}, need ${count}`
       );
     }
 
     const amount = Math.round(unitPrice * count * 100) / 100;
+
+    const invoiceNumber = await generateNextHatcheryInvoiceNumber(
+      tx,
+      hatcheryOwnerId
+    );
 
     // Create sale
     const sale = await tx.hatcheryChickSale.create({
@@ -57,13 +73,9 @@ export class HatcheryChickSalesService {
         partyId,
         note,
         inventoryItemId: null,
+        invoiceNumber,
+        hatcheryOwnerId,
       },
-    });
-
-    // Decrement batch-wise chick stock
-    await tx.hatcheryChickStock.update({
-      where: { incubationBatchId_grade: { incubationBatchId, grade } },
-      data: { currentStock: { decrement: count } },
     });
 
     // Write chick txn (negative count for SALE)
@@ -80,7 +92,15 @@ export class HatcheryChickSalesService {
     });
 
     if (partyId) {
-      await HatcheryPartyService.recordSale(tx, partyId, sale.id, "chick_sale", amount, date);
+      await HatcheryPartyService.recordSale(
+        tx,
+        hatcheryOwnerId,
+        partyId,
+        sale.id,
+        "chick_sale",
+        amount,
+        date
+      );
     }
 
     return sale;

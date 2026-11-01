@@ -19,7 +19,7 @@ export default function HatcheryEggInventoryPage() {
   const [selectedTypeId, setSelectedTypeId] = useState("");
   const [page, setPage] = useState(1);
 
-  const { data: stockRes, isLoading } = useHatcheryEggInventory({
+  const { data: stockRes, isLoading, isError } = useHatcheryEggInventory({
     batchId: selectedBatchId || undefined,
     typeId: selectedTypeId || undefined,
     page,
@@ -186,7 +186,7 @@ export default function HatcheryEggInventoryPage() {
           data={stockRows}
           columns={columns}
           loading={isLoading}
-          emptyMessage="No egg stock found. Record egg production in a batch to see stock here."
+          emptyMessage={isError ? "Could not load egg stock. Check your connection and try again." : "No egg stock yet. Record egg production in a batch to see stock here."}
           getRowKey={(row) => row.id}
           rowClassName={(row) =>
             row.currentStock === 0 ? "opacity-50" : ""

@@ -40,12 +40,30 @@ export class HatcheryIncubationService {
 
   /**
    * Auto-generate incubation batch code scoped to hatchery owner.
+   *
+   * Uses MAX(seq)+1 under a per-owner advisory lock. The old count+1 approach
+   * reused codes after a delete and raced under concurrent starts — fixes
+   * bug §7 ("Same-time starts fail with a raw error").
    */
-  static async generateCode(hatcheryOwnerId: string): Promise<string> {
-    const count = await prisma.hatcheryIncubationBatch.count({
-      where: { hatcheryOwnerId },
-    });
-    return `IN-${String(count + 1).padStart(3, "0")}`;
+  static async generateCode(
+    tx: Prisma.TransactionClient,
+    hatcheryOwnerId: string
+  ): Promise<string> {
+    await (tx as any).$queryRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+      `hatchery-incubation-code:${hatcheryOwnerId}`
+    );
+
+    const rows: Array<{ max_num: string | null }> = await (tx as any).$queryRawUnsafe(
+      `SELECT MAX(CAST(SUBSTRING("code" FROM 4) AS INTEGER))::text AS max_num
+         FROM "HatcheryIncubationBatch"
+        WHERE "hatcheryOwnerId" = $1
+          AND "code" ~ '^IN-[0-9]+$'`,
+      hatcheryOwnerId
+    );
+
+    const maxNum = rows[0]?.max_num ? parseInt(rows[0].max_num, 10) : 0;
+    return `IN-${String(maxNum + 1).padStart(3, "0")}`;
   }
 
   /**
@@ -98,7 +116,33 @@ export class HatcheryIncubationService {
       }
 
       // Generate code
-      const code = await HatcheryIncubationService.generateCode(hatcheryOwnerId);
+      const code = await HatcheryIncubationService.generateCode(tx, hatcheryOwnerId);
+
+      // The read above gives a clear error for normal requests, but it is not
+      // enough when two requests start at the same time. Make the stock change
+      // itself conditional so only one request can consume the final eggs.
+      const decrement = await tx.hatcheryEggStock.updateMany({
+        where: {
+          batchId: parentBatchId,
+          eggTypeId: hatchableType.id,
+          currentStock: { gte: eggsSetCount },
+        },
+        data: { currentStock: { decrement: eggsSetCount } },
+      });
+      if (decrement.count !== 1) {
+        const latestStock = await tx.hatcheryEggStock.findUnique({
+          where: {
+            batchId_eggTypeId: {
+              batchId: parentBatchId,
+              eggTypeId: hatchableType.id,
+            },
+          },
+          select: { currentStock: true },
+        });
+        throw new Error(
+          `Insufficient HATCHABLE egg stock: have ${latestStock?.currentStock ?? 0}, need ${eggsSetCount}`
+        );
+      }
 
       // Create incubation batch
       const incubation = await tx.hatcheryIncubationBatch.create({
@@ -125,14 +169,6 @@ export class HatcheryIncubationService {
           count: eggsSetCount,
           date: startDate,
         },
-      });
-
-      // Decrement parent egg stock
-      await tx.hatcheryEggStock.update({
-        where: {
-          batchId_eggTypeId: { batchId: parentBatchId, eggTypeId: hatchableType.id },
-        },
-        data: { currentStock: { decrement: eggsSetCount } },
       });
 
       return incubation;
@@ -399,9 +435,14 @@ export class HatcheryIncubationService {
     if (result.incubationBatch.hatcheryOwnerId !== hatcheryOwnerId) {
       throw new Error("Not authorized");
     }
-    if (result.incubationBatch.stage === HatcheryIncubationStage.COMPLETED) {
-      throw new Error("Completed hatch results cannot be changed");
-    }
+    // Fixes bug §7 MEDIUM "A wrong hatch result can never be fixed".
+    // Saving a hatch result flips the stage to COMPLETED, so the previous
+    // "cannot change completed" check made the delete self-contradictory —
+    // every saved hatch result was permanently locked. The real safety guard
+    // is the "chicks have been partially sold" check in the per-grade loop
+    // below; that one actually prevents data corruption. If none of the
+    // produced chicks have been sold, the delete reverses the stock and
+    // walks the incubation back to the HATCHER stage.
 
     const incubationBatchId = result.incubationBatchId;
 
@@ -414,7 +455,20 @@ export class HatcheryIncubationService {
     for (const { grade, count } of gradeData) {
       if (count <= 0) continue;
 
-      // Check for sales before reversing
+      // Invariant we rely on: for every (incubationBatch, grade),
+      //   currentStock == SUM(hatcheryChickTxn.count) for that pair.
+      // Every stock writer in the backend keeps this true:
+      //   - saveHatchResult:  stock += count,  insert PRODUCTION txn
+      //   - deleteHatchResult (this fn): stock -= count,  delete *only* the
+      //                       PRODUCTION txns whose sourceId == hatchResultId
+      //   - sellChicks:       stock -= count,  insert SALE txn (negative)
+      //   - deleteChickSale:  stock += count,  delete the SALE txn
+      // The guard below rejects the delete exactly when it would drive
+      // currentStock negative — the only case where the invariant could
+      // break. `totalSold` is used only to produce a human-friendly error.
+      // Note: schema reserves HatcheryChickTxnType.ADJUSTMENT, but no code
+      // path writes one today — if that ever changes, this fn still works
+      // because it only deletes PRODUCTION txns scoped by `sourceId`.
       const soldCount = await tx.hatcheryChickTxn.aggregate({
         where: {
           incubationBatchId,

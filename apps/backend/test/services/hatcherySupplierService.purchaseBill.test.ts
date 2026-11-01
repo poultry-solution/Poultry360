@@ -28,7 +28,11 @@ function makeTransactionClient() {
         id: "supplier-1",
         balance: 100,
       }),
-      update: jest.fn().mockResolvedValue({ id: "supplier-1" }),
+      // Post-atomic-fix, addPurchaseTxn reads the new balance from the
+      // Prisma update's return value (via `select: { balance: true }`)
+      // instead of computing `supplier.balance + totalPurchaseAmount` from
+      // the earlier findFirst. Mirror that in the mock.
+      update: jest.fn().mockResolvedValue({ id: "supplier-1", balance: 300 }),
     },
     hatcherySupplierTxn: {
       create: jest

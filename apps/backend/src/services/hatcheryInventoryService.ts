@@ -104,7 +104,15 @@ export class HatcheryInventoryService {
     }
     const roundedEffectiveCost = Math.round(newEffectiveCost * 10000) / 10000;
 
-    // Upsert inventory item by identity key
+    // Upsert inventory item by identity key.
+    //
+    // Fixes bug §2 HIGH "New purchase goes onto a deleted item": the composite
+    // unique key does not include `deletedAt`, so a soft-deleted row with the
+    // same identity would match. Without restoring it, the stock lands on a
+    // hidden row (invisible in the UI, which filters `deletedAt: null`) while
+    // the supplier balance correctly moves. Setting `deletedAt: null` on
+    // match-and-update restores visibility — matches user intent (they are
+    // buying this item again, so they clearly want it back).
     const inventoryItem = await tx.hatcheryInventoryItem.upsert({
       where: {
         hatcheryOwnerId_itemType_name_unit_unitPrice_supplierKey_sex: {
@@ -117,7 +125,11 @@ export class HatcheryInventoryService {
           sex,
         },
       },
-      update: { unit, effectiveUnitCost: roundedEffectiveCost },
+      update: {
+        unit,
+        effectiveUnitCost: roundedEffectiveCost,
+        deletedAt: null,
+      },
       create: {
         hatcheryOwnerId,
         itemType,
@@ -237,6 +249,23 @@ export class HatcheryInventoryService {
           effectiveUnitCost: Math.round(newEffective * 10000) / 10000,
         },
       });
+
+      // Fixes bug §1 LOW "Deleting purchase leaves empty stock item behind".
+      // If this purchase was the item's only history (no remaining
+      // transactions AND stock is now zero), soft-delete the item so it
+      // does not sit in the list as a confusing empty row. Any other
+      // placements / expenses / sales referencing it would have shown up
+      // as remaining transactions (purchase or otherwise), so a 0 count
+      // is a safe signal.
+      const remainingTxnCount = await tx.hatcheryInventoryTxn.count({
+        where: { itemId },
+      });
+      if (remainingTxnCount === 0 && newStock <= 0) {
+        await tx.hatcheryInventoryItem.update({
+          where: { id: itemId },
+          data: { deletedAt: new Date() },
+        });
+      }
     }
   }
 }
