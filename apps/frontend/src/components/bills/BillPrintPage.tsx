@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -23,11 +22,26 @@ interface BillPrintPageProps {
 /** Shared A4 print page for every module: toolbar (Back, Share image / PDF, Print) + the bill. */
 export function BillPrintPage({ bill, loading, error, backHref }: BillPrintPageProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const billRef = useRef<HTMLDivElement>(null);
   const { files, preparing, failed } = useBillFiles(billRef, bill);
   const autoPrint = searchParams.get("print") === "1";
   const printed = useRef(false);
+
+  // Prefer going back to wherever the user came from (sale row, batch detail,
+  // party page, etc.) via the browser history. If this page was loaded
+  // directly — e.g. a shared print URL opened in a fresh tab — there is no
+  // history to go back to, so fall back to the module-specific `backHref`.
+  // Fixes the "Print bill lands user on home instead of the sales page they
+  // came from" UX bug for hatchery; farmer and dealer get the same win.
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(backHref);
+    }
+  };
 
   useEffect(() => {
     if (!autoPrint || !bill || printed.current) return;
@@ -50,11 +64,9 @@ export function BillPrintPage({ bill, loading, error, backHref }: BillPrintPageP
             <AlertCircle className="mt-0.5 h-5 w-5 text-red-500" />
             <div className="space-y-2">
               <p className="font-semibold">{t("bills.notFound")}</p>
-              <Button variant="outline" asChild>
-                <Link href={backHref}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  {t("bills.back")}
-                </Link>
+              <Button variant="outline" onClick={handleBack}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t("bills.back")}
               </Button>
             </div>
           </CardContent>
@@ -69,10 +81,13 @@ export function BillPrintPage({ bill, loading, error, backHref }: BillPrintPageP
     <div className="min-h-screen bg-slate-100 px-3 py-4 md:px-6 print:bg-white print:p-0">
       <div className="mx-auto mb-4 flex max-w-[794px] flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={backHref} aria-label={t("bills.back")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleBack}
+            aria-label={t("bills.back")}
+          >
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-lg font-semibold">{title}</h1>
         </div>
