@@ -338,6 +338,9 @@ export const getUserInfo = async (
       ownedFarms: true,
       dealer: true,
       company: true,
+      hatcheryBusiness: {
+        select: { name: true, address: true, contact: true },
+      },
     },
   });
   if (!userData) {
@@ -357,6 +360,7 @@ export const getUserInfo = async (
     role: userData.role,
     dealer: userData.dealer,
     company: userData.company,
+    hatchery: userData.hatcheryBusiness,
   });
 };
 
@@ -394,6 +398,9 @@ export const validateToken = async (
         ownedFarms: true,
         dealer: true,
         company: true,
+        hatcheryBusiness: {
+          select: { name: true, address: true, contact: true },
+        },
       },
     });
 
@@ -432,6 +439,7 @@ export const validateToken = async (
       ownedFarms: userData.ownedFarms,
       dealer: userData.dealer,
       company: userData.company,
+      hatchery: userData.hatcheryBusiness,
       onboardingPayment: onboardingPayment
         ? {
             state: onboardingPayment.state,

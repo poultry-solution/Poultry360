@@ -1,5 +1,6 @@
 import { Prisma, HatcheryEggTxnType } from "@prisma/client";
 import { HatcheryPartyService } from "./hatcheryPartyService";
+import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
 
 export class HatcheryEggService {
   /**
@@ -130,6 +131,7 @@ export class HatcheryEggService {
     tx: Prisma.TransactionClient,
     data: {
       batchId: string;
+      hatcheryOwnerId: string;
       eggTypeId: string;
       date: Date;
       count: number;
@@ -138,24 +140,51 @@ export class HatcheryEggService {
       note?: string;
     }
   ) {
-    const { batchId, eggTypeId, date, count, unitPrice, partyId, note } =
-      data;
+    const {
+      batchId,
+      hatcheryOwnerId,
+      eggTypeId,
+      date,
+      count,
+      unitPrice,
+      partyId,
+      note,
+    } = data;
 
     if (!Number.isInteger(count) || count <= 0) {
       throw new Error("Sale count must be a positive integer");
     }
 
-    const stockRow = await tx.hatcheryEggStock.findUnique({
-      where: { batchId_eggTypeId: { batchId, eggTypeId } },
+    // Guarded decrement — fixes bug §6 HIGH ("eggs oversold on same-time
+    // sales"). Collapses the previous read + check + decrement into a
+    // single conditional UPDATE so two concurrent sales cannot both pass
+    // the check and drive stock negative. The row only moves if the stock
+    // is still sufficient; otherwise `count` is 0 and we throw.
+    const decrement = await tx.hatcheryEggStock.updateMany({
+      where: {
+        batchId,
+        eggTypeId,
+        currentStock: { gte: count },
+      },
+      data: { currentStock: { decrement: count } },
     });
-
-    if (!stockRow || stockRow.currentStock < count) {
+    if (decrement.count === 0) {
+      // Re-read for a friendly "have X, need Y" error (matches the previous
+      // UX). If the row doesn't exist at all, treat as 0.
+      const stockRow = await tx.hatcheryEggStock.findUnique({
+        where: { batchId_eggTypeId: { batchId, eggTypeId } },
+      });
       throw new Error(
         `Insufficient egg stock: have ${stockRow?.currentStock ?? 0}, need ${count}`
       );
     }
 
     const amount = Math.round(unitPrice * count * 100) / 100;
+
+    const invoiceNumber = await generateNextHatcheryInvoiceNumber(
+      tx,
+      hatcheryOwnerId
+    );
 
     const sale = await tx.hatcheryEggSale.create({
       data: {
@@ -167,12 +196,9 @@ export class HatcheryEggService {
         amount,
         partyId,
         note,
+        invoiceNumber,
+        hatcheryOwnerId,
       },
-    });
-
-    await tx.hatcheryEggStock.update({
-      where: { batchId_eggTypeId: { batchId, eggTypeId } },
-      data: { currentStock: { decrement: count } },
     });
 
     await tx.hatcheryEggTxn.create({
@@ -188,7 +214,15 @@ export class HatcheryEggService {
     });
 
     if (partyId) {
-      await HatcheryPartyService.recordSale(tx, partyId, sale.id, "egg_sale", amount, date);
+      await HatcheryPartyService.recordSale(
+        tx,
+        hatcheryOwnerId,
+        partyId,
+        sale.id,
+        "egg_sale",
+        amount,
+        date
+      );
     }
 
     return sale;

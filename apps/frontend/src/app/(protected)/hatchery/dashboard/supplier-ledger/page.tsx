@@ -47,7 +47,8 @@ import {
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
-import { formatRupeesExact, getNowLocalDateTime } from "@/common/lib/utils";
+import { apiErrorText, formatRupeesExact, getNowLocalDateTime, nepalPhoneDigits } from "@/common/lib/utils";
+import { toNepalDayAd, getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   useGetHatcherySuppliers,
   useGetHatcherySupplierStatistics,
@@ -172,9 +173,21 @@ export default function HatcherySupplierLedgerPage() {
     contact: "",
     address: "",
   });
-  const [openingBalanceForm, setOpeningBalanceForm] = useState({
+  // Optional opening balance captured together with Add supplier (point §2.3-3).
+  // Only used in Add mode; cleared when the modal opens.
+  const [supplierAddHasOpening, setSupplierAddHasOpening] = useState(false);
+  const [supplierAddOpeningAmount, setSupplierAddOpeningAmount] = useState("");
+  const [openingBalanceForm, setOpeningBalanceForm] = useState<{
+    amount: string;
+    date: string;
+    // "owe" = hatchery owes supplier (positive). "advance" = supplier owes
+    // hatchery (we gave an advance). Sent as a signed amount — same backend
+    // contract as the old single-field version.
+    side: "owe" | "advance";
+  }>({
     amount: "",
     date: "",
+    side: "owe",
   });
   const [purchaseForm, setPurchaseForm] = useState<{
     category: HatcheryPurchaseCategory;
@@ -288,7 +301,7 @@ export default function HatcherySupplierLedgerPage() {
       return (!start || date >= start) && (!end || date <= end);
     });
     const columns = [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.type || "" },
         { label: "Category", value: (row: any) => row.purchaseCategory || "" },
         { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
@@ -300,7 +313,7 @@ export default function HatcherySupplierLedgerPage() {
         { title: "Purchases", columns, rows: rows.filter((row: any) => !String(row.type || "").toUpperCase().includes("PAYMENT")) },
         { title: "Payments", columns, rows: rows.filter((row: any) => String(row.type || "").toUpperCase().includes("PAYMENT")) },
       ],
-      summary: [{ label: "Current balance", value: `Rs ${Number(activeSupplier?.balance || 0).toFixed(2)}` }, { label: "Records", value: rows.length }],
+      summary: [{ label: "Current balance", value: formatRupeesExact(activeSupplier?.balance || 0) }, { label: "Records", value: rows.length }],
     };
   };
   const activeSupplier =
@@ -348,15 +361,18 @@ export default function HatcherySupplierLedgerPage() {
     }
   };
 
-  // Auto-select first supplier
+  // Auto-select first supplier on initial load. We only reset when there is
+  // nothing selected yet — not when the current `activeSupplierId` just
+  // happens to be missing from the current page. The previous "not on this
+  // page" check clobbered a fresh `selectSupplier(newId)` call whenever the
+  // new supplier landed on a later page (list is sorted oldest-first, so a
+  // just-created one is at the end). The downstream queries for the active
+  // supplier fetch by id and work regardless of pagination.
   useEffect(() => {
-    if (
-      suppliers.length > 0 &&
-      (!activeSupplierId || !suppliers.some((sup: any) => sup.id === activeSupplierId))
-    ) {
-      setActiveSupplierId(suppliers[0].id);
-    } else if (suppliers.length === 0) {
+    if (suppliers.length === 0) {
       setActiveSupplierId("");
+    } else if (!activeSupplierId) {
+      setActiveSupplierId(suppliers[0].id);
     }
   }, [suppliers, activeSupplierId]);
 
@@ -396,7 +412,14 @@ export default function HatcherySupplierLedgerPage() {
   }, [isAddPaymentOpen]);
   useEffect(() => {
     if (isOpeningBalanceOpen) {
-      setOpeningBalanceForm((p) => ({ ...p, date: getNowLocalDateTime() }));
+      // Use the Nepal-day helper, not `getNowLocalDateTime()`. The local
+      // date-time helper returns the client's wall-clock day, which drifts
+      // onto the next AD day in the 5:45h window after UTC midnight for a
+      // Nepali user whose device is on UTC — bug §1 MEDIUM "Default date
+      // sent as local time without zone". The handoff also asks for the
+      // default to be "day before the oldest entry"; that part is tracked
+      // in SECURITY_FOLLOWUPS.md as a product refinement.
+      setOpeningBalanceForm((p) => ({ ...p, date: getNepalTodayAd() }));
     }
   }, [isOpeningBalanceOpen]);
 
@@ -480,6 +503,8 @@ export default function HatcherySupplierLedgerPage() {
   const openAddSupplier = () => {
     setSupplierModalMode("add");
     setSupplierForm({ name: "", contact: "", address: "" });
+    setSupplierAddHasOpening(false);
+    setSupplierAddOpeningAmount("");
     setIsAddSupplierOpen(true);
   };
 
@@ -512,7 +537,7 @@ export default function HatcherySupplierLedgerPage() {
       toast.success("Supplier saved");
       setIsAddSupplierOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to save supplier");
+      toast.error(apiErrorText(err, "Failed to save supplier"));
     }
   };
 
@@ -522,17 +547,61 @@ export default function HatcherySupplierLedgerPage() {
       return;
     }
     try {
-      await createSupplier.mutateAsync({
+      const created = await createSupplier.mutateAsync({
         name: supplierForm.name.trim(),
         contact: supplierForm.contact.trim() || undefined,
         address: supplierForm.address.trim() || undefined,
       });
-      toast.success("Supplier created");
+      // The create endpoint returns `{ success, data: supplier, message }`,
+      // so the new supplier id lives at `created.data.id`, not `created.id`.
+      // Earlier code read `created.id` and silently skipped opening balance
+      // and auto-select because that path was always undefined.
+      const newSupplierId = created?.data?.id as string | undefined;
+      // Point §2.3-3: capture the opening balance in the same step so the user
+      // isn't forced to open a second modal when they already know what the
+      // supplier was owed.
+      if (
+        supplierAddHasOpening &&
+        supplierAddOpeningAmount.trim() &&
+        newSupplierId
+      ) {
+        try {
+          await setOpeningBalance.mutateAsync({
+            supplierId: newSupplierId,
+            amount: Number(supplierAddOpeningAmount),
+            date: getNepalTodayAd(),
+          });
+        } catch (err: any) {
+          toast.error(apiErrorText(err, "Supplier added, but opening balance failed"));
+        }
+      }
+      toast.success("Supplier added");
       setIsAddSupplierOpen(false);
       setSupplierForm({ name: "", contact: "", address: "" });
+      setSupplierAddHasOpening(false);
+      setSupplierAddOpeningAmount("");
+      // Point §2.3-4: jump the user straight to the new supplier so they can
+      // record the first purchase without hunting for it in the list.
+      if (newSupplierId) selectSupplier(newSupplierId);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to create supplier");
+      toast.error(apiErrorText(err, "Failed to create supplier"));
     }
+  };
+
+  // Pre-fills the form from the active supplier's current opening balance
+  // (point §2.3-8) and seeds the date (point §2.3-10) before showing the modal.
+  const openOpeningBalanceModal = () => {
+    if (!activeSupplier) return;
+    const current = Number(activeSupplier.openingBalance ?? 0);
+    setOpeningBalanceForm({
+      amount: current === 0 ? "" : String(Math.abs(current)),
+      // Fallback to today when no opening balance exists yet. If one exists,
+      // keep today so the user can pick a day before the oldest entry — hinted
+      // in the modal body.
+      date: getNepalTodayAd(),
+      side: current < 0 ? "advance" : "owe",
+    });
+    setIsOpeningBalanceOpen(true);
   };
 
   const handleSetOpeningBalance = async () => {
@@ -540,16 +609,18 @@ export default function HatcherySupplierLedgerPage() {
       toast.error("Amount is required");
       return;
     }
+    const magnitude = Math.abs(Number(openingBalanceForm.amount));
+    const signed = openingBalanceForm.side === "advance" ? -magnitude : magnitude;
     try {
       await setOpeningBalance.mutateAsync({
         supplierId: activeSupplierId,
-        amount: Number(openingBalanceForm.amount),
+        amount: signed,
         date: openingBalanceForm.date,
       });
-      toast.success("Opening balance set");
+      toast.success("Opening balance saved");
       setIsOpeningBalanceOpen(false);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to set opening balance");
+      toast.error(apiErrorText(err, "Failed to set opening balance"));
     }
   };
 
@@ -603,7 +674,7 @@ export default function HatcherySupplierLedgerPage() {
         lineItems: [emptyLineItem("FEED")],
       });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to record purchase");
+      toast.error(apiErrorText(err, "Failed to record purchase"));
     }
   };
 
@@ -632,7 +703,7 @@ export default function HatcherySupplierLedgerPage() {
       setIsAddPaymentOpen(false);
       setPaymentForm({ amount: "", date: "", note: "", reference: "", receiptImageUrl: "" });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to record payment");
+      toast.error(apiErrorText(err, "Failed to record payment"));
     }
   };
 
@@ -650,7 +721,7 @@ export default function HatcherySupplierLedgerPage() {
       setTxnToDelete(null);
       setDeleteTxnPassword("");
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete transaction");
+      toast.error(apiErrorText(err, "Failed to delete transaction"));
     }
   };
 
@@ -661,7 +732,7 @@ export default function HatcherySupplierLedgerPage() {
       setIsDeleteSupplierOpen(false);
       setActiveSupplierId("");
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete supplier");
+      toast.error(apiErrorText(err, "Failed to delete supplier"));
     }
   };
 
@@ -955,7 +1026,7 @@ export default function HatcherySupplierLedgerPage() {
                         <Pencil className="mr-2 h-4 w-4" />
                         Edit details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setIsOpeningBalanceOpen(true)}>
+                      <DropdownMenuItem onClick={openOpeningBalanceModal}>
                         <Wallet className="mr-2 h-4 w-4" />
                         Opening balance
                       </DropdownMenuItem>
@@ -1001,7 +1072,11 @@ export default function HatcherySupplierLedgerPage() {
                       loading={purchaseLoading}
                       emptyMessage="No purchases yet"
                       getRowKey={(row: any) => row.id}
-                      onRowClick={(row: any) => row.type === "PURCHASE" && setPurchaseDetails(row)}
+                      onRowClick={(row: any) => setPurchaseDetails(row)}
+                      // Point §2.3-12: only purchase rows are openable; opening
+                      // balance / adjustment rows have no detail view, so they
+                      // should not show the hand cursor either.
+                      isRowClickable={(row: any) => row.type === "PURCHASE"}
                     />
                     <LedgerPagination
                       page={purchasePage}
@@ -1047,12 +1122,18 @@ export default function HatcherySupplierLedgerPage() {
       <Modal
         isOpen={isAddSupplierOpen}
         onClose={() => setIsAddSupplierOpen(false)}
-        title={supplierModalMode === "edit" ? "Edit supplier" : "Add Supplier"}
+        title={supplierModalMode === "edit" ? "Edit supplier" : "Add supplier"}
       >
         <ModalContent>
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveSupplier();
+            }}
+          >
             <div>
-              <Label>Supplier Name *</Label>
+              <Label>Supplier name *</Label>
               <Input
                 placeholder="e.g. Krishna Feeds"
                 value={supplierForm.name}
@@ -1062,39 +1143,83 @@ export default function HatcherySupplierLedgerPage() {
               />
             </div>
             <div>
-              <Label>Contact</Label>
+              <Label>Phone</Label>
               <Input
-                placeholder="Phone number"
+                inputMode="tel"
+                placeholder="98XXXXXXXX"
                 value={supplierForm.contact}
                 onChange={(e) =>
-                  setSupplierForm((p) => ({ ...p, contact: e.target.value }))
+                  setSupplierForm((p) => ({
+                    ...p,
+                    // Shared Nepal-phone helper strips the +977 prefix and
+                    // keeps the last 10 digits, so a pasted "+977 9812345678"
+                    // normalises to "9812345678" instead of being front-
+                    // sliced to "9779812345".
+                    contact: nepalPhoneDigits(e.target.value),
+                  }))
                 }
               />
+              {supplierForm.contact.length > 0 &&
+                supplierForm.contact.length !== 10 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Phone should be 10 digits
+                  </p>
+                )}
             </div>
             <div>
               <Label>Address</Label>
               <Input
-                placeholder="Optional"
+                placeholder="Village / city (optional)"
                 value={supplierForm.address}
                 onChange={(e) =>
                   setSupplierForm((p) => ({ ...p, address: e.target.value }))
                 }
               />
             </div>
-          </div>
+            {supplierModalMode === "add" && (
+              <div className="space-y-2 rounded-md border p-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={supplierAddHasOpening}
+                    onChange={(e) =>
+                      setSupplierAddHasOpening(e.target.checked)
+                    }
+                  />
+                  Do you already owe this supplier money?
+                </label>
+                {supplierAddHasOpening && (
+                  <div>
+                    <Label>Amount (रू)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={supplierAddOpeningAmount}
+                      onChange={(e) =>
+                        setSupplierAddOpeningAmount(e.target.value)
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Hidden submit so Enter from any input submits the form. */}
+            <button type="submit" className="hidden" aria-hidden />
+          </form>
         </ModalContent>
         <ModalFooter>
           <Button variant="outline" onClick={() => setIsAddSupplierOpen(false)}>
             Cancel
           </Button>
           <Button
-           
             onClick={handleSaveSupplier}
             disabled={createSupplier.isPending || updateSupplier.isPending}
           >
-            {supplierModalMode === "edit"
-              ? updateSupplier.isPending ? "Saving..." : "Save"
-              : createSupplier.isPending ? "Creating..." : "Add Supplier"}
+            {createSupplier.isPending || updateSupplier.isPending
+              ? "Saving…"
+              : "Save"}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1149,18 +1274,62 @@ export default function HatcherySupplierLedgerPage() {
       <Modal
         isOpen={isOpeningBalanceOpen}
         onClose={() => setIsOpeningBalanceOpen(false)}
-        title="Set Opening Balance"
+        title={
+          Number(activeSupplier?.openingBalance ?? 0) !== 0
+            ? "Change opening balance"
+            : "Set opening balance"
+        }
       >
         <ModalContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Enter the outstanding balance owed to this supplier at the start.
-            Positive = hatchery owes supplier.
-          </p>
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSetOpeningBalance();
+            }}
+          >
+            <p className="text-sm text-muted-foreground">
+              Money you already owed this supplier before you started using
+              Poultry360.
+            </p>
+            {Number(activeSupplier?.openingBalance ?? 0) !== 0 && (
+              <p className="text-xs text-muted-foreground">
+                This replaces the old opening balance.
+              </p>
+            )}
             <div>
-              <Label>Amount (NPR)</Label>
+              <Label className="mb-2 block">Which way?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={
+                    openingBalanceForm.side === "owe" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setOpeningBalanceForm((p) => ({ ...p, side: "owe" }))
+                  }
+                >
+                  I owe them
+                </Button>
+                <Button
+                  type="button"
+                  variant={
+                    openingBalanceForm.side === "advance" ? "default" : "outline"
+                  }
+                  onClick={() =>
+                    setOpeningBalanceForm((p) => ({ ...p, side: "advance" }))
+                  }
+                >
+                  They owe me (advance)
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label>Amount (रू)</Label>
               <Input
                 type="number"
+                min="0"
+                step="0.01"
                 placeholder="0.00"
                 value={openingBalanceForm.amount}
                 onChange={(e) =>
@@ -1179,8 +1348,12 @@ export default function HatcherySupplierLedgerPage() {
                   setOpeningBalanceForm((p) => ({ ...p, date: v }))
                 }
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pick a date before your first purchase
+              </p>
             </div>
-          </div>
+            <button type="submit" className="hidden" aria-hidden />
+          </form>
         </ModalContent>
         <ModalFooter>
           <Button
@@ -1190,11 +1363,10 @@ export default function HatcherySupplierLedgerPage() {
             Cancel
           </Button>
           <Button
-           
             onClick={handleSetOpeningBalance}
             disabled={setOpeningBalance.isPending}
           >
-            {setOpeningBalance.isPending ? "Saving..." : "Set Balance"}
+            {setOpeningBalance.isPending ? "Saving…" : "Save"}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1467,7 +1639,7 @@ export default function HatcherySupplierLedgerPage() {
         <ModalContent>
           <div className="space-y-4">
             <div>
-              <Label>Amount (NPR) *</Label>
+              <Label>Amount (रू) *</Label>
               <Input
                 type="number"
                 min="0"

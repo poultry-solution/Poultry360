@@ -13,16 +13,38 @@ export class HatcheryBatchService {
    * Generate the next batch code for a hatchery owner.
    * Format: PF-001, PF-002, ... for PARENT_FLOCK
    *         IN-001, IN-002, ... for INCUBATION
+   *
+   * Uses MAX(seq)+1 under a per-(owner, type) advisory lock. The old count+1
+   * approach reused numbers after a batch was deleted and raced under
+   * concurrent creates — fixes bug §5 #4 ("No new batch after deleting one").
    */
   static async generateBatchCode(
+    tx: Prisma.TransactionClient,
     hatcheryOwnerId: string,
     type: HatcheryBatchType
   ): Promise<string> {
     const prefix = type === HatcheryBatchType.PARENT_FLOCK ? "PF" : "IN";
-    const existing = await prisma.hatcheryBatch.count({
-      where: { hatcheryOwnerId, type },
-    });
-    const seq = existing + 1;
+
+    // Serialise concurrent batch creates for this (owner, type).
+    await (tx as any).$queryRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS lock_result`,
+      `hatchery-batch-code:${hatcheryOwnerId}:${type}`
+    );
+
+    // SUBSTRING FROM 4 drops the "PF-" / "IN-" prefix.
+    const rows: Array<{ max_num: string | null }> = await (tx as any).$queryRawUnsafe(
+      `SELECT MAX(CAST(SUBSTRING("code" FROM 4) AS INTEGER))::text AS max_num
+         FROM "HatcheryBatch"
+        WHERE "hatcheryOwnerId" = $1
+          AND "type" = $2::"HatcheryBatchType"
+          AND "code" ~ ('^' || $3 || '-[0-9]+$')`,
+      hatcheryOwnerId,
+      type,
+      prefix
+    );
+
+    const maxNum = rows[0]?.max_num ? parseInt(rows[0].max_num, 10) : 0;
+    const seq = maxNum + 1;
     return `${prefix}-${String(seq).padStart(3, "0")}`;
   }
 
@@ -40,6 +62,7 @@ export class HatcheryBatchService {
 
     return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const code = await HatcheryBatchService.generateBatchCode(
+        tx,
         hatcheryOwnerId,
         HatcheryBatchType.PARENT_FLOCK
       );

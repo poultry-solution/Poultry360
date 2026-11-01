@@ -22,6 +22,8 @@ import {
 } from "@/fetchers/hatchery/hatcheryPartyQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { formatRupeesExact, nepalPhoneDigits } from "@/common/lib/utils";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 export default function HatcheryPartiesPage() {
   const router = useRouter();
@@ -77,7 +79,7 @@ export default function HatcheryPartiesPage() {
         { label: "Phone", value: (row: HatcheryParty) => row.phone },
         { label: "Address", value: (row: HatcheryParty) => row.address || "" },
         { label: "Balance", value: (row: HatcheryParty) => Number(row.balance || 0).toFixed(2) },
-        { label: "Added", value: (row: HatcheryParty) => new Date(row.createdAt).toLocaleDateString() },
+        { label: "Added", value: (row: HatcheryParty) => toNepalDayAd(row.createdAt) },
       ],
       rows,
       summary: [{ label: "Total parties", value: rows.length }],
@@ -92,7 +94,7 @@ export default function HatcheryPartiesPage() {
       label: "Outstanding Balance",
       render: (_, row) => (
         <span className={Number(row.balance) > 0 ? "text-red-600 font-semibold" : "text-green-600"}>
-          Rs {Number(row.balance).toFixed(2)}
+          {formatRupeesExact(row.balance)}
         </span>
       ),
     },
@@ -172,11 +174,26 @@ export default function HatcheryPartiesPage() {
             <div>
               <label className="text-sm font-medium">Phone *</label>
               <Input
+                inputMode="tel"
                 value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="Phone number (unique)"
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    // Use the shared Nepal-phone helper so a pasted "+977
+                    // 9812345678" normalises to the 10-digit mobile instead
+                    // of being sliced to "9779812345" (previous `.slice(0,
+                    // 10)` dropped the mobile and kept the country code).
+                    phone: nepalPhoneDigits(e.target.value),
+                  }))
+                }
+                placeholder="98XXXXXXXX"
                 required
               />
+              {form.phone.length > 0 && form.phone.length !== 10 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Phone should be 10 digits
+                </p>
+              )}
             </div>
             <div>
               <label className="text-sm font-medium">Address</label>
@@ -187,7 +204,7 @@ export default function HatcheryPartiesPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Opening Balance (Rs)</label>
+              <label className="text-sm font-medium">Opening balance (रू)</label>
               <Input
                 type="number"
                 min="0"

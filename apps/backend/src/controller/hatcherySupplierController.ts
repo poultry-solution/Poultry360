@@ -411,31 +411,44 @@ export const addHatcherySupplierTransaction = async (
       if (amount === undefined || amount === null)
         return res.status(400).json({ message: "amount is required for adjustment" });
 
+      const numAmount = Number(amount);
+      if (!Number.isFinite(numAmount) || numAmount === 0)
+        return res.status(400).json({ message: "amount must be a non-zero number" });
+
       const supplier = await prisma.hatcherySupplier.findFirst({
         where: { id, hatcheryOwnerId: userId },
+        select: { id: true },
       });
       if (!supplier)
         return res.status(404).json({ message: "Supplier not found" });
 
-      const numAmount = Number(amount);
-      const newBalance = Number(supplier.balance) + numAmount;
-
+      // Fixes bug §1 MEDIUM "Minus adjustment loses its sign". Previously
+      // the amount was stored via Math.abs(numAmount), so a -1,000 input
+      // decreased the balance on create (balance += numAmount) but then
+      // the delete path used `balanceDelta(ADJUSTMENT, +1000) = +1000` and
+      // reversed in the wrong direction — net 2,000 error.
+      //
+      // Now we store the signed amount; `balanceDelta` already returns the
+      // raw amount for ADJUSTMENT, so delete correctly subtracts the exact
+      // delta we applied on create. Also makes this write atomic (bug §1
+      // HIGH shape) by using `{ increment: numAmount }` with Prisma's
+      // signed delta semantics.
       const txn = await prisma.$transaction(async (tx) => {
-        const t = await tx.hatcherySupplierTxn.create({
+        const updated = await tx.hatcherySupplier.update({
+          where: { id },
+          data: { balance: { increment: numAmount } },
+          select: { balance: true },
+        });
+        return tx.hatcherySupplierTxn.create({
           data: {
             supplierId: id,
             type: HatcherySupplierTxnType.ADJUSTMENT,
-            amount: Math.abs(numAmount),
-            balanceAfter: newBalance,
+            amount: numAmount,
+            balanceAfter: updated.balance,
             date: new Date(date),
             note,
           },
         });
-        await tx.hatcherySupplier.update({
-          where: { id },
-          data: { balance: newBalance },
-        });
-        return t;
       });
 
       return res.status(201).json({ success: true, data: txn });

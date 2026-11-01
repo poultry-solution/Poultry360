@@ -485,6 +485,20 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       res.status(400).json({ success: false, message: "Valid payment date is required" });
       return;
     }
+    // Fixes bug §10 LOW "Staff payment date not checked" — reject future
+    // dates and dates before the staff member's employment started so the
+    // ledger cannot be back-dated outside the employment window.
+    if (paid.getTime() > Date.now()) {
+      res.status(400).json({ success: false, message: "Payment date cannot be in the future" });
+      return;
+    }
+    if (paid.getTime() < new Date(staff.startDate).getTime()) {
+      res.status(400).json({
+        success: false,
+        message: "Payment date cannot be before the staff's joining date",
+      });
+      return;
+    }
     const payment = await prisma.staffPayment.create({
       data: {
         staffId: id,

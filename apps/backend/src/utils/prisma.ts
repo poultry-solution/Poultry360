@@ -13,7 +13,10 @@ const prismaDatabaseUrl = (() => {
   // requests are serial, so one connection per client is enough and does not
   // interrupt fire-and-forget audit writes between assertions.
   const url = new URL(databaseUrl);
-  url.searchParams.set("connection_limit", "1");
+  url.searchParams.set(
+    "connection_limit",
+    process.env.PRISMA_TEST_CONNECTION_LIMIT || "1"
+  );
   url.searchParams.set("pool_timeout", "10");
   return url.toString();
 })();

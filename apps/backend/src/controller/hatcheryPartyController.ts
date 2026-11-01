@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { HatcheryPartyService } from "../services/hatcheryPartyService";
+import prisma from "../utils/prisma";
 
 function getOwnerId(req: Request): string {
   // Hatchery controllers in this codebase use req.userId from auth middleware.
@@ -124,7 +125,18 @@ export async function addPartyPayment(req: Request, res: Response) {
 export async function deletePartyPayment(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
-    const { paymentId } = req.params;
+    const { id: partyId, paymentId } = req.params;
+
+    // Fixes bug §9 LOW "Payment can be deleted through another party's
+    // link". Owner check lives in the service; this adds the URL-level
+    // match so /parties/<other>/payments/:paymentId cannot act on a
+    // payment belonging to a different party.
+    const payment = await prisma.hatcheryPartyPayment.findFirst({
+      where: { id: paymentId, partyId },
+      select: { id: true },
+    });
+    if (!payment) return res.status(404).json({ error: "Payment not found" });
+
     await HatcheryPartyService.deletePayment(ownerId, paymentId);
     return res.json({ success: true });
   } catch (err: any) {

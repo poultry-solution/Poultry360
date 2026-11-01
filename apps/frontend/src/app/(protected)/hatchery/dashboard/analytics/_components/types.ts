@@ -26,15 +26,13 @@ export type IncubationStageFilter = "all" | "SETTER" | "CANDLING" | "HATCHER" | 
 export type SaleTypeFilter = "ALL" | "EGG" | "PARENT" | "CHICK";
 
 export function formatMoney(value: number | string | null | undefined) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "NPR",
+  return `रू ${new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  }).format(Number(value || 0))}`;
 }
 
 export function formatCompactMoney(value: number | string | null | undefined) {
-  return `NPR ${new Intl.NumberFormat("en-IN", {
+  return `रू ${new Intl.NumberFormat("en-IN", {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(Number(value || 0))}`;

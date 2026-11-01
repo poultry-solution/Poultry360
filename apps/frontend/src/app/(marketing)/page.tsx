@@ -45,11 +45,13 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-      <Hero />
-      <Pricing />
-      <ListForSaleSection />
-      <Reviews initialReviews={initialReviews} />
-      <Contact />
+      <main>
+        <Hero />
+        <Pricing />
+        <ListForSaleSection />
+        <Reviews initialReviews={initialReviews} />
+        <Contact />
+      </main>
       <Footer />
     </div>
   );

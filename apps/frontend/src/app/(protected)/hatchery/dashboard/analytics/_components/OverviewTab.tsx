@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, CalendarRange, Egg, FlaskConical, Layers, ShieldAlert, Wallet } from "lucide-react";
+import { ArrowUpRight, BarChart3, CalendarRange, Egg, FlaskConical, Layers, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { Badge } from "@/common/components/ui/badge";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/common/components/ui/chart";
@@ -26,7 +26,10 @@ export function OverviewTab({
   data: HatcheryAnalyticsOverview;
   onRetry?: () => void;
 }) {
-  const exposure = data.overview.totalSupplierBalance + data.overview.totalPartyBalance;
+  // Exposure tile removed 2026-11-01: it added supplier payables and party
+  // receivables, which have opposite signs semantically, so the number was
+  // confusing and the label did not help. The decision on how (if at all) to
+  // show net financial exposure is tracked in SECURITY_FOLLOWUPS.md.
   const mixData = [
     { name: "Egg sales", amount: data.mix.eggSalesRevenue },
     { name: "Parent sales", amount: data.mix.parentSalesRevenue },
@@ -59,16 +62,6 @@ export function OverviewTab({
           tone={data.overview.netProfit >= 0 ? "text-indigo-600" : "text-rose-600"}
           badge={`${data.comparison.profitGrowthPct >= 0 ? "+" : ""}${data.comparison.profitGrowthPct.toFixed(1)}% vs previous`}
         />
-        <MetricCard
-          title="Exposure"
-          value={formatMoney(exposure)}
-          subtitle="Supplier payables + customer receivables"
-          icon={ShieldAlert}
-          tone={exposure > 0 ? "text-rose-600" : "text-emerald-600"}
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Active batches"
           value={data.overview.activeBatches.toLocaleString()}

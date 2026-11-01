@@ -38,6 +38,25 @@ export class HatcherySupplierService {
     const { supplierId, hatcheryOwnerId, amount, date, note } = data;
 
     return prisma.$transaction(async (tx) => {
+      // Serialise concurrent `setOpeningBalance` calls with each other for
+      // this supplier. "Set opening" is a replace, not an increment, so it
+      // cannot be made correct with an atomic delta alone — if two users
+      // set an opening at the same time the deltas would both apply and
+      // the final balance would be wrong.
+      //
+      // Scope note: this lock protects only against *other setOpeningBalance
+      // calls*. Purchase / payment / delete paths do not acquire it because
+      // (a) each is a true accumulator safe under atomic `{ increment }` /
+      // `{ decrement }` and (b) they never write `supplier.openingBalance`
+      // — only this function does, so there is nothing for them to collide
+      // with. A purchase that commits mid-way through this function would
+      // move `balance` under us atomically; our `increment: delta` still
+      // applies correctly on top of the fresh value.
+      await (tx as any).$queryRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))::text AS l`,
+        `hatchery-supplier-balance:${supplierId}`
+      );
+
       const supplier = await tx.hatcherySupplier.findFirst({
         where: { id: supplierId, hatcheryOwnerId },
       });
@@ -48,24 +67,27 @@ export class HatcherySupplierService {
         where: { supplierId, type: HatcherySupplierTxnType.OPENING_BALANCE },
       });
 
-      const newBalance = Number(supplier.balance) - Number(supplier.openingBalance) + amount;
+      // Atomic delta on balance; absolute set on openingBalance. Under the
+      // advisory lock the delta is safe because `supplier.openingBalance`
+      // cannot change between read and write for this supplier.
+      const delta = amount - Number(supplier.openingBalance);
+      const updated = await tx.hatcherySupplier.update({
+        where: { id: supplierId },
+        data: {
+          openingBalance: amount,
+          balance: { increment: delta },
+        },
+        select: { balance: true },
+      });
 
       const txn = await tx.hatcherySupplierTxn.create({
         data: {
           supplierId,
           type: HatcherySupplierTxnType.OPENING_BALANCE,
           amount,
-          balanceAfter: newBalance,
+          balanceAfter: updated.balance,
           date,
           note: note ?? "Opening balance",
-        },
-      });
-
-      await tx.hatcherySupplier.update({
-        where: { id: supplierId },
-        data: {
-          openingBalance: amount,
-          balance: newBalance,
         },
       });
 
@@ -100,17 +122,29 @@ export class HatcherySupplierService {
       async (tx) => {
         const supplier = await tx.hatcherySupplier.findFirst({
           where: { id: supplierId, hatcheryOwnerId },
+          select: { id: true },
         });
         if (!supplier) throw new Error("Supplier not found");
 
-        const newBalance = Number(supplier.balance) + totalPurchaseAmount;
+        // Atomic balance update. Postgres serialises row-level writes so
+        // two concurrent purchases cannot both read a stale balance and
+        // write the same new value (fixes bug §1 HIGH "balance lost on
+        // same-time saves"). The `balanceAfter` we write on the txn below
+        // is read from this same update's return, so the two writes are
+        // transactionally consistent — any payment that commits after this
+        // tx will observe both the new balance AND the matching txn row.
+        const updated = await tx.hatcherySupplier.update({
+          where: { id: supplierId },
+          data: { balance: { increment: totalPurchaseAmount } },
+          select: { balance: true },
+        });
 
         const txn = await tx.hatcherySupplierTxn.create({
           data: {
             supplierId,
             type: HatcherySupplierTxnType.PURCHASE,
             amount: totalPurchaseAmount,
-            balanceAfter: newBalance,
+            balanceAfter: updated.balance,
             date,
             note,
             purchaseCategory: category,
@@ -131,11 +165,6 @@ export class HatcherySupplierService {
             },
           },
           include: { items: true },
-        });
-
-        await tx.hatcherySupplier.update({
-          where: { id: supplierId },
-          data: { balance: newBalance },
         });
 
         // Update inventory for each line item
@@ -186,27 +215,28 @@ export class HatcherySupplierService {
     return prisma.$transaction(async (tx) => {
       const supplier = await tx.hatcherySupplier.findFirst({
         where: { id: supplierId, hatcheryOwnerId },
+        select: { id: true },
       });
       if (!supplier) throw new Error("Supplier not found");
 
-      const newBalance = Number(supplier.balance) - amount;
+      // Atomic decrement — see addPurchaseTxn for the same reasoning.
+      const updated = await tx.hatcherySupplier.update({
+        where: { id: supplierId },
+        data: { balance: { decrement: amount } },
+        select: { balance: true },
+      });
 
       const txn = await tx.hatcherySupplierTxn.create({
         data: {
           supplierId,
           type: HatcherySupplierTxnType.PAYMENT,
           amount,
-          balanceAfter: newBalance,
+          balanceAfter: updated.balance,
           date,
           note,
           reference,
           receiptImageUrl,
         },
-      });
-
-      await tx.hatcherySupplier.update({
-        where: { id: supplierId },
-        data: { balance: newBalance },
       });
 
       return txn;
@@ -227,6 +257,7 @@ export class HatcherySupplierService {
       async (tx) => {
         const supplier = await tx.hatcherySupplier.findFirst({
           where: { id: supplierId, hatcheryOwnerId },
+          select: { id: true },
         });
         if (!supplier) throw new Error("Supplier not found");
 
@@ -243,22 +274,40 @@ export class HatcherySupplierService {
           );
         }
 
-        // Recompute balance by removing this txn's delta
+        // Atomically reverse the txn's effect. `balanceDelta` is positive
+        // for PURCHASE/ADJUSTMENT/OPENING and negative for PAYMENT, so we
+        // subtract it to undo. Prisma inlines a signed number into
+        // `balance = balance - <delta>`, which handles both directions.
         const delta = HatcherySupplierService.balanceDelta(
           txnToDelete.type,
           Number(txnToDelete.amount)
         );
-        const newBalance = Number(supplier.balance) - delta;
 
         purgedReceipt = txnToDelete.receiptImageUrl;
         await tx.hatcherySupplierTxn.delete({ where: { id: txnId } });
 
-        await tx.hatcherySupplier.update({
+        // Fixes bug §1 MEDIUM "Deleting the opening balance row breaks the
+        // next one". `supplier.openingBalance` is a cached field read by
+        // setOpeningBalance to compute `delta = amount - oldOpening`. If
+        // we delete the OPENING_BALANCE txn without zeroing this field,
+        // the next setOpeningBalance subtracts a stale old value and
+        // double-counts. We only reset it for the OPENING_BALANCE type;
+        // PURCHASE / PAYMENT / ADJUSTMENT deletes don't touch it.
+        const supplierUpdate: {
+          balance: { decrement: number };
+          openingBalance?: number;
+        } = { balance: { decrement: delta } };
+        if (txnToDelete.type === HatcherySupplierTxnType.OPENING_BALANCE) {
+          supplierUpdate.openingBalance = 0;
+        }
+
+        const updated = await tx.hatcherySupplier.update({
           where: { id: supplierId },
-          data: { balance: newBalance },
+          data: supplierUpdate,
+          select: { balance: true },
         });
 
-        return { deleted: txnId, newBalance };
+        return { deleted: txnId, newBalance: Number(updated.balance) };
       },
       { timeout: 20000 }
     );

@@ -3,7 +3,7 @@ jest.mock("../../src/utils/prisma", () => ({
   default: {
     farm: { findMany: jest.fn(), count: jest.fn() },
     batch: { count: jest.fn(), findMany: jest.fn() },
-    sale: { aggregate: jest.fn(), findMany: jest.fn() },
+    sale: { aggregate: jest.fn(), findMany: jest.fn(), groupBy: jest.fn() },
     expense: { aggregate: jest.fn(), findMany: jest.fn() },
     customer: { aggregate: jest.fn(), findMany: jest.fn() },
     dealer: { findMany: jest.fn() },
@@ -96,6 +96,10 @@ describe("Money to receive popup", () => {
     ]);
     db.customer.aggregate.mockResolvedValue({ _sum: { balance: 110339.64 }, _count: { _all: 3 } });
     db.sale.findMany.mockResolvedValue([{ id: "s1", customerId: "c1", amount: 100000, dueAmount: 100000, date: new Date(), farm: { name: "F" }, category: { name: "Chicken" } }]);
+    // Controller counts credit sales per customer via prisma.sale.groupBy.
+    // Shape mirrors the real Prisma return: one row per customer with a
+    // _count.{_all} field.
+    db.sale.groupBy.mockResolvedValue([{ customerId: "c1", _count: { _all: 1 } }]);
 
     const res = makeResponse();
     await getMoneyToReceiveDetails({ userId: "farmer-1", query: { page: "1", limit: "2" } } as any, res);

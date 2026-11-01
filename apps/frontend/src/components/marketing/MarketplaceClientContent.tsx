@@ -107,7 +107,7 @@ export function MarketplaceClientContent() {
               setProvinceAndUrl(value === "ALL" ? null : value)
             }
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t("landing.listForSale.provinceFilterPlaceholder")}>
               <SelectValue
                 placeholder={t("landing.listForSale.provinceFilterPlaceholder")}
               />

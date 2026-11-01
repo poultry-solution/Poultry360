@@ -220,9 +220,16 @@ export class HatcheryProductionService {
         }
 
         for (const input of run.inputs) {
+          // Fixes bug §3 MEDIUM "Undoing a run puts stock back onto a
+          // deleted raw item". Restoring the material also un-deletes it
+          // because the user is bringing it back into use. Mirrors the
+          // purchase-onto-deleted fix in `hatcheryInventoryService`.
           await tx.hatcheryInventoryItem.update({
             where: { id: input.inventoryItemId },
-            data: { currentStock: { increment: input.quantity } },
+            data: {
+              currentStock: { increment: input.quantity },
+              deletedAt: null,
+            },
           });
         }
 

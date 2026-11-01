@@ -920,13 +920,18 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
       if (row.type === "INFERTILE" || row.type === "EARLY_DEAD") {
         safeAdd(row.incubationBatchId, "candlingLoss", row.count);
       }
-      if (row.type === "LATE_DEAD") safeAdd(row.incubationBatchId, "lateDead", row.count);
-      if (row.type === "UNHATCHED") safeAdd(row.incubationBatchId, "unhatched", row.count);
+      // §12 MEDIUM "Late dead and unhatched always 0": these were previously
+      // read here from HatcheryIncubationLoss rows of type LATE_DEAD /
+      // UNHATCHED — but the loss recorder only writes INFERTILE and
+      // EARLY_DEAD rows (candling only). The actual late-dead / unhatched
+      // counts live as columns on HatcheryHatchResult (see fix below).
     }
     for (const row of hatchRows) {
       safeAdd(row.incubationBatchId, "totalHatchedA", row.hatchedA);
       safeAdd(row.incubationBatchId, "totalHatchedB", row.hatchedB);
       safeAdd(row.incubationBatchId, "totalCull", row.cull);
+      safeAdd(row.incubationBatchId, "lateDead", row.lateDead);
+      safeAdd(row.incubationBatchId, "unhatched", row.unhatched);
     }
     for (const row of chickSalesRows) {
       safeAdd(row.incubationBatchId, "chickSalesCount", row.count);
@@ -946,12 +951,10 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
         const candlingLoss = incubationLosses
           .filter((row) => row.type === "INFERTILE" || row.type === "EARLY_DEAD")
           .reduce((sum, row) => sum + row.count, 0);
-        const lateDead = incubationLosses
-          .filter((row) => row.type === "LATE_DEAD")
-          .reduce((sum, row) => sum + row.count, 0);
-        const unhatched = incubationLosses
-          .filter((row) => row.type === "UNHATCHED")
-          .reduce((sum, row) => sum + row.count, 0);
+        // §12 MEDIUM: late-dead and unhatched are columns on HatchResult,
+        // not loss rows (see explanation on the per-row loop above).
+        const lateDead = incubationHatches.reduce((sum, row) => sum + Number(row.lateDead ?? 0), 0);
+        const unhatched = incubationHatches.reduce((sum, row) => sum + Number(row.unhatched ?? 0), 0);
         const eggsSet = incubation.eggsSetCount;
         const fertileEggs = eggsSet - candlingLoss;
         const totalHatchedA = incubationHatches.reduce((sum, row) => sum + Number(row.hatchedA ?? 0), 0);

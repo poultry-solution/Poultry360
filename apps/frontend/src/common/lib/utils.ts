@@ -6,6 +6,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Extract a human-readable message from an axios error, handling both
+ * server error shapes used in this codebase: `{ message }` (farmer/dealer)
+ * and `{ error }` (hatchery). Falls back to `err.message` and then the
+ * caller-supplied label (bug §11 LOW "Error messages come in two formats").
+ */
+export function apiErrorText(err: unknown, fallback: string): string {
+  const anyErr = err as any
+  const data = anyErr?.response?.data
+  return (
+    (typeof data?.message === "string" && data.message) ||
+    (typeof data?.error === "string" && data.error) ||
+    (typeof anyErr?.message === "string" && anyErr.message) ||
+    fallback
+  )
+}
+
 // TODO: Implement user validation when needed
 // export function validateUser(user: User) {
 //   return UserSchema.safeParse(user)

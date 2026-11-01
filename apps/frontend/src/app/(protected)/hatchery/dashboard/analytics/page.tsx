@@ -202,7 +202,7 @@ function HatcheryAnalyticsContent() {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">Analytics</h1>
-              <p className="text-sm text-slate-500">Hatchery performance, production, sales, and exposure in one workspace.</p>
+              <p className="text-sm text-slate-500">Hatchery performance, production, and sales in one workspace.</p>
             </div>
           </div>
         </div>
