@@ -475,7 +475,15 @@ export default function DealerSalesPage() {
                   ) : <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Method</span>
-                    <span className="font-medium">{sale.paymentMethod || "—"}</span>
+                    <span className="font-medium">
+                      {/* `DealerSale` has no paymentMethod column of its own —
+                       * it lives per-payment on `DealerSalePayment.paymentMethod`.
+                       * Pull it from the initial payment so the user sees
+                       * the Cash/Bank/etc. choice they made at sale time. */}
+                      {sale.payments?.[0]?.paymentMethod ||
+                        (sale.payments?.[0] as any)?.method ||
+                        "—"}
+                    </span>
                   </div>
                   {paidAmount > 0 && (
                     <div className="flex justify-between text-sm">
@@ -511,7 +519,7 @@ export default function DealerSalesPage() {
                       <tr className="border-b bg-muted/20">
                         <th className="text-left p-2 pl-3 font-medium">Product</th>
                         <th className="text-right p-2 font-medium">Unit Price</th>
-                        <th className="text-right p-2 font-medium">Qty</th>
+                        <th className="text-right p-2 font-medium">{sale.isChickenSale ? "Weight" : "Qty"}</th>
                         {sale.isChickenSale && <th className="text-right p-2 font-medium">Broiler Count</th>}
                         {sale.isChickenSale && <th className="text-right p-2 font-medium">Avg. Wt./Broiler</th>}
                         <th className="text-right p-2 pr-3 font-medium">Total</th>
@@ -522,7 +530,10 @@ export default function DealerSalesPage() {
                         <tr key={item.id || idx} className="border-b last:border-0">
                           <td className="p-2 pl-3 font-medium">{item.dealerProduct?.name || item.product?.name || (sale.isChickenSale ? "Broiler" : "Product")}</td>
                           <td className="p-2 text-right">{formatCurrency(Number(item.unitPrice))}</td>
-                          <td className="p-2 text-right">{Number(item.quantity).toFixed(2)}</td>
+                          <td className="p-2 text-right whitespace-nowrap">
+                            {Number(item.quantity).toFixed(2)}
+                            {item.unit ? ` ${item.unit}` : ""}
+                          </td>
                           {sale.isChickenSale && <td className="p-2 text-right">{item.broilerCount == null ? "—" : Number(item.broilerCount).toLocaleString()}</td>}
                           {sale.isChickenSale && (
                             <td className="p-2 text-right">

@@ -348,6 +348,197 @@ export class DealerService {
   }
 
   /**
+   * Create N broiler sales for the SAME source farmer in one atomic
+   * transaction. Each row becomes a self-contained `DealerSale` with its own
+   * invoice number, items, discount, payment, ledger entries, and customer
+   * balance update. If any row fails, nothing is persisted (serializable
+   * isolation + single $transaction).
+   *
+   * The caller MUST pre-validate: source farmer + buyers all exist for this
+   * dealer, numbers are in range, invoice numbers unique within the batch.
+   * The service trusts its input and only guards against low-level DB errors
+   * (unique-constraint collisions, serialization failures).
+   */
+  static async createBulkBroilerSales(data: {
+    dealerId: string;
+    sourceFarmerId: string;
+    rows: Array<{
+      buyerId: string;
+      weightKg: number;
+      broilerCount: number | null;
+      ratePerKg: number;
+      discount: { type: DiscountType; value: number } | null;
+      paidAmount: number;
+      paymentMethod: string;
+      notes: string | null;
+      invoiceNumber: string | null; // null = auto
+      date: Date;
+    }>;
+  }) {
+    const { dealerId, sourceFarmerId, rows } = data;
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    type CreatedSale = {
+      id: string;
+      invoiceNumber: string;
+      rowIndex: number;
+      customerId: string;
+      totalAmount: number;
+      paidAmount: number;
+      dueAmount: number;
+    };
+
+    const createdSales = await prisma.$transaction(async (tx) => {
+      const result: CreatedSale[] = [];
+
+      // Running ledger balance tracked in-memory. Reading `lastLedgerEntry` on
+      // every iteration would be stale within the same transaction because
+      // our own writes haven't materialised to subsequent reads of
+      // `orderBy createdAt desc` (same-ms inserts can tie).
+      const last = await tx.dealerLedgerEntry.findFirst({
+        where: { dealerId },
+        orderBy: { createdAt: "desc" },
+      });
+      let running = last ? Number(last.balance) : 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const subtotal = round2(row.weightKg * row.ratePerKg);
+        const discountAmount =
+          row.discount && row.discount.value > 0
+            ? computeDiscountAmount(subtotal, row.discount.type, row.discount.value)
+            : 0;
+        const totalAmount = round2(subtotal - discountAmount);
+        const dueAmount = round2(totalAmount - row.paidAmount);
+        const isCredit = dueAmount > 0;
+
+        const invoiceNumber =
+          row.invoiceNumber?.trim() ||
+          (await generateNextInvoiceNumber(dealerId, tx));
+
+        const sale = await tx.dealerSale.create({
+          data: {
+            invoiceNumber,
+            date: row.date,
+            subtotalAmount:
+              discountAmount > 0 ? new Prisma.Decimal(subtotal) : undefined,
+            totalAmount: new Prisma.Decimal(totalAmount),
+            paidAmount: new Prisma.Decimal(row.paidAmount),
+            dueAmount: dueAmount > 0 ? new Prisma.Decimal(dueAmount) : null,
+            isCredit,
+            notes: row.notes ?? null,
+            dealerId,
+            customerId: row.buyerId,
+            isChickenSale: true,
+            sourceFarmerId,
+          },
+        });
+
+        if (discountAmount > 0 && row.discount) {
+          await tx.saleDiscount.create({
+            data: {
+              type: row.discount.type as PrismaDiscountType,
+              value: new Prisma.Decimal(row.discount.value),
+              scope: "SALE",
+              dealerSaleId: sale.id,
+            },
+          });
+        }
+
+        await tx.dealerSaleItem.create({
+          data: {
+            saleId: sale.id,
+            productId: null,
+            quantity: new Prisma.Decimal(row.weightKg),
+            unitPrice: new Prisma.Decimal(row.ratePerKg),
+            totalAmount: new Prisma.Decimal(totalAmount),
+            unit: "kg",
+            broilerCount: row.broilerCount ?? null,
+            baseQuantity: null,
+            unitCost: null,
+            costAmount: null,
+          },
+        });
+
+        if (row.paidAmount > 0) {
+          await tx.dealerSalePayment.create({
+            data: {
+              amount: new Prisma.Decimal(row.paidAmount),
+              date: row.date,
+              description: "Initial payment",
+              paymentMethod: row.paymentMethod,
+              saleId: sale.id,
+            },
+          });
+        }
+
+        // Ledger: sale proceeds first, then (optional) payment-received.
+        running = round2(running + totalAmount);
+        await tx.dealerLedgerEntry.create({
+          data: {
+            type: "BROILER_SALE_PROCEEDS",
+            amount: new Prisma.Decimal(totalAmount),
+            balance: new Prisma.Decimal(running),
+            date: row.date,
+            description: `Sale - Invoice ${invoiceNumber}`,
+            reference: invoiceNumber,
+            dealerId,
+            saleId: sale.id,
+            partyId: row.buyerId,
+            partyType: "CUSTOMER",
+          },
+        });
+
+        if (row.paidAmount > 0) {
+          running = round2(running - row.paidAmount);
+          await tx.dealerLedgerEntry.create({
+            data: {
+              type: "PAYMENT_RECEIVED",
+              amount: new Prisma.Decimal(row.paidAmount),
+              balance: new Prisma.Decimal(running),
+              date: row.date,
+              description: `Payment received - Invoice ${invoiceNumber}`,
+              reference: invoiceNumber,
+              dealerId,
+              saleId: sale.id,
+              partyId: row.buyerId,
+              partyType: "CUSTOMER",
+            },
+          });
+        }
+
+        // Customer rollup (atomic increments; two rows to the same buyer
+        // accumulate correctly).
+        await tx.customer.update({
+          where: { id: row.buyerId },
+          data: {
+            balance: { increment: new Prisma.Decimal(dueAmount) },
+            totalSales: { increment: new Prisma.Decimal(totalAmount) },
+            ...(row.paidAmount > 0
+              ? { totalPayments: { increment: new Prisma.Decimal(row.paidAmount) } }
+              : {}),
+          },
+        });
+
+        result.push({
+          id: sale.id,
+          invoiceNumber,
+          rowIndex: i,
+          customerId: row.buyerId,
+          totalAmount,
+          paidAmount: row.paidAmount,
+          dueAmount,
+        });
+      }
+
+      return result;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return createdSales;
+  }
+
+  /**
    * Record a goods-only sale to a manual supplier. The sale value settles the
    * supplier payable; it never creates a customer, customer transaction, cash
    * payment, or dealer customer-ledger entry.

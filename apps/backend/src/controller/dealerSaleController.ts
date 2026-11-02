@@ -249,6 +249,275 @@ export const createSupplierSettlementSale = async (
   }
 };
 
+// ==================== CREATE BULK BROILER SALES ====================
+// All-or-nothing: one source farmer, N buyer rows, N `DealerSale` records in
+// one serializable transaction. If any row fails validation the whole batch
+// is rejected and nothing is persisted. The caller sees a per-row error map
+// so the frontend can highlight exactly which rows need fixing.
+const MAX_BULK_BROILER_ROWS = 50;
+const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "CHEQUE", "OTHER"] as const;
+const INVOICE_FORMAT = /^[A-Za-z0-9/\-_. ]{1,50}$/;
+
+export const createBulkBroilerSales = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { sourceFarmerId, rows } = req.body as {
+      sourceFarmerId?: string;
+      rows?: Array<any>;
+    };
+
+    if (!sourceFarmerId || typeof sourceFarmerId !== "string") {
+      return res.status(400).json({ message: "Source farmer is required" });
+    }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: "At least one buyer row is required" });
+    }
+    if (rows.length > MAX_BULK_BROILER_ROWS) {
+      return res.status(400).json({
+        message: `Too many rows — the limit is ${MAX_BULK_BROILER_ROWS} per request`,
+      });
+    }
+
+    // Resolve dealer.
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+
+    // Resolve source farmer (must be a manual customer owned by this dealer).
+    const sourceFarmer = await prisma.customer.findFirst({
+      where: { id: sourceFarmerId, userId: userId as string, farmerId: null },
+      select: { id: true },
+    });
+    if (!sourceFarmer) {
+      return res.status(400).json({
+        message: "Source farmer not found",
+        errors: { sourceFarmerId: "Source farmer not found" },
+      });
+    }
+
+    // Batch-fetch every buyer referenced; cross-tenant leakage is prevented
+    // here (buyers must belong to the caller's user) once, not per-row.
+    const buyerIds = Array.from(
+      new Set(
+        rows.map((r) => (typeof r?.buyerId === "string" ? r.buyerId : "")).filter(Boolean)
+      )
+    );
+    const existingBuyers = buyerIds.length
+      ? await prisma.customer.findMany({
+          where: { id: { in: buyerIds }, userId: userId as string, farmerId: null },
+          select: { id: true },
+        })
+      : [];
+    const buyerIdSet = new Set(existingBuyers.map((c) => c.id));
+
+    // Collect per-row validation errors; also run the custom-invoice-in-batch
+    // uniqueness check before touching the DB.
+    const rowErrors: Record<number, string[]> = {};
+    const addError = (i: number, msg: string) => {
+      (rowErrors[i] = rowErrors[i] || []).push(msg);
+    };
+    const seenInvoices = new Map<string, number>();
+    const normalisedRows: Array<any> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i] ?? {};
+      // Buyer.
+      const buyerId = typeof r.buyerId === "string" ? r.buyerId : "";
+      if (!buyerId) addError(i, "Buyer is required");
+      else if (!buyerIdSet.has(buyerId)) addError(i, "Buyer not found");
+      else if (buyerId === sourceFarmerId) addError(i, "Buyer must be different from source farmer");
+
+      // Weight & rate.
+      const weightKg = Number(r.weightKg);
+      if (!Number.isFinite(weightKg) || weightKg <= 0) addError(i, "Weight must be greater than 0");
+      const ratePerKg = Number(r.ratePerKg);
+      if (!Number.isFinite(ratePerKg) || ratePerKg <= 0) addError(i, "Rate must be greater than 0");
+
+      // Broiler count (optional).
+      let broilerCount: number | null = null;
+      if (r.broilerCount !== undefined && r.broilerCount !== null && r.broilerCount !== "") {
+        const bc = Number(r.broilerCount);
+        if (!Number.isSafeInteger(bc) || bc <= 0) {
+          addError(i, "Broiler count must be a positive whole number");
+        } else broilerCount = bc;
+      }
+
+      // Discount (optional).
+      let discount: { type: "PERCENT" | "FLAT"; value: number } | null = null;
+      if (r.discount && typeof r.discount === "object") {
+        const dType = r.discount.type;
+        const dValue = Number(r.discount.value);
+        if (dType !== "PERCENT" && dType !== "FLAT") {
+          addError(i, "Discount type must be PERCENT or FLAT");
+        } else if (!Number.isFinite(dValue) || dValue < 0) {
+          addError(i, "Discount value cannot be negative");
+        } else if (dType === "PERCENT" && dValue > 100) {
+          addError(i, "Discount percent cannot exceed 100");
+        } else if (
+          dType === "FLAT" &&
+          Number.isFinite(weightKg) &&
+          Number.isFinite(ratePerKg) &&
+          dValue > weightKg * ratePerKg
+        ) {
+          addError(i, "Flat discount cannot exceed line subtotal");
+        } else if (dValue > 0) {
+          discount = { type: dType, value: dValue };
+        }
+      }
+
+      // Compute post-discount line total so we can validate paid.
+      let lineTotal = 0;
+      if (Number.isFinite(weightKg) && Number.isFinite(ratePerKg) && weightKg > 0 && ratePerKg > 0) {
+        const sub = Math.round(weightKg * ratePerKg * 100) / 100;
+        const disc = discount
+          ? discount.type === "PERCENT"
+            ? Math.round((Math.min(100, discount.value) / 100) * sub * 100) / 100
+            : Math.min(discount.value, sub)
+          : 0;
+        lineTotal = Math.round((sub - disc) * 100) / 100;
+      }
+
+      // Paid.
+      const paidAmount = Number(r.paidAmount);
+      if (!Number.isFinite(paidAmount) || paidAmount < 0) addError(i, "Paid cannot be negative");
+      else if (lineTotal > 0 && paidAmount > lineTotal) addError(i, "Paid cannot exceed line total");
+
+      // Payment method.
+      const paymentMethod = typeof r.paymentMethod === "string" ? r.paymentMethod : "CASH";
+      if (!PAYMENT_METHODS.includes(paymentMethod as any)) addError(i, "Invalid payment method");
+
+      // Custom invoice (optional).
+      let invoiceNumber: string | null = null;
+      if (typeof r.invoiceNumber === "string" && r.invoiceNumber.trim()) {
+        const trimmed = r.invoiceNumber.trim();
+        if (!INVOICE_FORMAT.test(trimmed)) {
+          addError(i, "Invoice number has invalid characters or is too long");
+        } else {
+          const prevIdx = seenInvoices.get(trimmed);
+          if (prevIdx !== undefined) {
+            addError(i, `Invoice number duplicates row ${prevIdx + 1}`);
+            addError(prevIdx, `Invoice number duplicates row ${i + 1}`);
+          } else {
+            seenInvoices.set(trimmed, i);
+          }
+          invoiceNumber = trimmed;
+        }
+      }
+
+      // Date.
+      const date = r.date ? new Date(r.date) : new Date();
+      if (Number.isNaN(date.getTime())) addError(i, "Invalid date");
+
+      // Notes.
+      const notes = typeof r.notes === "string" && r.notes.trim() ? r.notes.trim() : null;
+
+      normalisedRows.push({
+        buyerId,
+        weightKg,
+        broilerCount,
+        ratePerKg,
+        discount,
+        paidAmount,
+        paymentMethod,
+        notes,
+        invoiceNumber,
+        date,
+      });
+    }
+
+    // Custom invoice numbers that collide with an EXISTING dealer sale.
+    // We check up-front and surface the result as a per-row 400 so the
+    // frontend can highlight exactly which row needs its invoice changed
+    // (the P2002 catch below is kept only as a race-condition safety net).
+    const customInvoices = normalisedRows
+      .map((r, i) => ({ invoiceNumber: r.invoiceNumber, i }))
+      .filter((x) => !!x.invoiceNumber) as Array<{ invoiceNumber: string; i: number }>;
+    if (customInvoices.length > 0) {
+      const existingInvoiceRows = await prisma.dealerSale.findMany({
+        where: {
+          dealerId: dealer.id,
+          invoiceNumber: { in: customInvoices.map((x) => x.invoiceNumber) },
+        },
+        select: { invoiceNumber: true },
+      });
+      const taken = new Set(existingInvoiceRows.map((r) => r.invoiceNumber));
+      for (const { invoiceNumber, i } of customInvoices) {
+        if (taken.has(invoiceNumber)) {
+          addError(i, `Invoice "${invoiceNumber}" already exists for this dealer`);
+        }
+      }
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Fix the highlighted rows",
+        errors: { rows: rowErrors },
+      });
+    }
+
+    // Validation clean — hand off to the atomic service.
+    const createdSales = await DealerService.createBulkBroilerSales({
+      dealerId: dealer.id,
+      sourceFarmerId,
+      rows: normalisedRows,
+    });
+
+    // Single audit entry for the whole batch.
+    const totalAmount = createdSales.reduce((s, x) => s + x.totalAmount, 0);
+    const totalPaid = createdSales.reduce((s, x) => s + x.paidAmount, 0);
+    await writeBusinessAudit(req, {
+      action: "dealer.broiler_sale.bulk_created",
+      targetType: "DealerSale",
+      targetId: createdSales[0].id,
+      description: `Recorded ${createdSales.length} broiler sale${createdSales.length === 1 ? "" : "s"}`,
+      businessType: "DEALER",
+      businessId: dealer.id,
+      metadata: {
+        saleCount: createdSales.length,
+        sourceFarmerId,
+        totalAmount: Math.round(totalAmount * 100) / 100,
+        totalPaid: Math.round(totalPaid * 100) / 100,
+        saleIds: createdSales.map((s) => s.id),
+        invoiceNumbers: createdSales.map((s) => s.invoiceNumber),
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { sales: createdSales },
+      message: `Saved ${createdSales.length} broiler ${createdSales.length === 1 ? "sale" : "sales"}`,
+    });
+  } catch (error: any) {
+    // Prisma unique-constraint collision on (dealerId, invoiceNumber) when a
+    // custom invoice collides with a pre-existing dealer sale.
+    if (error?.code === "P2002") {
+      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(",") : "";
+      if (target.includes("invoiceNumber")) {
+        return res.status(409).json({
+          success: false,
+          code: "INVOICE_CONFLICT",
+          message: "A custom invoice number collided with an existing dealer sale. Change the invoice number on the affected row and try again.",
+        });
+      }
+    }
+    if (error?.code === "P2034") {
+      return res.status(409).json({
+        success: false,
+        code: "SERIALIZATION_FAILURE",
+        message: "Another sale was being saved at the same time. Please try again.",
+      });
+    }
+    console.error("Create bulk broiler sales error:", error);
+    return res.status(400).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
 // ==================== GET DEALER SALES ====================
 export const getDealerSales = async (
   req: Request,

@@ -238,7 +238,14 @@ export default function SaleDetailPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Payment Method</span>
-                  <span className="font-medium text-sm">{sale.paymentMethod}</span>
+                  <span className="font-medium text-sm">
+                    {/* DealerSale has no `paymentMethod` column — it lives on
+                     * the initial `DealerSalePayment` row. Read that so the
+                     * user sees the Cash/Bank choice they made at sale time. */}
+                    {sale.payments?.[0]?.paymentMethod ||
+                      (sale.payments?.[0] as any)?.method ||
+                      "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Status</span>

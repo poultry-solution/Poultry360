@@ -34,7 +34,7 @@ export function NewSaleMenuButton({ label }: { label: string }) {
       label: "Broiler sale",
       hint: "Sell a farmer's broilers, settle later",
       icon: Bird,
-      href: `${NEW_SALE_PATH}?type=broiler`,
+      href: `${NEW_SALE_PATH}/broiler`,
       show: broilerFeature.isEnabled,
     },
     {
