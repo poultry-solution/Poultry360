@@ -1,6 +1,7 @@
 import express, {Request,Response} from "express";
 import {
   createDealerSale,
+  createBulkBroilerSales,
   getDealerSales,
   getDealerSaleById,
   addSalePayment,
@@ -46,6 +47,13 @@ router.post(
   "/supplier-settlement-sales",
   requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_SUPPLIER_SETTLEMENT_SALES),
   createSupplierSettlementSale
+);
+
+// Bulk broiler-sale entry: one source farmer, N buyer rows, atomic all-or-nothing.
+router.post(
+  "/broiler/bulk",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
+  createBulkBroilerSales
 );
 
 // Get all dealer sales with pagination and filters

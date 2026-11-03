@@ -17,6 +17,9 @@ export type BillLine = {
   name: string;
   note?: string;
   quantity: number;
+  /** Unit shown next to the quantity (e.g. "kg", "bag") so the Qty cell reads
+   * "15 kg" instead of a bare "15" with the unit floating as a subtext. */
+  quantityUnit?: string;
   rate: number;
   total: number;
   /** Values for `extraColumns`, keyed by column key. */
@@ -147,8 +150,9 @@ export const BillDocument = forwardRef<HTMLDivElement, { bill: BillData }>(funct
                   <div className="font-medium">{line.name}</div>
                   {line.note ? <div className="text-[11px] text-slate-500">{line.note}</div> : null}
                 </td>
-                <td className={`text-right align-top ${cell}`}>
+                <td className={`whitespace-nowrap text-right align-top ${cell}`}>
                   {Number.isFinite(line.quantity) ? line.quantity.toLocaleString("en-IN") : "0"}
+                  {line.quantityUnit ? ` ${line.quantityUnit}` : ""}
                 </td>
                 {extraColumns.map((column) => (
                   <td key={column.key} className={`text-right align-top ${cell}`}>

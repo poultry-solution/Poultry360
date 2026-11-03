@@ -87,6 +87,34 @@ export interface CreateDealerSaleInput {
   sourceFarmerId?: string;
 }
 
+export interface BulkBroilerRowInput {
+  buyerId: string;
+  weightKg: number;
+  broilerCount?: number | null;
+  ratePerKg: number;
+  discount?: { type: "PERCENT" | "FLAT"; value: number } | null;
+  paidAmount: number;
+  paymentMethod: "CASH" | "BANK_TRANSFER" | "CHEQUE" | "OTHER";
+  notes?: string;
+  invoiceNumber?: string;
+  date: string; // YYYY-MM-DD or ISO
+}
+
+export interface CreateBulkBroilerSalesInput {
+  sourceFarmerId: string;
+  rows: BulkBroilerRowInput[];
+}
+
+export interface BulkBroilerSaleResult {
+  id: string;
+  invoiceNumber: string;
+  rowIndex: number;
+  customerId: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+}
+
 export interface CreateSupplierSettlementSaleInput {
   manualCompanyId: string;
   items: Array<{
@@ -360,6 +388,30 @@ export const useCreateDealerSale = () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+    },
+  });
+};
+
+// Bulk broiler-sale entry — one source farmer, N buyers, atomic all-or-nothing.
+export const useCreateBulkBroilerSales = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CreateBulkBroilerSalesInput) => {
+      const { data } = await axiosInstance.post("/dealer/sales/broiler/bulk", input);
+      return data as {
+        success: true;
+        data: { sales: BulkBroilerSaleResult[] };
+        message: string;
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.broilerSettlements() });
+      queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
     },
   });
 };

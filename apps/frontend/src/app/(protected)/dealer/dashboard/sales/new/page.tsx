@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   ArrowLeft,
-  Bird,
   Package,
   Printer,
   Share2,
@@ -50,7 +49,6 @@ import { useI18n } from "@/i18n/useI18n";
 import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
-import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
 interface UnitConversion {
   unitName: string;
@@ -71,7 +69,6 @@ interface SaleItem {
   productId: string;
   product?: SaleItemProductSnapshot;
   quantity: number;
-  broilerCount?: number;
   unitPrice: number;
   unit?: string;
   baseUnitPrice: number; // original price per base unit, used for recalculation
@@ -85,8 +82,6 @@ export default function NewSalePage() {
   // Form state
   const [saleDateAd, setSaleDateAd] = useState(getTodayLocalDate());
   const [customerId, setCustomerId] = useState("");
-  const [isChickenSale, setIsChickenSale] = useState(false);
-  const [sourceFarmerId, setSourceFarmerId] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [notes, setNotes] = useState("");
@@ -100,8 +95,6 @@ export default function NewSalePage() {
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [isPrintPromptOpen, setIsPrintPromptOpen] = useState(false);
   const [savedSaleForPrint, setSavedSaleForPrint] = useState<any>(null);
-  // Sale type the user asked to switch to while the form already has items.
-  const [pendingSaleType, setPendingSaleType] = useState<"product" | "broiler" | null>(null);
   const [newCustomerData, setNewCustomerData] = useState({
     name: "",
     phone: "",
@@ -111,62 +104,21 @@ export default function NewSalePage() {
 
   // Searchable selects
   const customerSelect = useSearchableCustomerSelect();
-  const sourceFarmerSelect = useSearchableCustomerSelect();
   const productSelect = useSearchableDealerProductSelect();
 
   const createSaleMutation = useCreateDealerSale();
   const createCustomerMutation = useCreateCustomer();
-  const broilerFeature = useAccountFeature(
-    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
-  );
 
-  const exitBroilerSaleMode = () => {
-    setIsChickenSale(false);
-    setSourceFarmerId("");
-    setSelectedProductId("");
-    setItems([]);
-  };
-
-  const enterBroilerSaleMode = () => {
-    setIsChickenSale(true);
-    setSourceFarmerId("");
-    setSelectedProductId("");
-    setItems([{ productId: "", quantity: 0, unitPrice: 0, unit: "kg", baseUnitPrice: 0 }]);
-  };
-
-  const applySaleType = (type: "product" | "broiler") => {
-    if (type === "broiler") enterBroilerSaleMode();
-    else exitBroilerSaleMode();
-  };
-
-  // Switching type clears the item lines, so ask first if something was entered.
-  const requestSaleType = (type: "product" | "broiler") => {
-    if ((type === "broiler") === isChickenSale) return;
-    const hasEnteredItems = items.some((item) => item.productId || item.quantity > 0 || item.unitPrice > 0);
-    if (hasEnteredItems) {
-      setPendingSaleType(type);
-      return;
-    }
-    applySaleType(type);
-  };
-
-  // "New Sale ▾ → Broiler sale" opens this page with ?type=broiler.
+  // Legacy URL: "?type=broiler" used to switch this page into broiler mode.
+  // The broiler flow now lives at its own bulk-entry route; redirect bookmarks.
   const appliedTypeFromUrl = useRef(false);
   useEffect(() => {
-    if (appliedTypeFromUrl.current || !broilerFeature.isEnabled) return;
+    if (appliedTypeFromUrl.current) return;
     appliedTypeFromUrl.current = true;
     if (new URLSearchParams(window.location.search).get("type") === "broiler") {
-      enterBroilerSaleMode();
+      router.replace("/dealer/dashboard/sales/new/broiler");
     }
-  }, [broilerFeature.isEnabled]);
-
-  // An Admin can turn the feature off while this form is open. Return the
-  // form to its normal sale state without showing a feature-access error.
-  useEffect(() => {
-    if (!broilerFeature.isLoading && !broilerFeature.isEnabled && isChickenSale) {
-      exitBroilerSaleMode();
-    }
-  }, [broilerFeature.isEnabled, broilerFeature.isLoading, isChickenSale]);
+  }, [router]);
 
   /**
    * Nepali datepicker validates defaultDate with string.split — it must be BS YYYY-MM-DD.
@@ -286,29 +238,13 @@ export default function NewSalePage() {
       return;
     }
 
-    if (isChickenSale && !broilerFeature.isEnabled) {
-      exitBroilerSaleMode();
-      return;
-    }
-
-    if (isChickenSale && !sourceFarmerId) {
-      toast.error("Select the source farmer for this broiler sale");
-      return;
-    }
-
-    if (isChickenSale && sourceFarmerId === customerId) {
-      toast.error("The source farmer and buyer must be different customers");
-      return;
-    }
-
     // Validate items
     for (const item of items) {
-      if ((!isChickenSale && !item.productId) || item.quantity <= 0 || item.unitPrice <= 0) {
+      if (!item.productId || item.quantity <= 0 || item.unitPrice <= 0) {
         toast.error(t("dealer.newSale.messages.productInvalid"));
         return;
       }
-      // Stock check (product sales only — broiler sales don't deduct inventory).
-      if (!isChickenSale && item.product) {
+      if (item.product) {
         const factor =
           getAvailableUnits(item.product).find(
             (u) => u.unitName === (item.unit || item.product?.unit)
@@ -332,11 +268,10 @@ export default function NewSalePage() {
       const result = await createSaleMutation.mutateAsync({
         customerId,
         items: items.map((item) => ({
-          productId: item.productId || undefined,
+          productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           unit: item.unit || undefined,
-          broilerCount: isChickenSale ? item.broilerCount : undefined,
         })),
         paidAmount,
         paymentMethod,
@@ -347,8 +282,6 @@ export default function NewSalePage() {
             ? { type: discountType, value: discountValue }
             : undefined,
         invoiceNumber: invoiceNumber.trim() || undefined,
-        isChickenSale,
-        sourceFarmerId: isChickenSale ? sourceFarmerId : undefined,
       });
 
       toast.success(t("dealer.newSale.messages.success"));
@@ -356,10 +289,6 @@ export default function NewSalePage() {
       setSavedSaleForPrint(result?.data ?? result);
       setIsPrintPromptOpen(true);
     } catch (error: any) {
-      if (error.response?.data?.code === "ACCOUNT_FEATURE_DISABLED") {
-        exitBroilerSaleMode();
-        return;
-      }
       toast.error(error.response?.data?.message || t("dealer.newSale.messages.failed"));
     }
   };
@@ -399,12 +328,10 @@ export default function NewSalePage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            {isChickenSale ? "New Broiler Sale" : t("dealer.newSale.title")}
+            {t("dealer.newSale.title")}
           </h1>
           <p className="text-sm md:text-base text-muted-foreground">
-            {isChickenSale
-              ? "Sell a farmer's broilers to a buyer. Settle with the farmer later."
-              : t("dealer.newSale.subtitle")}
+            {t("dealer.newSale.subtitle")}
           </p>
         </div>
       </div>
@@ -420,36 +347,6 @@ export default function NewSalePage() {
               <CardDescription>{t("dealer.newSale.customer.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {broilerFeature.isEnabled ? (
-                <div className="space-y-2">
-                  <Label>Sale type</Label>
-                  <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1" role="radiogroup" aria-label="Sale type">
-                    {([
-                      { type: "product", label: "Feed / products", icon: Package, active: !isChickenSale },
-                      { type: "broiler", label: "Broiler", icon: Bird, active: isChickenSale },
-                    ] as const).map((option) => (
-                      <button
-                        key={option.type}
-                        type="button"
-                        role="radio"
-                        aria-checked={option.active}
-                        onClick={() => requestSaleType(option.type)}
-                        className={`flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                          option.active
-                            ? option.type === "broiler"
-                              ? "bg-amber-500 text-white shadow-sm"
-                              : "bg-primary text-primary-foreground shadow-sm"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        <option.icon className="h-4 w-4" />
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
               <div className="space-y-2">
                 <Label>Date</Label>
                 <NepaliDatePicker
@@ -500,27 +397,8 @@ export default function NewSalePage() {
                 ) : null}
               </div>
 
-              {isChickenSale && (
-                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-                  <Label>Farmer (whose broilers)</Label>
-                  <SearchableSelect
-                    value={sourceFarmerId}
-                    onValueChange={setSourceFarmerId}
-                    options={sourceFarmerSelect.options}
-                    placeholder="Select source farmer"
-                    searchPlaceholder="Search farmers..."
-                    emptyText="No matching farmers found"
-                    isLoading={sourceFarmerSelect.isLoading}
-                    onSearch={sourceFarmerSelect.onSearch}
-                  />
-                  <p className="text-xs text-amber-900">
-                    Used later to settle with this farmer. It does not change the farmer&apos;s balance now.
-                  </p>
-                </div>
-              )}
-
               <div>
-                <Label>{isChickenSale ? "Buyer" : t("dealer.newSale.customer.label")}</Label>
+                <Label>{t("dealer.newSale.customer.label")}</Label>
                 <SearchableSelect
                   value={customerId}
                   onValueChange={handleCustomerChange}
@@ -563,33 +441,31 @@ export default function NewSalePage() {
           {/* Products Section */}
           <Card>
             <CardHeader>
-              <CardTitle>{isChickenSale ? "Broiler" : t("dealer.newSale.products.title")}</CardTitle>
-              <CardDescription>{isChickenSale ? "Enter the actual sale weight and rate. This does not use or deduct inventory." : t("dealer.newSale.products.description")}</CardDescription>
+              <CardTitle>{t("dealer.newSale.products.title")}</CardTitle>
+              <CardDescription>{t("dealer.newSale.products.description")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Product Search & Add */}
-              {!isChickenSale && (
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <SearchableSelect
-                      value={selectedProductId}
-                      onValueChange={(value, option) => handleAddProduct(value, option)}
-                      options={productSelect.options}
-                      placeholder={t("dealer.newSale.products.placeholder")}
-                      searchPlaceholder={t("dealer.newSale.products.searchPlaceholder")}
-                      emptyText={t("dealer.newSale.products.empty")}
-                      isLoading={productSelect.isLoading}
-                      onSearch={productSelect.onSearch}
-                    />
-                  </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <SearchableSelect
+                    value={selectedProductId}
+                    onValueChange={(value, option) => handleAddProduct(value, option)}
+                    options={productSelect.options}
+                    placeholder={t("dealer.newSale.products.placeholder")}
+                    searchPlaceholder={t("dealer.newSale.products.searchPlaceholder")}
+                    emptyText={t("dealer.newSale.products.empty")}
+                    isLoading={productSelect.isLoading}
+                    onSearch={productSelect.onSearch}
+                  />
                 </div>
-              )}
+              </div>
 
               {/* Added Products List */}
               {items.length > 0 ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-base">{isChickenSale ? "Broiler sale" : t("dealer.newSale.products.added", { 0: items.length })}</Label>
+                    <Label className="text-base">{t("dealer.newSale.products.added", { 0: items.length })}</Label>
                   </div>
 
                   {items.map((item, index) => {
@@ -610,14 +486,10 @@ export default function NewSalePage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="font-medium">{isChickenSale ? "Broiler" : item.product?.name || t("dealer.newSale.products.unknown")}</h4>
-                            {isChickenSale ? (
-                              <p className="text-sm text-muted-foreground">Variable weight — not tracked in dealer inventory</p>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                {t("dealer.newSale.products.stock", { stock: item.product?.currentStock || 0, unit: item.product?.unit || "" })}
-                              </p>
-                            )}
+                            <h4 className="font-medium">{item.product?.name || t("dealer.newSale.products.unknown")}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {t("dealer.newSale.products.stock", { stock: item.product?.currentStock || 0, unit: item.product?.unit || "" })}
+                            </p>
                           </div>
                           <Button
                             type="button"
@@ -630,7 +502,7 @@ export default function NewSalePage() {
                           </Button>
                         </div>
 
-                        <div className={`grid gap-3 ${isChickenSale ? "grid-cols-2 md:grid-cols-4" : hasAlternateUnits ? "grid-cols-4" : "grid-cols-3"}`}>
+                        <div className={`grid gap-3 ${hasAlternateUnits ? "grid-cols-4" : "grid-cols-3"}`}>
                           {/* Unit selector - only shown when alternate units exist */}
                           {hasAlternateUnits && (
                             <div>
@@ -654,46 +526,26 @@ export default function NewSalePage() {
                           )}
 
                           <div>
-                            <Label htmlFor={`quantity-${index}`} className="text-xs">{isChickenSale ? "Weight (kg)" : t("dealer.newSale.products.quantity")}</Label>
+                            <Label htmlFor={`quantity-${index}`} className="text-xs">{t("dealer.newSale.products.quantity")}</Label>
                             <Input
                               id={`quantity-${index}`}
                               type="number"
                               min="0.01"
                               step="0.01"
-                              max={!isChickenSale && stockInCurrentUnit != null ? stockInCurrentUnit : undefined}
+                              max={stockInCurrentUnit != null ? stockInCurrentUnit : undefined}
                               value={item.quantity || ""}
                               onChange={(e) =>
                                 updateItem(index, "quantity", parseFloat(e.target.value) || 0)
                               }
                               className="h-9"
                             />
-                            {!isChickenSale &&
-                              stockInCurrentUnit != null &&
+                            {stockInCurrentUnit != null &&
                               item.quantity > stockInCurrentUnit && (
                                 <p className="text-xs text-destructive mt-1">
                                   Exceeds stock ({stockInCurrentUnit.toFixed(2)} {currentUnit})
                                 </p>
                               )}
                           </div>
-
-                          {isChickenSale && (
-                            <div>
-                              <Label htmlFor={`broilerCount-${index}`} className="text-xs">Number of Broilers</Label>
-                              <Input
-                                id={`broilerCount-${index}`}
-                                type="number"
-                                min="1"
-                                step="1"
-                                value={item.broilerCount ?? ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  updateItem(index, "broilerCount", value === "" ? undefined : Number(value));
-                                }}
-                                placeholder="Optional"
-                                className="h-9"
-                              />
-                            </div>
-                          )}
 
                           <div>
                             <Label htmlFor={`unitPrice-${index}`} className="text-xs">
@@ -927,7 +779,7 @@ export default function NewSalePage() {
                 <div className="pt-4 space-y-2">
                   <Button
                     onClick={handleSubmit}
-                    disabled={createSaleMutation.isPending || !customerId || items.length === 0 || (isChickenSale && !sourceFarmerId)}
+                    disabled={createSaleMutation.isPending || !customerId || items.length === 0}
                     className="w-full"
                   >
                     {createSaleMutation.isPending ? t("dealer.newSale.summary.creating") : t("dealer.newSale.summary.create")}
@@ -1082,33 +934,6 @@ export default function NewSalePage() {
               disabled={createCustomerMutation.isPending}
             >
               {createCustomerMutation.isPending ? t("dealer.newSale.createCustomer.creating") : t("dealer.newSale.createCustomer.create")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm sale type switch */}
-      <Dialog open={pendingSaleType !== null} onOpenChange={(open) => !open && setPendingSaleType(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Switch to {pendingSaleType === "broiler" ? "Broiler sale" : "feed / product sale"}?
-            </DialogTitle>
-            <DialogDescription>
-              The items you added will be cleared. Customer, date and notes stay.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingSaleType(null)}>
-              Keep items
-            </Button>
-            <Button
-              onClick={() => {
-                if (pendingSaleType) applySaleType(pendingSaleType);
-                setPendingSaleType(null);
-              }}
-            >
-              Switch and clear
             </Button>
           </DialogFooter>
         </DialogContent>

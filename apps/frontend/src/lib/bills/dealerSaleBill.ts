@@ -17,9 +17,11 @@ export function dealerSaleToBill(sale: any, business: BillBusiness): BillData {
             id: line.id,
             name: line.product?.name || line.dealerProduct?.name || (isChicken ? "Broiler" : "Product"),
             quantity,
+            // Show the unit next to the quantity ("15 kg") instead of as a
+            // disconnected subtext under the item name.
+            quantityUnit: line.unit || line.product?.unit || undefined,
             rate,
             total: Number(line.totalAmount ?? quantity * rate),
-            note: line.unit || line.product?.unit || undefined,
             extra: isChicken
               ? {
                   broilers: broilers == null ? "—" : broilers.toLocaleString("en-IN"),
@@ -67,9 +69,9 @@ export function dealerSaleToBill(sale: any, business: BillBusiness): BillData {
     partyLabel: isSettlement ? "Supplier" : isChicken ? "Buyer" : "Bill to",
     partyName,
     partyRows,
-    notice: isChicken
-      ? { label: "Source farmer (tentative, not settled)", text: sale?.sourceFarmer?.name || "—" }
-      : undefined,
+    // Source farmer is dealer-side bookkeeping (used later for settlement) —
+    // not something a buyer should see on their receipt. The source farmer
+    // stays visible in the dealer's own sale-detail modal.
     extraColumns: isChicken
       ? [
           { key: "broilers", label: "Broilers" },

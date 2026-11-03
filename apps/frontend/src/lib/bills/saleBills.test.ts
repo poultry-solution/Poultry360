@@ -61,7 +61,7 @@ describe("farmerSaleToBill", () => {
 });
 
 describe("dealerSaleToBill", () => {
-  it("adds broiler columns and the source farmer for a chicken sale", () => {
+  it("adds broiler columns for a chicken sale and keeps the source farmer off the printed bill", () => {
     const bill = dealerSaleToBill(
       {
         invoiceNumber: "INV-200",
@@ -78,7 +78,9 @@ describe("dealerSaleToBill", () => {
     expect(bill.partyLabel).toBe("Buyer");
     expect(bill.extraColumns?.map((c) => c.key)).toEqual(["broilers", "avgWeight"]);
     expect(bill.lines[0].extra).toEqual({ broilers: "100", avgWeight: "2.000 kg" });
-    expect(bill.notice).toEqual({ label: "Source farmer (tentative, not settled)", text: "Ramesh" });
+    // Source farmer is internal bookkeeping and intentionally NOT on the
+    // printed receipt the buyer sees.
+    expect(bill.notice).toBeUndefined();
     expect(bill.totals).toMatchObject({ subtotal: 46500, discountAmount: 500, total: 46000, due: 26000 });
   });
 
