@@ -8,7 +8,7 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/common/components/ui/popover";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { cn } from "@/common/lib/utils";
@@ -111,7 +111,7 @@ export function BroilerBulkRow({
         <div className="space-y-1.5">
           <Label className="text-xs">Date override</Label>
           <NepaliDatePicker
-            defaultDate={convertADtoBS(row.dateOverride || new Date().toISOString().slice(0, 10)) as any}
+            defaultDate={convertADtoBS(row.dateOverride || getNepalTodayAd()) as any}
             onChange={({ adDate }: { bsDate: string; adDate: string }) => {
               const ymd = adDate.includes("T") ? adDate.split("T")[0] : adDate;
               onChange({ dateOverride: ymd });
