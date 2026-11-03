@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar, { hatcheryNavigation } from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import { MobileNavSheet } from "@/components/dashboard/MobileNavSheet";
@@ -12,13 +13,20 @@ export default function HatcheryDashboardLayout({
   children: React.ReactNode;
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
   const { user } = useAuthStore();
 
   const role = user?.role as "HATCHERY";
+  const isPrintRoute = pathname?.startsWith("/hatchery/dashboard/sales/print/");
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  // The bill print page is a full A4 page: no sidebar, top bar or bottom nav.
+  if (isPrintRoute) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen bg-background relative">
