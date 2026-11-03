@@ -2646,6 +2646,7 @@
     "newSale": {
       "title": "Create New Sale",
       "subtitle": "Create a sale transaction to a customer",
+      "switchToBroiler": "Switch to broiler sale",
       "customer": {
         "title": "Customer Information",
         "description": "Select the customer for this sale",

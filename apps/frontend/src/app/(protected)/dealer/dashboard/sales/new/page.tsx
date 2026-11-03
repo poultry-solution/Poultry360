@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   ArrowLeft,
+  Bird,
   Package,
   Printer,
   Share2,
@@ -46,6 +48,7 @@ import {
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { useI18n } from "@/i18n/useI18n";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS } from "@/common/lib/nepali-date";
@@ -77,6 +80,9 @@ interface SaleItem {
 export default function NewSalePage() {
   const router = useRouter();
   const { t } = useI18n();
+  const broilerFeature = useAccountFeature(
+    ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS
+  );
   const [billSaleId, setBillSaleId] = useState<string | null>(null);
 
   // Form state
@@ -318,22 +324,33 @@ export default function NewSalePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            {t("dealer.newSale.title")}
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            {t("dealer.newSale.subtitle")}
-          </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              {t("dealer.newSale.title")}
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              {t("dealer.newSale.subtitle")}
+            </p>
+          </div>
         </div>
+        {broilerFeature.isEnabled && (
+          <Link
+            href="/dealer/dashboard/sales/new/broiler"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <Bird className="h-4 w-4 text-amber-600" />
+            {t("dealer.newSale.switchToBroiler")}
+          </Link>
+        )}
       </div>
 
       {/* Main Form */}

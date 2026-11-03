@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -27,7 +28,6 @@ interface Props {
   serverErrors: string[];
   showCustomInvoice: boolean;
   removable: boolean;
-  variant: "table" | "card";
   onChange: (patch: Partial<BulkBroilerRow>) => void;
   onRemove: () => void;
 }
@@ -39,6 +39,55 @@ const PAYMENT_METHODS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
+/** Number box with a small unit before and/or after the number, so the typed
+ * value always has room and stays readable. */
+function NumberBox({
+  value,
+  onValue,
+  prefix,
+  suffix,
+  step = 0.01,
+  min = 0,
+  placeholder = "0",
+}: {
+  value: number | null;
+  onValue: (raw: string) => void;
+  prefix?: ReactNode;
+  suffix?: ReactNode;
+  step?: number;
+  min?: number;
+  placeholder?: string;
+}) {
+  return (
+    <div className="relative">
+      {prefix ? (
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          {prefix}
+        </span>
+      ) : null}
+      <Input
+        type="number"
+        inputMode="decimal"
+        min={min}
+        step={step}
+        value={value ? value : ""}
+        onChange={(e) => onValue(e.target.value)}
+        placeholder={placeholder}
+        className={cn(
+          "h-10 min-w-[110px] text-right tabular-nums",
+          prefix ? "pl-9" : "",
+          suffix ? "pr-11" : ""
+        )}
+      />
+      {suffix ? (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+          {suffix}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function BroilerBulkRow({
   index,
   row,
@@ -47,7 +96,6 @@ export function BroilerBulkRow({
   serverErrors,
   showCustomInvoice,
   removable,
-  variant,
   onChange,
   onRemove,
 }: Props) {
@@ -64,10 +112,6 @@ export function BroilerBulkRow({
     onChange({ buyerId: value, buyer: nextBuyer });
   };
 
-  const markPaidInFull = () => {
-    onChange({ paidAmount: derived.lineTotal });
-  };
-
   const moreMenu = (
     <Popover>
       <PopoverTrigger asChild>
@@ -75,27 +119,13 @@ export function BroilerBulkRow({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-9 w-9"
           aria-label="More options"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-3 bg-white p-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Discount type</Label>
-          <Select
-            value={row.discountType}
-            onValueChange={(v: "PERCENT" | "FLAT") => onChange({ discountType: v })}
-          >
-            <SelectTrigger className="h-8 bg-white"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="PERCENT">Percent (%)</SelectItem>
-              <SelectItem value="FLAT">Flat (रू)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         {showCustomInvoice && (
           <div className="space-y-1.5">
             <Label className="text-xs">Invoice number (optional)</Label>
@@ -103,13 +133,13 @@ export function BroilerBulkRow({
               value={row.invoiceNumber}
               onChange={(e) => onChange({ invoiceNumber: e.target.value })}
               placeholder="Auto"
-              className="h-8"
+              className="h-9"
             />
           </div>
         )}
 
         <div className="space-y-1.5">
-          <Label className="text-xs">Date override</Label>
+          <Label className="text-xs">Different date for this buyer</Label>
           <NepaliDatePicker
             defaultDate={convertADtoBS(row.dateOverride || getNepalTodayAd()) as any}
             onChange={({ adDate }: { bsDate: string; adDate: string }) => {
@@ -142,48 +172,21 @@ export function BroilerBulkRow({
             placeholder="Optional"
           />
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={markPaidInFull}
-          disabled={derived.lineTotal <= 0 || row.paidAmount === derived.lineTotal}
-        >
-          Mark paid in full ({formatCurrency(derived.lineTotal)})
-        </Button>
       </PopoverContent>
     </Popover>
   );
 
-  if (variant === "card") {
-    return (
-      <div className={cn(
-        "rounded-lg border bg-white p-3 shadow-sm space-y-3",
-        hasErrors && "border-destructive/60"
-      )}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-xs font-medium text-muted-foreground">Buyer #{index + 1}</div>
-          <div className="flex items-center gap-1">
-            {moreMenu}
-            {removable && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                aria-label="Remove row"
-                onClick={onRemove}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs">Buyer</Label>
+  return (
+    <div
+      className={cn(
+        "space-y-4 rounded-lg border bg-white p-4",
+        hasErrors && "border-destructive/60 bg-red-50/30"
+      )}
+    >
+      {/* Buyer */}
+      <div className="flex items-end gap-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Buyer {index + 1}</Label>
           <SearchableSelect
             value={row.buyerId}
             onValueChange={handleBuyerChange}
@@ -196,233 +199,136 @@ export function BroilerBulkRow({
             displayValue={row.buyer?.name}
           />
         </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Weight (kg)</Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              value={row.weightKg || ""}
-              onChange={(e) => onChange({ weightKg: parseFloat(e.target.value) || 0 })}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Broilers (optional)</Label>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              value={row.broilerCount ?? ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                onChange({ broilerCount: v === "" ? null : Number(v) });
-              }}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Rate/kg</Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              value={row.ratePerKg || ""}
-              onChange={(e) => onChange({ ratePerKg: parseFloat(e.target.value) || 0 })}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              Discount ({row.discountType === "PERCENT" ? "%" : "रू"})
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              step={row.discountType === "PERCENT" ? 1 : 0.01}
-              value={row.discountValue || ""}
-              onChange={(e) => onChange({ discountValue: parseFloat(e.target.value) || 0 })}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Paid (रू)</Label>
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              max={derived.lineTotal || undefined}
-              value={row.paidAmount || ""}
-              onChange={(e) => onChange({ paidAmount: parseFloat(e.target.value) || 0 })}
-              className="h-9"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Payment</Label>
-            <Select
-              value={row.paymentMethod}
-              onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
-            >
-              <SelectTrigger className="h-9 bg-white"><SelectValue /></SelectTrigger>
-              <SelectContent className="bg-white">
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground">Line total</div>
-            <div className="font-semibold">{formatCurrency(derived.lineTotal)}</div>
-          </div>
-          {derived.dueAmount > 0 && (
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Due</div>
-              <div className="font-semibold text-orange-600">{formatCurrency(derived.dueAmount)}</div>
-            </div>
-          )}
-        </div>
-
-        {hasErrors && (
-          <ul className="list-disc pl-5 text-xs text-destructive">
-            {allErrors.map((err, i) => <li key={i}>{err}</li>)}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  // ========================= Table variant (desktop) =========================
-  return (
-    <tr className={cn(hasErrors && "bg-red-50/40")}>
-      <td className="p-2 align-top text-sm text-muted-foreground">{index + 1}</td>
-      <td className="p-2 align-top min-w-[180px]">
-        <SearchableSelect
-          value={row.buyerId}
-          onValueChange={handleBuyerChange}
-          options={buyerSelect.options}
-          placeholder="Buyer"
-          searchPlaceholder="Search..."
-          emptyText="No match"
-          isLoading={buyerSelect.isLoading}
-          onSearch={buyerSelect.onSearch}
-          displayValue={row.buyer?.name}
-        />
-      </td>
-      <td className="p-2 align-top w-[90px]">
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={row.weightKg || ""}
-          onChange={(e) => onChange({ weightKg: parseFloat(e.target.value) || 0 })}
-          className="h-9"
-        />
-      </td>
-      <td className="p-2 align-top w-[85px]">
-        <Input
-          type="number"
-          min={1}
-          step={1}
-          value={row.broilerCount ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            onChange({ broilerCount: v === "" ? null : Number(v) });
-          }}
-          placeholder="—"
-          className="h-9"
-        />
-      </td>
-      <td className="p-2 align-top w-[100px]">
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          value={row.ratePerKg || ""}
-          onChange={(e) => onChange({ ratePerKg: parseFloat(e.target.value) || 0 })}
-          className="h-9"
-        />
-      </td>
-      <td className="p-2 align-top w-[95px]">
-        <div className="relative">
-          <Input
-            type="number"
-            min={0}
-            step={row.discountType === "PERCENT" ? 1 : 0.01}
-            value={row.discountValue || ""}
-            onChange={(e) => onChange({ discountValue: parseFloat(e.target.value) || 0 })}
-            className="h-9 pr-7"
-            placeholder="0"
-          />
-          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-            {row.discountType === "PERCENT" ? "%" : "रू"}
-          </span>
-        </div>
-      </td>
-      <td className="p-2 align-top text-right text-sm font-medium w-[110px]">
-        {formatCurrency(derived.lineTotal)}
-      </td>
-      <td className="p-2 align-top w-[110px]">
-        <Input
-          type="number"
-          min={0}
-          step={0.01}
-          max={derived.lineTotal || undefined}
-          value={row.paidAmount || ""}
-          onChange={(e) => onChange({ paidAmount: parseFloat(e.target.value) || 0 })}
-          className="h-9"
-        />
-      </td>
-      <td className="p-2 align-top w-[110px]">
-        <Select
-          value={row.paymentMethod}
-          onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
-        >
-          <SelectTrigger className="h-9 bg-white"><SelectValue /></SelectTrigger>
-          <SelectContent className="bg-white">
-            {PAYMENT_METHODS.map((m) => (
-              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="p-2 align-top w-[40px]">
         {moreMenu}
-      </td>
-      <td className="p-2 align-top w-[40px]">
         {removable && (
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            aria-label="Remove row"
+            className="h-9 w-9 text-destructive hover:text-destructive"
+            aria-label="Remove buyer"
             onClick={onRemove}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
-      </td>
-    </tr>
-  );
-}
+      </div>
 
-/** Renders a per-row inline-error strip below a row in table mode. Returned
- * separately so the parent table can span it across all columns. */
-export function BroilerBulkRowErrors({ errors, columnCount }: { errors: string[]; columnCount: number }) {
-  if (errors.length === 0) return null;
-  return (
-    <tr>
-      <td colSpan={columnCount} className="px-2 pb-2">
+      {/* Numbers */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Weight</Label>
+          <NumberBox
+            value={row.weightKg}
+            onValue={(v) => onChange({ weightKg: parseFloat(v) || 0 })}
+            suffix="kg"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Broilers (optional)</Label>
+          <NumberBox
+            value={row.broilerCount}
+            onValue={(v) => onChange({ broilerCount: v === "" ? null : Number(v) })}
+            step={1}
+            min={1}
+            placeholder="—"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Rate</Label>
+          <NumberBox
+            value={row.ratePerKg}
+            onValue={(v) => onChange({ ratePerKg: parseFloat(v) || 0 })}
+            prefix="रू"
+            suffix="/kg"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">Discount</Label>
+            <div className="flex overflow-hidden rounded border text-[11px]" role="radiogroup" aria-label="Discount type">
+              {([
+                { type: "PERCENT", label: "%" },
+                { type: "FLAT", label: "रू" },
+              ] as const).map((option) => (
+                <button
+                  key={option.type}
+                  type="button"
+                  role="radio"
+                  aria-checked={row.discountType === option.type}
+                  onClick={() => onChange({ discountType: option.type })}
+                  className={cn(
+                    "px-2 py-0.5",
+                    row.discountType === option.type
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-white text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <NumberBox
+            value={row.discountValue}
+            onValue={(v) => onChange({ discountValue: parseFloat(v) || 0 })}
+            step={row.discountType === "PERCENT" ? 1 : 0.01}
+            suffix={row.discountType === "PERCENT" ? "%" : "रू"}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">Paid</Label>
+            <button
+              type="button"
+              className="text-[11px] font-medium text-primary underline-offset-2 hover:underline disabled:text-muted-foreground disabled:no-underline"
+              onClick={() => onChange({ paidAmount: derived.lineTotal })}
+              disabled={derived.lineTotal <= 0 || row.paidAmount === derived.lineTotal}
+            >
+              Paid in full
+            </button>
+          </div>
+          <NumberBox
+            value={row.paidAmount}
+            onValue={(v) => onChange({ paidAmount: parseFloat(v) || 0 })}
+            prefix="रू"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Payment</Label>
+          <Select
+            value={row.paymentMethod}
+            onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
+          >
+            <SelectTrigger className="h-10 bg-white"><SelectValue /></SelectTrigger>
+            <SelectContent className="bg-white">
+              {PAYMENT_METHODS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 rounded-md bg-muted/40 px-3 py-2 text-sm">
+        <div className="whitespace-nowrap">
+          <span className="text-muted-foreground">Line total </span>
+          <span className="font-semibold tabular-nums">{formatCurrency(derived.lineTotal)}</span>
+        </div>
+        {derived.dueAmount > 0 && (
+          <div className="whitespace-nowrap">
+            <span className="text-muted-foreground">Due </span>
+            <span className="font-semibold tabular-nums text-orange-600">{formatCurrency(derived.dueAmount)}</span>
+          </div>
+        )}
+      </div>
+
+      {hasErrors && (
         <ul className="list-disc pl-5 text-xs text-destructive">
-          {errors.map((e, i) => <li key={i}>{e}</li>)}
+          {allErrors.map((err, i) => <li key={i}>{err}</li>)}
         </ul>
-      </td>
-    </tr>
+      )}
+    </div>
   );
 }
