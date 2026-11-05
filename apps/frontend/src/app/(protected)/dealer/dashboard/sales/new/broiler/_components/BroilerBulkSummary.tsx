@@ -3,22 +3,25 @@
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import {
+  BulkBroilerPurchase,
   BulkBroilerRow,
   BulkBroilerRowDerived,
   formatCurrency,
+  hasPurchaseData,
   round2,
 } from "./types";
 
 interface Props {
   rows: BulkBroilerRow[];
   derived: BulkBroilerRowDerived[];
+  purchase: BulkBroilerPurchase;
   disabled: boolean;
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
 }
 
-export function BroilerBulkSummary({ rows, derived, disabled, saving, onSave, onCancel }: Props) {
+export function BroilerBulkSummary({ rows, derived, purchase, disabled, saving, onSave, onCancel }: Props) {
   const totalWeight = round2(rows.reduce((sum, r) => sum + r.weightKg, 0));
   const totalBroilers = rows.reduce((sum, r) => sum + (r.broilerCount ?? 0), 0);
   const totalSubtotal = round2(derived.reduce((sum, d) => sum + d.subtotal, 0));
@@ -28,6 +31,11 @@ export function BroilerBulkSummary({ rows, derived, disabled, saving, onSave, on
   const totalDue = round2(totalRevenue - totalPaid);
   const count = rows.length;
   const saveLabel = count <= 1 ? "Save broiler sale" : `Save ${count} broiler sales`;
+
+  // Rough profit / loss only shown when the dealer has entered any purchase
+  // info. The purchase is saved on the server alongside the sales.
+  const showProfitLoss = hasPurchaseData(purchase) && purchase.totalCost > 0;
+  const profit = showProfitLoss ? round2(totalRevenue - purchase.totalCost) : 0;
 
   return (
     <Card>
@@ -58,6 +66,26 @@ export function BroilerBulkSummary({ rows, derived, disabled, saving, onSave, on
             <Row label="Due" value={formatCurrency(totalDue)} valueClassName="text-orange-600" />
           )}
         </div>
+        {showProfitLoss && (
+          <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <Row label="Your cost" value={formatCurrency(purchase.totalCost)} valueClassName="text-muted-foreground" />
+            <div className="flex items-baseline justify-between pt-1">
+              <span className="font-medium">
+                {profit >= 0 ? "Rough profit" : "Rough loss"}
+              </span>
+              <span
+                className={`text-base font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+              >
+                {profit >= 0
+                  ? formatCurrency(profit)
+                  : `- ${formatCurrency(Math.abs(profit))}`}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Based on what you entered above.
+            </p>
+          </div>
+        )}
         <div className="space-y-2 border-t pt-3">
           <Button
             type="button"

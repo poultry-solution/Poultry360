@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bird, CircleDollarSign, Users, Undo2 } from "lucide-react";
+import { Bird, Users, Undo2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -29,6 +29,10 @@ import { toast } from "sonner";
 import { BroilerSettlement, ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer, useReverseBroilerSettlement } from "@/fetchers/dealer/dealerSaleQueries";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
+import { FarmerSalesPanel } from "./_components/FarmerSalesPanel";
+import { FarmerFinancialBreakdown } from "./_components/FarmerFinancialBreakdown";
+import { SettledFinancialBreakdown } from "./_components/SettledFinancialBreakdown";
+import { AddPurchaseDialog } from "./_components/AddPurchaseDialog";
 
 export default function ChickenSalesByFarmerPage() {
   const router = useRouter();
@@ -73,8 +77,29 @@ function ChickenSalesByFarmerContent() {
   const createSettlement = useCreateBroilerSettlement();
   const reverseSettlement = useReverseBroilerSettlement();
   const [reverseTarget, setReverseTarget] = useState<BroilerSettlement | null>(null);
+  // Per-farmer "Show sales" expand state. Keyed by sourceFarmerId so each
+  // card's toggle is independent and survives re-renders.
+  const [expandedSales, setExpandedSales] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (id: string) =>
+    setExpandedSales((prev) => ({ ...prev, [id]: !prev[id] }));
+  // Standalone-purchase dialog target. Holds the farmer id + name so the
+  // dialog knows which bucket to attribute to.
+  const [purchaseTarget, setPurchaseTarget] = useState<{
+    id: string;
+    name: string;
+    hasExistingPurchase: boolean;
+  } | null>(null);
+  // Collapsed-by-default state for settled payment cards. Default closed.
+  const [expandedSettlements, setExpandedSettlements] = useState<Record<string, boolean>>({});
+  const toggleSettlement = (id: string) =>
+    setExpandedSettlements((prev) => ({ ...prev, [id]: !prev[id] }));
   const rows = data?.data ?? [];
   const settlements = settlementsData?.data ?? [];
+  // Purchase summary for the currently-open settlement target. Drawn from
+  // the same chicken-by-farmer response so the numbers match the card.
+  const settlementPurchase = settlementTarget
+    ? rows.find((r) => r.sourceFarmerId === settlementTarget.sourceFarmerId)?.purchase ?? null
+    : null;
 
   // Covers the narrow race where Admin turns the feature off after this page
   // has mounted but before one of its background requests completes.
@@ -202,76 +227,166 @@ function ChickenSalesByFarmerContent() {
             <div className="py-10 text-center text-muted-foreground">No Broiler sales waiting for settlement.</div>
           ) : (
             <div className="space-y-3">
-              {rows.map((row) => {
-                const due = Number(row.existingDueAmount);
-                return (
-                  <div key={row.sourceFarmerId} className="rounded-lg border p-4">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 font-semibold">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="truncate">{row.sourceFarmer.name}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {row.saleCount} Broiler sale{row.saleCount === 1 ? "" : "s"}
-                          {row.latestSaleDate && <> · latest <DateDisplay date={row.latestSaleDate} /></>}
-                        </p>
+              {rows.map((row) => (
+                <div key={row.sourceFarmerId} className="rounded-lg border bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="truncate">{row.sourceFarmer.name}</span>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2 md:min-w-[410px]">
-                        <div className="rounded-md bg-slate-50 p-3">
-                          <div className="text-xs font-medium text-muted-foreground">Farmer owes you</div>
-                          <div className={`mt-1 text-lg font-bold ${due > 0 ? "text-red-600" : due < 0 ? "text-green-600" : ""}`}>
-                            {formatCurrency(due)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {due > 0 ? "Unpaid feed or other credit" : due < 0 ? "Farmer has advance" : "Nothing to collect"}
-                          </div>
-                        </div>
-                        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                          <div className="flex items-center gap-1 text-xs font-medium text-amber-900">
-                            <CircleDollarSign className="h-3.5 w-3.5" /> Broiler money received
-                          </div>
-                          <div className="mt-1 text-lg font-bold text-amber-800">{formatCurrency(row.tentativeRevenue)}</div>
-                          <div className="text-xs text-amber-800">Waiting for settlement</div>
-                        </div>
-                      </div>
-                      <Button className="w-full md:w-auto" onClick={() => openSettlement(row)}>
-                        Settle
-                      </Button>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {row.saleCount === 0
+                          ? "Purchase recorded · no sales yet"
+                          : (
+                            <>
+                              {row.saleCount} Broiler sale{row.saleCount === 1 ? "" : "s"}
+                              {row.latestSaleDate && <> · latest <DateDisplay date={row.latestSaleDate} /></>}
+                            </>
+                          )}
+                      </p>
                     </div>
+                    <Button
+                      size="sm"
+                      onClick={() => openSettlement(row)}
+                      disabled={row.saleCount === 0}
+                      title={row.saleCount === 0 ? "Record at least one broiler sale before settling" : undefined}
+                    >
+                      Settle broiler
+                    </Button>
                   </div>
-                );
-              })}
+                  <div className="mt-3">
+                    <FarmerFinancialBreakdown
+                      tentativeRevenue={Number(row.tentativeRevenue)}
+                      existingDueAmount={Number(row.existingDueAmount)}
+                      // Tolerate stale TanStack caches from pre-Phase-4 deploys
+                      // where the response has no `purchase` field at all.
+                      purchase={row.purchase ?? null}
+                      manageContext={{
+                        farmerId: row.sourceFarmerId,
+                        farmerName: row.sourceFarmer.name,
+                      }}
+                      onAddPurchase={() =>
+                        setPurchaseTarget({
+                          id: row.sourceFarmerId,
+                          name: row.sourceFarmer.name,
+                          hasExistingPurchase: !!row.purchase,
+                        })
+                      }
+                    />
+                  </div>
+                  {row.saleCount > 0 && (
+                    <FarmerSalesPanel
+                      sales={row.sales ?? []}
+                      saleCount={row.saleCount}
+                      expanded={!!expandedSales[row.sourceFarmerId]}
+                      onToggle={() => toggleExpanded(row.sourceFarmerId)}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={!!settlementTarget} onOpenChange={(open) => !open && setSettlementTarget(null)}>
-        <DialogContent className="max-w-lg bg-white">
+        <DialogContent className="max-w-xl bg-white">
           <DialogHeader>
-            <DialogTitle>Settle Broiler payment</DialogTitle>
+            <DialogTitle>Settle broiler payment</DialogTitle>
             <DialogDescription>
-              Settle all Broiler sales waiting for payment for {settlementTarget?.sourceFarmer.name || "this farmer"}.
+              Settle all broiler sales waiting for payment for {settlementTarget?.sourceFarmer.name || "this farmer"}.
             </DialogDescription>
           </DialogHeader>
-          {settlementAmounts && (
+          {settlementAmounts && settlementTarget && (
             <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md bg-muted p-3"><div className="text-muted-foreground">Broiler money received</div><div className="mt-1 font-semibold">{formatCurrency(settlementAmounts.proceeds)}</div></div>
-                <div className="rounded-md bg-muted p-3"><div className="text-muted-foreground">Farmer owes you</div><div className="mt-1 font-semibold">{formatCurrency(Math.max(Number(settlementTarget?.existingDueAmount) || 0, 0))}</div></div>
-              </div>
+              {/* Shared financial breakdown so the numbers match the card. */}
+              <FarmerFinancialBreakdown
+                tentativeRevenue={settlementAmounts.proceeds}
+                existingDueAmount={Number(settlementTarget.existingDueAmount) || 0}
+                purchase={settlementPurchase}
+                dense
+              />
+
+              {/* Margin — one input, quick-pick percentages, live % readout. */}
               <div className="space-y-2">
-                <Label htmlFor="marginAmount">Your margin</Label>
-                <Input id="marginAmount" type="number" min="0" max={settlementAmounts.proceeds} step="0.01" value={marginAmount} onChange={(event) => setMarginAmount(event.target.value)} placeholder="0.00" />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="marginAmount" className="text-sm font-medium">Your margin</Label>
+                  <div className="flex gap-1">
+                    {[5, 10, 15].map((pct) => {
+                      const suggested = Math.round(settlementAmounts.proceeds * pct) / 100;
+                      return (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => setMarginAmount(String(suggested))}
+                          className="rounded-full border border-input bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+                          title={`${pct}% of broiler revenue`}
+                        >
+                          {pct}%
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <Input
+                  id="marginAmount"
+                  type="number"
+                  min="0"
+                  max={settlementAmounts.proceeds}
+                  step="0.01"
+                  value={marginAmount}
+                  onChange={(event) => setMarginAmount(event.target.value)}
+                  placeholder="0.00"
+                  className="tabular-nums"
+                />
+                {settlementAmounts.margin > 0 && settlementAmounts.proceeds > 0 && (
+                  <div className="text-[11px] text-muted-foreground">
+                    = {((settlementAmounts.margin / settlementAmounts.proceeds) * 100).toFixed(1)}% of broiler revenue
+                  </div>
+                )}
               </div>
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2 text-sm">
-                <div className="flex justify-between"><span>Used to clear farmer due</span><span className="font-semibold">{formatCurrency(settlementAmounts.creditRecovered)}</span></div>
-                <div className="flex justify-between"><span>Pay farmer</span><span className="font-semibold">{formatCurrency(settlementAmounts.farmerPayout)}</span></div>
+
+              {/* What happens to the money — live */}
+              <div className="rounded-md border bg-white text-sm divide-y tabular-nums">
+                <div className="flex items-start justify-between gap-4 px-3 py-2">
+                  <div>
+                    <div className="font-medium">You keep (margin)</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      moves from pending to your account
+                    </div>
+                  </div>
+                  <div className="font-semibold text-green-700">
+                    रू {settlementAmounts.margin.toFixed(2)}
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-4 px-3 py-2">
+                  <div>
+                    <div className="font-medium">Clears farmer credit</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      reduces what the farmer owes you
+                    </div>
+                  </div>
+                  <div className="font-semibold">
+                    रू {settlementAmounts.creditRecovered.toFixed(2)}
+                  </div>
+                </div>
+                <div className="flex items-start justify-between gap-4 bg-muted/30 px-3 py-2">
+                  <div>
+                    <div className="font-semibold">Pay to farmer</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      the remainder goes to the farmer today
+                    </div>
+                  </div>
+                  <div className="text-base font-bold text-amber-800">
+                    रू {settlementAmounts.farmerPayout.toFixed(2)}
+                  </div>
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Settlement Date</Label>
+                  <Label>Settlement date</Label>
                   <NepaliDatePicker
                     defaultDate={convertADtoBS(settlementDate)}
                     onChange={({ adDate }) => setSettlementDate(adDate.split("T")[0])}
@@ -280,10 +395,27 @@ function ChickenSalesByFarmerContent() {
                     language="en"
                   />
                 </div>
-                <div className="space-y-2"><Label>Payment Method</Label><Select value={paymentMethod} onValueChange={setPaymentMethod}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="CASH">Cash</SelectItem><SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem><SelectItem value="CHEQUE">Cheque</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2">
+                  <Label>Payment method</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CASH">Cash</SelectItem>
+                      <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
+                      <SelectItem value="CHEQUE">Cheque</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2"><Label htmlFor="settlementReference">Reference (optional)</Label><Input id="settlementReference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Receipt or bank reference" /></div>
-              <div className="space-y-2"><Label htmlFor="settlementNotes">Notes (optional)</Label><Textarea id="settlementNotes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></div>
+              <div className="space-y-2">
+                <Label htmlFor="settlementReference">Reference (optional)</Label>
+                <Input id="settlementReference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Receipt or bank reference" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settlementNotes">Notes (optional)</Label>
+                <Textarea id="settlementNotes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} />
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -294,6 +426,16 @@ function ChickenSalesByFarmerContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {purchaseTarget && (
+        <AddPurchaseDialog
+          open={!!purchaseTarget}
+          onOpenChange={(v) => !v && setPurchaseTarget(null)}
+          farmerId={purchaseTarget.id}
+          farmerName={purchaseTarget.name}
+          hasExistingPurchase={purchaseTarget.hasExistingPurchase}
+        />
+      )}
 
       <Card>
         <CardHeader>
@@ -307,37 +449,66 @@ function ChickenSalesByFarmerContent() {
             <div className="py-8 text-center text-muted-foreground">No settled Broiler payments yet.</div>
           ) : (
             <div className="space-y-3">
-              {settlements.map((settlement) => (
-                <div key={settlement.id} className="rounded-lg border p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="font-semibold">{settlement.farmer.name}</div>
-                      <p className="text-sm text-muted-foreground">
-                        <DateDisplay date={settlement.date} /> · {settlement.saleCount} Broiler sale{settlement.saleCount === 1 ? "" : "s"}
-                      </p>
-                      {settlement.reference && <p className="mt-1 text-sm text-muted-foreground">Reference: {settlement.reference}</p>}
-                      {settlement.notes && <p className="mt-1 text-sm text-muted-foreground">{settlement.notes}</p>}
+              {settlements.map((settlement) => {
+                const expanded = !!expandedSettlements[settlement.id];
+                return (
+                  <div key={settlement.id} className="rounded-lg border bg-muted/20">
+                    {/* Collapsed-row: chevron + farmer name + one-line financial
+                        summary + Reverse. Click anywhere on the clickable
+                        area toggles expand. */}
+                    <div className="flex items-center justify-between gap-3 p-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleSettlement(settlement.id)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        aria-expanded={expanded}
+                      >
+                        {expanded ? (
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 font-medium">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="truncate">{settlement.farmer.name}</span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                            Settled <DateDisplay date={settlement.date} /> ·
+                            {" "}Paid <span className="font-medium text-foreground">{formatCurrency(settlement.farmerPayout)}</span>
+                            {" "}· margin <span className="font-medium text-green-700">{formatCurrency(settlement.marginAmount)}</span>
+                          </p>
+                        </div>
+                      </button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setReverseTarget(settlement)}
+                        disabled={reverseSettlement.isPending}
+                      >
+                        <Undo2 className="mr-2 h-4 w-4" />
+                        Reverse
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:text-right">
-                      <div><div className="text-muted-foreground">Broiler money</div><div className="font-semibold">{formatCurrency(settlement.totalProceeds)}</div></div>
-                      <div><div className="text-muted-foreground">Farmer due cleared</div><div className="font-semibold">{formatCurrency(settlement.creditRecovered)}</div></div>
-                      <div><div className="text-muted-foreground">Paid to farmer</div><div className="font-semibold">{formatCurrency(settlement.farmerPayout)}</div></div>
-                      <div><div className="text-muted-foreground">Your margin</div><div className="font-semibold text-green-700">{formatCurrency(settlement.marginAmount)}</div></div>
-                    </div>
+                    {expanded && (
+                      <div className="space-y-3 border-t p-3">
+                        {(settlement.reference || settlement.notes) && (
+                          <div className="space-y-0.5 text-xs text-muted-foreground">
+                            {settlement.reference && <p>Reference: {settlement.reference}</p>}
+                            {settlement.notes && <p>{settlement.notes}</p>}
+                          </div>
+                        )}
+                        <SettledFinancialBreakdown
+                          totalProceeds={Number(settlement.totalProceeds)}
+                          marginAmount={Number(settlement.marginAmount)}
+                          creditRecovered={Number(settlement.creditRecovered)}
+                          farmerPayout={Number(settlement.farmerPayout)}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setReverseTarget(settlement)}
-                      disabled={reverseSettlement.isPending}
-                    >
-                      <Undo2 className="mr-2 h-4 w-4" />
-                      Reverse settlement
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

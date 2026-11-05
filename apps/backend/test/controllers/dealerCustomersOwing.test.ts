@@ -6,6 +6,7 @@ jest.mock("../../src/utils/prisma", () => ({
     customerTransaction: { findMany: jest.fn() },
     dealerSale: { groupBy: jest.fn() },
     dealerLedgerEntry: { groupBy: jest.fn() },
+    dealerBroilerPurchase: { groupBy: jest.fn() },
   },
 }));
 
@@ -39,6 +40,7 @@ describe("Dealer customers list: owing filter (Analytics top 5)", () => {
     db.customerTransaction.findMany.mockResolvedValue([]);
     db.dealerSale.groupBy.mockResolvedValue([]);
     db.dealerLedgerEntry.groupBy.mockResolvedValue([]);
+    db.dealerBroilerPurchase.groupBy.mockResolvedValue([]);
   });
 
   it("returns only customers who owe, biggest balance first, with the true count", async () => {

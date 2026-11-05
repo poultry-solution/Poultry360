@@ -453,44 +453,116 @@ export const createBulkBroilerSales = async (
       }
     }
 
-    if (Object.keys(rowErrors).length > 0) {
+    // Optional "What you bought from the farmer" block. Purely informational;
+    // not referenced by settlement logic. Validate pre-transaction and
+    // fail-fast — if invalid, the whole batch is rejected (consistent with
+    // the all-or-nothing contract for sales).
+    const purchaseErrors: string[] = [];
+    let purchaseInput: {
+      weightKg: number;
+      ratePerKg: number;
+      totalCost: number;
+      broilerCount: number | null;
+      notes: string | null;
+    } | null = null;
+    const rawPurchase = (req.body as any)?.purchase;
+    if (rawPurchase && typeof rawPurchase === "object") {
+      const pw = Number(rawPurchase.weightKg);
+      const pr = Number(rawPurchase.ratePerKg);
+      const pc = Number(rawPurchase.totalCost);
+      if (!Number.isFinite(pw) || pw <= 0) purchaseErrors.push("Weight must be greater than 0");
+      if (!Number.isFinite(pr) || pr <= 0) purchaseErrors.push("Rate must be greater than 0");
+      if (!Number.isFinite(pc) || pc <= 0) purchaseErrors.push("Total cost must be greater than 0");
+      let pb: number | null = null;
+      if (
+        rawPurchase.broilerCount !== undefined &&
+        rawPurchase.broilerCount !== null &&
+        rawPurchase.broilerCount !== ""
+      ) {
+        const bc = Number(rawPurchase.broilerCount);
+        if (!Number.isSafeInteger(bc) || bc <= 0) {
+          purchaseErrors.push("Bird count must be a positive whole number");
+        } else pb = bc;
+      }
+      const pn =
+        typeof rawPurchase.notes === "string" && rawPurchase.notes.trim()
+          ? rawPurchase.notes.trim()
+          : null;
+      if (purchaseErrors.length === 0) {
+        purchaseInput = {
+          weightKg: pw,
+          ratePerKg: pr,
+          totalCost: pc,
+          broilerCount: pb,
+          notes: pn,
+        };
+      }
+    }
+
+    const hasRowErrors = Object.keys(rowErrors).length > 0;
+    if (hasRowErrors || purchaseErrors.length > 0) {
       return res.status(400).json({
         success: false,
         message: "Fix the highlighted rows",
-        errors: { rows: rowErrors },
+        errors: {
+          ...(hasRowErrors ? { rows: rowErrors } : {}),
+          ...(purchaseErrors.length > 0 ? { purchase: purchaseErrors } : {}),
+        },
       });
     }
 
     // Validation clean — hand off to the atomic service.
-    const createdSales = await DealerService.createBulkBroilerSales({
-      dealerId: dealer.id,
-      sourceFarmerId,
-      rows: normalisedRows,
-    });
+    const { sales: createdSales, purchase: createdPurchase } =
+      await DealerService.createBulkBroilerSales({
+        dealerId: dealer.id,
+        sourceFarmerId,
+        rows: normalisedRows,
+        purchase: purchaseInput,
+      });
 
-    // Single audit entry for the whole batch.
+    // Audit for the whole batch. The sales + optional purchase are already
+    // committed by the atomic service above, so a failure HERE must not
+    // make the client think the save failed — otherwise the client retries
+    // and we end up with duplicate sales/purchases. Treat audit as
+    // best-effort and log any failure with the saleIds so an operator can
+    // reconcile. (The create+audit transactions on the standalone purchase
+    // + delete endpoints are a separate story: those wrap both writes in
+    // one tx so audit failure rolls back the write too.)
     const totalAmount = createdSales.reduce((s, x) => s + x.totalAmount, 0);
     const totalPaid = createdSales.reduce((s, x) => s + x.paidAmount, 0);
-    await writeBusinessAudit(req, {
-      action: "dealer.broiler_sale.bulk_created",
-      targetType: "DealerSale",
-      targetId: createdSales[0].id,
-      description: `Recorded ${createdSales.length} broiler sale${createdSales.length === 1 ? "" : "s"}`,
-      businessType: "DEALER",
-      businessId: dealer.id,
-      metadata: {
-        saleCount: createdSales.length,
-        sourceFarmerId,
-        totalAmount: Math.round(totalAmount * 100) / 100,
-        totalPaid: Math.round(totalPaid * 100) / 100,
-        saleIds: createdSales.map((s) => s.id),
-        invoiceNumbers: createdSales.map((s) => s.invoiceNumber),
-      },
-    });
+    try {
+      await writeBusinessAudit(req, {
+        action: "dealer.broiler_sale.bulk_created",
+        targetType: "DealerSale",
+        targetId: createdSales[0].id,
+        description: `Recorded ${createdSales.length} broiler sale${createdSales.length === 1 ? "" : "s"}`,
+        businessType: "DEALER",
+        businessId: dealer.id,
+        metadata: {
+          saleCount: createdSales.length,
+          sourceFarmerId,
+          totalAmount: Math.round(totalAmount * 100) / 100,
+          totalPaid: Math.round(totalPaid * 100) / 100,
+          saleIds: createdSales.map((s) => s.id),
+          invoiceNumbers: createdSales.map((s) => s.invoiceNumber),
+          ...(createdPurchase
+            ? {
+                purchaseId: createdPurchase.id,
+                purchaseCost: createdPurchase.totalCost,
+              }
+            : {}),
+        },
+      });
+    } catch (auditError: any) {
+      console.error(
+        "Bulk broiler sale audit failed (sales were saved):",
+        { saleIds: createdSales.map((s) => s.id), error: auditError?.message },
+      );
+    }
 
     return res.status(201).json({
       success: true,
-      data: { sales: createdSales },
+      data: { sales: createdSales, purchase: createdPurchase },
       message: `Saved ${createdSales.length} broiler ${createdSales.length === 1 ? "sale" : "sales"}`,
     });
   } catch (error: any) {
@@ -515,6 +587,318 @@ export const createBulkBroilerSales = async (
     }
     console.error("Create bulk broiler sales error:", error);
     return res.status(400).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
+
+// ==================== CREATE STANDALONE BROILER PURCHASE ====================
+// Record a purchase lot retroactively for a farmer the dealer has already
+// sold against. Purely informational — same semantics as the inline
+// `purchase` block on the bulk-sale endpoint, but decoupled so the dealer
+// can enter it any time. Append-only: there is no edit or delete endpoint
+// by design (see Phase 4 plan).
+export const createStandaloneBroilerPurchase = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ success: false, message: "Dealer not found" });
+    }
+
+    const body = (req.body || {}) as any;
+    const sourceFarmerId = typeof body.sourceFarmerId === "string" ? body.sourceFarmerId : "";
+    if (!sourceFarmerId) {
+      return res.status(400).json({
+        success: false,
+        message: "sourceFarmerId is required",
+        errors: { sourceFarmerId: "Required" },
+      });
+    }
+
+    // Scope the source-farmer lookup to this dealer's customers; prevents
+    // cross-tenant leakage (same pattern as the bulk-sale controller).
+    const sourceFarmer = await prisma.customer.findFirst({
+      where: { id: sourceFarmerId, userId: userId as string, farmerId: null },
+      select: { id: true, name: true },
+    });
+    if (!sourceFarmer) {
+      return res.status(404).json({
+        success: false,
+        message: "Source farmer not found",
+      });
+    }
+
+    const errors: string[] = [];
+    const weightKg = Number(body.weightKg);
+    const ratePerKg = Number(body.ratePerKg);
+    const totalCost = Number(body.totalCost);
+    if (!Number.isFinite(weightKg) || weightKg <= 0) errors.push("Weight must be greater than 0");
+    if (!Number.isFinite(ratePerKg) || ratePerKg <= 0) errors.push("Rate must be greater than 0");
+    if (!Number.isFinite(totalCost) || totalCost <= 0) errors.push("Total cost must be greater than 0");
+    let broilerCount: number | null = null;
+    if (body.broilerCount !== undefined && body.broilerCount !== null && body.broilerCount !== "") {
+      const bc = Number(body.broilerCount);
+      if (!Number.isSafeInteger(bc) || bc <= 0) {
+        errors.push("Bird count must be a positive whole number");
+      } else broilerCount = bc;
+    }
+    const notes = typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : null;
+    // Date defaults to today (dealer's "now"). Explicit date lets the dealer
+    // backdate a purchase for record-keeping; the stored date is purely
+    // informational. Lot membership is decided by `settlementId`, not by
+    // date — so a backdated value does NOT change which lot this purchase
+    // belongs to.
+    const dateRaw = typeof body.date === "string" && body.date.trim() ? body.date.trim() : null;
+    const date = dateRaw ? new Date(dateRaw) : new Date();
+    if (Number.isNaN(date.getTime())) errors.push("Invalid date");
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Fix the highlighted fields",
+        errors: { purchase: errors },
+      });
+    }
+
+    // One transaction for create + audit: if the audit insert fails for any
+    // reason, the purchase row is rolled back too. Without this, the client
+    // sees 500, retries, and ends up with duplicate purchase rows.
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.dealerBroilerPurchase.create({
+        data: {
+          dealerId: dealer.id,
+          sourceFarmerId,
+          weightKg: new Prisma.Decimal(weightKg),
+          ratePerKg: new Prisma.Decimal(ratePerKg),
+          totalCost: new Prisma.Decimal(totalCost),
+          broilerCount,
+          notes,
+          date,
+        },
+      });
+      await writeBusinessAudit(
+        req,
+        {
+          action: "dealer.broiler_purchase.created",
+          targetType: "DealerBroilerPurchase",
+          targetId: row.id,
+          description: `Recorded broiler purchase lot from ${sourceFarmer.name}`,
+          businessType: "DEALER",
+          businessId: dealer.id,
+          metadata: {
+            sourceFarmerId,
+            weightKg,
+            ratePerKg,
+            totalCost,
+            broilerCount,
+            date: date.toISOString(),
+          },
+        },
+        tx,
+      );
+      return row;
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        purchase: {
+          id: created.id,
+          weightKg: Number(created.weightKg),
+          ratePerKg: Number(created.ratePerKg),
+          totalCost: Number(created.totalCost),
+          broilerCount: created.broilerCount,
+          date: created.date,
+          notes: created.notes,
+        },
+      },
+      message: "Purchase recorded",
+    });
+  } catch (error: any) {
+    console.error("Create standalone broiler purchase error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+// ==================== GET BROILER PURCHASES (per farmer) ====================
+// Lists the dealer's broiler-purchase rows for ONE source farmer, scoped to
+// the current lot (purchases recorded after the latest settlement). Used by
+// the "manage purchases" popover on the settlement card so the dealer can
+// see exactly which rows add up to the "Your purchase cost" aggregate.
+export const getBroilerPurchasesForFarmer = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const sourceFarmerId = typeof req.query.sourceFarmerId === "string"
+      ? req.query.sourceFarmerId
+      : "";
+    if (!sourceFarmerId) {
+      return res.status(400).json({ success: false, message: "sourceFarmerId is required" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ success: false, message: "Dealer not found" });
+    }
+
+    // Confirm the farmer belongs to this dealer's customers before returning
+    // anything — same cross-tenant guard as the standalone create endpoint.
+    const farmer = await prisma.customer.findFirst({
+      where: { id: sourceFarmerId, userId: userId as string, farmerId: null },
+      select: { id: true },
+    });
+    if (!farmer) {
+      return res.status(404).json({ success: false, message: "Source farmer not found" });
+    }
+
+    const purchases = await prisma.dealerBroilerPurchase.findMany({
+      where: {
+        dealerId: dealer.id,
+        sourceFarmerId,
+        settlementId: null,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        weightKg: true,
+        ratePerKg: true,
+        totalCost: true,
+        broilerCount: true,
+        date: true,
+        notes: true,
+        createdAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: purchases.map((p) => ({
+        id: p.id,
+        weightKg: Number(p.weightKg),
+        ratePerKg: Number(p.ratePerKg),
+        totalCost: Number(p.totalCost),
+        broilerCount: p.broilerCount,
+        date: p.date,
+        notes: p.notes,
+        createdAt: p.createdAt,
+      })),
+    });
+  } catch (error: any) {
+    console.error("Get broiler purchases for farmer error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE BROILER PURCHASE ====================
+// Single-row delete. Scoped to the dealer so cross-tenant delete is
+// impossible; refuses to touch a row whose `settlementId` is set, because
+// that would quietly change a historical lot total. The dealer can still
+// restate via a correcting entry (or reverse the settlement first).
+export const deleteBroilerPurchase = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Purchase id is required" });
+    }
+
+    const dealer = await prisma.dealer.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!dealer) {
+      return res.status(404).json({ success: false, message: "Dealer not found" });
+    }
+
+    const purchase = await prisma.dealerBroilerPurchase.findFirst({
+      where: { id, dealerId: dealer.id },
+      select: {
+        id: true,
+        sourceFarmerId: true,
+        totalCost: true,
+        settlementId: true,
+      },
+    });
+    if (!purchase) {
+      // 404 instead of 403 so we don't confirm existence across tenants.
+      return res.status(404).json({ success: false, message: "Purchase not found" });
+    }
+
+    // Lot identity = settlementId. A row that already belongs to a past
+    // settlement is historical; deleting it would silently shift the
+    // margin on a lot the dealer already closed. Reverse the settlement
+    // first or record a correcting entry.
+    if (purchase.settlementId !== null) {
+      return res.status(409).json({
+        success: false,
+        code: "PURCHASE_LOCKED_BY_SETTLEMENT",
+        message:
+          "This purchase belongs to a settled lot and cannot be deleted. Reverse the settlement first, or record a correcting entry.",
+      });
+    }
+
+    // Atomic delete + audit. The pre-check above is not enough on its own —
+    // a concurrent `settleBroilerSales` could stamp this row's
+    // `settlementId` between the read and the delete. Guard the delete
+    // itself by re-asserting `settlementId: null` via `deleteMany` + count
+    // check, inside the same transaction as the audit.
+    const outcome = await prisma.$transaction(async (tx) => {
+      const result = await tx.dealerBroilerPurchase.deleteMany({
+        where: { id, dealerId: dealer.id, settlementId: null },
+      });
+      if (result.count !== 1) {
+        // A settle landed between the pre-check and this delete, so the
+        // row we were about to remove is now part of a historical lot.
+        return "RACE_SETTLED" as const;
+      }
+      await writeBusinessAudit(
+        req,
+        {
+          action: "dealer.broiler_purchase.deleted",
+          targetType: "DealerBroilerPurchase",
+          targetId: id,
+          description: "Deleted a broiler purchase lot",
+          businessType: "DEALER",
+          businessId: dealer.id,
+          metadata: {
+            sourceFarmerId: purchase.sourceFarmerId,
+            totalCost: Number(purchase.totalCost),
+          },
+        },
+        tx,
+      );
+      return "OK" as const;
+    });
+
+    if (outcome === "RACE_SETTLED") {
+      return res.status(409).json({
+        success: false,
+        code: "PURCHASE_LOCKED_BY_SETTLEMENT",
+        message:
+          "This purchase was just attached to a settlement and cannot be deleted. Refresh and try again.",
+      });
+    }
+
+    return res.status(200).json({ success: true, message: "Purchase deleted" });
+  } catch (error: any) {
+    console.error("Delete broiler purchase error:", error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -941,6 +1325,7 @@ export const getDealerCustomers = async (
 
     let dealerSalesByCustomerId = new Map<string, number>();
     let paymentReceivedByCustomerId = new Map<string, number>();
+    let purchasesByCustomerId = new Map<string, number>();
 
     if (dealerId && customerIds.length > 0) {
       const dealerSalesGrouped = await prisma.dealerSale.groupBy({
@@ -974,17 +1359,31 @@ export const getDealerCustomers = async (
       paymentsGrouped.forEach((r: any) => {
         if (r.partyId) paymentReceivedByCustomerId.set(r.partyId, r._count._all);
       });
+
+      // Broiler purchases also point at customers (as sourceFarmer). Must be
+      // counted here or the frontend list shows the customer as deletable
+      // when it isn't.
+      const purchasesGrouped = await prisma.dealerBroilerPurchase.groupBy({
+        by: ["sourceFarmerId"],
+        where: { dealerId, sourceFarmerId: { in: customerIds } },
+        _count: { _all: true },
+      });
+      purchasesGrouped.forEach((r: any) => {
+        if (r.sourceFarmerId) purchasesByCustomerId.set(r.sourceFarmerId, r._count._all);
+      });
     }
 
     const enrichedCustomers = customers.map((c: any) => {
       const hasDealerSales = (dealerSalesByCustomerId.get(c.id) || 0) > 0;
       const hasPayments = (paymentReceivedByCustomerId.get(c.id) || 0) > 0;
+      const hasPurchases = (purchasesByCustomerId.get(c.id) || 0) > 0;
 
       return {
         ...c,
         openingBalance: openingBalanceByCustomerId.get(c.id) ?? 0,
         hasDealerSales,
         hasPayments,
+        hasPurchases,
       };
     });
 
@@ -1041,12 +1440,20 @@ export const archiveDealerCustomer = async (
       },
     });
 
+    // Must mirror the delete-side deletability check — otherwise a customer
+    // that is NOT deletable (because they have purchase rows) could be
+    // wrongly refused archival here with "Customer is deletable".
+    const hasPurchases = await prisma.dealerBroilerPurchase.count({
+      where: { dealerId: dealer.id, sourceFarmerId: id },
+    });
+
     const hasPayments = ledgerPayments > 0;
 
     const deletable =
       Number(customer.balance) === 0 &&
       hasDealerSales === 0 &&
-      !hasPayments;
+      !hasPayments &&
+      hasPurchases === 0;
 
     if (deletable) {
       return res.status(400).json({
@@ -1147,17 +1554,25 @@ export const deleteDealerCustomer = async (
       },
     });
 
+    // Broiler purchases also point at this customer via `sourceFarmer`
+    // (onDelete: Restrict). Letting the delete proceed would surface as a
+    // cryptic 500 from the DB constraint.
+    const hasPurchases = await prisma.dealerBroilerPurchase.count({
+      where: { dealerId: dealer.id, sourceFarmerId: id },
+    });
+
     const hasPayments = ledgerPayments > 0;
 
     const deletable =
       Number(customer.balance) === 0 &&
       hasDealerSales === 0 &&
-      !hasPayments;
+      !hasPayments &&
+      hasPurchases === 0;
 
     if (!deletable) {
       return res.status(400).json({
         message:
-          "Customer has sales/payments/opening balance. Archive instead of delete.",
+          "Customer has sales/purchases/payments/opening balance. Archive instead of delete.",
       });
     }
 
@@ -1794,6 +2209,19 @@ export const settleBroilerSales = async (
         throw new Error("One or more Broiler sales were already settled. Please refresh and try again.");
       }
 
+      // Close the lot for purchases too. A "lot" is defined by settlement
+      // actions, not dates: every unsettled purchase for this (dealer,
+      // farmer) pair at this moment belongs to the lot being settled.
+      // Reversing the settlement will null these back out below.
+      await tx.dealerBroilerPurchase.updateMany({
+        where: {
+          dealerId: dealer.id,
+          sourceFarmerId: farmer.id,
+          settlementId: null,
+        },
+        data: { settlementId: created.id },
+      });
+
       // Always use a server-generated key for the ledger lookup. The user's
       // own `reference` lives on `settlement.reference` for display only.
       // Reusing it as the ledger key would let any unrelated DealerLedgerEntry
@@ -1899,6 +2327,37 @@ export const reverseSettlement = async (
       if (!settlement) throw new Error("Settlement not found");
       if (settlement.dealerId !== dealer.id) throw new Error("Settlement not found");
 
+      // If a NEWER lot is already open for this farmer (sales or purchases
+      // with settlementId=null), reversing this settlement would merge the
+      // old lot's records with the current open lot and the next
+      // settlement would settle them together. Block it — the dealer must
+      // reverse the newer settlement OR clear the open lot before they can
+      // re-open this one.
+      const [openSales, openPurchases] = await Promise.all([
+        tx.dealerSale.count({
+          where: {
+            dealerId: dealer.id,
+            sourceFarmerId: settlement.farmerId,
+            isChickenSale: true,
+            settlementId: null,
+          },
+        }),
+        tx.dealerBroilerPurchase.count({
+          where: {
+            dealerId: dealer.id,
+            sourceFarmerId: settlement.farmerId,
+            settlementId: null,
+          },
+        }),
+      ]);
+      if (openSales > 0 || openPurchases > 0) {
+        const err: any = new Error(
+          "Cannot reverse: a newer lot is already open for this farmer. Settle or clear the current lot first.",
+        );
+        err.code = "OPEN_LOT_EXISTS";
+        throw err;
+      }
+
       purgedImageUrls.push(settlement.receiptUrl);
 
       // Resolve the key used on this settlement's ledger entries.
@@ -1923,6 +2382,11 @@ export const reverseSettlement = async (
 
       // 1. Unlink all sales from this settlement.
       await tx.dealerSale.updateMany({
+        where: { settlementId: settlement.id },
+        data: { settlementId: null },
+      });
+      // 1b. Re-open any purchases that were part of this settled lot.
+      await tx.dealerBroilerPurchase.updateMany({
         where: { settlementId: settlement.id },
         data: { settlementId: null },
       });
@@ -2017,6 +2481,13 @@ export const reverseSettlement = async (
     if (error.message === "Settlement not found") {
       return res.status(404).json({ message: "Settlement not found" });
     }
+    if (error.code === "OPEN_LOT_EXISTS") {
+      return res.status(409).json({
+        success: false,
+        code: "OPEN_LOT_EXISTS",
+        message: error.message,
+      });
+    }
     console.error("Reverse settlement error:", error);
     return res.status(400).json({ message: error.message || "Unable to reverse settlement" });
   }
@@ -2049,45 +2520,177 @@ export const getChickenSalesByFarmer = async (
       }
     }
 
-    const groupedSales = await prisma.dealerSale.groupBy({
-      by: ["sourceFarmerId"],
-      where: {
-        dealerId: dealer.id,
-        farmerId: null,
-        accountId: null,
-        isChickenSale: true,
-        settlementId: null,
-        sourceFarmerId: sourceFarmerId
-          ? (sourceFarmerId as string)
-          : { not: null },
-      },
-      _sum: { totalAmount: true },
-      _count: { _all: true },
-      _max: { date: true },
-      orderBy: { _sum: { totalAmount: "desc" } },
-    });
+    // A lot's farmer appears on the card if it has open sales OR open
+    // purchases. Fetching both separately and unioning covers the
+    // "purchase-only" state (dealer recorded a purchase, then deleted the
+    // sales or hasn't entered them yet) — otherwise the card would
+    // silently hide the purchase AND block settlement reversal with no
+    // UI explanation.
+    const [groupedSales, groupedPurchases] = await Promise.all([
+      prisma.dealerSale.groupBy({
+        by: ["sourceFarmerId"],
+        where: {
+          dealerId: dealer.id,
+          farmerId: null,
+          accountId: null,
+          isChickenSale: true,
+          settlementId: null,
+          sourceFarmerId: sourceFarmerId
+            ? (sourceFarmerId as string)
+            : { not: null },
+        },
+        _sum: { totalAmount: true },
+        _count: { _all: true },
+        _max: { date: true },
+      }),
+      prisma.dealerBroilerPurchase.groupBy({
+        by: ["sourceFarmerId"],
+        where: {
+          dealerId: dealer.id,
+          settlementId: null,
+          ...(sourceFarmerId
+            ? { sourceFarmerId: sourceFarmerId as string }
+            : {}),
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-    const sourceFarmerIds = groupedSales
-      .map((sale) => sale.sourceFarmerId)
-      .filter((id): id is string => Boolean(id));
+    const salesGroupMap = new Map<string, (typeof groupedSales)[number]>();
+    for (const g of groupedSales) {
+      if (g.sourceFarmerId) salesGroupMap.set(g.sourceFarmerId, g);
+    }
+    const purchaseOnlyFarmerIds = groupedPurchases
+      .map((p) => p.sourceFarmerId)
+      .filter((id): id is string => !!id && !salesGroupMap.has(id));
+
+    const sourceFarmerIds = [
+      ...Array.from(salesGroupMap.keys()),
+      ...purchaseOnlyFarmerIds,
+    ];
     const sourceFarmers = await prisma.customer.findMany({
       where: { id: { in: sourceFarmerIds }, userId: userId as string },
       select: { id: true, name: true, phone: true, address: true, balance: true },
     });
     const farmersById = new Map(sourceFarmers.map((farmer) => [farmer.id, farmer]));
 
-    const data = groupedSales.flatMap((group) => {
-      if (!group.sourceFarmerId) return [];
-      const farmer = farmersById.get(group.sourceFarmerId);
+    // For each farmer bucket, fetch:
+    //   (1) purchase aggregate — scoped to purchases still linked to the
+    //       OPEN lot (`settlementId: null`). A lot is defined by settlement
+    //       actions, not dates: on settle the controller stamps every
+    //       open purchase with the new settlement id, on reverse it nulls
+    //       them back out. No date-based heuristic.
+    //   (2) unsettled sales list — up to 25 most-recent, with buyer name
+    //       and line-item weight/rate so the frontend can render the
+    //       "Show sales" mini-table without a second fetch.
+    // Parallelised across farmers so N=10 doesn't N-query serially.
+    const perFarmerData = await Promise.all(
+      sourceFarmerIds.map(async (farmerId) => {
+        const purchaseWhere = {
+          dealerId: dealer.id,
+          sourceFarmerId: farmerId,
+          settlementId: null,
+        };
+        const [purchaseAgg, sales] = await Promise.all([
+          prisma.dealerBroilerPurchase.aggregate({
+            where: purchaseWhere,
+            _sum: {
+              weightKg: true,
+              totalCost: true,
+              broilerCount: true,
+            },
+            _max: { date: true },
+            _count: { _all: true },
+          }),
+          prisma.dealerSale.findMany({
+            where: {
+              dealerId: dealer.id,
+              sourceFarmerId: farmerId,
+              isChickenSale: true,
+              settlementId: null,
+            },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              date: true,
+              totalAmount: true,
+              paidAmount: true,
+              customer: { select: { id: true, name: true } },
+              items: {
+                select: {
+                  quantity: true,
+                  unitPrice: true,
+                  broilerCount: true,
+                },
+                take: 1,
+                orderBy: { id: "asc" },
+              },
+            },
+            orderBy: { date: "desc" },
+            take: 25,
+          }),
+        ]);
+
+        const totalWeightKg = Number(purchaseAgg._sum.weightKg || 0);
+        const totalCost = Number(purchaseAgg._sum.totalCost || 0);
+        const purchase = purchaseAgg._count._all > 0
+          ? {
+              totalWeightKg,
+              totalCost,
+              totalBroilerCount: Number(purchaseAgg._sum.broilerCount || 0),
+              recordCount: purchaseAgg._count._all,
+              latestPurchaseDate: purchaseAgg._max.date,
+              averageRatePerKg: totalWeightKg > 0
+                ? Math.round((totalCost / totalWeightKg) * 100) / 100
+                : 0,
+            }
+          : null;
+        return { farmerId, purchase, sales };
+      })
+    );
+    const perFarmerById = new Map(perFarmerData.map((r) => [r.farmerId, r]));
+
+    // Build rows for every farmer in the union (open sales OR open
+    // purchases). Purchase-only farmers get saleCount=0 / tentativeRevenue=0
+    // — the UI must then disable Settle because the server also refuses to
+    // settle a farmer with zero open sales.
+    const data = sourceFarmerIds.flatMap((farmerId) => {
+      const farmer = farmersById.get(farmerId);
       if (!farmer) return [];
+      const salesGroup = salesGroupMap.get(farmerId);
+      const extra = perFarmerById.get(farmerId);
       return [{
         sourceFarmerId: farmer.id,
         sourceFarmer: farmer,
-        saleCount: group._count._all,
-        tentativeRevenue: Number(group._sum.totalAmount || 0),
-        latestSaleDate: group._max.date,
+        saleCount: salesGroup?._count._all ?? 0,
+        tentativeRevenue: Number(salesGroup?._sum.totalAmount ?? 0),
+        latestSaleDate: salesGroup?._max.date ?? null,
         existingDueAmount: Number(farmer.balance || 0),
+        purchase: extra?.purchase ?? null,
+        sales: (extra?.sales ?? []).map((s) => {
+          const item = s.items[0];
+          return {
+            id: s.id,
+            invoiceNumber: s.invoiceNumber,
+            date: s.date,
+            buyerName: s.customer?.name ?? null,
+            weightKg: item ? Number(item.quantity) : 0,
+            ratePerKg: item ? Number(item.unitPrice) : 0,
+            broilerCount: item ? item.broilerCount : null,
+            totalAmount: Number(s.totalAmount),
+            paidAmount: Number(s.paidAmount),
+            dueAmount: Math.max(0, Number(s.totalAmount) - Number(s.paidAmount)),
+          };
+        }),
       }];
+    });
+    // Sort by tentative revenue first (matches the pre-union ordering), then
+    // bubble purchase-only rows (revenue=0) to the top — they are the ones
+    // most likely needing the dealer's attention.
+    data.sort((a, b) => {
+      if (a.saleCount === 0 && b.saleCount > 0) return -1;
+      if (b.saleCount === 0 && a.saleCount > 0) return 1;
+      return b.tentativeRevenue - a.tentativeRevenue;
     });
 
     return res.status(200).json({ success: true, data });

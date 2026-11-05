@@ -112,6 +112,23 @@ export function BroilerBulkRow({
     onChange({ buyerId: value, buyer: nextBuyer });
   };
 
+
+  const markPaidInFull = () => {
+    // Release the touched flag so paid resumes auto-syncing with line total.
+    onChange({ paidAmount: derived.lineTotal, paidAmountTouched: false });
+  };
+
+  // The Paid input flips `paidAmountTouched` on edit so weight/rate changes
+  // stop clobbering it. Clearing the field releases it back to auto-sync —
+  // same pattern as the purchase card's totalCost.
+  const handlePaidChange = (raw: string) => {
+    const trimmed = raw.trim();
+    const paidAmount = parseFloat(trimmed) || 0;
+    const paidAmountTouched = trimmed !== "";
+    onChange({ paidAmount, paidAmountTouched });
+  };
+
+
   const moreMenu = (
     <Popover>
       <PopoverTrigger asChild>
@@ -199,6 +216,204 @@ export function BroilerBulkRow({
             displayValue={row.buyer?.name}
           />
         </div>
+
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Weight (kg)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={row.weightKg || ""}
+              onChange={(e) => onChange({ weightKg: parseFloat(e.target.value) || 0 })}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Broilers (optional)</Label>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={row.broilerCount ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                onChange({ broilerCount: v === "" ? null : Number(v) });
+              }}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Rate/kg</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={row.ratePerKg || ""}
+              onChange={(e) => onChange({ ratePerKg: parseFloat(e.target.value) || 0 })}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">
+              Discount ({row.discountType === "PERCENT" ? "%" : "रू"})
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              step={row.discountType === "PERCENT" ? 1 : 0.01}
+              value={row.discountValue || ""}
+              onChange={(e) => onChange({ discountValue: parseFloat(e.target.value) || 0 })}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Paid (रू)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              max={derived.lineTotal || undefined}
+              value={row.paidAmount || ""}
+              onChange={(e) => handlePaidChange(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Payment</Label>
+            <Select
+              value={row.paymentMethod}
+              onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
+            >
+              <SelectTrigger className="h-9 bg-white"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-white">
+                {PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Line total</div>
+            <div className="font-semibold">{formatCurrency(derived.lineTotal)}</div>
+          </div>
+          {derived.dueAmount > 0 && (
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">Due</div>
+              <div className="font-semibold text-orange-600">{formatCurrency(derived.dueAmount)}</div>
+            </div>
+          )}
+        </div>
+
+        {hasErrors && (
+          <ul className="list-disc pl-5 text-xs text-destructive">
+            {allErrors.map((err, i) => <li key={i}>{err}</li>)}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  // ========================= Table variant (desktop) =========================
+  return (
+    <tr className={cn(hasErrors && "bg-red-50/40")}>
+      <td className="p-2 align-top text-sm text-muted-foreground">{index + 1}</td>
+      <td className="p-2 align-top min-w-[180px]">
+        <SearchableSelect
+          value={row.buyerId}
+          onValueChange={handleBuyerChange}
+          options={buyerSelect.options}
+          placeholder="Buyer"
+          searchPlaceholder="Search..."
+          emptyText="No match"
+          isLoading={buyerSelect.isLoading}
+          onSearch={buyerSelect.onSearch}
+          displayValue={row.buyer?.name}
+        />
+      </td>
+      <td className="p-2 align-top w-[90px]">
+        <Input
+          type="number"
+          min={0}
+          step={0.01}
+          value={row.weightKg || ""}
+          onChange={(e) => onChange({ weightKg: parseFloat(e.target.value) || 0 })}
+          className="h-9"
+        />
+      </td>
+      <td className="p-2 align-top w-[85px]">
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          value={row.broilerCount ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ broilerCount: v === "" ? null : Number(v) });
+          }}
+          placeholder="—"
+          className="h-9"
+        />
+      </td>
+      <td className="p-2 align-top w-[100px]">
+        <Input
+          type="number"
+          min={0}
+          step={0.01}
+          value={row.ratePerKg || ""}
+          onChange={(e) => onChange({ ratePerKg: parseFloat(e.target.value) || 0 })}
+          className="h-9"
+        />
+      </td>
+      <td className="p-2 align-top w-[95px]">
+        <div className="relative">
+          <Input
+            type="number"
+            min={0}
+            step={row.discountType === "PERCENT" ? 1 : 0.01}
+            value={row.discountValue || ""}
+            onChange={(e) => onChange({ discountValue: parseFloat(e.target.value) || 0 })}
+            className="h-9 pr-7"
+            placeholder="0"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            {row.discountType === "PERCENT" ? "%" : "रू"}
+          </span>
+        </div>
+      </td>
+      <td className="p-2 align-top text-right text-sm font-medium w-[110px]">
+        {formatCurrency(derived.lineTotal)}
+      </td>
+      <td className="p-2 align-top w-[110px]">
+        <Input
+          type="number"
+          min={0}
+          step={0.01}
+          max={derived.lineTotal || undefined}
+          value={row.paidAmount || ""}
+          onChange={(e) => handlePaidChange(e.target.value)}
+          className="h-9"
+        />
+      </td>
+      <td className="p-2 align-top w-[110px]">
+        <Select
+          value={row.paymentMethod}
+          onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
+        >
+          <SelectTrigger className="h-9 bg-white"><SelectValue /></SelectTrigger>
+          <SelectContent className="bg-white">
+            {PAYMENT_METHODS.map((m) => (
+              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="p-2 align-top w-[40px]">
+
         {moreMenu}
         {removable && (
           <Button

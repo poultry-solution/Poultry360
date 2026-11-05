@@ -12,8 +12,14 @@ export const dealerSaleKeys = {
     filters ? [...dealerSaleKeys.all, "statistics", { filters }] as const : [...dealerSaleKeys.all, "statistics"] as const,
   chickenByFarmer: (sourceFarmerId?: string) =>
     [...dealerSaleKeys.all, "chicken-by-farmer", { sourceFarmerId }] as const,
+  /** Prefix for invalidating every chicken-by-farmer query regardless of
+   * its `sourceFarmerId` filter. React Query matches by tuple prefix, and
+   * `chickenByFarmer()` with no arg produces `{ sourceFarmerId: undefined }`
+   * which doesn't match an active query filtered to a specific farmer. */
+  chickenByFarmerAll: () => [...dealerSaleKeys.all, "chicken-by-farmer"] as const,
   broilerSettlements: (sourceFarmerId?: string) =>
     [...dealerSaleKeys.all, "broiler-settlements", { sourceFarmerId }] as const,
+  broilerSettlementsAll: () => [...dealerSaleKeys.all, "broiler-settlements"] as const,
 };
 
 // Types
@@ -100,9 +106,18 @@ export interface BulkBroilerRowInput {
   date: string; // YYYY-MM-DD or ISO
 }
 
+export interface BulkBroilerPurchaseInput {
+  weightKg: number;
+  ratePerKg: number;
+  totalCost: number;
+  broilerCount?: number | null;
+  notes?: string;
+}
+
 export interface CreateBulkBroilerSalesInput {
   sourceFarmerId: string;
   rows: BulkBroilerRowInput[];
+  purchase?: BulkBroilerPurchaseInput;
 }
 
 export interface BulkBroilerSaleResult {
@@ -113,6 +128,15 @@ export interface BulkBroilerSaleResult {
   totalAmount: number;
   paidAmount: number;
   dueAmount: number;
+}
+
+export interface BulkBroilerPurchaseResult {
+  id: string;
+  weightKg: number;
+  ratePerKg: number;
+  totalCost: number;
+  broilerCount: number | null;
+  date: string;
 }
 
 export interface CreateSupplierSettlementSaleInput {
@@ -128,6 +152,28 @@ export interface CreateSupplierSettlementSaleInput {
   invoiceNumber?: string;
 }
 
+export interface ChickenByFarmerPurchaseSummary {
+  totalWeightKg: number;
+  totalCost: number;
+  totalBroilerCount: number;
+  recordCount: number;
+  latestPurchaseDate: string | null;
+  averageRatePerKg: number;
+}
+
+export interface ChickenByFarmerSaleRow {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  buyerName: string | null;
+  weightKg: number;
+  ratePerKg: number;
+  broilerCount: number | null;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+}
+
 export interface ChickenSalesByFarmerRow {
   sourceFarmerId: string;
   sourceFarmer: {
@@ -141,6 +187,8 @@ export interface ChickenSalesByFarmerRow {
   tentativeRevenue: number;
   latestSaleDate?: string | null;
   existingDueAmount: number;
+  purchase: ChickenByFarmerPurchaseSummary | null;
+  sales: ChickenByFarmerSaleRow[];
 }
 
 export interface CreateBroilerSettlementInput {
@@ -196,6 +244,9 @@ export interface DealerCustomer {
   createdAt: string;
   hasDealerSales?: boolean;
   hasPayments?: boolean;
+  /** True when this customer has broiler-purchase rows attributing them as
+   * the source farmer. Blocks delete (purchase FK is onDelete: Restrict). */
+  hasPurchases?: boolean;
 }
 
 // Get dealer sales with filters
@@ -384,7 +435,7 @@ export const useCreateDealerSale = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
-      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
       queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
@@ -393,6 +444,82 @@ export const useCreateDealerSale = () => {
 };
 
 // Bulk broiler-sale entry — one source farmer, N buyers, atomic all-or-nothing.
+export interface CreateStandaloneBroilerPurchaseInput {
+  sourceFarmerId: string;
+  weightKg: number;
+  ratePerKg: number;
+  totalCost: number;
+  broilerCount?: number | null;
+  notes?: string;
+  /** AD YYYY-MM-DD; omit to default to today on the server. */
+  date?: string;
+}
+
+/** Record a broiler purchase lot standalone (not tied to a bulk-sale batch).
+ * Lets the dealer add cost information retroactively after sales were
+ * already entered. Append-only — no edit/delete hooks by design. */
+export const useCreateStandaloneBroilerPurchase = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateStandaloneBroilerPurchaseInput) => {
+      const { data } = await axiosInstance.post(
+        "/dealer/sales/broiler-purchases",
+        input
+      );
+      return data as {
+        success: true;
+        data: { purchase: BulkBroilerPurchaseResult };
+        message: string;
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
+    },
+  });
+};
+
+export interface BroilerPurchaseRow {
+  id: string;
+  weightKg: number;
+  ratePerKg: number;
+  totalCost: number;
+  broilerCount: number | null;
+  date: string;
+  notes: string | null;
+  createdAt: string;
+}
+
+/** List current-lot purchases for one source farmer (post-settlement scope). */
+export const useBroilerPurchasesForFarmer = (
+  sourceFarmerId: string | null,
+  options?: { enabled?: boolean }
+) => {
+  return useQuery({
+    queryKey: [...dealerSaleKeys.chickenByFarmerAll(), "purchases", sourceFarmerId] as const,
+    queryFn: async () => {
+      const { data } = await axiosInstance.get<{ success: boolean; data: BroilerPurchaseRow[] }>(
+        "/dealer/sales/broiler-purchases",
+        { params: { sourceFarmerId } }
+      );
+      return data;
+    },
+    enabled: !!sourceFarmerId && (options?.enabled ?? true),
+  });
+};
+
+export const useDeleteBroilerPurchase = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await axiosInstance.delete(`/dealer/sales/broiler-purchases/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
+    },
+  });
+};
+
 export const useCreateBulkBroilerSales = () => {
   const queryClient = useQueryClient();
 
@@ -401,15 +528,18 @@ export const useCreateBulkBroilerSales = () => {
       const { data } = await axiosInstance.post("/dealer/sales/broiler/bulk", input);
       return data as {
         success: true;
-        data: { sales: BulkBroilerSaleResult[] };
+        data: {
+          sales: BulkBroilerSaleResult[];
+          purchase: BulkBroilerPurchaseResult | null;
+        };
         message: string;
       };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
-      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmer() });
-      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.broilerSettlements() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
+      queryClient.invalidateQueries({ queryKey: dealerSaleKeys.broilerSettlementsAll() });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
     },

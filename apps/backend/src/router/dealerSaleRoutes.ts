@@ -2,6 +2,9 @@ import express, {Request,Response} from "express";
 import {
   createDealerSale,
   createBulkBroilerSales,
+  createStandaloneBroilerPurchase,
+  deleteBroilerPurchase,
+  getBroilerPurchasesForFarmer,
   getDealerSales,
   getDealerSaleById,
   addSalePayment,
@@ -54,6 +57,33 @@ router.post(
   "/broiler/bulk",
   requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
   createBulkBroilerSales
+);
+
+// Record a standalone broiler-purchase lot — used when the dealer forgot to
+// enter purchase cost during the bulk-sale flow and wants to add it
+// retroactively.
+router.post(
+  "/broiler-purchases",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
+  createStandaloneBroilerPurchase
+);
+
+// List the current-lot purchases for one source farmer (purchases recorded
+// after the latest settlement — same scope rule as chicken-by-farmer's
+// `purchase` aggregate). Backs the "manage purchases" popover.
+router.get(
+  "/broiler-purchases",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
+  getBroilerPurchasesForFarmer
+);
+
+// Delete a single purchase row. Used when the dealer entered a stale/wrong
+// lot (e.g. after deleting the matching sales and re-entering them). Scoped
+// to the dealer so cross-tenant delete is impossible.
+router.delete(
+  "/broiler-purchases/:id",
+  requireAccountFeature(ACCOUNT_FEATURE_KEYS.DEALER_BROILER_SALES_AND_SETTLEMENTS),
+  deleteBroilerPurchase
 );
 
 // Get all dealer sales with pagination and filters
