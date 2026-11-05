@@ -230,6 +230,37 @@ describe("Hatchery bug fixes — HTTP regressions", () => {
       expect(String(res.body.message ?? res.body.error ?? "")).toMatch(/joining|start/i);
     });
 
+    // Nepal "today" as YYYY-MM-DD, sent the way the staff page sends it.
+    const nepalDay = (offsetDays: number) =>
+      new Date(Date.now() + (5 * 60 + 45) * 60 * 1000 + offsetDays * 86400000)
+        .toISOString()
+        .slice(0, 10);
+
+    it("accepts today at any hour (the page sends 12:00 UTC = 17:45 Nepal)", async () => {
+      const res = await api.post(`/hatchery/staff/${staffId}/payments`, {
+        amount: 100,
+        paidAt: `${nepalDay(0)}T12:00:00.000Z`,
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("accepts the joining day itself", async () => {
+      const res = await api.post(`/hatchery/staff/${staffId}/payments`, {
+        amount: 100,
+        paidAt: "2026-01-15T12:00:00.000Z",
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("rejects tomorrow (Nepal day)", async () => {
+      const res = await api.post(`/hatchery/staff/${staffId}/payments`, {
+        amount: 100,
+        paidAt: `${nepalDay(1)}T12:00:00.000Z`,
+      });
+      expect(res.status).toBe(400);
+      expect(String(res.body.message ?? "")).toMatch(/future/i);
+    });
+
     it("accepts a payment date between startDate and today", async () => {
       const res = await api.post(`/hatchery/staff/${staffId}/payments`, {
         amount: 500,

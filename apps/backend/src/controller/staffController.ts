@@ -15,6 +15,7 @@ import {
   type StaffPayTypeFilter,
   type StaffStatusFilter,
 } from "../services/staffService";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 function parseDate(val: unknown): Date | null {
   if (!val) return null;
@@ -488,11 +489,15 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
     // Fixes bug §10 LOW "Staff payment date not checked" — reject future
     // dates and dates before the staff member's employment started so the
     // ledger cannot be back-dated outside the employment window.
-    if (paid.getTime() > Date.now()) {
+    // Compare Nepal days, not exact times: the app sends a picked day as
+    // 12:00 UTC (17:45 Nepal), so a time check rejected "today" before 17:45.
+    const paidDay = toNepalDayKey(paid);
+    const joinDay = normalizeDateOnlyUTC(new Date(staff.startDate)).toISOString().slice(0, 10);
+    if (paidDay > toNepalDayKey(new Date())) {
       res.status(400).json({ success: false, message: "Payment date cannot be in the future" });
       return;
     }
-    if (paid.getTime() < new Date(staff.startDate).getTime()) {
+    if (paidDay < joinDay) {
       res.status(400).json({
         success: false,
         message: "Payment date cannot be before the staff's joining date",
