@@ -65,7 +65,18 @@ export function BroilerBulkRow({
   };
 
   const markPaidInFull = () => {
-    onChange({ paidAmount: derived.lineTotal });
+    // Release the touched flag so paid resumes auto-syncing with line total.
+    onChange({ paidAmount: derived.lineTotal, paidAmountTouched: false });
+  };
+
+  // The Paid input flips `paidAmountTouched` on edit so weight/rate changes
+  // stop clobbering it. Clearing the field releases it back to auto-sync —
+  // same pattern as the purchase card's totalCost.
+  const handlePaidChange = (raw: string) => {
+    const trimmed = raw.trim();
+    const paidAmount = parseFloat(trimmed) || 0;
+    const paidAmountTouched = trimmed !== "";
+    onChange({ paidAmount, paidAmountTouched });
   };
 
   const moreMenu = (
@@ -255,7 +266,7 @@ export function BroilerBulkRow({
               step={0.01}
               max={derived.lineTotal || undefined}
               value={row.paidAmount || ""}
-              onChange={(e) => onChange({ paidAmount: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => handlePaidChange(e.target.value)}
               className="h-9"
             />
           </div>
@@ -374,7 +385,7 @@ export function BroilerBulkRow({
           step={0.01}
           max={derived.lineTotal || undefined}
           value={row.paidAmount || ""}
-          onChange={(e) => onChange({ paidAmount: parseFloat(e.target.value) || 0 })}
+          onChange={(e) => handlePaidChange(e.target.value)}
           className="h-9"
         />
       </td>

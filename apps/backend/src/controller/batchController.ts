@@ -871,22 +871,34 @@ export const deleteBatch = async (
 
     const onlyInitialUsagesPresent = initialUsages.length === usageCount;
 
-
-    console.log("onlyInitialUsagesPresent", onlyInitialUsagesPresent);
-    console.log("usageCount", usageCount);
-    console.log("nonInitialExpenseExists", nonInitialExpenseExists);
-    console.log("existingBatch._count.sales", existingBatch._count.sales);
-    console.log("existingBatch._count.mortalities", existingBatch._count.mortalities);
-    console.log("existingBatch._count.vaccinations", existingBatch._count.vaccinations);
-    console.log("existingBatch._count.feedConsumptions", existingBatch._count.feedConsumptions);
-    console.log("existingBatch._count.birdWeights", existingBatch._count.birdWeights);
+    // Mortalities with reason `BATCH_CLOSURE` are auto-created by the
+    // `closeBatch` controller for any remaining birds — the dealer didn't
+    // record them, the app did. A batch that has ONLY this system mortality
+    // (and no user-recorded deaths) is still cleanly rollback-able. Cascade
+    // delete on the Mortality → Batch relation removes them with the batch.
+    //
+    // SQL note: `reason` is nullable and users can record mortality without
+    // a reason. A plain `NOT reason = 'BATCH_CLOSURE'` filter would evaluate
+    // to NULL for NULL rows and silently drop them — making a batch with a
+    // real-but-reasonless user mortality look deletable. We must explicitly
+    // cover the NULL case too.
+    const nonSystemMortalityCount = await prisma.mortality.count({
+      where: {
+        batchId: id,
+        OR: [
+          { reason: null },
+          { reason: { not: "BATCH_CLOSURE" } },
+        ],
+      },
+    });
 
     // Block deletion if there is any non-initial data present.
-    // Note: `feedConsumptions` and `birdWeights` are derived/auxiliary records and
-    // are safely removed when the batch is deleted (Prisma relation `onDelete: Cascade`).
+    // Note: `feedConsumptions` and `birdWeights` are derived/auxiliary records
+    // and are safely removed when the batch is deleted (Prisma relation
+    // `onDelete: Cascade`).
     if (
       existingBatch._count.sales > 0 ||
-      existingBatch._count.mortalities > 0 ||
+      nonSystemMortalityCount > 0 ||
       existingBatch._count.vaccinations > 0 ||
       existingBatch._count.feedConsumptions > 0 ||
       nonInitialExpenseExists ||

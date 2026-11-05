@@ -1135,6 +1135,7 @@ model Dealer {
   cashMovements          DealerCashMovement[]
   cashDayCloses          DealerCashDayClose[]
   broilerSaleSettlements BroilerSaleSettlement[]
+  broilerPurchases       DealerBroilerPurchase[]
 
   @@unique([userId, name])
   @@index([ownerId])
@@ -1252,9 +1253,10 @@ model Customer {
   entityTransactions EntityTransaction[]
 
   // Dealer sales relationships
-  dealerSales            DealerSale[]
-  sourceChickenSales     DealerSale[]            @relation("DealerChickenSaleSourceFarmer")
-  broilerSaleSettlements BroilerSaleSettlement[] @relation("BroilerSettlementFarmer")
+  dealerSales              DealerSale[]
+  sourceChickenSales       DealerSale[]            @relation("DealerChickenSaleSourceFarmer")
+  broilerSaleSettlements   BroilerSaleSettlement[] @relation("BroilerSettlementFarmer")
+  broilerPurchasesAsSource DealerBroilerPurchase[] @relation("DealerBroilerPurchaseSourceFarmer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1762,10 +1764,45 @@ model BroilerSaleSettlement {
   farmerId String
   farmer   Customer @relation("BroilerSettlementFarmer", fields: [farmerId], references: [id], onDelete: Restrict)
 
-  sales DealerSale[]
+  sales     DealerSale[]
+  purchases DealerBroilerPurchase[] @relation("BroilerSettlementPurchases")
 
   @@index([dealerId, farmerId, date])
   @@index([farmerId])
+}
+
+// Dealer's purchases of broilers from a source farmer. Informational —
+// shown on the settlement card so the dealer can see "I paid X for this
+// lot" alongside the sales revenue. Lot identity is the same as for
+// DealerSale: `settlementId` is null while the lot is open and gets
+// stamped when the dealer settles. The "current lot" filter is therefore
+// just `settlementId: null`, not a date-based heuristic.
+model DealerBroilerPurchase {
+  id String @id @default(cuid())
+
+  dealerId String
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  sourceFarmerId String
+  sourceFarmer   Customer @relation("DealerBroilerPurchaseSourceFarmer", fields: [sourceFarmerId], references: [id], onDelete: Restrict)
+
+  // Null while the lot is open; set to the owning BroilerSaleSettlement
+  // when the dealer settles. Reversing the settlement nulls it again.
+  settlementId String?
+  settlement   BroilerSaleSettlement? @relation("BroilerSettlementPurchases", fields: [settlementId], references: [id], onDelete: SetNull)
+
+  weightKg     Decimal @db.Decimal(10, 2)
+  broilerCount Int?
+  ratePerKg    Decimal @db.Decimal(10, 2)
+  totalCost    Decimal @db.Decimal(12, 2)
+  date         DateTime
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dealerId, sourceFarmerId, settlementId])
+  @@index([dealerId, date])
 }
 
 model DealerSaleItem {

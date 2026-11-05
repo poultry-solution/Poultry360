@@ -22,12 +22,17 @@ import {
 } from "@/fetchers/dealer/dealerSaleQueries";
 import { BroilerBulkTable } from "./_components/BroilerBulkTable";
 import { BroilerBulkSummary } from "./_components/BroilerBulkSummary";
+import { BroilerPurchaseCard } from "./_components/BroilerPurchaseCard";
 import { BulkSaveProgressDialog } from "./_components/BulkSaveProgressDialog";
 import {
+  BulkBroilerPurchase,
   BulkBroilerRow,
   BulkRowBuyer,
+  derivePurchase,
   deriveRow,
+  hasPurchaseData,
   isRowTouched,
+  makeEmptyPurchase,
   makeEmptyRow,
 } from "./_components/types";
 
@@ -66,6 +71,7 @@ interface DraftPayload {
   sharedDate: string;
   showCustomInvoice: boolean;
   rows: BulkBroilerRow[];
+  purchase?: BulkBroilerPurchase;
 }
 
 function readDraft(key: string | null): DraftPayload | null {
@@ -115,26 +121,44 @@ function NewBroilerBulkSaleContent() {
   const [rows, setRows] = useState<BulkBroilerRow[]>(
     () => (initial?.rows && initial.rows.length > 0 ? initial.rows : [makeEmptyRow()])
   );
+  // Preview-only purchase block. Not sent to the backend yet; lives in draft
+  // so a refresh preserves it.
+  const [purchase, setPurchase] = useState<BulkBroilerPurchase>(
+    () => initial?.purchase ?? makeEmptyPurchase()
+  );
 
   const [attemptedSave, setAttemptedSave] = useState(false);
   // Keyed by rowId so the mapping survives row reorderings / removals.
   const [serverRowErrors, setServerRowErrors] = useState<Record<string, string[]>>({});
+  const [serverPurchaseErrors, setServerPurchaseErrors] = useState<string[]>([]);
   const [progressOpen, setProgressOpen] = useState(false);
   const [savedSales, setSavedSales] = useState<BulkBroilerSaleResult[]>([]);
 
   // Persist draft on every form-state change (not progress / save flags).
   useEffect(() => {
-    writeDraft(draftKey, { sourceFarmerId, sourceFarmer, sharedDate, showCustomInvoice, rows });
-  }, [draftKey, sourceFarmerId, sourceFarmer, sharedDate, showCustomInvoice, rows]);
+    writeDraft(draftKey, { sourceFarmerId, sourceFarmer, sharedDate, showCustomInvoice, rows, purchase });
+  }, [draftKey, sourceFarmerId, sourceFarmer, sharedDate, showCustomInvoice, rows, purchase]);
 
   const derived = useMemo(
     () => rows.map((row) => deriveRow(row, sourceFarmerId)),
     [rows, sourceFarmerId]
   );
+  const purchaseDerived = useMemo(() => derivePurchase(purchase), [purchase]);
 
   const anyClientRowErrors = derived.some((d) => d.errors.length > 0);
-  const canSave = !!sourceFarmerId && rows.length > 0 && !anyClientRowErrors;
+  const canSave =
+    !!sourceFarmerId &&
+    rows.length > 0 &&
+    !anyClientRowErrors &&
+    purchaseDerived.errors.length === 0;
   const saving = bulkCreate.isPending;
+
+  const changePurchase = (patch: Partial<BulkBroilerPurchase>) => {
+    setPurchase((prev) => ({ ...prev, ...patch }));
+    // Clear server-reported purchase errors on any edit so they don't linger
+    // after the dealer has already corrected the field.
+    if (serverPurchaseErrors.length > 0) setServerPurchaseErrors([]);
+  };
 
   const handleSourceFarmerChange = (value: string, option?: any) => {
     const data: any = option?.data || null;
@@ -145,7 +169,24 @@ function NewBroilerBulkSaleContent() {
   };
 
   const changeRow = (rowId: string, patch: Partial<BulkBroilerRow>) => {
-    setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== rowId) return r;
+        const next: BulkBroilerRow = { ...r, ...patch };
+        // Auto-track paidAmount to the new line total so the default row
+        // reads "fully paid". Once the dealer types into paid themselves,
+        // `paidAmountTouched` flips and we stop clobbering it.
+        if (
+          !next.paidAmountTouched &&
+          !Object.prototype.hasOwnProperty.call(patch, "paidAmount") &&
+          !Object.prototype.hasOwnProperty.call(patch, "paidAmountTouched")
+        ) {
+          const d = deriveRow(next, sourceFarmerId);
+          next.paidAmount = d.lineTotal;
+        }
+        return next;
+      })
+    );
     // Clear this row's server errors on any edit so they don't linger.
     setServerRowErrors((prev) => {
       if (!prev[rowId]) return prev;
@@ -201,9 +242,23 @@ function NewBroilerBulkSaleContent() {
 
     try {
       setServerRowErrors({});
+      setServerPurchaseErrors([]);
       const result = await bulkCreate.mutateAsync({
         sourceFarmerId,
         rows: buildPayload(),
+        // Only include the purchase block when the dealer actually entered
+        // something — keeps the audit cleaner and the backend skips validation.
+        ...(hasPurchaseData(purchase)
+          ? {
+              purchase: {
+                weightKg: purchase.weightKg,
+                ratePerKg: purchase.ratePerKg,
+                totalCost: purchase.totalCost,
+                broilerCount: purchase.broilerCount,
+                notes: purchase.notes.trim() || undefined,
+              },
+            }
+          : {}),
       });
       // Only on real success do we clear the draft and open the success
       // dialog. Nothing above or below this line touches `rows`, so every
@@ -224,15 +279,20 @@ function NewBroilerBulkSaleContent() {
         return;
       }
 
-      if (status === 400 && resp?.errors?.rows) {
-        const mapped: Record<string, string[]> = {};
-        for (const [i, msgs] of Object.entries(resp.errors.rows)) {
-          const rowId = indexToId[Number(i)];
-          if (rowId && Array.isArray(msgs)) mapped[rowId] = msgs as string[];
+      if (status === 400 && (resp?.errors?.rows || resp?.errors?.purchase)) {
+        if (resp.errors.rows) {
+          const mapped: Record<string, string[]> = {};
+          for (const [i, msgs] of Object.entries(resp.errors.rows)) {
+            const rowId = indexToId[Number(i)];
+            if (rowId && Array.isArray(msgs)) mapped[rowId] = msgs as string[];
+          }
+          setServerRowErrors(mapped);
         }
-        setServerRowErrors(mapped);
+        if (Array.isArray(resp.errors.purchase)) {
+          setServerPurchaseErrors(resp.errors.purchase as string[]);
+        }
         setAttemptedSave(true);
-        toast.error(resp.message || "Fix the highlighted rows — your entries are kept.");
+        toast.error(resp.message || "Fix the highlighted fields — your entries are kept.");
         return;
       }
 
@@ -288,8 +348,8 @@ function NewBroilerBulkSaleContent() {
       </div>
 
       {/* Main layout */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-6 2xl:grid-cols-3">
+        <div className="space-y-6 2xl:col-span-2">
           {/* Shared card */}
           <Card>
             <CardHeader>
@@ -359,6 +419,15 @@ function NewBroilerBulkSaleContent() {
             </CardContent>
           </Card>
 
+          {/* Optional: what you paid the source farmer */}
+          <BroilerPurchaseCard
+            purchase={purchase}
+            derived={purchaseDerived}
+            serverErrors={serverPurchaseErrors}
+            showErrors={attemptedSave || hasPurchaseData(purchase)}
+            onChange={changePurchase}
+          />
+
           {/* The table / card stack */}
           <Card>
             <CardHeader>
@@ -393,11 +462,12 @@ function NewBroilerBulkSaleContent() {
         </div>
 
         {/* Sticky summary */}
-        <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-6">
+        <div className="2xl:col-span-1">
+          <div className="2xl:sticky 2xl:top-6">
             <BroilerBulkSummary
               rows={rows}
               derived={derived}
+              purchase={purchase}
               disabled={!canSave}
               saving={saving}
               onSave={handleSave}

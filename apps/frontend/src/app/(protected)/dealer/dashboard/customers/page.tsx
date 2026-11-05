@@ -73,6 +73,10 @@ interface Customer {
   hasDealerSales?: boolean;
   hasDealerSaleRequests?: boolean;
   hasPayments?: boolean;
+  /** True when this customer has broiler-purchase rows attributing them as
+   * the source farmer. Blocks delete; without this check the UI would
+   * offer Delete and the server would correctly refuse. */
+  hasPurchases?: boolean;
 }
 
 export default function DealerCustomersPage() {
@@ -565,11 +569,17 @@ export default function DealerCustomersPage() {
                     </Button>
 
                     {(() => {
+                      // Must mirror the server's deletability predicate
+                      // (dealerSaleController.ts). `hasPurchases` is new —
+                      // without it, the UI shows Delete for a customer who
+                      // only has broiler-purchase rows and the server
+                      // (correctly) 400s on click.
                       const isDeletable =
                         Number(row.balance) === 0 &&
                         !row.hasDealerSales &&
                         !row.hasDealerSaleRequests &&
-                        !row.hasPayments;
+                        !row.hasPayments &&
+                        !row.hasPurchases;
 
                       if (customerTab === "archived") {
                         return (

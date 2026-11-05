@@ -374,8 +374,18 @@ export class DealerService {
       invoiceNumber: string | null; // null = auto
       date: Date;
     }>;
+    // Optional informational record of what the dealer paid the source
+    // farmer for this lot. Not referenced by settlement logic — purely
+    // feeds the "Your cost" / "Rough profit" tile on the settlements card.
+    purchase: {
+      weightKg: number;
+      ratePerKg: number;
+      totalCost: number;
+      broilerCount: number | null;
+      notes: string | null;
+    } | null;
   }) {
-    const { dealerId, sourceFarmerId, rows } = data;
+    const { dealerId, sourceFarmerId, rows, purchase } = data;
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -389,7 +399,16 @@ export class DealerService {
       dueAmount: number;
     };
 
-    const createdSales = await prisma.$transaction(async (tx) => {
+    type CreatedPurchase = {
+      id: string;
+      weightKg: number;
+      ratePerKg: number;
+      totalCost: number;
+      broilerCount: number | null;
+      date: Date;
+    };
+
+    const created = await prisma.$transaction(async (tx) => {
       const result: CreatedSale[] = [];
 
       // Running ledger balance tracked in-memory. Reading `lastLedgerEntry` on
@@ -532,10 +551,39 @@ export class DealerService {
         });
       }
 
-      return result;
+      // Informational purchase record — created inside the same transaction
+      // so the all-or-nothing contract still holds (if any sale fails, the
+      // purchase is also rolled back). Purchase date defaults to the first
+      // row's date because that's the dealer's "today" for this entry.
+      let createdPurchase: CreatedPurchase | null = null;
+      if (purchase) {
+        const purchaseDate = rows[0]?.date ?? new Date();
+        const row = await tx.dealerBroilerPurchase.create({
+          data: {
+            dealerId,
+            sourceFarmerId,
+            weightKg: new Prisma.Decimal(purchase.weightKg),
+            ratePerKg: new Prisma.Decimal(purchase.ratePerKg),
+            totalCost: new Prisma.Decimal(purchase.totalCost),
+            broilerCount: purchase.broilerCount ?? null,
+            notes: purchase.notes ?? null,
+            date: purchaseDate,
+          },
+        });
+        createdPurchase = {
+          id: row.id,
+          weightKg: Number(row.weightKg),
+          ratePerKg: Number(row.ratePerKg),
+          totalCost: Number(row.totalCost),
+          broilerCount: row.broilerCount,
+          date: row.date,
+        };
+      }
+
+      return { sales: result, purchase: createdPurchase };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    return createdSales;
+    return created;
   }
 
   /**
