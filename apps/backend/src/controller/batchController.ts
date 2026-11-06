@@ -22,6 +22,7 @@ import {
   startOfNepalDay,
 } from "../services/farmerFcrService";
 import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
+import { closureLeftWhere, naturalDeathWhere } from "../services/farmerAnalytics/scope";
 import {
   batchScopedBy,
   farmScopedBy,
@@ -1473,12 +1474,35 @@ export const getBatchAnalytics = async (
       return res.status(404).json({ message: "Batch not found" });
     }
 
+    const isLayers = batch.batchType === BatchType.LAYERS;
+    // Deaths = natural rows only; birds still alive at closing are shown apart.
+    // Layers have no FCR, so their feed kg is read straight from the feed rows.
+    const [naturalDeaths, closureLeft, layerFeed, eggProduced, eggStock, eggSales] =
+      await Promise.all([
+        prisma.mortality.aggregate({ where: { batchId: id, ...naturalDeathWhere }, _sum: { count: true } }),
+        prisma.mortality.aggregate({ where: { batchId: id, ...closureLeftWhere }, _sum: { count: true } }),
+        batch.batchType === BatchType.BROILER
+          ? null
+          : prisma.feedConsumption.aggregate({ where: { batchId: id }, _sum: { quantityKg: true } }),
+        isLayers
+          ? prisma.eggProductionEntry.aggregate({ where: { eggProduction: { batchId: id } }, _sum: { count: true } })
+          : null,
+        isLayers ? prisma.batchEggInventory.aggregate({ where: { batchId: id }, _sum: { quantity: true } }) : null,
+        isLayers
+          ? prisma.sale.aggregate({
+              where: { batchId: id, itemType: "EGGS" },
+              _sum: { quantity: true, amount: true },
+            })
+          : null,
+      ]);
+    const totalDeaths = Number(naturalDeaths._sum.count || 0);
+    const leftAtClose = Number(closureLeft._sum.count || 0);
+    const feedKg = layerFeed ? Number(layerFeed._sum.quantityKg || 0) : fcrResult.feedKg;
+
     const currentChicks =
       batch.status === BatchStatus.COMPLETED ? 0 : fcrResult.currentBirds;
     const mortalityRate =
-      batch.initialChicks > 0
-        ? (fcrResult.currentDeaths / batch.initialChicks) * 100
-        : 0;
+      batch.initialChicks > 0 ? (totalDeaths / batch.initialChicks) * 100 : 0;
 
     const totalExpensesAmount = Number(totalExpenses._sum.amount || 0);
     const totalSalesAmount = Number(totalSales._sum.amount || 0);
@@ -1491,12 +1515,12 @@ export const getBatchAnalytics = async (
       ? fcrHistory[fcrHistory.length - 1]
       : null;
     const fcrData = {
-      totalFeedConsumed: fcrResult.feedKg,
       initialTotalWeight: fcrResult.initialBiomassKg,
       currentTotalWeight: fcrResult.remainingLiveWeightKg,
       totalWeightGained: fcrResult.weightGainKg,
       initialWeightPerChick: fcrResult.initialChickWeightKg,
       ...fcrResult,
+      totalFeedConsumed: feedKg,
     };
 
     // Kept for old API users. The UI uses the single correct FCR value.
@@ -1524,15 +1548,25 @@ export const getBatchAnalytics = async (
         batchNumber: batch.batchNumber,
         currentChicks: Math.max(0, currentChicks),
         initialChicks: batch.initialChicks,
-        totalMortality: fcrResult.currentDeaths,
+        totalMortality: totalDeaths,
+        leftAtClose,
         mortalityRate,
         totalExpenses: totalExpensesAmount,
         totalSales: totalSalesAmount,
         totalSalesQuantity,
         profit,
         profitMargin,
-        totalFeedConsumption: fcrResult.feedKg,
+        totalFeedConsumption: feedKg,
         currentAvgWeight: fcrResult.remainingAverageWeightKg,
+        // Egg numbers for the whole life of a layer batch (null for broilers).
+        layers: isLayers
+          ? {
+              eggsCollected: Number(eggProduced?._sum.count || 0),
+              eggsInStock: Number(eggStock?._sum.quantity || 0),
+              eggsSold: Number(eggSales?._sum.quantity || 0),
+              eggSalesAmount: Number(eggSales?._sum.amount || 0),
+            }
+          : null,
         // FCR (Feed Conversion Ratio) data — Broiler only
         fcr,
         rawFcr: fcrResult.fcr,

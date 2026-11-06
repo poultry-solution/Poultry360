@@ -225,6 +225,7 @@ export const getAllSalePayments = async (
 
 // ==================== GET ALL SALES ====================
 import { getSalesCategoryIdForItemType } from "../utils/category";
+import { EggStockError, takeEggStock } from "../utils/eggStock";
 export const getAllSales = async (
   req: Request,
   res: Response
@@ -816,28 +817,39 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     let numericQuantity: number;
     let numericUnitPrice: number;
 
+    // Eggs needed per egg type (lines of the same type added together).
+    const eggNeedByType = new Map<string, number>();
+    if (useEggLines) {
+      for (const line of eggLineItems!) {
+        eggNeedByType.set(line.eggTypeId, (eggNeedByType.get(line.eggTypeId) ?? 0) + line.quantity);
+      }
+    }
+
     if (useEggLines) {
       // Validate each line and compute totals (use batch egg inventory when batchId provided)
       let totalAmount = 0;
       let totalQty = 0;
       for (const line of eggLineItems!) {
+        totalAmount += line.quantity * line.unitPrice;
+        totalQty += line.quantity;
+      }
+      // The same egg type can be on more than one line, so check stock per type total.
+      for (const [lineTypeId, need] of eggNeedByType) {
         const eggType = await prisma.eggType.findFirst({
-          where: { id: line.eggTypeId, userId: currentUserId },
+          where: { id: lineTypeId, userId: currentUserId },
         });
         if (!eggType) {
-          return res.status(400).json({ message: `Invalid egg type: ${line.eggTypeId}` });
+          return res.status(400).json({ message: `Invalid egg type: ${lineTypeId}` });
         }
         const available =
           (await prisma.batchEggInventory.findUnique({
-            where: { batchId_eggTypeId: { batchId: batchId!, eggTypeId: line.eggTypeId } },
+            where: { batchId_eggTypeId: { batchId: batchId!, eggTypeId: lineTypeId } },
           }))?.quantity ?? 0;
-        if (available < line.quantity) {
+        if (available < need) {
           return res.status(400).json({
-            message: `Insufficient egg inventory. ${eggType.name}: available ${available}, requested ${line.quantity}`,
+            message: `Insufficient egg inventory. ${eggType.name}: available ${Math.max(0, available)}, requested ${need}`,
           });
         }
-        totalAmount += line.quantity * line.unitPrice;
-        totalQty += line.quantity;
       }
       numericAmount = totalAmount;
       numericQuantity = totalQty;
@@ -981,26 +993,14 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
               unitPrice: line.unitPrice,
             },
           });
-          const inv = await tx.batchEggInventory.findUnique({
-            where: { batchId_eggTypeId: { batchId: batchId!, eggTypeId: line.eggTypeId } },
-          });
-          if (inv) {
-            await tx.batchEggInventory.update({
-              where: { id: inv.id },
-              data: { quantity: { decrement: line.quantity } },
-            });
-          }
+        }
+        // Guarded take per type: fails (and undoes the whole sale) if another
+        // save took the eggs after the check above.
+        for (const [lineTypeId, need] of eggNeedByType) {
+          await takeEggStock(tx, batchId!, lineTypeId, need, "sale");
         }
       } else if (itemType === SalesItemType.EGGS && eggTypeId) {
-        const inv = await tx.batchEggInventory.findUnique({
-          where: { batchId_eggTypeId: { batchId: batchId!, eggTypeId } },
-        });
-        if (inv) {
-          await tx.batchEggInventory.update({
-            where: { id: inv.id },
-            data: { quantity: { decrement: numericQuantity } },
-          });
-        }
+        await takeEggStock(tx, batchId!, eggTypeId, numericQuantity, "sale");
       }
 
       // 2. Update customer balance if it's a credit sale
@@ -1142,6 +1142,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error) {
     console.error("Create sale error:", error);
+    if (error instanceof EggStockError) {
+      return res.status(400).json({ message: error.message });
+    }
     if ((error as { code?: string })?.code === "P2002") {
       return res.status(409).json({
         message: "This invoice number is already used in your account",

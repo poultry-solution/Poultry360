@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
+import { naturalDeathWhere } from "../services/farmerAnalytics/scope";
 import {
   aggregateCurrentCfcr,
   aggregateCurrentFcr,
@@ -548,7 +549,7 @@ export const getDashboardPerformanceMetrics = async (
     // Calculate batch performance metrics
     const batchPerformance = await Promise.all(
       batchStats.map(async (batch) => {
-        const [expenses, sales, fcrResult] = await Promise.all([
+        const [expenses, sales, fcrResult, naturalDeaths] = await Promise.all([
           prisma.expense.aggregate({
             where: { batchId: batch.id },
             _sum: { amount: true },
@@ -558,11 +559,16 @@ export const getDashboardPerformanceMetrics = async (
             _sum: { amount: true },
           }),
           calculateFarmerBatchFcr(batch.id),
+          // Real deaths only; birds still alive at closing are not deaths.
+          prisma.mortality.aggregate({
+            where: { batchId: batch.id, ...naturalDeathWhere },
+            _sum: { count: true },
+          }),
         ]);
 
         const totalExpenses = Number(expenses._sum.amount || 0);
         const totalSales = Number(sales._sum.amount || 0);
-        const totalMortality = fcrResult?.currentDeaths || 0;
+        const totalMortality = Number(naturalDeaths._sum.count || 0);
         const profit = totalSales - totalExpenses;
         const duration = batch.endDate ? nepalBatchDay(batch.startDate, batch.endDate) : 0;
 

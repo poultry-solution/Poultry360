@@ -299,7 +299,7 @@ export async function getEggs(scope: AnalyticsScope, range: AnalyticsRange, now 
     }
   }
 
-  const [productions, eggSales, stock, layerCosts, losses, henSales, stats] = await Promise.all([
+  const [productions, eggSales, stock, losses, henSales, stats] = await Promise.all([
     prisma.eggProduction.findMany({
       where: { batchId: { in: ids }, date: dateIn(range) },
       select: { date: true, batchId: true, entries: { select: { count: true, eggType: { select: { name: true } } } } },
@@ -309,7 +309,6 @@ export async function getEggs(scope: AnalyticsScope, range: AnalyticsRange, now 
       select: { date: true, amount: true, quantity: true, eggLines: { select: { quantity: true } } },
     }),
     prisma.batchEggInventory.aggregate({ where: { batchId: { in: ids } }, _sum: { quantity: true } }),
-    prisma.expense.aggregate({ where: { batchId: { in: ids }, date: dateIn(range) }, _sum: { amount: true } }),
     prisma.mortality.findMany({ where: { batchId: { in: ids }, ...naturalDeathWhere }, select: { batchId: true, date: true, count: true } }),
     prisma.sale.findMany({
       where: { batchId: { in: ids }, itemType: SalesItemType.Chicken_Meat },
@@ -368,7 +367,6 @@ export async function getEggs(scope: AnalyticsScope, range: AnalyticsRange, now 
   const eggsLaid = [...perBatch.values()].reduce((sum, row) => sum + row.eggs, 0);
   const henDays = [...perBatch.values()].reduce((sum, row) => sum + row.henDays, 0);
   const allEggs = productions.reduce((sum, row) => sum + row.entries.reduce((s, e) => s + e.count, 0), 0);
-  const costs = num(layerCosts._sum.amount);
 
   return {
     range: rangeInfo(chartRange),
@@ -378,7 +376,6 @@ export async function getEggs(scope: AnalyticsScope, range: AnalyticsRange, now 
       eggsSold: eggSales.reduce((sum, row) => sum + soldCount(row), 0),
       eggSales: round(eggSales.reduce((sum, row) => sum + num(row.amount), 0)),
       layingPercent: layingPercent(eggsLaid, henDays),
-      costPerEgg: allEggs > 0 ? round(costs / allEggs, 2) : null,
       stock: num(stock._sum.quantity),
     },
     series,

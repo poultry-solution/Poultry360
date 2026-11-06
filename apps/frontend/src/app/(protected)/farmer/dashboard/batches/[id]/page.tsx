@@ -24,6 +24,7 @@ import {
   CheckCircle,
   Bird,
   CalendarDays,
+  Egg,
   HeartPulse,
   Scale,
   Share2,
@@ -341,41 +342,25 @@ export default function BatchDetailPage() {
     const netExpenses = totalExpenses - totalSales;
 
     const initialBroilers = Number(batch?.initialChicks || 0);
+    // Real deaths only; birds still alive when the batch was closed are counted apart.
     const totalMortality = Number(mortalityStats?.totalMortality || 0);
+    const leftAtClose = Number((mortalityStats as any)?.leftAtClose || 0);
     const totalSold = Number(analytics?.totalSalesQuantity || 0);
-    const remainingBroilers = Math.max(
-      0,
-      initialBroilers - (totalMortality + totalSold)
-    );
+    // Birds alive now (0 once the batch is closed).
+    const remainingBroilers = Math.max(0, Number((batch as any)?.currentChicks ?? 0));
 
-    let perBroilerExpense = 0;
-    let displayValue = 0;
-    let isProfit = false;
-
-    if (remainingBroilers > 0) {
-      perBroilerExpense = netExpenses / remainingBroilers;
-      if (perBroilerExpense < 0) {
-        isProfit = true;
-        displayValue = Math.abs(perBroilerExpense);
-      } else {
-        displayValue = perBroilerExpense;
-      }
-    } else if (initialBroilers > 0) {
-      perBroilerExpense = netExpenses / initialBroilers;
-      if (perBroilerExpense < 0) {
-        isProfit = true;
-        displayValue = Math.abs(perBroilerExpense);
-      } else {
-        displayValue = perBroilerExpense;
-      }
-    } else {
-      displayValue = 0;
-    }
+    // Per bird is always shared over the birds the batch started with, the same
+    // as Analytics and downloads, so the number does not jump when birds are sold.
+    const perBroilerExpense = initialBroilers > 0 ? netExpenses / initialBroilers : 0;
+    const isProfit = perBroilerExpense < 0;
+    const displayValue = Math.abs(perBroilerExpense);
 
     return {
       netExpenses,
+      initialBroilers,
       remainingBroilers,
       totalMortality,
+      leftAtClose,
       totalSold,
       perBroilerExpense,
       displayValue,
@@ -383,9 +368,10 @@ export default function BatchDetailPage() {
     };
   }, [
     (batch as any)?.expenses,
+    (batch as any)?.currentChicks,
     batchSales,
     batch?.initialChicks,
-    mortalityStats?.totalMortality,
+    mortalityStats,
     analytics?.totalSalesQuantity,
   ]);
 
@@ -1281,7 +1267,12 @@ export default function BatchDetailPage() {
       setSaleErrors({});
     } catch (error) {
       console.error("Failed to save sale:", error);
-      flash("error", "Failed to save sale");
+      // Show the server's reason (e.g. not enough eggs in stock) when there is one.
+      const serverMessage = (error as any)?.response?.data?.message;
+      const message = typeof serverMessage === "string" && serverMessage ? serverMessage : "Failed to save sale";
+      // Egg stock problems are shown under the egg lines, inside the open form.
+      if (/egg inventory/i.test(message)) setSaleErrors((prev) => ({ ...prev, eggLineItems: message }));
+      flash("error", message);
     }
   }
 
@@ -1578,23 +1569,42 @@ export default function BatchDetailPage() {
             value: Number(mortalityStats?.totalMortality || 0).toLocaleString("en-IN"),
             sub:
               analytics?.mortalityRate != null
-                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds`
+                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds${
+                    Number(analytics?.leftAtClose || 0) > 0
+                      ? ` · ${Number(analytics.leftAtClose).toLocaleString("en-IN")} left at close`
+                      : ""
+                  }`
                 : "—",
             loading: mortalityLoading || analyticsLoading,
           }}
         />
-        <StatTile
-          tile={{
-            label: "Avg weight",
-            icon: Scale,
-            value:
-              analytics?.currentAvgWeight != null
-                ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
-                : "—",
-            sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
-            loading: analyticsLoading,
-          }}
-        />
+        {(batch as any).batchType === "LAYERS" ? (
+          // Layers are not weighed for FCR; eggs are what matter here.
+          <StatTile
+            tile={{
+              label: "Eggs collected",
+              icon: Egg,
+              value: analytics?.layers ? Number(analytics.layers.eggsCollected).toLocaleString("en-IN") : "—",
+              sub: analytics?.layers
+                ? `${Number(analytics.layers.eggsInStock).toLocaleString("en-IN")} in stock`
+                : "",
+              loading: analyticsLoading,
+            }}
+          />
+        ) : (
+          <StatTile
+            tile={{
+              label: "Avg weight",
+              icon: Scale,
+              value:
+                analytics?.currentAvgWeight != null
+                  ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
+                  : "—",
+              sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
+              loading: analyticsLoading,
+            }}
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -1952,11 +1962,18 @@ export default function BatchDetailPage() {
                             <SelectValue placeholder="Egg type" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {eggTypes.map((t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.name}
-                              </SelectItem>
-                            ))}
+                            {/* A type already picked on another line is hidden, so one type is one line. */}
+                            {eggTypes
+                              .filter(
+                                (t) =>
+                                  t.id === line.eggTypeId ||
+                                  !saleForm.eggLineItems.some((l, i) => i !== idx && l.eggTypeId === t.id)
+                              )
+                              .map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

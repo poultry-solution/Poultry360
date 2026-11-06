@@ -30,20 +30,26 @@ export function createMortalityColumns({
       type: "number",
       align: "center",
       width: "100px",
-      render: (value) => (
-        <span className="font-medium text-red-600">{value}</span>
+      render: (value, row: any) => (
+        <span className={`font-medium ${row?.reason === "BATCH_CLOSURE" ? "text-gray-600" : "text-red-600"}`}>{value}</span>
       ),
     }),
     createColumn("reason", "Reason", {
       width: "200px",
-      render: (value) => (
-        <Badge
-          variant="secondary"
-          className="bg-red-100 text-red-800 border-red-200"
-        >
-          {value || "Natural Death"}
-        </Badge>
-      ),
+      // Birds still alive when the batch was closed did not die: grey, plain words.
+      render: (value) =>
+        value === "BATCH_CLOSURE" ? (
+          <Badge variant="secondary" className="border-gray-200 bg-gray-100 text-gray-700">
+            Left at close
+          </Badge>
+        ) : (
+          <Badge
+            variant="secondary"
+            className="bg-red-100 text-red-800 border-red-200"
+          >
+            {value || "Natural Death"}
+          </Badge>
+        ),
     }),
     {
       key: "actions",

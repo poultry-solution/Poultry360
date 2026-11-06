@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
-import { Activity, AlertTriangle, CheckCircle, Settings2, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle, LogOut, Settings2, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +56,7 @@ const signedRupees = (value: number) => {
 
 type ActivityItem = {
   key: string;
-  kind: "expense" | "sale" | "mortality";
+  kind: "expense" | "sale" | "mortality" | "closure";
   text: string;
   date: string | null;
   time: number;
@@ -70,6 +70,7 @@ interface OverviewTabProps {
   currentAge: number;
   perBroilerExpenseData: {
     netExpenses: number;
+    initialBroilers: number;
     remainingBroilers: number;
     totalMortality: number;
     totalSold: number;
@@ -186,11 +187,9 @@ export function OverviewTab({
   const isLoss = Math.round(netResult) > 0;
   const isGain = Math.round(netResult) < 0;
   const perBirdBase =
-    perBroilerExpenseData.remainingBroilers > 0
-      ? `÷ ${perBroilerExpenseData.remainingBroilers.toLocaleString("en-IN")} birds left`
-      : Number(batch?.initialChicks || 0) > 0
-        ? `÷ ${Number(batch.initialChicks).toLocaleString("en-IN")} birds started`
-        : null;
+    perBroilerExpenseData.initialBroilers > 0
+      ? `÷ ${perBroilerExpenseData.initialBroilers.toLocaleString("en-IN")} birds started`
+      : null;
   const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
 
   const toTime = (value: unknown) => {
@@ -214,8 +213,9 @@ export function OverviewTab({
     })),
     ...recentMortalities.map((m: any, i: number) => ({
       key: `m-${m.id ?? i}`,
-      kind: "mortality" as const,
-      text: `Deaths · ${Number(m.count || 0).toLocaleString("en-IN")} ${Number(m.count) === 1 ? "bird" : "birds"}`,
+      // Birds still alive when the batch was closed did not die.
+      kind: m.reason === "BATCH_CLOSURE" ? ("closure" as const) : ("mortality" as const),
+      text: `${m.reason === "BATCH_CLOSURE" ? "Left at close" : "Deaths"} · ${Number(m.count || 0).toLocaleString("en-IN")} ${Number(m.count) === 1 ? "bird" : "birds"}`,
       date: m.date ?? null,
       time: toTime(m.date),
     })),
@@ -389,6 +389,8 @@ export function OverviewTab({
                       <TrendingDown className="h-4 w-4 shrink-0 text-red-500" />
                     ) : item.kind === "sale" ? (
                       <TrendingUp className="h-4 w-4 shrink-0 text-green-500" />
+                    ) : item.kind === "closure" ? (
+                      <LogOut className="h-4 w-4 shrink-0 text-gray-400" />
                     ) : (
                       <Activity className="h-4 w-4 shrink-0 text-orange-500" />
                     )}

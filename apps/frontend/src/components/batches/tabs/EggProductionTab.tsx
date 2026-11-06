@@ -42,6 +42,7 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeCode, setNewTypeCode] = useState("");
   const [addTypeError, setAddTypeError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   const records = data?.data ?? [];
 
@@ -92,10 +93,13 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
 
   const handleDelete = async (recordId: string) => {
     if (!confirm("Remove this production record? Egg inventory will be reduced.")) return;
+    setDeleteError("");
     try {
       await deleteMutation.mutateAsync(recordId);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      // e.g. "Can't remove 380 Large eggs: only 20 are in stock. The rest were already sold."
+      setDeleteError(err?.response?.data?.message || "Could not remove this record. Please try again.");
     }
   };
 
@@ -195,6 +199,10 @@ export function EggProductionTab({ batchId, isBatchClosed }: EggProductionTabPro
               Add type
             </Button>
           </div>
+        )}
+
+        {deleteError && (
+          <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>
         )}
 
         {isLoading ? (

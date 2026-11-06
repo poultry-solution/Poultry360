@@ -950,8 +950,13 @@ export default function SalesLedgerPage() {
       setErrors({});
     } catch (error) {
       console.error("Sale submission error:", error);
+      // Show the server's reason (e.g. not enough eggs in stock) when there is one.
+      const serverMessage = (error as any)?.response?.data?.message;
       setErrors({
-        general: t("farmer.salesLedger.failedCreateSale"),
+        general:
+          typeof serverMessage === "string" && serverMessage
+            ? serverMessage
+            : t("farmer.salesLedger.failedCreateSale"),
       });
     }
   };
@@ -2123,11 +2128,18 @@ export default function SalesLedgerPage() {
                             <SelectValue placeholder={t("farmer.salesLedger.saleModal.eggType")} />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {eggTypes.map((t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.name}
-                              </SelectItem>
-                            ))}
+                            {/* A type already picked on another line is hidden, so one type is one line. */}
+                            {eggTypes
+                              .filter(
+                                (et) =>
+                                  et.id === line.eggTypeId ||
+                                  !saleForm.eggLineItems.some((l, i) => i !== idx && l.eggTypeId === et.id)
+                              )
+                              .map((et) => (
+                                <SelectItem key={et.id} value={et.id}>
+                                  {et.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

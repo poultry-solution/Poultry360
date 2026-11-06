@@ -133,7 +133,6 @@ export type FarmerEggsAnalytics =
         eggsSold: number;
         eggSales: number;
         layingPercent: number | null;
-        costPerEgg: number | null;
         stock: number;
       };
       series: Array<{ start: string; eggs: number; sold: number; layingPercent: number | null }>;

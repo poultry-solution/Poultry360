@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import { CreateMortalitySchema } from "@myapp/shared-types";
 import { refreshFarmerFcrHistorySafely } from "../services/farmerFcrService";
 import { batchScopedBy } from "../services/ownershipService";
+import { CLOSURE_REASON, isNaturalDeathRow } from "../services/farmerAnalytics/scope";
 
 // ==================== GET MORTALITY BY ID ====================
 export const getMortalityById = async (
@@ -99,13 +100,13 @@ export const getBatchMortalities = async (
       where: { batchId },
     });
 
-    // Get only natural deaths for display (excluding sales)
+    // Rows to list: everything except birds sold. Birds left at closing stay in
+    // the list (shown with their own label) but are not counted as deaths.
+    // OR with null keeps deaths saved without a reason (NOT alone drops them).
     const mortalities = await prisma.mortality.findMany({
       where: {
         batchId,
-        NOT: {
-          reason: "SLAUGHTERED_FOR_SALE", // Exclude sale-related mortality from display
-        },
+        OR: [{ reason: null }, { reason: { not: "SLAUGHTERED_FOR_SALE" } }],
       },
       include: {
         sale: {
@@ -125,12 +126,17 @@ export const getBatchMortalities = async (
     const totalAllMortality = allMortalities.reduce((sum, m) => sum + m.count, 0);
     const currentBirds = batch.initialChicks - totalAllMortality;
 
-    // Calculate natural mortality stats (excluding sales)
-    const totalNaturalMortality = mortalities.reduce((sum, m) => sum + m.count, 0);
-    const mortalityRate = (totalNaturalMortality / batch.initialChicks) * 100;
+    // Deaths = natural rows only. Birds left at closing are counted on their own.
+    const deathRows = mortalities.filter(isNaturalDeathRow);
+    const totalNaturalMortality = deathRows.reduce((sum, m) => sum + m.count, 0);
+    const leftAtClose = mortalities
+      .filter((m) => m.reason === CLOSURE_REASON)
+      .reduce((sum, m) => sum + m.count, 0);
+    const mortalityRate =
+      batch.initialChicks > 0 ? (totalNaturalMortality / batch.initialChicks) * 100 : 0;
 
     // Group by reason
-    const reasonStats = mortalities.reduce((acc: any, m) => {
+    const reasonStats = deathRows.reduce((acc: any, m) => {
       const reason = m.reason || "UNKNOWN";
       if (!acc[reason]) {
         acc[reason] = { count: 0, totalBirds: 0 };
@@ -144,8 +150,9 @@ export const getBatchMortalities = async (
       success: true,
       data: mortalities,
       statistics: {
-        totalRecords: mortalities.length,
+        totalRecords: deathRows.length,
         totalMortality: totalNaturalMortality, // Only natural deaths
+        leftAtClose, // Birds still alive when the batch was closed
         currentBirds, // Accurate count including sales
         mortalityRate: mortalityRate.toFixed(2),
         reasonBreakdown: reasonStats,

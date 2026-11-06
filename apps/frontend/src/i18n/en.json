@@ -2105,8 +2105,6 @@
         "inStock": "{n} in stock now",
         "layingPercent": "Laying %",
         "layingHint": "Eggs ÷ hens each day",
-        "costPerEgg": "Cost per egg",
-        "costPerEggHint": "Layer costs ÷ eggs laid",
         "chartTitle": "Eggs",
         "noEggs": "No eggs recorded in these dates.",
         "byType": "By egg type",

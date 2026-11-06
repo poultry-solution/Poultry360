@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { Egg, Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
 import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 
 interface ProfitLossTabProps {
@@ -10,8 +10,10 @@ interface ProfitLossTabProps {
   analytics: any;
   perBroilerExpenseData: {
     netExpenses: number;
+    initialBroilers: number;
     remainingBroilers: number;
     totalMortality: number;
+    leftAtClose: number;
     totalSold: number;
     perBroilerExpense: number;
     displayValue: number;
@@ -63,14 +65,17 @@ export function ProfitLossTab({
   const margin = Number(analytics?.profitMargin);
   const hasSales = salesTotal > 0 && Number.isFinite(margin);
 
-  // Per bird: same value and divisor as before (birds left, or birds started when none are left).
+  // Per bird: always shared over the birds the batch started with (same as Analytics).
   const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
-  const divisor =
-    perBroilerExpenseData.remainingBroilers > 0
-      ? { birds: perBroilerExpenseData.remainingBroilers, label: "birds left" }
-      : initialBirds > 0
-        ? { birds: initialBirds, label: "birds started" }
-        : null;
+  const divisor = initialBirds > 0 ? { birds: initialBirds, label: "birds started" } : null;
+
+  // Layers: margin is not useful early on (hens cost money before eggs pay it back),
+  // so the 4th tile shows egg sales instead.
+  const isLayers = batch?.batchType === "LAYERS";
+  const eggs = analytics?.layers as
+    | { eggsCollected: number; eggsInStock: number; eggsSold: number; eggSalesAmount: number }
+    | null
+    | undefined;
   const perBirdLabel = !divisor || perBirdRounded === 0
     ? "Per bird"
     : perBroilerExpenseData.isProfit ? "Profit per bird" : "Loss per bird";
@@ -98,6 +103,10 @@ export function ProfitLossTab({
     ["Started with", initialBirds],
     ["Died", perBroilerExpenseData.totalMortality],
     ["Sold", perBroilerExpenseData.totalSold],
+    // Birds still alive when the batch was closed (not deaths).
+    ...(perBroilerExpenseData.leftAtClose > 0
+      ? ([["Left at close", perBroilerExpenseData.leftAtClose]] as Array<[string, number]>)
+      : []),
   ];
 
   return (
@@ -129,15 +138,26 @@ export function ProfitLossTab({
             sub: isBatchClosed ? "Final" : "So far",
           }}
         />
-        <StatTile
-          tile={{
-            label: "Margin",
-            icon: Percent,
-            value: hasSales ? `${margin.toFixed(1)}%` : "—",
-            valueClass: !hasSales ? "text-gray-400" : margin < 0 ? "text-red-600" : "",
-            sub: hasSales ? "of sales" : "No sales yet",
-          }}
-        />
+        {isLayers ? (
+          <StatTile
+            tile={{
+              label: "Egg sales",
+              icon: Egg,
+              value: eggs ? rupees(eggs.eggSalesAmount) : "—",
+              sub: eggs ? `${count(eggs.eggsSold)} eggs sold` : "",
+            }}
+          />
+        ) : (
+          <StatTile
+            tile={{
+              label: "Margin",
+              icon: Percent,
+              value: hasSales ? `${margin.toFixed(1)}%` : "—",
+              valueClass: !hasSales ? "text-gray-400" : margin < 0 ? "text-red-600" : "",
+              sub: hasSales ? "of sales" : "No sales yet",
+            }}
+          />
+        )}
       </div>
 
       {/* Per bird */}

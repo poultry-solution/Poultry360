@@ -143,6 +143,21 @@ describe("assembleShareReport", () => {
     expect(report.eggs!.daily.find((d) => d.day === 4)!.eggs).toBeNull();
   });
 
+  it("shows hens left at close for a closed layer batch (layers have no FCR)", () => {
+    const report = assembleShareReport(
+      baseInput({
+        batch: { ...baseInput().batch, batchType: "LAYERS" as any, status: "COMPLETED" as any, endDate: at(9) },
+        fcr: { fcr: null, displayStatus: "NOT_CALCULABLE", weightSourceDate: null, currentBirds: 0, currentSoldBirds: 50, deaths: 0, closureDeaths: 0 } as any,
+        mortalities: [
+          { date: at(2), count: 20, reason: "Heat", saleId: null },
+          { date: at(8), count: 50, reason: "SLAUGHTERED_FOR_SALE", saleId: "sale-1" },
+          { date: at(9), count: 930, reason: "BATCH_CLOSURE", saleId: null },
+        ],
+      })
+    );
+    expect(report.birds).toEqual({ started: 1000, died: 20, sold: 50, leftAtClose: 930, alive: 0 });
+  });
+
   it("shows notes only when shared", () => {
     expect(assembleShareReport(baseInput()).notes).toBeNull();
     const withNotes = assembleShareReport(baseInput({ notes: [{ date: at(5), description: "Birds panting" }] }));
