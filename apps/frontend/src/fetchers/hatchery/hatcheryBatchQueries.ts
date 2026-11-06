@@ -330,6 +330,24 @@ export const hatcheryBatchKeys = {
 // ==================== HOOKS ====================
 
 // Batch list
+/**
+ * Start date of the oldest batch, or null when there are none. The list is
+ * sorted newest first, so the last 1-row page holds the oldest batch.
+ */
+export function useFirstHatcheryBatchStartDate() {
+  return useQuery({
+    queryKey: [...hatcheryBatchKeys.lists(), "first-start-date"],
+    queryFn: async () => {
+      const { data: head } = await axiosInstance.get(`/hatchery/batches?limit=1`);
+      const total = Number(head?.total ?? 0);
+      if (total === 0) return null;
+      if (total === 1) return (head.batches[0]?.startDate as string) ?? null;
+      const { data: tail } = await axiosInstance.get(`/hatchery/batches?limit=1&page=${total}`);
+      return (tail.batches[0]?.startDate as string) ?? null;
+    },
+  });
+}
+
 export function useHatcheryBatches(filters: {
   type?: string;
   status?: string;

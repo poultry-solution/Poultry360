@@ -437,30 +437,31 @@ export default function HatcheryInventoryPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {/* Small tiles, same size as Home; all in one row on a computer. */}
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${isSelfFeedEnabled ? "lg:grid-cols-7" : "lg:grid-cols-5"}`}>
         {[
-          { label: "Total Items", value: visibleTotalItems },
-          { label: "Feed", value: stats.feedCount ?? 0, color: "text-amber-600" },
-          { label: "Medicine", value: stats.medicineCount ?? 0, color: "text-blue-600" },
-          { label: "Chicks", value: stats.chicksCount ?? 0, color: "text-yellow-600" },
+          { label: "Total items", value: visibleTotalItems, sub: "All types" },
+          { label: "Feed", value: stats.feedCount ?? 0, color: "text-amber-600", sub: "Items" },
+          { label: "Medicine", value: stats.medicineCount ?? 0, color: "text-blue-600", sub: "Items" },
+          { label: "Chicks", value: stats.chicksCount ?? 0, color: "text-yellow-600", sub: "Items" },
           ...(isSelfFeedEnabled
             ? [
-                { label: "Raw Material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600" },
-                { label: "Self Feed", value: manufacturedProducts.length, color: "text-emerald-600" },
+                { label: "Raw material", value: stats.rawMaterialCount ?? 0, color: "text-teal-600", sub: "Items" },
+                { label: "Self feed", value: manufacturedProducts.length, color: "text-emerald-600", sub: "Products" },
               ]
             : []),
           {
-            label: "Low Stock",
+            label: "Low stock",
             value: visibleLowStockCount,
-            color: visibleLowStockCount > 0 ? "text-red-600" : "text-green-600",
+            color: visibleLowStockCount > 0 ? "text-red-600" : "text-gray-500",
+            sub: "Below minimum",
           },
         ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className={`text-xl font-bold ${s.color ?? ""}`}>{s.value}</p>
-            </CardContent>
-          </Card>
+          <div key={s.label} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+            <p className="truncate text-xs font-medium text-gray-600">{s.label}</p>
+            <p className={`mt-0.5 text-lg font-bold md:text-xl ${s.color ?? ""}`}>{s.value}</p>
+            <p className="truncate text-[11px] text-gray-500">{s.sub}</p>
+          </div>
         ))}
       </div>
 

@@ -513,14 +513,15 @@ export async function getHatcheryAnalyticsOverview(req: Request, res: Response) 
       };
     });
 
+    // end is 23:59:59.999, so rounding already counts the last day. The
+    // previous window is the same number of days, ending just before start.
     const rangeDays = Math.max(
       1,
-      Math.round((end.getTime() - start.getTime()) / 86400000) + 1
+      Math.round((end.getTime() - start.getTime()) / 86400000)
     );
-    const previousEnd = new Date(start);
-    previousEnd.setDate(previousEnd.getDate() - 1);
-    const previousStart = new Date(previousEnd);
-    previousStart.setDate(previousStart.getDate() - (rangeDays - 1));
+    const previousEnd = new Date(start.getTime() - 1);
+    const previousStart = new Date(start);
+    previousStart.setDate(previousStart.getDate() - rangeDays);
 
     const [previousEggSales, previousParentSales, previousChickSales, previousExpenses] =
       await Promise.all([

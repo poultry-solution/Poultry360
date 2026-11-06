@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowUpRight, BarChart3, Layers, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import { Badge } from "@/common/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { cn } from "@/common/lib/utils";
 import { formatMoney } from "./types";
 import { MetricCard } from "./MetricCard";
+import { SectionShell } from "./SectionShell";
 import type { HatcheryAnalyticsBatchRow, HatcheryAnalyticsBatchesResponse } from "@/fetchers/hatchery/hatcheryAnalyticsQueries";
 
 export function BatchesTab({
@@ -23,6 +22,7 @@ export function BatchesTab({
   page: number;
   onPageChange: (page: number) => void;
 }) {
+  const router = useRouter();
   const columns = useMemo<Column<HatcheryAnalyticsBatchRow>[]>(
     () => [
       {
@@ -32,28 +32,11 @@ export function BatchesTab({
         render: (_, row) => (
           <div className="space-y-1">
             <p className="font-semibold text-slate-900">{row.code}</p>
-            <p className="text-xs text-slate-500">{row.name ?? "Unnamed batch"}</p>
+            {row.name ? <p className="text-xs text-slate-500">{row.name}</p> : null}
             <p className="text-[11px] text-slate-400">
-              <DateDisplay date={row.startDate} />
+              Started <DateDisplay date={row.startDate} format="long" />
             </p>
           </div>
-        ),
-      },
-      {
-        key: "type",
-        label: "Type",
-        width: "140px",
-        render: (_, row) => (
-          <Badge
-            className={cn(
-              "rounded-full",
-              row.type === "PARENT_FLOCK"
-                ? "bg-amber-50 text-amber-700 hover:bg-amber-50"
-                : "bg-indigo-50 text-indigo-700 hover:bg-indigo-50"
-            )}
-          >
-            {row.type === "PARENT_FLOCK" ? "Parent flock" : "Incubation"}
-          </Badge>
         ),
       },
       {
@@ -61,16 +44,9 @@ export function BatchesTab({
         label: "Status",
         width: "120px",
         render: (_, row) => (
-          <Badge
-            className={cn(
-              "rounded-full",
-              row.status === "ACTIVE"
-                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-100"
-            )}
-          >
-            {row.status}
-          </Badge>
+          <span className={cn("text-sm", row.status === "ACTIVE" ? "font-medium text-green-700" : "text-gray-500")}>
+            {row.status === "ACTIVE" ? "Active" : "Closed"}
+          </span>
         ),
       },
       {
@@ -84,8 +60,8 @@ export function BatchesTab({
               <p className="font-semibold text-slate-900">{row.currentParents.toLocaleString()}</p>
               {(row.currentFemaleParents ?? 0) + (row.currentMaleParents ?? 0) > 0 && (
                 <p className="text-[11px] text-slate-500">
-                  {(row.currentFemaleParents ?? 0).toLocaleString()}F ·{" "}
-                  {(row.currentMaleParents ?? 0).toLocaleString()}M
+                  female {(row.currentFemaleParents ?? 0).toLocaleString()} · male{" "}
+                  {(row.currentMaleParents ?? 0).toLocaleString()}
                 </p>
               )}
               <p className="text-[11px] text-slate-500">
@@ -98,7 +74,7 @@ export function BatchesTab({
       },
       {
         key: "mortality",
-        label: "Mortality",
+        label: "Deaths",
         align: "right",
         width: "140px",
         render: (_, row) => (
@@ -110,17 +86,17 @@ export function BatchesTab({
       },
       {
         key: "expenses",
-        label: "Expenses",
+        label: "Cost",
         align: "right",
         width: "150px",
         render: (_, row) => <span className="font-semibold text-slate-900">{formatMoney(row.expenses)}</span>,
       },
       {
         key: "revenue",
-        label: "Revenue",
+        label: "Income",
         align: "right",
         width: "150px",
-        render: (_, row) => <span className="font-semibold text-emerald-700">{formatMoney(row.revenue)}</span>,
+        render: (_, row) => <span className="font-semibold text-green-700">{formatMoney(row.revenue)}</span>,
       },
       {
         key: "profit",
@@ -128,21 +104,21 @@ export function BatchesTab({
         align: "right",
         width: "150px",
         render: (_, row) => (
-          <span className={cn("font-semibold", row.profit >= 0 ? "text-indigo-700" : "text-rose-600")}>
+          <span className={cn("font-semibold", row.profit >= 0 ? "text-green-700" : "text-red-600")}>
             {formatMoney(row.profit)}
           </span>
         ),
       },
       {
         key: "producedChicks",
-        label: "Output",
+        label: "Chicks",
         align: "right",
         width: "170px",
         render: (_, row) => (
           <div className="text-right">
             <p className="font-semibold text-slate-900">{row.producedChicks.toLocaleString()}</p>
             <p className="text-[11px] text-slate-500">
-              {row.soldChicks.toLocaleString()} sold · {row.hatchabilityRate.toFixed(1)}%
+              {row.soldChicks.toLocaleString()} sold · hatch {row.hatchabilityRate.toFixed(1)}%
             </p>
           </div>
         ),
@@ -151,48 +127,40 @@ export function BatchesTab({
     []
   );
 
+  const avg = (n: number) => formatMoney(data.summary.totalBatches > 0 ? n / data.summary.totalBatches : 0);
+
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricCard
           title="Batches"
           value={data.summary.totalBatches.toLocaleString()}
           subtitle={`${data.summary.activeBatches} active · ${data.summary.closedBatches} closed`}
-          icon={Layers}
         />
-        <MetricCard
-          title="Revenue"
-          value={formatMoney(data.summary.totalRevenue)}
-          subtitle={`Avg per batch ${formatMoney(data.summary.totalBatches > 0 ? data.summary.totalRevenue / data.summary.totalBatches : 0)}`}
-          icon={ArrowUpRight}
-          tone="text-emerald-600"
-        />
-        <MetricCard
-          title="Expenses"
-          value={formatMoney(data.summary.totalExpenses)}
-          subtitle={`Avg per batch ${formatMoney(data.summary.totalBatches > 0 ? data.summary.totalExpenses / data.summary.totalBatches : 0)}`}
-          icon={Wallet}
-          tone="text-orange-700"
-        />
+        <MetricCard title="Income" value={formatMoney(data.summary.totalRevenue)} subtitle={`About ${avg(data.summary.totalRevenue)} per batch`} tone="text-green-700" />
+        <MetricCard title="Cost" value={formatMoney(data.summary.totalExpenses)} subtitle={`About ${avg(data.summary.totalExpenses)} per batch`} tone="text-red-600" />
         <MetricCard
           title="Profit"
           value={formatMoney(data.summary.totalProfit)}
-          subtitle={`${data.summary.averageMortalityRate.toFixed(1)}% avg mortality`}
-          icon={BarChart3}
-          tone={data.summary.totalProfit >= 0 ? "text-indigo-600" : "text-rose-600"}
+          subtitle={`${data.summary.averageMortalityRate.toFixed(1)}% birds died on average`}
+          tone={data.summary.totalProfit >= 0 ? "text-green-700" : "text-red-600"}
         />
       </div>
 
-      <Card className="overflow-hidden border-slate-200/80 shadow-sm">
-        <CardHeader className="space-y-1 border-b bg-gradient-to-r from-slate-50 to-white">
-          <CardTitle className="text-base">Batch performance</CardTitle>
-          <CardDescription>Server-side paginated batch summary for the selected scope.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <DataTable data={data.batches} columns={columns} loading={loading} emptyMessage="No batches match the current filters." className="border-0 rounded-none" />
-          <LedgerPagination page={page} totalPages={data.totalPages} totalRows={data.total} pageLimit={data.limit} onPageChange={onPageChange} loading={loading} className="border-t" />
-        </CardContent>
-      </Card>
+      <SectionShell title="Each batch" description="Money and birds for each parent flock. Tap a row to open it." flush>
+        <div className="overflow-x-auto">
+          <DataTable
+            data={data.batches}
+            columns={columns}
+            loading={loading}
+            emptyMessage="No batches in these dates."
+            className="rounded-none border-0"
+            getRowKey={(row) => row.id}
+            onRowClick={(row) => router.push(`/hatchery/dashboard/batches/${row.id}`)}
+          />
+          <LedgerPagination page={page} totalPages={data.totalPages} totalRows={data.total} pageLimit={data.limit} onPageChange={onPageChange} loading={loading} className="border-t px-4" />
+        </div>
+      </SectionShell>
     </div>
   );
 }

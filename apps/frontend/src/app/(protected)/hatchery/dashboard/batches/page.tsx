@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -20,7 +20,6 @@ import {
 } from "@/common/components/ui/dialog";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
-import { Badge } from "@/common/components/ui/badge";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
@@ -31,6 +30,26 @@ import {
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useGetHatcheryInventoryTable } from "@/fetchers/hatchery/hatcheryInventoryQueries";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
+import { useGetHatcheryAnalyticsBatches } from "@/fetchers/hatchery/hatcheryAnalyticsQueries";
+import { useAuthStore } from "@/common/store/store";
+import { formatRupeesExact } from "@/common/lib/utils";
+
+/** Flock age from the start date, by Nepal day: "Week 32 (day 220)". */
+function flockAge(startDate: string, endDate?: string | null) {
+  const end = endDate ? toNepalDayAd(endDate) : getNepalTodayAd();
+  const days = Math.round((Date.parse(end) - Date.parse(toNepalDayAd(startDate))) / 86_400_000) + 1;
+  return { days, weeks: Math.ceil(days / 7) };
+}
+
+function Tile({ label, value, sub, tone = "text-gray-900" }: { label: string; value: string; sub: string; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+      <p className="truncate text-xs font-medium text-gray-600">{label}</p>
+      <p className={`mt-0.5 text-lg font-bold md:text-xl ${tone}`}>{value}</p>
+      <p className="truncate text-[11px] text-gray-500">{sub}</p>
+    </div>
+  );
+}
 
 type StatusFilter = "" | "ACTIVE" | "CLOSED";
 
@@ -53,6 +72,23 @@ export default function HatcheryBatchesPage() {
     limit: 10,
   });
   const batches = data?.batches ?? [];
+
+  // Tiles look at every batch, not just this page.
+  const { data: allData } = useHatcheryBatches({ type: "PARENT_FLOCK", limit: 200 });
+  const allBatches = allData?.batches ?? [];
+  const activeBatches = allBatches.filter((b) => b.status === "ACTIVE");
+  const femaleAlive = activeBatches.reduce((sum, b) => sum + Number(b.currentFemaleParents ?? 0), 0);
+  const maleAlive = activeBatches.reduce((sum, b) => sum + Number(b.currentMaleParents ?? 0), 0);
+
+  // Whole-batch profit (all time), for people allowed to see analytics.
+  const user = useAuthStore((st) => st.user);
+  const canViewAnalytics = !user?.isStaff || Boolean(user.permissions?.includes("HATCHERY_VIEW_ANALYTICS"));
+  const { data: moneyData } = useGetHatcheryAnalyticsBatches({ startDate: "2000-01-01", page: 1, limit: 200 }, canViewAnalytics);
+  const profitById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of moneyData?.batches ?? []) map.set(r.id, Number(r.profit ?? 0));
+    return map;
+  }, [moneyData]);
   const paginationTotal = Number(data?.total ?? 0);
   const paginationLimit = Number(data?.limit ?? 10);
   const paginationPage = Math.max(1, Number(data?.page ?? page));
@@ -116,7 +152,7 @@ export default function HatcheryBatchesPage() {
       (p) => p.inventoryItemId && p.quantity
     );
     if (validPlacements.length === 0) {
-      setFormError("At least one inventory placement is required");
+      setFormError("Choose the parent birds from stock and how many");
       return;
     }
 
@@ -134,7 +170,8 @@ export default function HatcheryBatchesPage() {
       resetForm();
       router.push(`/hatchery/dashboard/batches/${batch.id}`);
     } catch (err: any) {
-      setFormError(err?.response?.data?.error ?? "Failed to create batch");
+      const d = err?.response?.data;
+      setFormError(d?.message ?? d?.error ?? "Could not start the batch. Please try again.");
     }
   }
 
@@ -145,6 +182,32 @@ export default function HatcheryBatchesPage() {
     setFormError(null);
   }
 
+  const open = (row: HatcheryBatch) => router.push(`/hatchery/dashboard/batches/${row.id}`);
+
+  const statusText = (row: HatcheryBatch) => (
+    <span
+      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+        row.status === "ACTIVE" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+      }`}
+    >
+      {row.status === "ACTIVE" ? "Active" : "Closed"}
+    </span>
+  );
+
+  const ageText = (row: HatcheryBatch) => {
+    const age = flockAge(row.startDate, row.status === "CLOSED" ? row.endDate : null);
+    return `Week ${age.weeks} · day ${age.days}`;
+  };
+
+  const birdsText = (row: HatcheryBatch) =>
+    `female ${(row.currentFemaleParents ?? 0).toLocaleString()} · male ${(row.currentMaleParents ?? 0).toLocaleString()}`;
+
+  const profitCell = (row: HatcheryBatch) => {
+    const v = profitById.get(row.id);
+    if (v === undefined) return <span className="text-gray-300">—</span>;
+    return <span className={`whitespace-nowrap font-medium ${v < 0 ? "text-red-600" : "text-green-700"}`}>{formatRupeesExact(v)}</span>;
+  };
+
   const columns: Column<HatcheryBatch>[] = [
     {
       key: "code",
@@ -153,44 +216,15 @@ export default function HatcheryBatchesPage() {
         <div>
           <p className="font-semibold text-gray-900">
             {row.code}
-            {row.name && <span className="text-gray-500 font-normal ml-2">– {row.name}</span>}
+            {row.name && <span className="ml-1 font-normal text-gray-500">· {row.name}</span>}
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            <DateDisplay date={row.startDate} />
+          <p className="mt-0.5 text-xs text-gray-500">
+            Started <DateDisplay date={row.startDate} format="long" />
           </p>
         </div>
       ),
     },
-    {
-      key: "type",
-      label: "Type",
-      render: (_, row) => (
-        <Badge
-          className={
-            row.type === "PARENT_FLOCK"
-              ? "bg-amber-100 text-amber-800 border-amber-200"
-              : "bg-purple-100 text-purple-800 border-purple-200"
-          }
-        >
-          {row.type === "PARENT_FLOCK" ? "Parent Flock" : "Incubation"}
-        </Badge>
-      ),
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (_, row) => (
-        <Badge
-          className={
-            row.status === "ACTIVE"
-              ? "bg-green-100 text-green-800 border-green-200"
-              : "bg-gray-100 text-gray-600 border-gray-200"
-          }
-        >
-          {row.status}
-        </Badge>
-      ),
-    },
+    { key: "age", label: "Age", render: (_, row) => <span className="whitespace-nowrap text-sm text-gray-600">{ageText(row)}</span> },
     {
       key: "currentParents",
       label: "Birds",
@@ -199,88 +233,104 @@ export default function HatcheryBatchesPage() {
         row.currentParents !== null ? (
           <div className="leading-tight">
             <span className="font-medium">{row.currentParents.toLocaleString()}</span>
-            {(row.currentFemaleParents ?? 0) + (row.currentMaleParents ?? 0) > 0 && (
-              <p className="text-[11px] text-gray-500">
-                {(row.currentFemaleParents ?? 0).toLocaleString()}F ·{" "}
-                {(row.currentMaleParents ?? 0).toLocaleString()}M
-              </p>
-            )}
+            <p className="text-[11px] text-gray-500">{birdsText(row)}</p>
           </div>
         ) : (
           <span className="text-gray-400">—</span>
         ),
     },
-    {
-      key: "__actions",
-      label: "",
-      align: "right",
-      width: "80px",
-      render: (_, row) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => router.push(`/hatchery/dashboard/batches/${row.id}`)}
-        >
-          View
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      ),
-    },
+    ...(canViewAnalytics
+      ? [{ key: "profit", label: "Profit (whole batch)", align: "right" as const, render: (_: unknown, row: HatcheryBatch) => profitCell(row) }]
+      : []),
+    { key: "status", label: "Status", render: (_, row) => statusText(row) },
+    { key: "__go", label: "", align: "right", width: "40px", render: () => <ChevronRight className="ml-auto h-4 w-4 text-gray-400" /> },
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Layers className="h-6 w-6 text-amber-600" />
             Batches
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your parent flock batches
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Your parent flocks. Open one to record eggs, feed, deaths and sales.</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          New Batch
+          <Plus className="h-4 w-4" />
+          New batch
         </Button>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile label="Active batches" value={activeBatches.length.toLocaleString()} sub={`${allBatches.length - activeBatches.length} closed`} />
+        <Tile label="Birds alive" value={(femaleAlive + maleAlive).toLocaleString()} sub="In active batches" />
+        <Tile label="Female alive" value={femaleAlive.toLocaleString()} sub="Hens" />
+        <Tile label="Male alive" value={maleAlive.toLocaleString()} sub="Cocks" />
+      </div>
+
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Input
-          placeholder="Search batches..."
+          placeholder="Search by code or name"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64"
+          className="h-9 w-full max-w-64"
         />
-        <div className="flex gap-1 border rounded-lg p-1 bg-gray-50">
-          {(["", "ACTIVE", "CLOSED"] as StatusFilter[]).map((s) => (
+        <div className="flex gap-1 rounded-lg border bg-gray-50 p-1">
+          {(["", "ACTIVE", "CLOSED"] as StatusFilter[]).map((st) => (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                statusFilter === s
-                  ? "bg-white shadow-sm text-gray-900"
-                  : "text-gray-500 hover:text-gray-700"
+              key={st}
+              type="button"
+              onClick={() => setStatusFilter(st)}
+              className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                statusFilter === st ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {s === "" ? "All" : s}
+              {st === "" ? "All" : st === "ACTIVE" ? "Active" : "Closed"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <DataTable
-          data={batches}
-          columns={columns}
-          loading={isLoading}
-          emptyMessage={isError ? "Could not load batches. Check your connection and try again." : "No batches yet. Tap New batch to add one."}
-          getRowKey={(row) => row.id}
-        />
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="hidden sm:block">
+          <DataTable
+            data={batches}
+            columns={columns}
+            loading={isLoading}
+            emptyMessage={isError ? "Could not load batches. Check your connection and try again." : "No batches yet. Tap New batch to add one."}
+            getRowKey={(row) => row.id}
+            onRowClick={open}
+          />
+        </div>
+        {/* Phone: one card per batch */}
+        <div className="sm:hidden">
+          {isLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
+          ) : batches.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-gray-500">No batches yet. Tap New batch to add one.</p>
+          ) : (
+            <ul className="divide-y">
+              {batches.map((row) => (
+                <li key={row.id}>
+                  <button type="button" onClick={() => open(row)} className="flex w-full items-start gap-2 px-4 py-3 text-left active:bg-gray-50">
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-gray-900">
+                        {row.code} {statusText(row)}
+                      </p>
+                      <p className="text-xs text-gray-500">{ageText(row)} · {(row.currentParents ?? 0).toLocaleString()} birds</p>
+                      <p className="text-xs text-gray-500">{birdsText(row)}</p>
+                      {canViewAnalytics ? <p className="text-xs">Profit {profitCell(row)}</p> : null}
+                    </div>
+                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-400" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <LedgerPagination
           page={paginationPage}
           totalPages={totalPages}
@@ -294,9 +344,9 @@ export default function HatcheryBatchesPage() {
 
       {/* Create Modal */}
       <Dialog open={showCreate} onOpenChange={(open) => { if (!open) { setShowCreate(false); resetForm(); } }}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>Create Parent Flock Batch</DialogTitle>
+            <DialogTitle>Start a new parent batch</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -309,7 +359,7 @@ export default function HatcheryBatchesPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
+                Date placed
               </label>
               <DateInput value={startDate} onChange={setStartDate} />
             </div>
@@ -319,7 +369,7 @@ export default function HatcheryBatchesPage() {
                 Notes (optional)
               </label>
               <Input
-                placeholder="Any notes about this batch"
+                placeholder="e.g. Day-old parent chicks from Kalika"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -329,13 +379,14 @@ export default function HatcheryBatchesPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-gray-700">
-                  Chick Placements (from Inventory)
+                  Parent birds from stock
                 </label>
                 <button
+                  type="button"
                   onClick={addPlacementRow}
                   className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                 >
-                  <Plus className="h-3 w-3" /> Add Row
+                  <Plus className="h-3 w-3" /> Add another
                 </button>
               </div>
 
@@ -347,7 +398,7 @@ export default function HatcheryBatchesPage() {
                       value={placement.inventoryItemId}
                       onChange={(e) => updatePlacement(idx, "inventoryItemId", e.target.value)}
                     >
-                      <option value="">Select inventory item</option>
+                      <option value="">Choose birds from stock</option>
                       {inventoryItems.map((item: any) => (
                         <option key={item.id} value={item.id}>
                           {item.name}
@@ -364,7 +415,7 @@ export default function HatcheryBatchesPage() {
                     <Input
                       type="number"
                       min="1"
-                      placeholder="Qty"
+                      placeholder="How many"
                       className="w-full sm:w-28"
                       value={placement.quantity}
                       onChange={(e) => updatePlacement(idx, "quantity", e.target.value)}
@@ -397,7 +448,7 @@ export default function HatcheryBatchesPage() {
 
               {inventoryItems.length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">
-                  No chick inventory items found. Add chicks to inventory first.
+                  No parent birds in stock. Buy them on the Inventory page first.
                 </p>
               )}
             </div>
@@ -409,7 +460,7 @@ export default function HatcheryBatchesPage() {
               disabled={createMutation.isPending}
             >
               {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Create Batch
+              {createMutation.isPending ? "Saving..." : "Start batch"}
             </Button>
             <Button
               variant="outline"

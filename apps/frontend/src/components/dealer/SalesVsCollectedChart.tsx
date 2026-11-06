@@ -12,7 +12,7 @@ import {
 } from "@/common/components/ui/chart";
 import { BS_MONTH_NAMES, convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useGetDealerSalesTrend, type SalesTrendDay } from "@/fetchers/dealer/dealerSaleQueries";
-import { CustomRangePickers, RangeModeSwitch, useNepaliDateRange, type DateRange } from "@/components/dealer/NepaliRangeFilter";
+import { CustomRangePickers, RangeModeSwitch, useNepaliDateRange, type DateRange } from "@/components/common/NepaliRangeFilter";
 
 const chartConfig = {
   sales: { label: "Sales", color: "#16a34a" },
