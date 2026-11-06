@@ -444,15 +444,15 @@ model Batch {
   currentWeight Decimal? @db.Decimal(6, 2) // kg per bird, nullable initially
 
   // Relationships
-  farmId           String
-  farm             Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  expenses         Expense[]
-  sales            Sale[]
-  mortalities      Mortality[]
-  vaccinations     Vaccination[]
-  feedConsumptions FeedConsumption[]
-  birdWeights      BirdWeight[]
-  inventoryUsages  InventoryUsage[]
+  farmId                String
+  farm                  Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  expenses              Expense[]
+  sales                 Sale[]
+  mortalities           Mortality[]
+  vaccinations          Vaccination[]
+  feedConsumptions      FeedConsumption[]
+  birdWeights           BirdWeight[]
+  inventoryUsages       InventoryUsage[]
   inventoryTransactions InventoryTransaction[]
 
   // Layers: daily egg production (one record per batch per day)
@@ -546,24 +546,97 @@ model BatchNote {
 }
 
 // ==================== REMINDERS ====================
+// Shared by the farmer and hatchery modules (more modules can be added to
+// ReminderModule later). The owner User is the tenant; staff are StaffUser.
+enum ReminderModule {
+  FARMER
+  HATCHERY
+}
+
+// Who gets the phone alert. The owner always sees every reminder in the list.
+enum ReminderAudience {
+  ONLY_ME // the creator only
+  EVERYONE // owner + all active staff of the module (worked out at send time)
+  SELECTED // notifyOwner flag + ReminderRecipient rows
+}
+
+enum ReminderRepeat {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  EVERY_N_DAYS
+}
+
 model Reminder {
   id           String   @id @default(cuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title        String // What to be reminded of
-  reminderDate DateTime // Date (day) when user wants to be reminded
-  isNoticed    Boolean  @default(false) // When true, hide from "due" list
+  reminderDate DateTime // Exact moment (date + time) to remind
+  // Legacy "already notified" flag. Kept so an old backend keeps working
+  // during a deploy; new code uses notifiedAt.
+  isNoticed    Boolean  @default(false)
 
+  module      ReminderModule   @default(FARMER)
+  audience    ReminderAudience @default(ONLY_ME)
+  // Whether the owner gets the alert (always true for ONLY_ME by owner and EVERYONE).
+  notifyOwner Boolean          @default(true)
+
+  // null = made by the owner
+  createdByStaffId String?
+  createdByStaff   StaffUser? @relation("ReminderCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+
+  // Set once the alert was sent for the current reminderDate (claimed by the job).
+  notifiedAt    DateTime?
+  doneAt        DateTime?
+  // null with doneAt set = done by the owner
+  doneByStaffId String?
+  doneByStaff   StaffUser? @relation("ReminderDoneBy", fields: [doneByStaffId], references: [id], onDelete: SetNull)
+
+  repeat          ReminderRepeat @default(NONE)
+  repeatEveryDays Int? // only for EVERY_N_DAYS
+  repeatUntil     DateTime?
+  // Set on the next reminder made when a repeating one is marked done, so
+  // done -> undo -> done never makes a second copy.
+  repeatedFromId  String?        @unique
+  repeatedFrom    Reminder?      @relation("ReminderRepeatChain", fields: [repeatedFromId], references: [id], onDelete: SetNull)
+  repeatedTo      Reminder?      @relation("ReminderRepeatChain")
+
+  // Farmer links
   farmId  String?
   farm    Farm?   @relation(fields: [farmId], references: [id], onDelete: SetNull)
   batchId String?
   batch   Batch?  @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  // Hatchery links (at most one per reminder)
+  hatcheryBatchId String?
+  hatcheryBatch   HatcheryBatch?           @relation(fields: [hatcheryBatchId], references: [id], onDelete: SetNull)
+  incubationId    String?
+  incubation      HatcheryIncubationBatch? @relation(fields: [incubationId], references: [id], onDelete: SetNull)
+  hatcheryPartyId String?
+  hatcheryParty   HatcheryParty?           @relation(fields: [hatcheryPartyId], references: [id], onDelete: SetNull)
+
+  recipients ReminderRecipient[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([userId, reminderDate, isNoticed])
+  @@index([userId, module, doneAt, reminderDate])
+  @@index([notifiedAt, doneAt, reminderDate])
+}
+
+// Staff picked for a SELECTED reminder (also the staff creator of ONLY_ME).
+model ReminderRecipient {
+  reminderId  String
+  reminder    Reminder  @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  staffUserId String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@id([reminderId, staffUserId])
+  @@index([staffUserId])
 }
 
 // ==================== EGG MODELS (LAYERS) ====================
@@ -1482,7 +1555,7 @@ model DealerFarmerPayment {
   // the payment itself belongs to the dealer-farmer account, not to the
   // recorder, so losing the "who keyed this in" link is acceptable.
   recordedById String?
-  recordedBy   User?  @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedBy   User?   @relation("DealerFarmerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -1791,10 +1864,10 @@ model DealerBroilerPurchase {
   settlementId String?
   settlement   BroilerSaleSettlement? @relation("BroilerSettlementPurchases", fields: [settlementId], references: [id], onDelete: SetNull)
 
-  weightKg     Decimal @db.Decimal(10, 2)
+  weightKg     Decimal  @db.Decimal(10, 2)
   broilerCount Int?
-  ratePerKg    Decimal @db.Decimal(10, 2)
-  totalCost    Decimal @db.Decimal(12, 2)
+  ratePerKg    Decimal  @db.Decimal(10, 2)
+  totalCost    Decimal  @db.Decimal(12, 2)
   date         DateTime
   notes        String?
 
@@ -2059,7 +2132,7 @@ model CompanyDealerPayment {
   // belongs to the company-dealer account, not to the recorder, so losing
   // the "who keyed this in" link is acceptable.
   recordedById String?
-  recordedBy   User?  @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedBy   User?   @relation("CompanyDealerPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -2732,25 +2805,31 @@ model Staff {
 }
 
 model StaffUser {
-  id             String            @id @default(cuid())
+  id                 String            @id @default(cuid())
   // The owner account is the tenant boundary for every staff identity.
-  ownerId        String
-  owner          User              @relation("StaffUserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId            String
+  owner              User              @relation("StaffUserOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   // Deliberately uses the existing role enum so supporting a future account
   // module does not require another StaffUser schema redesign.
-  accountRole    UserRole
-  name           String
-  phone          String            @unique
-  passwordHash   String
-  isActive       Boolean           @default(true)
+  accountRole        UserRole
+  name               String
+  phone              String            @unique
+  passwordHash       String
+  isActive           Boolean           @default(true)
   // true when the staff must set a new password before using the app:
   // auto-set on create and on owner-triggered password reset. Cleared when
   // the staff self-changes or acknowledges "keep current" from the modal.
-  mustChangePassword Boolean       @default(false)
-  permissions    StaffPermission[] @default([])
-  sessionVersion Int               @default(1)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  mustChangePassword Boolean           @default(false)
+  permissions        StaffPermission[] @default([])
+  sessionVersion     Int               @default(1)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  remindersCreated   Reminder[]          @relation("ReminderCreatedBy")
+  remindersDone      Reminder[]          @relation("ReminderDoneBy")
+  reminderRecipients ReminderRecipient[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
 
   @@index([ownerId])
   @@index([ownerId, accountRole])
@@ -2759,15 +2838,18 @@ model StaffUser {
 
 // ==================== PUSH SUBSCRIPTIONS ====================
 model PushSubscription {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String    @db.Text
-  p256dh    String    @db.Text
-  auth      String    @db.Text
-  userAgent String?
-  createdAt DateTime  @default(now())
-  revokedAt DateTime?
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    String     @db.Text
+  p256dh      String     @db.Text
+  auth        String     @db.Text
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+  revokedAt   DateTime?
+  // null = the owner's device; set = this staff login's device
+  staffUserId String?
+  staffUser   StaffUser? @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
 
   @@unique([userId, endpoint])
   @@index([userId])
@@ -2781,18 +2863,22 @@ enum NotificationStatus {
 }
 
 model Notification {
-  id        String             @id @default(cuid())
-  userId    String
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
-  title     String
-  body      String
-  data      Json? // { url, reminderId, etc. }
-  status    NotificationStatus @default(UNREAD)
-  createdAt DateTime           @default(now())
-  readAt    DateTime?
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String // e.g. "REMINDER_DUE", "STAFF_DUE", etc.
+  title       String
+  body        String
+  data        Json? // { url, reminderId, etc. }
+  status      NotificationStatus @default(UNREAD)
+  createdAt   DateTime           @default(now())
+  readAt      DateTime?
+  // null = the owner's inbox; set = this staff login's inbox
+  staffUserId String?
+  staffUser   StaffUser?         @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, createdAt])
+  @@index([userId, staffUserId, status, createdAt])
   @@index([userId, createdAt])
 }
 
@@ -3156,6 +3242,8 @@ model HatcheryBatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  reminders Reminder[]
+
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
   @@index([status])
@@ -3423,6 +3511,8 @@ model HatcheryIncubationBatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  reminders Reminder[]
+
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
   @@index([parentBatchId])
@@ -3560,6 +3650,8 @@ model HatcheryParty {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  reminders Reminder[]
 
   @@unique([hatcheryOwnerId, phone])
   @@index([hatcheryOwnerId])

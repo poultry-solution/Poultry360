@@ -100,6 +100,10 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
 
   // Reminders
   "POST reminders": { description: "Added a reminder", targetType: "Reminder" },
+  "PATCH reminders/record": { description: "Changed a reminder", targetType: "Reminder" },
+  "POST reminders/record/done": { description: "Marked a reminder done", targetType: "Reminder" },
+  "POST reminders/record/undo": { description: "Undid a done reminder", targetType: "Reminder" },
+  "POST reminders/record/snooze": { description: "Snoozed a reminder", targetType: "Reminder" },
   "DELETE reminders/record": { description: "Deleted a reminder", targetType: "Reminder" },
 
   // List for sale

@@ -565,7 +565,10 @@ describe("Account feature API", () => {
     expect((await apiHelper.get("/company/ledger/summary")).status).toBe(403);
     expect((await apiHelper.get("/company/analytics")).status).toBe(403);
     expect((await apiHelper.get("/business-activity")).status).toBe(403);
-    expect((await apiHelper.get("/notifications")).status).toBe(403);
+    // Staff have their own (empty) inbox; they never see the owner's rows.
+    const staffInbox = await apiHelper.get("/notifications");
+    expect(staffInbox.status).toBe(200);
+    expect(staffInbox.body.data.every((n: any) => n.staffUserId !== null)).toBe(true);
   });
 
   it("writes Dealer payroll changes to the account activity feed", async () => {

@@ -1,4 +1,5 @@
 import axiosInstance from "@/common/lib/axios";
+export { getCurrentPushEndpoint } from "@/common/lib/pushEndpoint";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 

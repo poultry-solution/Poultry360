@@ -54,15 +54,16 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   const { t } = useI18n();
   const [notifOpen, setNotifOpen] = useState(false);
   const [displayLimit, setDisplayLimit] = useState(NOTIFICATION_PAGE_SIZE);
-  const canUseOwnerNotifications = user ? !user.isStaff : false;
+  // Owner and staff each have their own inbox (the server keeps them apart).
+  const canUseNotifications = Boolean(user);
   const canUseOwnerSettings = user ? !user.isStaff : false;
   const isStaff = !!user?.isStaff;
   const [changePwOpen, setChangePwOpen] = useState(false);
 
-  const { data: unreadData } = useGetUnreadCount({ enabled: canUseOwnerNotifications });
+  const { data: unreadData } = useGetUnreadCount({ enabled: canUseNotifications });
   const unreadCount = unreadData?.data?.count ?? 0;
 
-  const { data: notifData, isLoading: notifLoading } = useGetNotifications({ limit: displayLimit, enabled: canUseOwnerNotifications });
+  const { data: notifData, isLoading: notifLoading } = useGetNotifications({ limit: displayLimit, enabled: canUseNotifications });
   const notifications = notifData?.data ?? [];
   const totalNotifications = notifData?.total ?? 0;
   const hasMore = totalNotifications > displayLimit;
@@ -99,7 +100,7 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
   };
 
   const showEnablePush =
-    canUseOwnerNotifications &&
+    canUseNotifications &&
     isAuthenticated &&
     isPushSupported() &&
     getNotificationPermission() === "default";
@@ -126,8 +127,8 @@ export default function Topbar({ role, isCollapsed = false, onToggle }: TopbarPr
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-2">
-        {/* Notifications belong to the owner User, not a staff login. */}
-        {canUseOwnerNotifications && <div className="relative">
+        {/* Each person (owner or staff login) sees only their own notifications. */}
+        {canUseNotifications && <div className="relative">
           <Button
             variant="ghost"
             size="icon"

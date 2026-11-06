@@ -1,5 +1,6 @@
 "use client";
 
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { useEffect, useState, useMemo } from "react";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useParams, useRouter } from "next/navigation";
@@ -241,7 +242,8 @@ export default function HatcheryBatchDetailPage() {
         </div>
 
         {isClosed ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RemindMeButton module="hatchery" link={{ hatcheryBatchId: batch.id }} className="h-9" />
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
@@ -265,7 +267,8 @@ export default function HatcheryBatchDetailPage() {
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <RemindMeButton module="hatchery" link={{ hatcheryBatchId: batch.id }} className="h-9" />
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"

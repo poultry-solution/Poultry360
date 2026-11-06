@@ -95,6 +95,15 @@ export default function IncubationsPage() {
     (b) => b.type === "PARENT_FLOCK"
   );
 
+  // Home "Start incubation" links here with ?new=1 to open the form at once.
+  // Read from window (not useSearchParams) so the page needs no Suspense wrap.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") return;
+    setShowCreate(true);
+    router.replace("/hatchery/dashboard/incubations");
+  }, [router]);
+
   useEffect(() => {
     setPage(1);
   }, [stageFilter, parentBatchFilter, search]);

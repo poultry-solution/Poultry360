@@ -1,5 +1,6 @@
 "use client";
 
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
@@ -104,7 +105,8 @@ export default function IncubationDetailPage() {
           <h1 className="text-2xl font-bold">{batch.code}</h1>
           {batch.name && <p className="text-sm text-muted-foreground">{batch.name}</p>}
         </div>
-        <span className={`ml-auto px-3 py-1 rounded-full text-sm font-medium ${STAGE_COLORS[batch.stage]}`}>
+        <RemindMeButton module="hatchery" link={{ incubationId: batch.id }} className="ml-auto h-9" />
+        <span className={`px-3 py-1 rounded-full text-sm font-medium ${STAGE_COLORS[batch.stage]}`}>
           {batch.stage}
         </span>
       </div>

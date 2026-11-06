@@ -16,7 +16,7 @@ import {
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { BatchProfitChart } from "@/components/dashboard/BatchProfitChart";
 import { MoneyDetailsModal } from "@/components/dashboard/modals/MoneyDetailsModal";
-import { ReminderCard } from "@/components/dashboard/ReminderCard";
+import { ReminderCard } from "@/components/reminders/ReminderCard";
 import { QuickActionBtnsFarmer } from "@/components/dashboard/QuickActionBtns-Farmer";
 import { useI18n } from "@/i18n/useI18n";
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -214,7 +214,7 @@ export default function DashboardPage() {
       {/* Reminders (same grid so size/placement unchanged) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="min-w-0">
-          <ReminderCard />
+          <ReminderCard module="farmer" />
         </div>
       </div>
 

@@ -76,6 +76,14 @@ const hatcheryActivityCopy: Record<string, HatcheryActivityCopy> = {
   "POST egg-types": { description: "Added an egg type", targetType: "Hatchery egg type" },
   "PUT egg-types/record": { description: "Updated an egg type", targetType: "Hatchery egg type" },
   "DELETE egg-types/record": { description: "Deleted an egg type", targetType: "Hatchery egg type" },
+
+  // Reminders (shared /reminders route, not under /hatchery/)
+  "POST reminders": { description: "Added a reminder", targetType: "Reminder" },
+  "PATCH reminders/record": { description: "Changed a reminder", targetType: "Reminder" },
+  "POST reminders/record/done": { description: "Marked a reminder done", targetType: "Reminder" },
+  "POST reminders/record/undo": { description: "Undid a done reminder", targetType: "Reminder" },
+  "POST reminders/record/snooze": { description: "Snoozed a reminder", targetType: "Reminder" },
+  "DELETE reminders/record": { description: "Deleted a reminder", targetType: "Reminder" },
 };
 
 function activityCopy(method: string, route: string): HatcheryActivityCopy {
@@ -106,6 +114,8 @@ export function auditSuccessfulHatcheryMutation(
     const rawRoute = `${req.baseUrl}${req.route?.path || req.path}`;
     const route = rawRoute
       .replace(/^.*\/hatchery\/?/, "")
+      // Shared routes such as /api/v1/reminders have no /hatchery/ part.
+      .replace(/^\/?api(?:\/v\d+)?\//, "")
       .replace(/:[^/]+/g, "record")
       .replace(/\/[A-Za-z0-9_-]{12,}(?=\/|$)/g, "/record")
       .replace(/\/+/g, "/")

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
 import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
 import Link from "next/link";
@@ -1501,6 +1502,11 @@ export default function BatchDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <RemindMeButton
+          module="farmer"
+          link={{ farmId: batch.farm?.id ?? batch.farmId, batchId: batch.id }}
+          className="h-9 text-xs sm:text-sm"
+        />
         <Button
           variant="outline"
           className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs sm:text-sm"
