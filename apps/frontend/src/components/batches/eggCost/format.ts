@@ -46,3 +46,18 @@ export function weekLabel(dayKey: string) {
     return dayKey;
   }
 }
+
+/**
+ * Which period to show first: this month if it has eggs, else last month,
+ * else the whole batch. Closed batches start on the whole batch.
+ * Shared by the Egg cost tab and the Overview / Profit & Loss summaries.
+ */
+export function pickDefaultPeriod(view: {
+  closed: boolean;
+  periods: { current: { eggs: number } | null; previous: unknown | null };
+}): "current" | "previous" | "whole" {
+  if (view.closed) return "whole";
+  if (view.periods.current && view.periods.current.eggs > 0) return "current";
+  if (view.periods.previous) return "previous";
+  return "whole";
+}

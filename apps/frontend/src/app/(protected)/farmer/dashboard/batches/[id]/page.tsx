@@ -33,6 +33,7 @@ import {
   useGetBatchById,
   useGetBatchAnalytics,
   useGetBatchFcrHistory,
+  useGetBatchEggCost,
   useDeleteBatch,
   useCloseBatch,
   useUpdateBatch,
@@ -184,6 +185,10 @@ export default function BatchDetailPage() {
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
+  // Layers: cost per tray and hen payback replace "per bird" while the batch runs.
+  // Same query as the Egg cost tab, so it is shared and refreshed with it.
+  const isLayers = (batch as any)?.batchType === "LAYERS";
+  const eggCostQuery = useGetBatchEggCost(safeBatchId, { enabled: !!batchId && isLayers });
   const fcrHistory = fcrHistoryResponse?.data || [];
 
   const tabs: TabName[] = batch
@@ -1632,6 +1637,10 @@ export default function BatchDetailPage() {
 
       {activeTab === "Overview" && (
         <OverviewTab
+          isLayers={isLayers}
+          eggCost={eggCostQuery.data}
+          eggCostLoading={eggCostQuery.isLoading}
+          onOpenEggCost={() => setActiveTab("Egg cost")}
           batch={batch}
           analytics={analytics}
           fcrHistory={fcrHistory}
@@ -1705,6 +1714,9 @@ export default function BatchDetailPage() {
 
       {activeTab === "Profit & Loss" && (
         <ProfitLossTab
+          isLayers={isLayers}
+          eggCost={eggCostQuery.data}
+          onOpenEggCost={() => setActiveTab("Egg cost")}
           batch={batch}
           analytics={analytics}
           salesTotal={salesTotal}

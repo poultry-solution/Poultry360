@@ -22,6 +22,8 @@ import {
 } from "@/common/components/ui/chart";
 import { useCalendar } from "@/common/hooks/useCalendar";
 import type { FcrHistoryRow } from "@/types/fcr";
+import type { BatchEggCost } from "@/fetchers/batches/batchQueries";
+import { LayerMoneyRow } from "@/components/batches/eggCost/LayerSummary";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 const fcrChartConfig = {
@@ -63,6 +65,11 @@ type ActivityItem = {
 };
 
 interface OverviewTabProps {
+  /** Layer batches show cost per tray instead of "per bird" while running. */
+  isLayers?: boolean;
+  eggCost?: BatchEggCost;
+  eggCostLoading?: boolean;
+  onOpenEggCost?: () => void;
   batch: any;
   analytics: any;
   fcrHistory: FcrHistoryRow[];
@@ -110,6 +117,10 @@ export function OverviewTab({
   cfcrEnabled,
   onSaveCfcrSettings,
   cfcrSettingsSaving,
+  isLayers = false,
+  eggCost,
+  eggCostLoading,
+  onOpenEggCost,
 }: OverviewTabProps) {
   const { toDisplayDate } = useCalendar();
   const fcrData = analytics?.fcrData;
@@ -188,7 +199,7 @@ export function OverviewTab({
   const isGain = Math.round(netResult) < 0;
   const perBirdBase =
     perBroilerExpenseData.initialBroilers > 0
-      ? `÷ ${perBroilerExpenseData.initialBroilers.toLocaleString("en-IN")} birds started`
+      ? `÷ ${perBroilerExpenseData.initialBroilers.toLocaleString("en-IN")} ${isLayers ? "hens" : "birds"} started`
       : null;
   const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
 
@@ -345,9 +356,18 @@ export function OverviewTab({
                   {signedRupees(-netResult)}
                 </span>
               </div>
+              {isLayers && !isBatchClosed ? (
+                <LayerMoneyRow eggCost={eggCost} loading={eggCostLoading} onOpen={onOpenEggCost} />
+              ) : (
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">
-                  Per bird
+                  {isLayers
+                    ? perBirdRounded === 0
+                      ? "Per hen"
+                      : perBroilerExpenseData.isProfit
+                        ? "Profit per hen"
+                        : "Loss per hen"
+                    : "Per bird"}
                   {perBirdBase && (
                     <span className="ml-1.5 text-xs text-gray-400">{perBirdBase}</span>
                   )}
@@ -368,6 +388,7 @@ export function OverviewTab({
                       : `${perBroilerExpenseData.isProfit ? "+" : "−"}${rupees(perBirdRounded)}`}
                 </span>
               </div>
+              )}
             </div>
           </CardContent>
         </Card>

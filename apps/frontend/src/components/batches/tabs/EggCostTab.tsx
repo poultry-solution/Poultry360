@@ -14,7 +14,7 @@ import {
   PricesCard,
 } from "../eggCost/EggCostParts";
 import { EggCostTrend } from "../eggCost/EggCostTrend";
-import { monthName, type EggUnit } from "../eggCost/format";
+import { monthName, pickDefaultPeriod, type EggUnit } from "../eggCost/format";
 
 type PeriodKey = "current" | "previous" | "whole";
 
@@ -48,13 +48,7 @@ export function EggCostTab({ batchId, onGoToEggs }: EggCostTabProps) {
   }, [ok]);
 
   // Start on this month; if it has no eggs yet, on last month; closed batches start on the whole batch.
-  const defaultPeriod: PeriodKey | null = useMemo(() => {
-    if (!ok) return null;
-    if (ok.closed) return "whole";
-    if (ok.periods.current && ok.periods.current.eggs > 0) return "current";
-    if (ok.periods.previous) return "previous";
-    return "whole";
-  }, [ok]);
+  const defaultPeriod: PeriodKey | null = useMemo(() => (ok ? pickDefaultPeriod(ok) : null), [ok]);
   useEffect(() => {
     if (period && !options.some((o) => o.key === period)) setPeriod(null);
   }, [options, period]);
