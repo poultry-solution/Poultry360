@@ -3,11 +3,11 @@
 import { useCallback } from "react";
 import { useI18n } from "@/i18n/useI18n";
 
-export type ReminderModuleProp = "farmer" | "hatchery";
+export type ReminderModuleProp = "farmer" | "hatchery" | "dealer";
 
 /**
  * English text for reminders. Farmer screens read the same keys from
- * `farmer.dashboard.reminder.*` (en + ne); hatchery is English only.
+ * `farmer.dashboard.reminder.*` (en + ne); hatchery and dealer are English only.
  */
 export const REMINDER_EN = {
   title: "Reminders",
@@ -91,6 +91,26 @@ export const REMINDER_EN = {
   needPeople: "Pick at least one person.",
   needDays: "Repeat every 1 to 365 days.",
   remindMe: "Remind me",
+  // Feed dealer: money to collect from customers or pay to companies
+  customer: "Customer",
+  company: "Company",
+  amount: "Amount (optional)",
+  amountShort: "Amount",
+  owesNow: "Owes now",
+  weOweNow: "We owe now",
+  paidSince: "Paid since reminder",
+  paidToSince: "Paid since reminder",
+  fullyPaid: "Fully paid — mark done?",
+  removedLink: "(removed)",
+  archived: "(archived)",
+  call: "Call",
+  paymentReminder: "Payment reminder",
+  collectFrom: "Collect payment from {name}",
+  payTo: "Pay {name}",
+  needAmount: "Enter an amount more than 0.",
+  dealerTitle: "Payments to follow up",
+  dealerEmpty: "No reminders. Add one here, or from a customer or company page.",
+  dealerPlaceholder: "e.g. Collect payment, Order maize",
 } as const;
 
 export type ReminderTextKey = keyof typeof REMINDER_EN;

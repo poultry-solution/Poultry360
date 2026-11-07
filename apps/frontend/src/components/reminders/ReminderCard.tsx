@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Loader2,
   MoreVertical,
+  Phone,
   Plus,
   Repeat,
   Users,
@@ -40,7 +41,7 @@ import {
   useUndoReminderDone,
   type Reminder,
 } from "@/fetchers/reminders/reminderQueries";
-import { ReminderFormDialog } from "./ReminderFormDialog";
+import { ReminderFormDialog, type ReminderLinkDefaults } from "./ReminderFormDialog";
 import { useReminderText, type ReminderModuleProp } from "./reminderCopy";
 import { GROUP_ORDER, formatWhen, groupOf, snoozeChoices, type ReminderGroup } from "./reminderTime";
 
@@ -68,8 +69,25 @@ function linkOf(r: Reminder): { label: string; href: string } | null {
   if (r.hatcheryBatch) return { label: r.hatcheryBatch.code, href: `/hatchery/dashboard/batches/${r.hatcheryBatch.id}` };
   if (r.incubation) return { label: r.incubation.code, href: `/hatchery/dashboard/incubations/${r.incubation.id}` };
   if (r.hatcheryParty) return { label: r.hatcheryParty.name, href: `/hatchery/dashboard/parties/${r.hatcheryParty.id}` };
+  if (r.dealerCustomer) {
+    return {
+      label: `${r.dealerCustomer.name}${r.dealerCustomer.archivedAt ? " (archived)" : ""}`,
+      href: `/dealer/dashboard/customers/${r.dealerCustomer.id}/account`,
+    };
+  }
+  if (r.dealerManualCompany) {
+    return {
+      label: `${r.dealerManualCompany.name}${r.dealerManualCompany.archivedAt ? " (archived)" : ""}`,
+      href: `/dealer/dashboard/company/manual/${r.dealerManualCompany.id}`,
+    };
+  }
   return null;
 }
+
+const money = (value: number) => `रू ${Math.round(value).toLocaleString("en-IN")}`;
+
+/** Dealer reminders with a customer/company link or an amount come first in each group. */
+const isPayment = (r: Reminder) => Boolean(r.dealerCustomerId || r.dealerManualCompanyId || r.amount);
 
 function repeatText(r: Reminder, tr: Tr): string | null {
   switch (r.repeat) {
@@ -99,7 +117,24 @@ function audienceText(r: Reminder, tr: Tr, myStaffId: string | null): { icon: ty
   return { icon: UserCheck, text: names.join(", ") };
 }
 
-export function ReminderCard({ module, className }: { module: ReminderModuleProp; className?: string }) {
+export function ReminderCard({
+  module,
+  className,
+  title,
+  emptyText,
+  filter,
+  addDefaults,
+}: {
+  module: ReminderModuleProp;
+  className?: string;
+  /** Card heading; "Reminders" when not given. */
+  title?: string;
+  emptyText?: string;
+  /** Show only some reminders (e.g. one customer's, on their page). */
+  filter?: (r: Reminder) => boolean;
+  /** Pre-filled values for the Add button (e.g. that customer). */
+  addDefaults?: ReminderLinkDefaults & { title?: string; amount?: number | null; linkName?: string };
+}) {
   const tr = useReminderText(module);
   const user = useAuthStore((s) => s.user);
   const myStaffId = user?.isStaff ? user.id : null;
@@ -123,10 +158,17 @@ export function ReminderCard({ module, className }: { module: ReminderModuleProp
   const groups = useMemo(() => {
     const out: Record<ReminderGroup, Reminder[]> = { LATE: [], TODAY: [], TOMORROW: [], WEEK: [], LATER: [] };
     const now = Date.now();
-    for (const r of active.data ?? []) out[groupOf(r.reminderDate, now)].push(r);
+    for (const r of active.data ?? []) {
+      if (filter && !filter(r)) continue;
+      out[groupOf(r.reminderDate, now)].push(r);
+    }
+    // Dealer: money follow-ups first within each group (the list is already in time order).
+    if (module === "dealer") {
+      for (const g of GROUP_ORDER) out[g] = [...out[g].filter(isPayment), ...out[g].filter((r) => !isPayment(r))];
+    }
     return out;
     // dataUpdatedAt makes groups move as time passes (list refetches every minute).
-  }, [active.data, active.dataUpdatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active.data, active.dataUpdatedAt, filter, module]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canChange = (r: Reminder) => !myStaffId || r.createdByStaffId === myStaffId;
 
@@ -181,7 +223,7 @@ export function ReminderCard({ module, className }: { module: ReminderModuleProp
     });
   };
 
-  const total = active.data?.length ?? 0;
+  const total = GROUP_ORDER.reduce((sum, g) => sum + groups[g].length, 0);
 
   return (
     <>
@@ -190,7 +232,7 @@ export function ReminderCard({ module, className }: { module: ReminderModuleProp
           <div className="mb-2 flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <Bell className="h-4 w-4 text-gray-500" />
-              {tr("title")}
+              {title ?? tr("title")}
             </h2>
             <Button
               size="sm"
@@ -219,7 +261,7 @@ export function ReminderCard({ module, className }: { module: ReminderModuleProp
               </Button>
             </div>
           ) : total === 0 ? (
-            <p className="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">{tr("empty")}</p>
+            <p className="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">{emptyText ?? tr("empty")}</p>
           ) : (
             <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
               {GROUP_ORDER.map((g) =>
@@ -310,7 +352,13 @@ export function ReminderCard({ module, className }: { module: ReminderModuleProp
         </CardContent>
       </Card>
 
-      <ReminderFormDialog module={module} open={formOpen} onOpenChange={setFormOpen} reminder={editing} />
+      <ReminderFormDialog
+        module={module}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        reminder={editing}
+        defaults={editing ? undefined : addDefaults}
+      />
 
       <AlertDialog open={Boolean(deleting)} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent className="bg-white">
@@ -368,6 +416,9 @@ function ReminderRow({
     action();
   };
   const link = linkOf(r);
+  // Dealer: call the customer or company straight from the reminder.
+  const party = r.dealerCustomer ?? r.dealerManualCompany;
+  const callTo = party?.phone ? { phone: party.phone, name: party.name } : null;
   const who = audienceText(r, tr, myStaffId);
   const WhoIcon = who.icon;
   const repeat = repeatText(r, tr);
@@ -417,7 +468,18 @@ function ReminderRow({
           ) : null}
           {madeByOther ? <span>{tr("by", { name: madeByOther })}</span> : null}
         </div>
+        <MoneyLine r={r} tr={tr} />
       </div>
+      {callTo ? (
+        <a
+          href={`tel:${callTo.phone}`}
+          className="mt-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs text-gray-700 hover:bg-gray-50"
+          aria-label={`${tr("call")} ${callTo.name}`}
+        >
+          <Phone className="h-3 w-3" />
+          {tr("call")}
+        </a>
+      ) : null}
 
       <Popover open={menuOpen} onOpenChange={setMenuOpen}>
         <PopoverTrigger asChild>
@@ -464,5 +526,43 @@ function MenuButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Dealer: amount to collect/pay, what they owe now, and what was paid since the reminder. */
+function MoneyLine({ r, tr }: { r: Reminder; tr: Tr }) {
+  const amount = r.amount != null ? Number(r.amount) : null;
+  const m = r.money;
+  if (amount == null && !m) return null;
+  const isCompany = Boolean(r.dealerManualCompanyId);
+  const owes = m?.owesNow;
+  const parts: React.ReactNode[] = [];
+  if (amount != null) parts.push(<span key="a" className="font-medium text-gray-900">{money(amount)}</span>);
+  if (owes != null) {
+    parts.push(
+      <span key="o">
+        {isCompany ? tr("weOweNow") : tr("owesNow")} {money(Math.max(0, owes))}
+      </span>
+    );
+  }
+  if (m && m.paidSince > 0) {
+    parts.push(
+      <span key="p" className="text-green-700">
+        {tr("paidSince")} {money(m.paidSince)}
+      </span>
+    );
+  }
+  return (
+    <div className="mt-1 space-y-0.5 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        {parts.map((p, i) => (
+          <span key={i} className="inline-flex items-center gap-2">
+            {i > 0 ? <span className="text-gray-300">·</span> : null}
+            {p}
+          </span>
+        ))}
+      </div>
+      {owes != null && owes <= 0 ? <p className="font-medium text-green-700">{tr("fullyPaid")}</p> : null}
+    </div>
   );
 }

@@ -10,7 +10,7 @@ import {
 import prisma from "../utils/prisma";
 
 /**
- * Reminders shared by the farmer and hatchery modules.
+ * Reminders shared by the farmer, hatchery and feed dealer modules.
  *
  * Tenant: the owner User (`userId`). Staff act inside the owner's account and
  * are identified by `staffUserId`. The owner sees every reminder of the module;
@@ -41,17 +41,29 @@ export interface ReminderActor {
 const MODULE_BY_ROLE: Partial<Record<string, ReminderModule>> = {
   [UserRole.OWNER]: ReminderModule.FARMER,
   [UserRole.HATCHERY]: ReminderModule.HATCHERY,
+  [UserRole.DEALER]: ReminderModule.DEALER,
 };
 
 export const ROLE_BY_MODULE: Record<ReminderModule, UserRole> = {
   FARMER: UserRole.OWNER,
   HATCHERY: UserRole.HATCHERY,
+  DEALER: UserRole.DEALER,
 };
 
-export const MANAGE_PERMISSION_BY_MODULE: Record<ReminderModule, StaffPermission> = {
+/**
+ * Staff permission needed to use reminders. Dealer staff have no "manage"
+ * permission, so every active dealer staff login may use them.
+ */
+export const MANAGE_PERMISSION_BY_MODULE: Partial<Record<ReminderModule, StaffPermission>> = {
   FARMER: StaffPermission.FARMER_MANAGE_OPERATIONS,
   HATCHERY: StaffPermission.HATCHERY_MANAGE_OPERATIONS,
 };
+
+/** Staff filter for people who can get this module's reminders. */
+export function staffPermissionWhere(module: ReminderModule): Prisma.StaffUserWhereInput {
+  const permission = MANAGE_PERMISSION_BY_MODULE[module];
+  return permission ? { permissions: { has: permission } } : {};
+}
 
 export function moduleForRole(role: string | undefined): ReminderModule | null {
   return (role && MODULE_BY_ROLE[role]) || null;
@@ -69,6 +81,8 @@ export const reminderInclude = {
   hatcheryBatch: { select: { id: true, code: true, name: true } },
   incubation: { select: { id: true, code: true, name: true } },
   hatcheryParty: { select: { id: true, name: true } },
+  dealerCustomer: { select: { id: true, name: true, phone: true, archivedAt: true } },
+  dealerManualCompany: { select: { id: true, name: true, phone: true, archivedAt: true } },
   createdByStaff: { select: { id: true, name: true } },
   doneByStaff: { select: { id: true, name: true } },
   recipients: { select: { staffUser: { select: { id: true, name: true, isActive: true } } } },
@@ -108,18 +122,98 @@ function assertCanChange(actor: ReminderActor, reminder: { createdByStaffId: str
   throw new ReminderError(403, "Only the person who made this reminder or the owner can change it.");
 }
 
+// ---------------------------------------------------------------- dealer money
+
+export type DealerMoney = { owesNow: number | null; paidSince: number };
+
+/**
+ * For dealer reminders linked to a customer or company: what they owe now and
+ * how much was paid since the reminder was made. Customer: positive balance =
+ * they owe us. Company: positive balance = we owe them. "Paid since" counts
+ * payments recorded after the reminder was created (one query per kind).
+ */
+export async function withDealerMoney<T extends ReminderWithLinks>(rows: T[]): Promise<Array<T & { money: DealerMoney | null }>> {
+  const customerRows = rows.filter((r) => r.dealerCustomerId);
+  const companyRows = rows.filter((r) => r.dealerManualCompanyId);
+  if (customerRows.length === 0 && companyRows.length === 0) return rows.map((r) => ({ ...r, money: null }));
+
+  const earliest = (list: T[]) => new Date(Math.min(...list.map((r) => r.createdAt.getTime())));
+  const customerIds = [...new Set(customerRows.map((r) => r.dealerCustomerId!))];
+  const companyIds = [...new Set(companyRows.map((r) => r.dealerManualCompanyId!))];
+  const [customers, companies, customerPayments, companyPayments] = await Promise.all([
+    customerIds.length
+      ? prisma.customer.findMany({ where: { id: { in: customerIds } }, select: { id: true, balance: true } })
+      : [],
+    companyIds.length
+      ? prisma.dealerManualCompany.findMany({ where: { id: { in: companyIds } }, select: { id: true, balance: true } })
+      : [],
+    customerIds.length
+      ? prisma.dealerLedgerEntry.findMany({
+          where: {
+            type: "PAYMENT_RECEIVED",
+            partyType: "CUSTOMER",
+            partyId: { in: customerIds },
+            createdAt: { gte: earliest(customerRows) },
+          },
+          select: { partyId: true, amount: true, createdAt: true },
+        })
+      : [],
+    companyIds.length
+      ? prisma.dealerManualCompanyPayment.findMany({
+          where: {
+            manualCompanyId: { in: companyIds },
+            voidedAt: null,
+            OR: [{ direction: null }, { direction: "MADE" }],
+            createdAt: { gte: earliest(companyRows) },
+          },
+          select: { manualCompanyId: true, amount: true, createdAt: true },
+        })
+      : [],
+  ]);
+  const balanceOf = new Map<string, number>([
+    ...customers.map((c) => [c.id, Number(c.balance)] as [string, number]),
+    ...companies.map((c) => [c.id, Number(c.balance)] as [string, number]),
+  ]);
+  const paidSince = (list: Array<{ id: string | null; amount: unknown; createdAt: Date }>, id: string, from: Date) =>
+    Math.round(
+      list.filter((p) => p.id === id && p.createdAt >= from).reduce((sum, p) => sum + Number(p.amount), 0) * 100
+    ) / 100;
+  const customerList = customerPayments.map((p) => ({ id: p.partyId, amount: p.amount, createdAt: p.createdAt }));
+  const companyList = companyPayments.map((p) => ({ id: p.manualCompanyId, amount: p.amount, createdAt: p.createdAt }));
+
+  return rows.map((r) => {
+    if (r.dealerCustomerId) {
+      return {
+        ...r,
+        money: { owesNow: balanceOf.get(r.dealerCustomerId) ?? null, paidSince: paidSince(customerList, r.dealerCustomerId, r.createdAt) },
+      };
+    }
+    if (r.dealerManualCompanyId) {
+      return {
+        ...r,
+        money: {
+          owesNow: balanceOf.get(r.dealerManualCompanyId) ?? null,
+          paidSince: paidSince(companyList, r.dealerManualCompanyId, r.createdAt),
+        },
+      };
+    }
+    return { ...r, money: null };
+  });
+}
+
 // ---------------------------------------------------------------- lists
 
 export type ReminderListType = "due" | "upcoming" | "all";
 
 export async function listActiveReminders(actor: ReminderActor) {
   const module = requireModule(actor);
-  return prisma.reminder.findMany({
+  const rows = await prisma.reminder.findMany({
     where: { ...visibleWhere(actor, module), doneAt: null },
     include: reminderInclude,
     orderBy: [{ reminderDate: "asc" }, { createdAt: "asc" }],
     take: ACTIVE_LIMIT,
   });
+  return module === ReminderModule.DEALER ? withDealerMoney(rows) : rows;
 }
 
 export async function listDoneReminders(actor: ReminderActor, limit: number, offset: number) {
@@ -135,7 +229,7 @@ export async function listDoneReminders(actor: ReminderActor, limit: number, off
     }),
     prisma.reminder.count({ where }),
   ]);
-  return { items, total };
+  return { items: module === ReminderModule.DEALER ? await withDealerMoney(items) : items, total };
 }
 
 /** Old app versions ask for ?type=due|upcoming|all. Done reminders are hidden. */
@@ -163,7 +257,7 @@ export async function listReminderPeople(actor: ReminderActor) {
         ownerId: actor.ownerId,
         accountRole: ROLE_BY_MODULE[module],
         isActive: true,
-        permissions: { has: MANAGE_PERMISSION_BY_MODULE[module] },
+        ...staffPermissionWhere(module),
       },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -182,6 +276,9 @@ export interface ReminderInput {
   hatcheryBatchId?: unknown;
   incubationId?: unknown;
   hatcheryPartyId?: unknown;
+  dealerCustomerId?: unknown;
+  dealerManualCompanyId?: unknown;
+  amount?: unknown;
   audience?: unknown;
   notifyOwner?: unknown;
   staffIds?: unknown;
@@ -216,12 +313,26 @@ function checkWhen(date: Date) {
   if (date.getTime() > now + MAX_AHEAD_MS) throw new ReminderError(400, "Pick a date within 2 years");
 }
 
+const AMOUNT_MAX = 999_999_999;
+
+/** Money to collect or pay. Dealer reminders only; empty is fine. */
+function parseAmount(module: ReminderModule, value: unknown): Prisma.Decimal | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (module !== ReminderModule.DEALER) throw new ReminderError(400, "Amount is only for dealer reminders");
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : NaN;
+  if (!Number.isFinite(n) || n <= 0) throw new ReminderError(400, "Enter an amount more than 0");
+  if (n > AMOUNT_MAX) throw new ReminderError(400, "Amount is too big");
+  return new Prisma.Decimal(Math.round(n * 100) / 100);
+}
+
 type Links = {
   farmId: string | null;
   batchId: string | null;
   hatcheryBatchId: string | null;
   incubationId: string | null;
   hatcheryPartyId: string | null;
+  dealerCustomerId: string | null;
+  dealerManualCompanyId: string | null;
 };
 
 async function checkLinks(ownerId: string, module: ReminderModule, input: ReminderInput): Promise<Links> {
@@ -231,8 +342,35 @@ async function checkLinks(ownerId: string, module: ReminderModule, input: Remind
     hatcheryBatchId: optionalId(input.hatcheryBatchId),
     incubationId: optionalId(input.incubationId),
     hatcheryPartyId: optionalId(input.hatcheryPartyId),
+    dealerCustomerId: optionalId(input.dealerCustomerId),
+    dealerManualCompanyId: optionalId(input.dealerManualCompanyId),
   };
   const notForThis = () => new ReminderError(400, "This link is not for this account");
+  const hasDealerLink = Boolean(links.dealerCustomerId || links.dealerManualCompanyId);
+
+  if (module === ReminderModule.DEALER) {
+    if (links.farmId || links.batchId || links.hatcheryBatchId || links.incubationId || links.hatcheryPartyId) {
+      throw notForThis();
+    }
+    if (links.dealerCustomerId && links.dealerManualCompanyId) throw new ReminderError(400, "Link to only one thing");
+    // Archived customers and companies are allowed: old dues still need collecting.
+    if (links.dealerCustomerId) {
+      const found = await prisma.customer.findFirst({
+        where: { id: links.dealerCustomerId, userId: ownerId },
+        select: { id: true },
+      });
+      if (!found) throw new ReminderError(404, "Customer not found");
+    }
+    if (links.dealerManualCompanyId) {
+      const found = await prisma.dealerManualCompany.findFirst({
+        where: { id: links.dealerManualCompanyId, dealer: { ownerId } },
+        select: { id: true },
+      });
+      if (!found) throw new ReminderError(404, "Company not found");
+    }
+    return links;
+  }
+  if (hasDealerLink) throw notForThis();
 
   if (module === ReminderModule.FARMER) {
     if (links.hatcheryBatchId || links.incubationId || links.hatcheryPartyId) throw notForThis();
@@ -439,6 +577,7 @@ export async function createReminder(actor: ReminderActor, input: ReminderInput)
   const reminderDate = parseDate(input.reminderDate, "Pick a valid date and time");
   checkWhen(reminderDate);
   const links = await checkLinks(actor.ownerId, module, input);
+  const amount = parseAmount(module, input.amount);
   const who = await checkAudience(actor.ownerId, module, input, actor.staffUserId);
   const repeat = checkRepeat(input, reminderDate);
 
@@ -449,6 +588,7 @@ export async function createReminder(actor: ReminderActor, input: ReminderInput)
       title,
       reminderDate,
       ...links,
+      amount,
       audience: who.audience,
       notifyOwner: who.notifyOwner,
       createdByStaffId: actor.staffUserId,
@@ -469,6 +609,7 @@ export async function updateReminder(actor: ReminderActor, id: string, input: Re
   const dateChanged = reminderDate.getTime() !== reminder.reminderDate.getTime();
   if (dateChanged) checkWhen(reminderDate);
   const links = await checkLinks(actor.ownerId, module, input);
+  const amount = parseAmount(module, input.amount);
   // The creator of the reminder stays included, not the person editing it.
   const who = await checkAudience(actor.ownerId, module, input, reminder.createdByStaffId);
   const repeat = checkRepeat(input, reminderDate);
@@ -481,6 +622,7 @@ export async function updateReminder(actor: ReminderActor, id: string, input: Re
         title,
         reminderDate,
         ...links,
+        amount,
         audience: who.audience,
         notifyOwner: who.notifyOwner,
         ...repeat,
@@ -531,6 +673,9 @@ export async function markReminderDone(actor: ReminderActor, id: string) {
             hatcheryBatchId: reminder.hatcheryBatchId,
             incubationId: reminder.incubationId,
             hatcheryPartyId: reminder.hatcheryPartyId,
+            dealerCustomerId: reminder.dealerCustomerId,
+            dealerManualCompanyId: reminder.dealerManualCompanyId,
+            amount: reminder.amount,
             audience: reminder.audience,
             notifyOwner: reminder.notifyOwner,
             createdByStaffId: reminder.createdByStaffId,

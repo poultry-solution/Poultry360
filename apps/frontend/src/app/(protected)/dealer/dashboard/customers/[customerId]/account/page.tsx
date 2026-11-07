@@ -52,6 +52,9 @@ import {
 } from "@/common/components/ui/select";
 import { toast } from "sonner";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
+import { ReminderCard } from "@/components/reminders/ReminderCard";
+import { useActiveReminders } from "@/fetchers/reminders/reminderQueries";
 
 export default function CustomerAccountPage() {
   const params = useParams();
@@ -112,6 +115,8 @@ export default function CustomerAccountPage() {
   const totalSales = Number(customer?.totalSales ?? 0);
   const totalPaid = Number(customer?.totalPayments ?? 0);
   const currentBalance = Number(customer?.balance ?? 0);
+  const activeReminders = useActiveReminders();
+  const hasCustomerReminders = (activeReminders.data ?? []).some((r) => r.dealerCustomerId === customerId);
   const openingBalance = customer?.openingBalance;
 
   const downloadStatement = async (range: { startDate?: string; endDate?: string }) => {
@@ -425,6 +430,14 @@ export default function CustomerAccountPage() {
           </div>
           <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
             <BusinessDownloadDialog title={`${customer.name} statement`} fileName={`${customer.name}-statement`} getData={downloadStatement} />
+            <RemindMeButton
+              module="dealer"
+              label="Payment reminder"
+              link={{ dealerCustomerId: customer.id }}
+              linkName={customer.name}
+              defaultTitle={`Collect payment from ${customer.name}`}
+              defaultAmount={currentBalance > 0 ? currentBalance : null}
+            />
             <Button size="sm" onClick={() => setIsPaymentDialogOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Record payment
@@ -432,6 +445,21 @@ export default function CustomerAccountPage() {
           </div>
         </div>
       </div>
+
+      {/* Open reminders for this customer (only when there are some) */}
+      {hasCustomerReminders ? (
+        <ReminderCard
+          module="dealer"
+          title="Payment reminders"
+          filter={(r) => r.dealerCustomerId === customer.id}
+          addDefaults={{
+            dealerCustomerId: customer.id,
+            linkName: customer.name,
+            title: `Collect payment from ${customer.name}`,
+            amount: currentBalance > 0 ? currentBalance : null,
+          }}
+        />
+      ) : null}
 
       {/* Balance + totals: one slim strip (same as the supplier page) */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-gray-200 sm:grid-cols-4">

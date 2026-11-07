@@ -3,9 +3,9 @@ import prisma from "../utils/prisma";
 import { notifyUser } from "./notificationService";
 import { isStaffAccountFeatureEnabled } from "./staffAccountService";
 import {
-  MANAGE_PERMISSION_BY_MODULE,
   ROLE_BY_MODULE,
   reminderInclude,
+  staffPermissionWhere,
   type ReminderWithLinks,
 } from "./reminderService";
 
@@ -15,13 +15,21 @@ const MAX_ROUNDS_PER_TICK = 5;
 const HOME_URL: Record<ReminderModule, string> = {
   FARMER: "/farmer/dashboard/home",
   HATCHERY: "/hatchery/dashboard/home",
+  DEALER: "/dealer/dashboard/home",
 };
+
+const rupees = (value: unknown) => `रू ${Math.round(Number(value)).toLocaleString("en-IN")}`;
 
 /** Page to open when the alert is tapped: the linked record, else the module Home. */
 export function reminderUrl(r: ReminderWithLinks): string {
   if (r.module === ReminderModule.FARMER) {
     if (r.batch) return `/farmer/dashboard/batches/${r.batch.id}`;
     return HOME_URL.FARMER;
+  }
+  if (r.module === ReminderModule.DEALER) {
+    if (r.dealerCustomer) return `/dealer/dashboard/customers/${r.dealerCustomer.id}/account`;
+    if (r.dealerManualCompany) return `/dealer/dashboard/company/manual/${r.dealerManualCompany.id}`;
+    return HOME_URL.DEALER;
   }
   if (r.hatcheryBatch) return `/hatchery/dashboard/batches/${r.hatcheryBatch.id}`;
   if (r.incubation) return `/hatchery/dashboard/incubations/${r.incubation.id}`;
@@ -34,6 +42,14 @@ export function reminderContext(r: ReminderWithLinks): string {
   if (r.module === ReminderModule.FARMER) {
     return [r.farm?.name, r.batch?.batchNumber].filter(Boolean).join(" - ");
   }
+  if (r.module === ReminderModule.DEALER) {
+    const who = r.dealerCustomer
+      ? `Customer: ${r.dealerCustomer.name}`
+      : r.dealerManualCompany
+        ? `Company: ${r.dealerManualCompany.name}`
+        : "";
+    return [who, r.amount != null ? rupees(r.amount) : ""].filter(Boolean).join(" · ");
+  }
   return r.hatcheryBatch?.code ?? r.incubation?.code ?? r.hatcheryParty?.name ?? "";
 }
 
@@ -45,8 +61,8 @@ async function staffRecipients(r: ReminderWithLinks): Promise<string[]> {
   const role = ROLE_BY_MODULE[r.module];
   if (!(await isStaffAccountFeatureEnabled(r.userId, role))) return [];
 
-  const permission = MANAGE_PERMISSION_BY_MODULE[r.module];
-  const base = { ownerId: r.userId, accountRole: role, isActive: true, permissions: { has: permission } };
+  // Dealer staff need no extra permission; farmer/hatchery staff need "manage operations".
+  const base = { ownerId: r.userId, accountRole: role, isActive: true, ...staffPermissionWhere(r.module) };
 
   if (r.audience === ReminderAudience.EVERYONE) {
     const staff = await prisma.staffUser.findMany({ where: base, select: { id: true } });
@@ -70,6 +86,8 @@ async function sendOne(r: ReminderWithLinks) {
     hatcheryBatchId: r.hatcheryBatchId,
     incubationId: r.incubationId,
     hatcheryPartyId: r.hatcheryPartyId,
+    dealerCustomerId: r.dealerCustomerId,
+    dealerManualCompanyId: r.dealerManualCompanyId,
   };
 
   if (r.notifyOwner) {

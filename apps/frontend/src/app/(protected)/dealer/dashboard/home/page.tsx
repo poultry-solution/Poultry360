@@ -21,6 +21,8 @@ import { useI18n } from "@/i18n/useI18n";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useAuthStore } from "@/common/store/store";
 import { SalesVsCollectedChart } from "@/components/dealer/SalesVsCollectedChart";
+import { ReminderCard } from "@/components/reminders/ReminderCard";
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 
 function HomeStat({
   label,
@@ -120,6 +122,14 @@ export default function DealerHomePage() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          {/* Quick reminder (e.g. a customer's payment promise), next to Add Sale */}
+          <RemindMeButton
+            module="dealer"
+            link={{}}
+            label="Add reminder"
+            size="default"
+            className="flex-1 md:flex-none gap-2 border-green-200 hover:bg-green-50 hover:text-green-700"
+          />
           <Link href="/dealer/dashboard/sales/new" className="flex-1 md:flex-none">
             <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
               <Plus className="h-4 w-4" />
@@ -171,6 +181,13 @@ export default function DealerHomePage() {
       </div>
 
       {canViewFinancialSummaries ? <SalesVsCollectedChart /> : null}
+
+      {/* Money to collect or pay, and other reminders (payments first) */}
+      <ReminderCard
+        module="dealer"
+        title="Payments to follow up"
+        emptyText="No reminders. Add one here, or from a customer or company page."
+      />
 
       {/* Recent Activity */}
       <div className="grid gap-3 lg:grid-cols-2">

@@ -3,6 +3,7 @@ import { StaffPermission, UserRole } from "@prisma/client";
 import { authMiddleware, requireStaffPermissionForAccountRole } from "../middelware/middelware";
 import { auditSuccessfulFarmerMutation } from "../middelware/farmerAuditMiddleware";
 import { auditSuccessfulHatcheryMutation } from "../middelware/hatcheryAuditMiddleware";
+import { auditSuccessfulDealerReminderMutation } from "../middelware/dealerStaffAuditMiddleware";
 import { moduleForRole } from "../services/reminderService";
 import {
   createReminderHandler,
@@ -18,7 +19,7 @@ import {
 const router = express.Router();
 router.use(authMiddleware);
 
-// Reminders are shared by the farmer and hatchery modules for now.
+// Reminders are shared by the farmer, hatchery and feed dealer modules.
 router.use((req: Request, res: Response, next: NextFunction) => {
   if (!moduleForRole(req.role)) {
     return res.status(403).json({ success: false, message: "Reminders are not on for this account yet." });
@@ -26,18 +27,23 @@ router.use((req: Request, res: Response, next: NextFunction) => {
   return next();
 });
 
-router.use(
-  requireStaffPermissionForAccountRole({
-    [UserRole.OWNER]: StaffPermission.FARMER_MANAGE_OPERATIONS,
-    [UserRole.HATCHERY]: StaffPermission.HATCHERY_MANAGE_OPERATIONS,
-  })
+const staffPermissionCheck = requireStaffPermissionForAccountRole({
+  [UserRole.OWNER]: StaffPermission.FARMER_MANAGE_OPERATIONS,
+  [UserRole.HATCHERY]: StaffPermission.HATCHERY_MANAGE_OPERATIONS,
+});
+// Dealer staff have no "manage" permission; any active dealer staff login may
+// use reminders (their login already needs the dealer staff feature on).
+router.use((req: Request, res: Response, next: NextFunction) =>
+  req.role === UserRole.DEALER ? next() : staffPermissionCheck(req, res, next)
 );
 
 // Write to the right module's activity log.
 router.use((req: Request, res: Response, next: NextFunction) =>
   req.role === UserRole.HATCHERY
     ? auditSuccessfulHatcheryMutation(req, res, next)
-    : auditSuccessfulFarmerMutation(req, res, next)
+    : req.role === UserRole.DEALER
+      ? auditSuccessfulDealerReminderMutation(req, res, next)
+      : auditSuccessfulFarmerMutation(req, res, next)
 );
 
 router.get("/", listRemindersHandler);

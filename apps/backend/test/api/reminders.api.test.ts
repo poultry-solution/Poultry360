@@ -136,7 +136,7 @@ describe("Reminders API", () => {
   it("maps only farmer and hatchery roles to a reminder module", () => {
     expect(moduleForRole("OWNER")).toBe("FARMER");
     expect(moduleForRole("HATCHERY")).toBe("HATCHERY");
-    expect(moduleForRole("DEALER")).toBeNull();
+    expect(moduleForRole("DEALER")).toBe("DEALER");
     expect(moduleForRole("COMPANY")).toBeNull();
   });
 

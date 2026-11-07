@@ -551,6 +551,7 @@ model BatchNote {
 enum ReminderModule {
   FARMER
   HATCHERY
+  DEALER
 }
 
 // Who gets the phone alert. The owner always sees every reminder in the list.
@@ -617,6 +618,14 @@ model Reminder {
   hatcheryPartyId String?
   hatcheryParty   HatcheryParty?           @relation(fields: [hatcheryPartyId], references: [id], onDelete: SetNull)
 
+  // Feed dealer links (at most one per reminder): who owes us, or whom we owe
+  dealerCustomerId      String?
+  dealerCustomer        Customer?            @relation("DealerCustomerReminders", fields: [dealerCustomerId], references: [id], onDelete: SetNull)
+  dealerManualCompanyId String?
+  dealerManualCompany   DealerManualCompany? @relation(fields: [dealerManualCompanyId], references: [id], onDelete: SetNull)
+  // Money to collect or pay (dealer reminders only)
+  amount                Decimal?             @db.Decimal(12, 2)
+
   recipients ReminderRecipient[]
 
   createdAt DateTime @default(now())
@@ -626,6 +635,8 @@ model Reminder {
   @@index([userId, reminderDate, isNoticed])
   @@index([userId, module, doneAt, reminderDate])
   @@index([notifiedAt, doneAt, reminderDate])
+  @@index([dealerCustomerId])
+  @@index([dealerManualCompanyId])
 }
 
 // Staff picked for a SELECTED reminder (also the staff creator of ONLY_ME).
@@ -1337,6 +1348,7 @@ model Customer {
   // Soft archive (dealer UI)
   archivedAt   DateTime?
   archivedById String?
+  reminders    Reminder[] @relation("DealerCustomerReminders")
 
   @@unique([userId, name])
   @@unique([userId, farmerId]) // Prevent duplicate customers for same farmer-dealer pair
@@ -2357,6 +2369,8 @@ model DealerManualCompany {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  reminders Reminder[]
 
   @@unique([dealerId, name])
   @@index([dealerId])

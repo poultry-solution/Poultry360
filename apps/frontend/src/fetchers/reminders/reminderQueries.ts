@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 
-export type ReminderModule = "FARMER" | "HATCHERY";
+export type ReminderModule = "FARMER" | "HATCHERY" | "DEALER";
 export type ReminderAudience = "ONLY_ME" | "EVERYONE" | "SELECTED";
 export type ReminderRepeat = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY" | "EVERY_N_DAYS";
 
@@ -35,6 +35,15 @@ export interface Reminder {
   hatcheryBatch?: { id: string; code: string; name: string | null } | null;
   incubation?: { id: string; code: string; name: string | null } | null;
   hatcheryParty?: Named | null;
+  /** Feed dealer links (one at most) and money to collect or pay. */
+  dealerCustomerId?: string | null;
+  dealerManualCompanyId?: string | null;
+  dealerCustomer?: { id: string; name: string; phone: string | null; archivedAt: string | null } | null;
+  dealerManualCompany?: { id: string; name: string; phone: string | null; archivedAt: string | null } | null;
+  amount?: string | number | null;
+  /** Dealer lists only: what they owe now (customer: they owe us; company: we owe them)
+   *  and how much was paid since the reminder was made. */
+  money?: { owesNow: number | null; paidSince: number } | null;
   recipients: { staffUser: { id: string; name: string; isActive: boolean } }[];
   createdAt: string;
   updatedAt: string;
@@ -48,6 +57,9 @@ export interface ReminderInput {
   hatcheryBatchId?: string | null;
   incubationId?: string | null;
   hatcheryPartyId?: string | null;
+  dealerCustomerId?: string | null;
+  dealerManualCompanyId?: string | null;
+  amount?: number | null;
   audience: ReminderAudience;
   notifyOwner?: boolean;
   staffIds?: string[];

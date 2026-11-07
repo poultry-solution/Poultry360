@@ -60,3 +60,41 @@ export function auditSuccessfulDealerStaffMutation(req: Request, res: Response, 
   });
   return next();
 }
+
+const reminderActivityCopy: Record<string, string> = {
+  "POST ": "Added a reminder",
+  "PATCH record": "Changed a reminder",
+  "POST record/done": "Marked a reminder done",
+  "POST record/undo": "Undid a done reminder",
+  "POST record/snooze": "Snoozed a reminder",
+  "DELETE record": "Deleted a reminder",
+};
+
+/** Records successful Dealer reminder changes in the dealer Activity log. */
+export function auditSuccessfulDealerReminderMutation(req: Request, res: Response, next: NextFunction) {
+  if (!mutationMethods.has(req.method) || req.role !== UserRole.DEALER) return next();
+
+  res.on("finish", () => {
+    if (res.statusCode < 200 || res.statusCode >= 300 || !req.userId) return;
+    const route = String(req.route?.path || req.path)
+      .replace(/:[^/]+/g, "record")
+      .replace(/^\/+|\/+$/g, "");
+    const targetId = req.params.id || res.locals.auditTargetId || "reminder";
+    const description = reminderActivityCopy[`${req.method} ${route}`] || `${verb(req.method)} a reminder`;
+
+    void getAccountBusiness(req.userId!, UserRole.DEALER)
+      .then((business) => {
+        if (!business) return;
+        return writeBusinessAudit(req, {
+          action: `dealer.reminder.${(route || "create").replace(/\//g, ".")}.${verb(req.method)}`,
+          targetType: "Dealer reminder",
+          targetId,
+          description,
+          businessType: "DEALER",
+          businessId: business.id,
+        });
+      })
+      .catch((error) => console.error("Dealer reminder audit write error:", error));
+  });
+  return next();
+}

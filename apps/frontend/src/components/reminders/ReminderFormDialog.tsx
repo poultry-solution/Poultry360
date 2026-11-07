@@ -27,6 +27,8 @@ import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useHatcheryBatches } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useIncubationBatches } from "@/fetchers/hatchery/hatcheryIncubationQueries";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetManualCompanies } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import {
   reminderErrorText,
   useCreateReminder,
@@ -49,9 +51,12 @@ export type ReminderLinkDefaults = {
   hatcheryBatchId?: string | null;
   incubationId?: string | null;
   hatcheryPartyId?: string | null;
+  dealerCustomerId?: string | null;
+  dealerManualCompanyId?: string | null;
 };
 
 type HatcheryLinkType = "none" | "batch" | "incubation" | "party";
+type DealerLinkType = "none" | "customer" | "company";
 
 interface Props {
   module: ReminderModuleProp;
@@ -60,7 +65,7 @@ interface Props {
   /** Set to change an existing reminder. */
   reminder?: Reminder | null;
   /** Pre-filled values for a new reminder (e.g. from a "Remind me" button). */
-  defaults?: ReminderLinkDefaults & { title?: string };
+  defaults?: ReminderLinkDefaults & { title?: string; amount?: number | null; linkName?: string };
 }
 
 function initialWhen(reminder?: Reminder | null) {
@@ -87,6 +92,8 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
   const [time, setTime] = useState("09:00");
   const [links, setLinks] = useState<ReminderLinkDefaults>({});
   const [hatcheryType, setHatcheryType] = useState<HatcheryLinkType>("none");
+  const [dealerType, setDealerType] = useState<DealerLinkType>("none");
+  const [amount, setAmount] = useState("");
   const [audience, setAudience] = useState<ReminderAudience>("ONLY_ME");
   const [notifyOwner, setNotifyOwner] = useState(false);
   const [staffIds, setStaffIds] = useState<string[]>([]);
@@ -109,9 +116,22 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
           hatcheryBatchId: reminder.hatcheryBatchId,
           incubationId: reminder.incubationId,
           hatcheryPartyId: reminder.hatcheryPartyId,
+          dealerCustomerId: reminder.dealerCustomerId ?? null,
+          dealerManualCompanyId: reminder.dealerManualCompanyId ?? null,
         }
-      : { ...defaults };
+      : {
+          farmId: defaults?.farmId,
+          batchId: defaults?.batchId,
+          hatcheryBatchId: defaults?.hatcheryBatchId,
+          incubationId: defaults?.incubationId,
+          hatcheryPartyId: defaults?.hatcheryPartyId,
+          dealerCustomerId: defaults?.dealerCustomerId,
+          dealerManualCompanyId: defaults?.dealerManualCompanyId,
+        };
     setLinks(l);
+    setDealerType(l.dealerCustomerId ? "customer" : l.dealerManualCompanyId ? "company" : "none");
+    const startAmount = reminder ? reminder.amount : defaults?.amount;
+    setAmount(startAmount != null && Number(startAmount) > 0 ? String(Number(startAmount)) : "");
     setHatcheryType(
       l.hatcheryBatchId ? "batch" : l.incubationId ? "incubation" : l.hatcheryPartyId ? "party" : "none"
     );
@@ -128,7 +148,7 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
   // Hide an old error as soon as the form is changed.
   useEffect(() => {
     setError(null);
-  }, [title, dateYmd, time, links, hatcheryType, audience, notifyOwner, staffIds, repeat, everyDays, untilYmd]);
+  }, [title, dateYmd, time, links, hatcheryType, dealerType, amount, audience, notifyOwner, staffIds, repeat, everyDays, untilYmd]);
 
   const people = peopleQuery.data;
   // Staff tagged earlier but now switched off still show, so they can be removed.
@@ -167,6 +187,13 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
     const hasSomeone = pickedStaff.length > 0 || (Boolean(creatorStaffId) && notifyOwner);
     if (finalAudience === "SELECTED" && !hasSomeone) return setError(tr("needPeople"));
 
+    let amountValue: number | null = null;
+    if (module === "dealer" && amount.trim()) {
+      const n = Number(amount);
+      if (!Number.isFinite(n) || n <= 0) return setError(tr("needAmount"));
+      amountValue = Math.round(n * 100) / 100;
+    }
+
     let repeatEveryDays: number | null = null;
     if (repeat === "EVERY_N_DAYS") {
       const n = Number(everyDays);
@@ -182,6 +209,13 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
       hatcheryBatchId: module === "hatchery" && hatcheryType === "batch" ? links.hatcheryBatchId || null : null,
       incubationId: module === "hatchery" && hatcheryType === "incubation" ? links.incubationId || null : null,
       hatcheryPartyId: module === "hatchery" && hatcheryType === "party" ? links.hatcheryPartyId || null : null,
+      ...(module === "dealer"
+        ? {
+            dealerCustomerId: dealerType === "customer" ? links.dealerCustomerId || null : null,
+            dealerManualCompanyId: dealerType === "company" ? links.dealerManualCompanyId || null : null,
+            amount: amountValue,
+          }
+        : {}),
       audience: finalAudience,
       notifyOwner: finalAudience === "SELECTED" ? (creatorStaffId ? notifyOwner : true) : undefined,
       staffIds: finalAudience === "SELECTED" ? pickedStaff : undefined,
@@ -215,7 +249,7 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
               id="reminder-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={tr("placeholder")}
+              placeholder={module === "dealer" ? tr("dealerPlaceholder") : tr("placeholder")}
               maxLength={200}
               autoFocus
             />
@@ -267,6 +301,26 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
             <Label>{tr("linkTo")}</Label>
             {module === "farmer" ? (
               <FarmerLinkFields tr={tr} links={links} setLinks={setLinks} />
+            ) : module === "dealer" ? (
+              <DealerLinkFields
+                tr={tr}
+                links={links}
+                setLinks={setLinks}
+                type={dealerType}
+                setType={setDealerType}
+                fixedName={
+                  reminder
+                    ? reminder.dealerCustomer?.name ?? reminder.dealerManualCompany?.name
+                    : defaults?.linkName
+                }
+                onPicked={(picked) => {
+                  // Fill the amount and title from who was picked, unless already typed.
+                  if (!amount && picked.owes > 0) setAmount(String(Math.round(picked.owes * 100) / 100));
+                  if (!title.trim()) {
+                    setTitle(picked.kind === "customer" ? tr("collectFrom", { name: picked.name }) : tr("payTo", { name: picked.name }));
+                  }
+                }}
+              />
             ) : (
               <HatcheryLinkFields
                 tr={tr}
@@ -277,6 +331,25 @@ export function ReminderFormDialog({ module, open, onOpenChange, reminder, defau
               />
             )}
           </div>
+
+          {module === "dealer" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="reminder-amount">{tr("amount")}</Label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">रू</span>
+                <Input
+                  id="reminder-amount"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          ) : null}
 
           {showWho ? (
             <div className="space-y-1.5">
@@ -529,6 +602,101 @@ function HatcheryLinkFields({
             ))}
           </SelectContent>
         </Select>
+      ) : null}
+    </div>
+  );
+}
+
+/** Feed dealer: link to a customer (money to collect) or a company (money to pay). */
+function DealerLinkFields({
+  tr,
+  links,
+  setLinks,
+  type,
+  setType,
+  fixedName,
+  onPicked,
+}: {
+  tr: Tr;
+  links: ReminderLinkDefaults;
+  setLinks: (l: ReminderLinkDefaults) => void;
+  type: DealerLinkType;
+  setType: (t: DealerLinkType) => void;
+  /** Name shown when the form was opened from that customer's / company's page. */
+  fixedName?: string;
+  onPicked: (picked: { kind: "customer" | "company"; name: string; owes: number }) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const { data: customerData } = useGetDealerCustomers({ limit: 50, search: search.trim() || undefined });
+  const { data: companies } = useGetManualCompanies();
+
+  const options = useMemo(() => {
+    if (type === "customer") {
+      return (customerData?.data ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        owes: Number(c.balance) || 0,
+        label: `${c.name}${c.phone ? ` · ${c.phone}` : ""}`,
+      }));
+    }
+    if (type === "company") {
+      return (companies ?? []).map((c) => ({ id: c.id, name: c.name, owes: Number(c.balance) || 0, label: c.name }));
+    }
+    return [];
+  }, [type, customerData, companies]);
+
+  const current = type === "customer" ? links.dealerCustomerId : type === "company" ? links.dealerManualCompanyId : null;
+  // Keep a picked or page-given link visible even when it is not in the current list.
+  const showFixed = Boolean(current && fixedName && !options.some((o) => o.id === current));
+
+  const pick = (id: string | null) => {
+    setLinks({
+      dealerCustomerId: type === "customer" ? id : null,
+      dealerManualCompanyId: type === "company" ? id : null,
+    });
+    const found = options.find((o) => o.id === id);
+    if (found) onPicked({ kind: type === "company" ? "company" : "customer", name: found.name, owes: found.owes });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          value={type}
+          onValueChange={(v) => {
+            setType(v as DealerLinkType);
+            setLinks({});
+            setSearch("");
+          }}
+        >
+          <SelectTrigger className="bg-white"><SelectValue placeholder={tr("linkType")} /></SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="none">{tr("none")}</SelectItem>
+            <SelectItem value="customer">{tr("customer")}</SelectItem>
+            <SelectItem value="company">{tr("company")}</SelectItem>
+          </SelectContent>
+        </Select>
+        {type !== "none" ? (
+          <Select value={current || NONE} onValueChange={(v) => pick(v === NONE ? null : v)}>
+            <SelectTrigger className="bg-white"><SelectValue placeholder={tr("pickOne")} /></SelectTrigger>
+            <SelectContent className="bg-white">
+              <SelectItem value={NONE}>{tr("pickOne")}</SelectItem>
+              {showFixed ? <SelectItem value={current!}>{fixedName}</SelectItem> : null}
+              {options.map((o) => (
+                <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+      {/* Search only while no customer is picked yet; clear the pick to search again. */}
+      {type === "customer" && !current ? (
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search customer name or phone"
+          className="h-9"
+        />
       ) : null}
     </div>
   );

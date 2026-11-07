@@ -57,6 +57,9 @@ import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
 import { useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
+import { ReminderCard } from "@/components/reminders/ReminderCard";
+import { useActiveReminders } from "@/fetchers/reminders/reminderQueries";
 import {
     ACCOUNT_FEATURE_KEYS,
     useAccountFeature,
@@ -112,6 +115,8 @@ export default function ManualCompanyAccountPage() {
 
     const company = data?.company;
     const openingBalance = data?.openingBalance;
+    const activeReminders = useActiveReminders();
+    const hasCompanyReminders = (activeReminders.data ?? []).some((r) => r.dealerManualCompanyId === id);
     // Rows belong to the tab that was asked for; while a new tab loads, show nothing old.
     const rows = data?.type === activeTab ? data.rows : [];
     const counts = data?.counts;
@@ -476,6 +481,14 @@ export default function ManualCompanyAccountPage() {
                     </div>
                     <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
                         <BusinessDownloadDialog title={`${company.name} statement`} fileName={`${company.name}-statement`} getData={downloadStatement} />
+                        <RemindMeButton
+                            module="dealer"
+                            label="Payment reminder"
+                            link={{ dealerManualCompanyId: company.id }}
+                            linkName={company.name}
+                            defaultTitle={`Pay ${company.name}`}
+                            defaultAmount={Number(company.balance) > 0 ? Number(company.balance) : null}
+                        />
                         <Button variant="outline" size="sm" onClick={openEditCompany}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
@@ -483,6 +496,21 @@ export default function ManualCompanyAccountPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Open reminders to pay this company (only when there are some) */}
+            {hasCompanyReminders ? (
+                <ReminderCard
+                    module="dealer"
+                    title="Payment reminders"
+                    filter={(r) => r.dealerManualCompanyId === company.id}
+                    addDefaults={{
+                        dealerManualCompanyId: company.id,
+                        linkName: company.name,
+                        title: `Pay ${company.name}`,
+                        amount: Number(company.balance) > 0 ? Number(company.balance) : null,
+                    }}
+                />
+            ) : null}
 
             {/* Balance + totals: one slim strip */}
             {(() => {
