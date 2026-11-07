@@ -10,6 +10,7 @@ import {
   closeBatch,
   getBatchAnalytics,
   getBatchFcrHistory,
+  getBatchEggCost,
   getBatchClosureSummary,
 } from "../controller/batchController";
 import {
@@ -58,6 +59,9 @@ batchRouter.get("/:id/analytics", getBatchAnalytics);
 
 // Get saved FCR points for table and future charts
 batchRouter.get("/:id/fcr-history", getBatchFcrHistory);
+
+// Cost per egg views for a layer batch (Egg cost tab)
+batchRouter.get("/:id/egg-cost", getBatchEggCost);
 
 // Get batch closure summary (for completed batches)
 batchRouter.get("/:id/closure-summary", getBatchClosureSummary);

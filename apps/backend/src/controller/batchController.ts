@@ -23,6 +23,7 @@ import {
 } from "../services/farmerFcrService";
 import { CloseBatchFcrSchema } from "../validation/fcrSchemas";
 import { closureLeftWhere, naturalDeathWhere } from "../services/farmerAnalytics/scope";
+import { assembleEggCost, loadEggCostInput } from "../services/layerEggCostService";
 import {
   batchScopedBy,
   farmScopedBy,
@@ -1401,6 +1402,36 @@ export const getBatchClosureSummary = async (
     console.error("Get batch closure summary error:", error);
     const message = (error as any)?.message || "Internal server error";
     return res.status(500).json({ message });
+  }
+};
+
+// ==================== GET EGG COST (layers) ====================
+export const getBatchEggCost = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const ownership =
+      req.role === UserRole.SUPER_ADMIN ? {} : { farm: { ownerId: req.userId } };
+    const batch = await prisma.batch.findFirst({
+      where: { id, ...ownership },
+      select: {
+        id: true,
+        batchType: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        initialChicks: true,
+        farm: { select: { ownerId: true } },
+      },
+    });
+    if (!batch) return res.status(404).json({ message: "Batch not found" });
+    if (batch.batchType !== BatchType.LAYERS) {
+      return res.status(400).json({ message: "Egg cost is only for layer batches" });
+    }
+    const input = await loadEggCostInput(batch);
+    return res.json({ success: true, data: assembleEggCost(input) });
+  } catch (error) {
+    console.error("Get batch egg cost error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

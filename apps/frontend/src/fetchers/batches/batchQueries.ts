@@ -117,6 +117,98 @@ export const useGetBatchAnalytics = (id: string, options?: { enabled?: boolean }
   });
 };
 
+// ---- Egg cost (layer batches only) ----
+export type EggCostGroup = "Feed" | "Chicks" | "Medicine" | "Labour" | "Electricity" | "Equipment" | "Other";
+export type EggCostPeriod = {
+  from: string;
+  to: string;
+  days: number;
+  eggs: number;
+  eggsSold: number;
+  eggMoney: number;
+  henMoney: number;
+  runningCost: number;
+  runningPerEgg: number | null;
+  feedCost: number;
+  feedPerEgg: number | null;
+  feedSharePercent: number | null;
+  feedKg: number;
+  feedGramsPerEgg: number | null;
+  feedGramsPerHenDay: number | null;
+  salePrice: number | null;
+  marginPerEgg: number | null;
+  marginUsesBatchPrice: boolean;
+  breakEvenPerTray: number | null;
+  layingPercent: number | null;
+  costPerHenDay: number | null;
+  breakdown: Array<{ group: EggCostGroup; cost: number; perEgg: number | null; percent: number | null; names?: Array<{ name: string; cost: number }> }>;
+  monthStart?: string;
+  partial?: boolean;
+};
+export type EggCostRow = {
+  start: string;
+  partial: boolean;
+  eggs: number;
+  layingPercent: number | null;
+  runningCost: number;
+  runningPerEgg: number | null;
+  feedGramsPerEgg: number | null;
+  salePrice: number | null;
+  marginPerEgg: number | null;
+  cumulativeFullPerEgg: number | null;
+  net: number;
+};
+type EggCostRearing = { days: number; totalCost: number; byGroup: Array<{ group: EggCostGroup; cost: number }> };
+export type BatchEggCost =
+  | { status: "NO_EGGS"; closed: boolean; startDay: string; endDay: string; today: string; layingStartDay: null; hensNow: number; rearing: EggCostRearing }
+  | {
+      status: "OK";
+      closed: boolean;
+      startDay: string;
+      endDay: string;
+      today: string;
+      layingStartDay: string;
+      hensNow: number;
+      initialHens: number;
+      rearing: EggCostRearing;
+      periods: { whole: EggCostPeriod; current: EggCostPeriod | null; previous: EggCostPeriod | null };
+      full: { totalCost: number; totalEggs: number; fullPerEgg: number | null; finalPerEgg: number | null; fullBreakEvenPerTray: number; eggsPerHen: number | null };
+      payback: {
+        flockCost: number;
+        chicks: number;
+        rearing: number;
+        recovered: number;
+        percent: number | null;
+        paidBack: boolean;
+        extraProfit: number;
+        expected: {
+          reason: "ok" | "closed" | "noFlockCost" | "paid" | "notEnoughMonths" | "notPaying" | "tooLong";
+          monthStart: string | null;
+          months: number | null;
+        };
+      };
+      prices: {
+        averagePrice: number | null;
+        byType: Array<{ eggTypeId: string; name: string; laid: number; sold: number; avgPrice: number | null; inStock: number }>;
+        stockWorth: number | null;
+      };
+      monthly: EggCostRow[];
+      weekly: EggCostRow[];
+    };
+
+/** Cost per egg views for a layer batch. Lives under the batch detail key, so it
+ *  refreshes after any expense, sale, egg, death or close change. */
+export const useGetBatchEggCost = (id: string, options?: { enabled?: boolean }) => {
+  return useQuery({
+    queryKey: [...batchKeys.detail(id), "egg-cost"] as const,
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/batches/${id}/egg-cost`);
+      return response.data.data as BatchEggCost;
+    },
+    enabled: (options?.enabled !== false) && !!id,
+  });
+};
+
 export const useGetBatchFcrHistory = (id: string, options?: { enabled?: boolean }) => {
   return useQuery<FcrHistoryResponse>({
     queryKey: batchKeys.fcrHistory(id),

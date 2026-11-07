@@ -105,6 +105,7 @@ import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
 import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
+import { EggCostTab } from "@/components/batches/tabs/EggCostTab";
 import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
@@ -148,7 +149,7 @@ const BASE_TABS = [
   "Profit & Loss",
 ] as const;
 // Growth for Broiler, Egg Production for Layers
-type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes";
+type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Egg cost" | "Notes";
 
 
 // helper banner
@@ -186,7 +187,12 @@ export default function BatchDetailPage() {
   const fcrHistory = fcrHistoryResponse?.data || [];
 
   const tabs: TabName[] = batch
-    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth", "Notes"]
+    ? [
+        ...BASE_TABS,
+        // Layers: eggs, then cost per egg. Broilers: growth.
+        ...((batch as any).batchType === "LAYERS" ? (["Egg Production", "Egg cost"] as const) : (["Growth"] as const)),
+        "Notes",
+      ]
     : [...BASE_TABS, "Growth", "Notes"];
 
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
@@ -1732,6 +1738,10 @@ export default function BatchDetailPage() {
           batchId={batchId}
           isBatchClosed={isBatchClosed}
         />
+      )}
+
+      {activeTab === "Egg cost" && batchId && (batch as any).batchType === "LAYERS" && (
+        <EggCostTab batchId={batchId} onGoToEggs={() => setActiveTab("Egg Production")} />
       )}
 
       {/* Close Batch Modal */}
