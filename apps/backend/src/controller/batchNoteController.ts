@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { NOT_YOUR_NOTE, canChangeNote, checkNoteText, noteAuthorSelect } from "../utils/noteAuthor";
 
 class BatchNoteError extends Error {
   statusCode: number;
@@ -26,16 +27,9 @@ const normalizeDate = (value: unknown): Date => {
 };
 
 const normalizeDescription = (value: unknown): string => {
-  if (typeof value !== "string") {
-    throw new BatchNoteError("Description is required");
-  }
-
-  const description = value.trim();
-  if (!description) {
-    throw new BatchNoteError("Description is required");
-  }
-
-  return description;
+  const checked = checkNoteText(value);
+  if ("error" in checked) throw new BatchNoteError(checked.error);
+  return checked.text;
 };
 
 const ensureBatchAccess = async (batchId: string, userId?: string) => {
@@ -94,13 +88,15 @@ export const getBatchNotes = async (req: Request, res: Response): Promise<any> =
         skip,
         take: limitNumber,
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: noteAuthorSelect,
       }),
       prisma.batchNote.count({ where: { batchId: id } }),
     ]);
 
     return res.json({
       success: true,
-      data: notes,
+      // canChange: the writer of the note or the owner may edit / delete it.
+      data: notes.map((note) => ({ ...note, canChange: canChangeNote(note, req.staffUserId) })),
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -129,10 +125,14 @@ export const createBatchNote = async (
         batchId: id,
         date,
         description,
+        // Who wrote it: the owner, or the staff login that is acting.
+        createdByOwner: !req.staffUserId,
+        createdByStaffId: req.staffUserId ?? null,
       },
+      include: noteAuthorSelect,
     });
 
-    return res.status(201).json({ success: true, data: note });
+    return res.status(201).json({ success: true, data: { ...note, canChange: true } });
   } catch (error) {
     return handleError(res, error, "Create batch note error");
   }
@@ -151,19 +151,21 @@ export const updateBatchNote = async (
 
     const existing = await prisma.batchNote.findFirst({
       where: { id: noteId, batchId: id },
-      select: { id: true },
+      select: { id: true, createdByStaffId: true, createdByOwner: true },
     });
 
     if (!existing) {
       throw new BatchNoteError("Note not found", 404);
     }
+    if (!canChangeNote(existing, req.staffUserId)) throw new BatchNoteError(NOT_YOUR_NOTE, 403);
 
     const note = await prisma.batchNote.update({
       where: { id: noteId },
-      data: { date, description },
+      data: { date, description, editedAt: new Date() },
+      include: noteAuthorSelect,
     });
 
-    return res.json({ success: true, data: note });
+    return res.json({ success: true, data: { ...note, canChange: true } });
   } catch (error) {
     return handleError(res, error, "Update batch note error");
   }
@@ -180,12 +182,13 @@ export const deleteBatchNote = async (
 
     const existing = await prisma.batchNote.findFirst({
       where: { id: noteId, batchId: id },
-      select: { id: true },
+      select: { id: true, createdByStaffId: true, createdByOwner: true },
     });
 
     if (!existing) {
       throw new BatchNoteError("Note not found", 404);
     }
+    if (!canChangeNote(existing, req.staffUserId)) throw new BatchNoteError(NOT_YOUR_NOTE, 403);
 
     await prisma.batchNote.delete({ where: { id: noteId } });
 

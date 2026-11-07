@@ -29,6 +29,9 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
   "POST batches": { description: "Added a batch", targetType: "Batch" },
   "PUT batches/record": { description: "Updated a batch", targetType: "Batch" },
   "DELETE batches/record": { description: "Deleted a batch", targetType: "Batch" },
+  "POST batches/record/notes": { description: "Added a batch note", targetType: "Batch note" },
+  "PUT batches/record/notes/record": { description: "Changed a batch note", targetType: "Batch note" },
+  "DELETE batches/record/notes/record": { description: "Deleted a batch note", targetType: "Batch note" },
   "POST batches/record/close": { description: "Closed a batch", targetType: "Batch" },
   "POST batches/record/reopen": { description: "Reopened a batch", targetType: "Batch" },
 

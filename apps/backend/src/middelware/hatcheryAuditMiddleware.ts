@@ -40,6 +40,12 @@ const hatcheryActivityCopy: Record<string, HatcheryActivityCopy> = {
   // Batch-scoped activity
   "POST batches/record/mortalities": { description: "Recorded batch mortality", targetType: "Hatchery mortality" },
   "DELETE batches/record/mortalities/record": { description: "Deleted batch mortality", targetType: "Hatchery mortality" },
+  "POST batches/record/notes": { description: "Added a batch note", targetType: "Hatchery batch note" },
+  "PUT batches/record/notes/record": { description: "Changed a batch note", targetType: "Hatchery batch note" },
+  "DELETE batches/record/notes/record": { description: "Deleted a batch note", targetType: "Hatchery batch note" },
+  "POST incubations/record/notes": { description: "Added an incubation note", targetType: "Hatchery incubation note" },
+  "PUT incubations/record/notes/record": { description: "Changed an incubation note", targetType: "Hatchery incubation note" },
+  "DELETE incubations/record/notes/record": { description: "Deleted an incubation note", targetType: "Hatchery incubation note" },
   "POST batches/record/expenses": { description: "Recorded a batch expense", targetType: "Hatchery expense" },
   "DELETE batches/record/expenses/record": { description: "Deleted a batch expense", targetType: "Hatchery expense" },
   "POST batches/record/egg-productions": { description: "Recorded egg production", targetType: "Hatchery egg production" },

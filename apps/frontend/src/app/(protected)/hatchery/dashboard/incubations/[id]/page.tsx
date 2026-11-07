@@ -1,5 +1,6 @@
 "use client";
 
+import { HatcheryNotesTab } from "@/components/hatchery/HatcheryNotesTab";
 import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -51,7 +52,7 @@ import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
 import { SaleSavedPrompt } from "../../sales/_components/SaleSavedPrompt";
 import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
 
-type Tab = "overview" | "candling" | "transfer" | "hatch-results" | "chick-stock" | "chick-sales";
+type Tab = "overview" | "candling" | "transfer" | "hatch-results" | "chick-stock" | "chick-sales" | "notes";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -60,6 +61,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "hatch-results", label: "Hatch result" },
   { id: "chick-stock", label: "Chick stock" },
   { id: "chick-sales", label: "Chick sales" },
+  { id: "notes", label: "Notes" },
 ];
 
 const STAGE_COLORS: Record<string, string> = {
@@ -167,6 +169,7 @@ export default function IncubationDetailPage() {
         {activeTab === "hatch-results" && <HatchResultsTab batch={batch} batchId={id} />}
         {activeTab === "chick-stock" && <ChickStockTab batch={batch} onSell={() => setActiveTab("chick-sales")} />}
         {activeTab === "chick-sales" && <ChickSalesTab batchId={id} batch={batch} />}
+        {activeTab === "notes" && <HatcheryNotesTab kind="incubation" id={id} />}
       </div>
     </div>
   );

@@ -47,6 +47,13 @@ export interface BatchNote {
   description: string;
   createdAt: string;
   updatedAt: string;
+  /** true = owner, false = staff, null = old note (writer unknown). */
+  createdByOwner: boolean | null;
+  createdByStaffId: string | null;
+  createdByStaff?: { id: string; name: string } | null;
+  editedAt: string | null;
+  /** The writer of the note or the owner may change it. */
+  canChange?: boolean;
 }
 
 export interface BatchNoteInput {

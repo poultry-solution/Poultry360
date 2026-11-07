@@ -1,5 +1,6 @@
 "use client";
 
+import { HatcheryNotesTab } from "@/components/hatchery/HatcheryNotesTab";
 import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { useEffect, useState, useMemo } from "react";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
@@ -81,7 +82,8 @@ type Tab =
   | "mortality"
   | "egg-production"
   | "egg-stock"
-  | "sales";
+  | "sales"
+  | "notes";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -90,6 +92,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "egg-production", label: "Egg Production" },
   { id: "egg-stock", label: "Egg Stock" },
   { id: "sales", label: "Sales" },
+  { id: "notes", label: "Notes" },
 ];
 
 function fmtNPR(n: number | string) {
@@ -353,6 +356,7 @@ export default function HatcheryBatchDetailPage() {
           eggStock={batch.summary?.eggStock ?? []}
         />
       )}
+      {activeTab === "notes" && <HatcheryNotesTab kind="batch" id={id} />}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

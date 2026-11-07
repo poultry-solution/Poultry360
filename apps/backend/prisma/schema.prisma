@@ -206,6 +206,7 @@ model User {
 
   // Hatchery batches + egg types
   hatcheryBatches     HatcheryBatch[]           @relation("HatcheryBatches")
+  hatcheryNotes       HatcheryNote[]            @relation("HatcheryNotes")
   hatcheryEggTypes    HatcheryEggType[]         @relation("HatcheryEggTypes")
   hatcheryIncubations HatcheryIncubationBatch[] @relation("HatcheryIncubationBatches")
   hatcheryParties     HatcheryParty[]           @relation("HatcheryParties")
@@ -539,10 +540,42 @@ model BatchNote {
   date        DateTime
   description String
 
+  // Who wrote it. createdByOwner: true = owner, false = staff, null = old note (author unknown).
+  createdByStaffId String?
+  createdByStaff   StaffUser? @relation("BatchNoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdByOwner   Boolean?
+  editedAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([batchId, date])
+}
+
+// Notes on a hatchery parent batch or incubation (exactly one), with who wrote them.
+model HatcheryNote {
+  id              String @id @default(cuid())
+  hatcheryOwnerId String
+  hatcheryOwner   User   @relation("HatcheryNotes", fields: [hatcheryOwnerId], references: [id], onDelete: Cascade)
+
+  hatcheryBatchId String?
+  hatcheryBatch   HatcheryBatch?           @relation(fields: [hatcheryBatchId], references: [id], onDelete: Cascade)
+  incubationId    String?
+  incubation      HatcheryIncubationBatch? @relation(fields: [incubationId], references: [id], onDelete: Cascade)
+
+  text String
+
+  createdByStaffId String?
+  createdByStaff   StaffUser? @relation("HatcheryNoteCreatedBy", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+  createdByOwner   Boolean    @default(true)
+  editedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hatcheryBatchId, createdAt])
+  @@index([incubationId, createdAt])
+  @@index([hatcheryOwnerId])
 }
 
 // ==================== REMINDERS ====================
@@ -2839,11 +2872,13 @@ model StaffUser {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  remindersCreated   Reminder[]          @relation("ReminderCreatedBy")
-  remindersDone      Reminder[]          @relation("ReminderDoneBy")
-  reminderRecipients ReminderRecipient[]
-  notifications      Notification[]
-  pushSubscriptions  PushSubscription[]
+  remindersCreated     Reminder[]          @relation("ReminderCreatedBy")
+  batchNotesCreated    BatchNote[]         @relation("BatchNoteCreatedBy")
+  hatcheryNotesCreated HatcheryNote[]      @relation("HatcheryNoteCreatedBy")
+  remindersDone        Reminder[]          @relation("ReminderDoneBy")
+  reminderRecipients   ReminderRecipient[]
+  notifications        Notification[]
+  pushSubscriptions    PushSubscription[]
 
   @@index([ownerId])
   @@index([ownerId, accountRole])
@@ -3256,7 +3291,8 @@ model HatcheryBatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reminders Reminder[]
+  noteEntries HatcheryNote[]
+  reminders   Reminder[]
 
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
@@ -3525,7 +3561,8 @@ model HatcheryIncubationBatch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reminders Reminder[]
+  noteEntries HatcheryNote[]
+  reminders   Reminder[]
 
   @@unique([hatcheryOwnerId, code])
   @@index([hatcheryOwnerId])
