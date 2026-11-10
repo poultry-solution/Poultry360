@@ -1,7 +1,6 @@
 "use client";
 
-import { createElement, useEffect, useMemo, useState } from "react";
-import Script from "next/script";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock, PlayCircle } from "lucide-react";
 import { cn } from "@/common/lib/utils";
 import {
@@ -10,6 +9,7 @@ import {
   type Tutorial,
   type TutorialModule,
 } from "@/content/tutorials";
+import { WistiaPlayer } from "@/components/tutorials/WistiaPlayer";
 
 function TutorialPlayer({ video }: { video: Tutorial }) {
   const mediaId = wistiaIdFor(video.key);
@@ -25,13 +25,7 @@ function TutorialPlayer({ video }: { video: Tutorial }) {
 
   return (
     <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-      <Script src={`https://fast.wistia.com/embed/${mediaId}.js`} type="module" strategy="afterInteractive" />
-      {createElement("wistia-player", {
-        key: mediaId,
-        "media-id": mediaId,
-        aspect: "1.7777777777777777",
-        style: { height: "100%", width: "100%" },
-      })}
+      <WistiaPlayer mediaId={mediaId} />
     </div>
   );
 }
@@ -82,8 +76,6 @@ export function TutorialsPage({ module }: { module: TutorialModule }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6">
-      <Script src="https://fast.wistia.com/player.js" strategy="afterInteractive" />
-
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Tutorials</h1>
         <p className="mt-1 text-sm text-gray-600">
