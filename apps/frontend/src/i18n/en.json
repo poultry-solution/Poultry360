@@ -2096,7 +2096,7 @@
         "soFar": "so far",
         "best": "Best",
         "worst": "Worst",
-        "cfcrNote": "cFCR = FCR corrected to {target} kg ({correction} per kg), so you can compare batches sold at different weights. Lower is better."
+        "cfcrNote": "cFCR = FCR corrected to {target} kg ({correction} per kg). It shows for finished batches, so you can compare batches sold at different weights. Lower is better."
       },
       "health": {
         "naturalOnly": "Natural deaths",

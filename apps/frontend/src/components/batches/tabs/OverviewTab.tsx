@@ -23,10 +23,6 @@ const fcrChartConfig = {
     label: "FCR",
     color: "#15803d",
   },
-  cfcr: {
-    label: "cFCR",
-    color: "#2563eb",
-  },
 } satisfies ChartConfig;
 
 const FCR_ROWS_DEFAULT = 10;
@@ -113,11 +109,10 @@ export function OverviewTab({
     fcrData?.basis === "FINAL" || fcrData?.basis === "FINAL_PENDING_CLOSE";
   const fcrIsStale = fcrData?.freshnessStatus === "STALE";
   const displayedFcr = fcrData?.fcr ?? analytics?.lastKnownFcr ?? null;
-  const displayedCfcr = fcrData?.cfcr ?? analytics?.lastKnownCfcr ?? null;
-  // cFCR uses one standard for the whole account (Settings). When today's value
-  // can't be calculated, the newest earlier value is shown with its date.
+  // cFCR is a result for finished batches (all birds sold or closed), used to
+  // compare batches. A running batch shows FCR only.
   const { user } = useAuth();
-  const cfcrIsLastKnown = fcrData?.cfcr == null && analytics?.lastKnownCfcr != null;
+  const showFinalCfcr = cfcrEnabled && fcrIsFinal && fcrData?.cfcr != null;
   const cfcrTargetKg = fcrData?.cfcrTargetWeightKg ?? null;
   const cfcrCorrection = fcrData?.cfcrCorrectionFactorPerKg ?? null;
   const averageOutputWeightKg = fcrData?.averageOutputWeightKg ?? null;
@@ -377,63 +372,66 @@ export function OverviewTab({
           </CardHeader>
           <CardContent>
             <div
-              className={`mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-3 py-2.5 ${
+              className={`mb-6 rounded-lg border px-4 py-3 ${
                 fcrIsStale ? "border-amber-200 bg-amber-50/50" : "bg-muted/20"
               }`}
             >
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xs text-muted-foreground">FCR</span>
-                <span className="text-xl font-semibold">
-                  {displayedFcr == null ? "—" : Number(displayedFcr).toFixed(2)}
-                </span>
-              </div>
-              {cfcrEnabled && (
-                <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                  <span className="text-xs text-muted-foreground">cFCR</span>
-                  <span className="text-xl font-semibold text-blue-700">
-                    {displayedCfcr == null ? "—" : Number(displayedCfcr).toFixed(2)}
+              <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">FCR</p>
+                  <p className="text-2xl font-semibold leading-tight">
+                    {displayedFcr == null ? "—" : Number(displayedFcr).toFixed(2)}
+                  </p>
+                </div>
+                {showFinalCfcr && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Final cFCR</p>
+                    <p className="text-2xl font-semibold leading-tight text-blue-700">
+                      {Number(fcrData.cfcr).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+                {showFinalCfcr && averageOutputWeightKg != null && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Average sold weight</p>
+                    <p className="text-lg font-semibold leading-tight">{Number(averageOutputWeightKg).toFixed(2)} kg</p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 pb-0.5">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${fcrStatusClass}`}>
+                    {fcrStatusLabel}
                   </span>
-                  {cfcrIsLastKnown && analytics?.lastKnownCfcrDate ? (
-                    <span className="text-xs text-amber-700">
-                      last known · <DateDisplay date={analytics.lastKnownCfcrDate} format="short" />
-                    </span>
-                  ) : null}
-                  {cfcrTargetKg != null && cfcrCorrection != null && (
+                  {fcrData?.asOfDate && (
                     <span className="text-xs text-muted-foreground">
-                      corrected to {cfcrTargetKg} kg ({cfcrCorrection} per kg)
-                      {!user?.isStaff && (
-                        <>
-                          {" · "}
-                          <Link href="/farmer/dashboard/settings" className="text-primary underline-offset-2 hover:underline">
-                            change in Settings
-                          </Link>
-                        </>
-                      )}
+                      as of <DateDisplay date={fcrData.asOfDate} format="short" />
                     </span>
                   )}
                 </div>
-              )}
-              {cfcrEnabled && averageOutputWeightKg != null && (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xs text-muted-foreground">Average weight (sold + in shed)</span>
-                  <span className="text-sm font-semibold">{Number(averageOutputWeightKg).toFixed(2)} kg</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${fcrStatusClass}`}>
-                  {fcrStatusLabel}
-                </span>
-                {fcrData?.asOfDate && (
-                  <span className="text-xs text-muted-foreground">
-                    as of <DateDisplay date={fcrData.asOfDate} format="short" />
-                  </span>
-                )}
               </div>
 
+              {showFinalCfcr && cfcrTargetKg != null && cfcrCorrection != null && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  cFCR is FCR corrected to {cfcrTargetKg} kg ({cfcrCorrection} per kg), so you can compare batches.
+                  {!user?.isStaff && (
+                    <>
+                      {" "}
+                      <Link href="/farmer/dashboard/settings" className="text-primary underline-offset-2 hover:underline">
+                        Change in Settings
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
+              {cfcrEnabled && !fcrIsFinal && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  cFCR shows when all birds are sold. Use it to compare finished batches.
+                </p>
+              )}
+
               {fcrSummaryMessage && (
-                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                  <p className={`flex items-center gap-1.5 text-xs ${fcrIsStale ? "text-amber-800" : "text-muted-foreground"}`}>
-                    {fcrIsStale && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
+                <div className="mt-3 flex flex-col gap-2 border-t border-black/5 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className={`flex items-start gap-1.5 text-sm ${fcrIsStale ? "text-amber-800" : "text-muted-foreground"}`}>
+                    {fcrIsStale && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
                     {fcrSummaryMessage}
                   </p>
                   {!isBatchClosed && weightCanRefreshFcr && (
@@ -441,7 +439,7 @@ export function OverviewTab({
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-7 px-2.5 text-xs"
+                      className="h-8 shrink-0 self-start px-3 text-xs sm:self-auto"
                       onClick={onRecordWeight}
                     >
                       Record weight
@@ -476,17 +474,10 @@ export function OverviewTab({
                         <tr className="border-b text-left text-muted-foreground">
                           <th className="px-2 py-2 font-medium">Date</th>
                           <th className="px-2 py-2 font-medium">FCR</th>
-                          {cfcrEnabled && <th className="px-2 py-2 font-medium">cFCR</th>}
                           <th className="px-2 py-2 font-medium">Avg weight (kg)</th>
                           <th className="px-2 py-2 font-medium">Feed (kg)</th>
                           {showFcrDetails && (
                             <>
-                              {cfcrEnabled && (
-                                <>
-                                  <th className="px-2 py-2 font-medium">Birds counted</th>
-                                  <th className="px-2 py-2 font-medium">Avg weight, sold + in shed (kg)</th>
-                                </>
-                              )}
                               <th className="px-2 py-2 font-medium">Total weight (kg)</th>
                               <th className="px-2 py-2 font-medium">Weight gained (kg)</th>
                             </>
@@ -511,11 +502,6 @@ export function OverviewTab({
                               </span>
                             </td>
                             <td className="px-2 py-2 font-medium">{row.fcr.toFixed(2)}</td>
-                            {cfcrEnabled && (
-                              <td className="px-2 py-2 font-medium text-blue-700">
-                                {row.cfcr == null ? "—" : row.cfcr.toFixed(2)}
-                              </td>
-                            )}
                             <td className="px-2 py-2">
                               {row.remainingAverageWeightKg == null
                                 ? "—"
@@ -524,20 +510,6 @@ export function OverviewTab({
                             <td className="px-2 py-2">{kg(row.feedKg)}</td>
                             {showFcrDetails && (
                               <>
-                                {cfcrEnabled && (
-                                  <>
-                                    <td className="px-2 py-2">
-                                      {row.outputBirdCount == null
-                                        ? "—"
-                                        : row.outputBirdCount.toLocaleString("en-IN")}
-                                    </td>
-                                    <td className="px-2 py-2">
-                                      {row.averageOutputWeightKg == null
-                                        ? "—"
-                                        : row.averageOutputWeightKg.toFixed(2)}
-                                    </td>
-                                  </>
-                                )}
                                 <td className="px-2 py-2">{kg(row.producedLiveWeightKg)}</td>
                                 <td className="px-2 py-2">{kg(row.weightGainKg)}</td>
                               </>
@@ -592,11 +564,9 @@ export function OverviewTab({
                         cursor={{ stroke: "#d1d5db", strokeDasharray: "3 3" }}
                         content={
                           <ChartTooltipContent
-                            formatter={(value, name) => (
+                            formatter={(value) => (
                               <div className="flex min-w-[110px] items-center justify-between gap-4">
-                                <span className="text-muted-foreground">
-                                  {name === "cfcr" ? "cFCR" : "FCR"}
-                                </span>
+                                <span className="text-muted-foreground">FCR</span>
                                 <span className="font-medium">{Number(value).toFixed(2)}</span>
                               </div>
                             )}
@@ -611,17 +581,6 @@ export function OverviewTab({
                         dot={showFcrDots ? { r: 3.5, fill: "var(--color-fcr)", strokeWidth: 0 } : false}
                         activeDot={{ r: 5, fill: "var(--color-fcr)", stroke: "white", strokeWidth: 2 }}
                       />
-                      {cfcrEnabled && (
-                        <Line
-                          dataKey="cfcr"
-                          type="monotone"
-                          stroke="var(--color-cfcr)"
-                          strokeWidth={2.5}
-                          connectNulls={false}
-                          dot={showFcrDots ? { r: 3.5, fill: "var(--color-cfcr)", strokeWidth: 0 } : false}
-                          activeDot={{ r: 5, fill: "var(--color-cfcr)", stroke: "white", strokeWidth: 2 }}
-                        />
-                      )}
                     </LineChart>
                   </ChartContainer>
                   <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
@@ -629,12 +588,6 @@ export function OverviewTab({
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: fcrChartConfig.fcr.color }} />
                       FCR
                     </span>
-                    {cfcrEnabled && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: fcrChartConfig.cfcr.color }} />
-                        cFCR
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
