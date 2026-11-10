@@ -18,11 +18,6 @@ import axiosInstance from "@/common/lib/axios";
 import { saleQueryKeys } from "@/fetchers/sale/saleQueries";
 import type { CloseBatchFcrInput, FcrHistoryResponse } from "@/types/fcr";
 
-export interface CfcrBatchSettingsInput {
-  cfcrTargetWeightKg?: number;
-  cfcrCorrectionFactorPerKg?: number;
-}
-
 // ==================== QUERY KEYS ====================
 export const batchKeys = {
   all: ["batches"] as const,
@@ -356,7 +351,7 @@ export const useCreateBatch = () => {
 
   return useMutation({
     mutationFn: async (
-      data: CreateBatch & CfcrBatchSettingsInput
+      data: CreateBatch
     ): Promise<BatchDetailResponse> => {
       const response = await axiosInstance.post("/batches", data);
       return response.data as BatchDetailResponse;
@@ -384,7 +379,7 @@ export const useUpdateBatch = () => {
       data,
     }: {
       id: string;
-      data: UpdateBatch & CfcrBatchSettingsInput;
+      data: UpdateBatch;
     }) => {
       const response = await axiosInstance.put(`/batches/${id}`, data);
       return response.data;

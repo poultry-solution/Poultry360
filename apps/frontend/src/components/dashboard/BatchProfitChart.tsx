@@ -25,6 +25,7 @@ import {
   type ChartRangeKey,
 } from "@/components/charts/chartKit";
 import { useGetBatchProfitTrend, type BatchPerformanceItem } from "@/fetchers/dashboard/dashboardQueries";
+import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 
 const chartConfig = {
   income: { label: "Income", color: "#16a34a" },
@@ -49,11 +50,12 @@ type Point = {
   item: BatchPerformanceItem;
 };
 
-function TooltipBody({ point }: { point: Point }) {
+function TooltipBody({ point, showCfcr }: { point: Point; showCfcr: boolean }) {
   const { item } = point;
   const shownFcr = item.currentFcr ?? item.fcr;
   const fcr = shownFcr && shownFcr !== "N/A" ? shownFcr : "—";
-  const cfcr = item.cfcr && item.cfcr !== "N/A" ? item.cfcr : null;
+  // cFCR only for accounts that turned it on in Settings.
+  const cfcr = showCfcr && item.cfcr && item.cfcr !== "N/A" ? item.cfcr : null;
   return (
     <div className="min-w-[200px] space-y-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-md">
       <div>
@@ -90,6 +92,7 @@ export function BatchProfitChart({ farms }: { farms: Array<{ id: string; name: s
   // Broilers and layers are not comparable (a layer flock runs for months), so show one type at a time.
   const [batchType, setBatchType] = useState<"BROILER" | "LAYERS">("BROILER");
   const limit = chartRangeLimit(range);
+  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
 
   const { data, isLoading, isFetching, isError } = useGetBatchProfitTrend({
     limit,
@@ -219,7 +222,7 @@ export function BatchProfitChart({ farms }: { farms: Array<{ id: string; name: s
             pxPerPoint={points.some((p) => p.label.includes("'")) ? PX_PER_BATCH_WITH_YEAR : PX_PER_BATCH}
             faded={isFetching}
             scrollKey={`${batchType}-${farmId}-${range}`}
-            renderTooltip={(point) => <TooltipBody point={point} />}
+            renderTooltip={(point) => <TooltipBody point={point} showCfcr={cfcrFeature.isEnabled} />}
             series={[
               <Bar key="income" dataKey="income" fill="var(--color-income)" radius={[3, 3, 0, 0]} barSize={18}>
                 {points.map((p) => <Cell key={p.id} fillOpacity={p.active ? 0.45 : 1} />)}

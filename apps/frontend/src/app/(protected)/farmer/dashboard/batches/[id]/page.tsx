@@ -36,7 +36,6 @@ import {
   useGetBatchEggCost,
   useDeleteBatch,
   useCloseBatch,
-  useUpdateBatch,
   useVerifyPasswordForBatchDelete,
 } from "@/fetchers/batches/batchQueries";
 import {
@@ -221,22 +220,7 @@ export default function BatchDetailPage() {
 
   const deleteBatchMutation = useDeleteBatch();
   const closeBatchMutation = useCloseBatch();
-  const updateBatchMutation = useUpdateBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
-
-  const saveCfcrSettings = async (
-    targetWeightKg: number,
-    correctionFactorPerKg: number,
-  ) => {
-    await updateBatchMutation.mutateAsync({
-      id: safeBatchId,
-      data: {
-        cfcrTargetWeightKg: targetWeightKg,
-        cfcrCorrectionFactorPerKg: correctionFactorPerKg,
-      },
-    });
-    toast.success("Corrected FCR settings saved");
-  };
 
   // Fetch real expense data
   const {
@@ -1655,8 +1639,6 @@ export default function BatchDetailPage() {
           recentMortalities={batchMortalities.slice(0, 5)}
           onRecordWeight={() => setIsWeightModalOpen(true)}
           cfcrEnabled={cfcrFeature.isEnabled}
-          onSaveCfcrSettings={saveCfcrSettings}
-          cfcrSettingsSaving={updateBatchMutation.isPending}
         />
       )}
 

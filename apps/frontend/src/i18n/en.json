@@ -141,7 +141,7 @@
     "purchaseBillUpdated": "Purchase bill setting updated",
     "purchaseBillUpdateFailed": "Failed to update purchase bill setting",
     "cfcr": "Corrected FCR",
-    "cfcrDescription": "Show corrected FCR settings, history, and graph for Broiler batches.",
+    "cfcrDescription": "Show corrected FCR for Broiler batches, so you can compare batches sold at different weights.",
     "cfcrUpdated": "Corrected FCR setting updated",
     "cfcrUpdateFailed": "Failed to update corrected FCR setting",
     "featureOn": "ON",
@@ -175,7 +175,23 @@
     "listForSale": "List for sale",
     "listForSaleDescription": "Post birds or eggs for sale on the public marketplace. When off, your listings are hidden.",
     "listForSaleUpdated": "List for sale setting updated",
-    "listForSaleUpdateFailed": "Could not update List for sale"
+    "listForSaleUpdateFailed": "Could not update List for sale",
+    "cfcrStandardTitle": "cFCR standard",
+    "cfcrStandardDescription": "All your broiler batches use this one standard, so you can compare them fairly. Most farms keep the same standard for years.",
+    "cfcrStandardTarget": "target weight",
+    "cfcrStandardAvgWeight": "average weight",
+    "cfcrStandardCorrection": "correction",
+    "cfcrStandardTargetLabel": "Target weight (kg)",
+    "cfcrStandardTargetHelp": "Usually 2.0 kg. Use the same weight as your company or dealer.",
+    "cfcrStandardCorrectionLabel": "Correction per kg",
+    "cfcrStandardCorrectionHelp": "Usually 0.25 (FCR changes about 0.025 for every 100 g).",
+    "cfcrStandardExample": "Example: a batch sold at {weight} kg with FCR {fcr} → cFCR {cfcr}",
+    "cfcrStandardSave": "Save standard",
+    "cfcrStandardUseDefault": "Use standard (2.0 kg, 0.25)",
+    "cfcrStandardSaved": "cFCR standard saved. All broiler batches now use it.",
+    "cfcrStandardSaveFailed": "Could not save the cFCR standard",
+    "cfcrStandardInvalid": "Target weight must be {min} to {max} kg, and correction 0 to {corrMax}.",
+    "cfcrStandardOwnerOnly": "Only the owner can change this."
   },
   "auth": {
     "login": {
@@ -2079,7 +2095,8 @@
         "soldN": "{n} sold",
         "soFar": "so far",
         "best": "Best",
-        "worst": "Worst"
+        "worst": "Worst",
+        "cfcrNote": "cFCR = FCR corrected to {target} kg ({correction} per kg), so you can compare batches sold at different weights. Lower is better."
       },
       "health": {
         "naturalOnly": "Natural deaths",

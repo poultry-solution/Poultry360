@@ -140,7 +140,7 @@
     "purchaseBillUpdated": "खरिद बिल सेटिङ अपडेट भयो",
     "purchaseBillUpdateFailed": "खरिद बिल सेटिङ अपडेट गर्न असफल भयो",
     "cfcr": "सुधारिएको FCR",
-    "cfcrDescription": "ब्रोइलर ब्याचमा सुधारिएको FCR सेटिङ, इतिहास र ग्राफ देखाउनुहोस्।",
+    "cfcrDescription": "ब्रोइलर ब्याचको सुधारिएको FCR देखाउनुहोस्, ताकि फरक तौलमा बेचेका ब्याचहरू तुलना गर्न सकियोस्।",
     "cfcrUpdated": "सुधारिएको FCR सेटिङ अपडेट भयो",
     "cfcrUpdateFailed": "सुधारिएको FCR सेटिङ अपडेट गर्न असफल भयो",
     "featureOn": "चालु",
@@ -174,7 +174,23 @@
     "listForSale": "बिक्रीका लागि सूची",
     "listForSaleDescription": "सार्वजनिक बजारमा कुखुरा वा अण्डा बिक्रीका लागि राख्नुहोस्। बन्द गर्दा तपाईंका सूचीहरू लुकाइन्छ।",
     "listForSaleUpdated": "बिक्रीका लागि सूची सेटिङ अपडेट भयो",
-    "listForSaleUpdateFailed": "बिक्रीका लागि सूची अपडेट गर्न सकिएन"
+    "listForSaleUpdateFailed": "बिक्रीका लागि सूची अपडेट गर्न सकिएन",
+    "cfcrStandardTitle": "cFCR मापदण्ड",
+    "cfcrStandardDescription": "तपाईंका सबै ब्रोइलर ब्याचले यही एउटा मापदण्ड प्रयोग गर्छन्, ताकि ब्याचहरू ठीकसँग तुलना गर्न सकियोस्। धेरै फार्मले वर्षौंसम्म एउटै मापदण्ड राख्छन्।",
+    "cfcrStandardTarget": "लक्ष्य तौल",
+    "cfcrStandardAvgWeight": "औसत तौल",
+    "cfcrStandardCorrection": "सुधार",
+    "cfcrStandardTargetLabel": "लक्ष्य तौल (केजी)",
+    "cfcrStandardTargetHelp": "प्रायः २.० केजी। आफ्नो कम्पनी वा डिलरले प्रयोग गर्ने तौल राख्नुहोस्।",
+    "cfcrStandardCorrectionLabel": "प्रति केजी सुधार",
+    "cfcrStandardCorrectionHelp": "प्रायः ०.२५ (हरेक १०० ग्राममा FCR करिब ०.०२५ फरक पर्छ)।",
+    "cfcrStandardExample": "उदाहरण: {weight} केजीमा बेचेको, FCR {fcr} भएको ब्याच → cFCR {cfcr}",
+    "cfcrStandardSave": "मापदण्ड सेभ गर्नुहोस्",
+    "cfcrStandardUseDefault": "मानक प्रयोग गर्नुहोस् (२.० केजी, ०.२५)",
+    "cfcrStandardSaved": "cFCR मापदण्ड सेभ भयो। अब सबै ब्रोइलर ब्याचले यही प्रयोग गर्छन्।",
+    "cfcrStandardSaveFailed": "cFCR मापदण्ड सेभ गर्न सकिएन",
+    "cfcrStandardInvalid": "लक्ष्य तौल {min} देखि {max} केजी, र सुधार ० देखि {corrMax} हुनुपर्छ।",
+    "cfcrStandardOwnerOnly": "यो मालिकले मात्र बदल्न सक्नुहुन्छ।"
   },
   "auth": {
     "login": {
@@ -2078,7 +2094,8 @@
         "soldN": "{n} बेचियो",
         "soFar": "अहिलेसम्म",
         "best": "सबैभन्दा राम्रो",
-        "worst": "सबैभन्दा कमजोर"
+        "worst": "सबैभन्दा कमजोर",
+        "cfcrNote": "cFCR = {target} केजीमा सुधारिएको FCR ({correction} प्रति केजी), ताकि फरक तौलमा बेचेका ब्याच तुलना गर्न सकियोस्। जति कम, उति राम्रो।"
       },
       "health": {
         "naturalOnly": "प्राकृतिक मृत्यु",

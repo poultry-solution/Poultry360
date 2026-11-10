@@ -45,6 +45,8 @@ export interface BatchStatRow {
   avgWeightKg: number | null;
   fcr: number | null;
   fcrStatus: FcrStatus | null;
+  /** FCR corrected to the account's cFCR standard (broilers, cFCR turned on). */
+  cfcr: number | null;
   sales: number;
   costs: number;
   profit: number;
@@ -102,6 +104,8 @@ export interface FarmerMoneyAnalytics {
 export interface FarmerBatchesAnalytics {
   range: AnalyticsRangeInfo;
   batches: BatchStatRow[];
+  /** The cFCR standard used, or null when cFCR is turned off. */
+  cfcrStandard: { targetWeightKg: number; correctionFactorPerKg: number } | null;
 }
 
 export interface FarmerHealthFeedAnalytics {

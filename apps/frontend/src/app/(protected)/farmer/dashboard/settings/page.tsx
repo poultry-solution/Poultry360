@@ -1,5 +1,6 @@
 "use client";
 import { BillSettingsCard } from "@/components/settings/BillSettingsCard";
+import { CfcrStandardCard } from "@/components/settings/CfcrStandardCard";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Label } from "@/common/components/ui/label";
@@ -238,6 +239,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+          {cfcrFeature.isEnabled && <CfcrStandardCard />}
           <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">{t("settings.listForSale")}</p>

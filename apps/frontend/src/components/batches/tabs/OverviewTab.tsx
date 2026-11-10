@@ -1,17 +1,8 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
-import { Input } from "@/common/components/ui/input";
-import { Label } from "@/common/components/ui/label";
-import { Activity, AlertTriangle, CheckCircle, LogOut, Settings2, TrendingUp, TrendingDown } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/common/components/ui/dialog";
+import Link from "next/link";
+import { Activity, AlertTriangle, CheckCircle, LogOut, TrendingUp, TrendingDown } from "lucide-react";
 import { rupees } from "@/components/dashboard/StatsCards";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import {
@@ -21,6 +12,7 @@ import {
   type ChartConfig,
 } from "@/common/components/ui/chart";
 import { useCalendar } from "@/common/hooks/useCalendar";
+import { useAuth } from "@/common/store/store";
 import type { FcrHistoryRow } from "@/types/fcr";
 import type { BatchEggCost } from "@/fetchers/batches/batchQueries";
 import { LayerMoneyRow } from "@/components/batches/eggCost/LayerSummary";
@@ -93,11 +85,6 @@ interface OverviewTabProps {
   recentMortalities: any[];
   onRecordWeight: () => void;
   cfcrEnabled: boolean;
-  onSaveCfcrSettings: (
-    targetWeightKg: number,
-    correctionFactorPerKg: number,
-  ) => Promise<void>;
-  cfcrSettingsSaving: boolean;
 }
 
 export function OverviewTab({
@@ -115,8 +102,6 @@ export function OverviewTab({
   recentMortalities,
   onRecordWeight,
   cfcrEnabled,
-  onSaveCfcrSettings,
-  cfcrSettingsSaving,
   isLayers = false,
   eggCost,
   eggCostLoading,
@@ -129,65 +114,17 @@ export function OverviewTab({
   const fcrIsStale = fcrData?.freshnessStatus === "STALE";
   const displayedFcr = fcrData?.fcr ?? analytics?.lastKnownFcr ?? null;
   const displayedCfcr = fcrData?.cfcr ?? analytics?.lastKnownCfcr ?? null;
-  const [cfcrTarget, setCfcrTarget] = React.useState("2.00");
-  const [cfcrFactor, setCfcrFactor] = React.useState("0.40");
-  React.useEffect(() => {
-    setCfcrTarget(
-      batch?.cfcrTargetWeightKg == null
-        ? isBatchClosed ? "" : "2.00"
-        : String(batch.cfcrTargetWeightKg),
-    );
-    setCfcrFactor(
-      batch?.cfcrCorrectionFactorPerKg == null
-        ? isBatchClosed ? "" : "0.40"
-        : String(batch.cfcrCorrectionFactorPerKg),
-    );
-  }, [
-    batch?.cfcrTargetWeightKg,
-    batch?.cfcrCorrectionFactorPerKg,
-    isBatchClosed,
-  ]);
+  // cFCR uses one standard for the whole account (Settings). When today's value
+  // can't be calculated, the newest earlier value is shown with its date.
+  const { user } = useAuth();
+  const cfcrIsLastKnown = fcrData?.cfcr == null && analytics?.lastKnownCfcr != null;
+  const cfcrTargetKg = fcrData?.cfcrTargetWeightKg ?? null;
+  const cfcrCorrection = fcrData?.cfcrCorrectionFactorPerKg ?? null;
+  const averageOutputWeightKg = fcrData?.averageOutputWeightKg ?? null;
 
-  const [cfcrDialogOpen, setCfcrDialogOpen] = React.useState(false);
-  const [cfcrError, setCfcrError] = React.useState<string | null>(null);
   const [showFcrDetails, setShowFcrDetails] = React.useState(false);
   const [showAllFcrRows, setShowAllFcrRows] = React.useState(false);
 
-  const openCfcrDialog = () => {
-    // Start from the saved values so Cancel drops any edits.
-    setCfcrTarget(
-      batch?.cfcrTargetWeightKg == null
-        ? isBatchClosed ? "" : "2.00"
-        : String(batch.cfcrTargetWeightKg),
-    );
-    setCfcrFactor(
-      batch?.cfcrCorrectionFactorPerKg == null
-        ? isBatchClosed ? "" : "0.40"
-        : String(batch.cfcrCorrectionFactorPerKg),
-    );
-    setCfcrError(null);
-    setCfcrDialogOpen(true);
-  };
-
-  const saveCfcrSettings = async () => {
-    const target = Number(cfcrTarget);
-    const factor = Number(cfcrFactor);
-    if (cfcrTarget.trim() === "" || !Number.isFinite(target) || target <= 0) {
-      setCfcrError("Enter a target weight above 0.");
-      return;
-    }
-    if (cfcrFactor.trim() === "" || !Number.isFinite(factor) || factor < 0) {
-      setCfcrError("Correction cannot be below 0.");
-      return;
-    }
-    setCfcrError(null);
-    try {
-      await onSaveCfcrSettings(target, factor);
-      setCfcrDialogOpen(false);
-    } catch {
-      // The shared request handler shows the server error.
-    }
-  };
   const fcrRowsNewestFirst = [...fcrHistory].reverse();
   const visibleFcrRows = showAllFcrRows
     ? fcrRowsNewestFirst
@@ -289,7 +226,6 @@ export function OverviewTab({
       : null;
 
   const isBroiler = (batch as { batchType?: string })?.batchType === "BROILER";
-  const showCfcrSettings = cfcrEnabled && isBroiler;
 
   return (
     <div className="space-y-6">
@@ -437,18 +373,6 @@ export function OverviewTab({
                 <CardTitle className="text-base">FCR Performance</CardTitle>
                 <CardDescription>Latest result, history, and trend</CardDescription>
               </div>
-              {showCfcrSettings && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={openCfcrDialog}
-                >
-                  <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-                  cFCR settings
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -464,14 +388,35 @@ export function OverviewTab({
                 </span>
               </div>
               {cfcrEnabled && (
-                <div className="flex items-baseline gap-1.5">
+                <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                   <span className="text-xs text-muted-foreground">cFCR</span>
                   <span className="text-xl font-semibold text-blue-700">
                     {displayedCfcr == null ? "—" : Number(displayedCfcr).toFixed(2)}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    (target {fcrData?.cfcrTargetWeightKg ?? batch?.cfcrTargetWeightKg ?? "—"} kg)
-                  </span>
+                  {cfcrIsLastKnown && analytics?.lastKnownCfcrDate ? (
+                    <span className="text-xs text-amber-700">
+                      last known · <DateDisplay date={analytics.lastKnownCfcrDate} format="short" />
+                    </span>
+                  ) : null}
+                  {cfcrTargetKg != null && cfcrCorrection != null && (
+                    <span className="text-xs text-muted-foreground">
+                      corrected to {cfcrTargetKg} kg ({cfcrCorrection} per kg)
+                      {!user?.isStaff && (
+                        <>
+                          {" · "}
+                          <Link href="/farmer/dashboard/settings" className="text-primary underline-offset-2 hover:underline">
+                            change in Settings
+                          </Link>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
+              {cfcrEnabled && averageOutputWeightKg != null && (
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xs text-muted-foreground">Average weight (sold + in shed)</span>
+                  <span className="text-sm font-semibold">{Number(averageOutputWeightKg).toFixed(2)} kg</span>
                 </div>
               )}
               <div className="flex items-center gap-2">
@@ -539,7 +484,7 @@ export function OverviewTab({
                               {cfcrEnabled && (
                                 <>
                                   <th className="px-2 py-2 font-medium">Birds counted</th>
-                                  <th className="px-2 py-2 font-medium">Avg incl. sold (kg)</th>
+                                  <th className="px-2 py-2 font-medium">Avg weight, sold + in shed (kg)</th>
                                 </>
                               )}
                               <th className="px-2 py-2 font-medium">Total weight (kg)</th>
@@ -698,71 +643,6 @@ export function OverviewTab({
         </Card>
       )}
 
-      {showCfcrSettings && (
-        <Dialog
-          open={cfcrDialogOpen}
-          onOpenChange={(open) => {
-            if (!cfcrSettingsSaving) setCfcrDialogOpen(open);
-          }}
-        >
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>cFCR settings</DialogTitle>
-              <DialogDescription>
-                cFCR = FCR + (target weight − avg weight) × correction. Used to
-                compare batches sold at different weights.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="batch-cfcr-target">Target weight (kg)</Label>
-                <Input
-                  id="batch-cfcr-target"
-                  type="number"
-                  min="0.001"
-                  step="0.01"
-                  value={cfcrTarget}
-                  onChange={(event) => setCfcrTarget(event.target.value)}
-                  disabled={isBatchClosed || cfcrSettingsSaving}
-                />
-              </div>
-              <div>
-                <Label htmlFor="batch-cfcr-factor">Correction per kg</Label>
-                <Input
-                  id="batch-cfcr-factor"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={cfcrFactor}
-                  onChange={(event) => setCfcrFactor(event.target.value)}
-                  disabled={isBatchClosed || cfcrSettingsSaving}
-                />
-              </div>
-            </div>
-            {cfcrError && <p className="text-sm text-red-600">{cfcrError}</p>}
-            <p className="text-xs text-muted-foreground">
-              {isBatchClosed
-                ? "Locked because the batch is closed."
-                : "Saving updates past cFCR values. FCR does not change."}
-            </p>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCfcrDialogOpen(false)}
-                disabled={cfcrSettingsSaving}
-              >
-                {isBatchClosed ? "Close" : "Cancel"}
-              </Button>
-              {!isBatchClosed && (
-                <Button type="button" onClick={saveCfcrSettings} disabled={cfcrSettingsSaving}>
-                  {cfcrSettingsSaving ? "Saving..." : "Save"}
-                </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

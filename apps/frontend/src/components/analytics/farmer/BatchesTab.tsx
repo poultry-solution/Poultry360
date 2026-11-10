@@ -9,7 +9,7 @@ import type { BatchStatRow, FarmerBatchesAnalytics } from "@/fetchers/analytics/
 import { useI18n } from "@/i18n/useI18n";
 import { EmptyLine, FcrText, Section, TabLoading, count, kg, moneyClass, percent, signedRupees } from "./shared";
 
-type SortKey = "batchNumber" | "day" | "started" | "deathPercent" | "feedKg" | "fcr" | "costPerBird" | "profit";
+type SortKey = "batchNumber" | "day" | "started" | "deathPercent" | "feedKg" | "fcr" | "cfcr" | "costPerBird" | "profit";
 
 export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; loading: boolean }) {
   const { t } = useI18n();
@@ -30,6 +30,10 @@ export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; l
   }, [data, sort]);
 
   if (!data) return loading ? <TabLoading /> : null;
+
+  // cFCR column only when the account turned cFCR on (the server sends the standard used).
+  const cfcrStandard = data.cfcrStandard;
+  const showCfcr = cfcrStandard != null && data.batches.some((row) => row.batchType === "BROILER");
 
   const withBirds = data.batches.filter((row) => row.profitPerBird != null && row.status === "COMPLETED");
   const best = withBirds.length ? withBirds.reduce((a, b) => (b.profitPerBird! > a.profitPerBird! ? b : a)) : null;
@@ -77,6 +81,14 @@ export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; l
         icon={Layers}
         right={<span className="text-xs text-muted-foreground">{t("farmer.analytics.batches.wholeLife")}</span>}
       >
+        {showCfcr && cfcrStandard && (
+          <p className="mb-3 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-900">
+            {t("farmer.analytics.batches.cfcrNote", {
+              target: cfcrStandard.targetWeightKg,
+              correction: cfcrStandard.correctionFactorPerKg,
+            })}
+          </p>
+        )}
         {rows.length === 0 ? (
           <EmptyLine text={t("farmer.analytics.batches.none")} />
         ) : (
@@ -92,6 +104,7 @@ export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; l
                     {header("deathPercent", t("farmer.analytics.deaths"))}
                     {header("feedKg", t("farmer.analytics.feed"))}
                     {header("fcr", "FCR")}
+                    {showCfcr && header("cfcr", "cFCR")}
                     {header("costPerBird", t("farmer.analytics.batches.costPerBird"))}
                     {header("profit", t("farmer.analytics.profit"))}
                   </tr>
@@ -124,6 +137,11 @@ export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; l
                       <td className="whitespace-nowrap py-2 pr-3 text-right">
                         {row.batchType === "BROILER" ? <FcrText value={row.fcr} status={row.fcrStatus} t={t} /> : "—"}
                       </td>
+                      {showCfcr && (
+                        <td className="whitespace-nowrap py-2 pr-3 text-right font-medium text-blue-700">
+                          {row.batchType === "BROILER" && row.cfcr != null ? row.cfcr.toFixed(2) : "—"}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap py-2 pr-3 text-right">
                         {row.costPerBird != null ? rupees(row.costPerBird) : "—"}
                       </td>
@@ -168,6 +186,12 @@ export function BatchesTab({ data, loading }: { data?: FarmerBatchesAnalytics; l
                         label="FCR"
                         value={row.batchType === "BROILER" && row.fcr != null ? row.fcr.toFixed(2) : "—"}
                       />
+                      {showCfcr && (
+                        <Mini
+                          label="cFCR"
+                          value={row.batchType === "BROILER" && row.cfcr != null ? row.cfcr.toFixed(2) : "—"}
+                        />
+                      )}
                       <Mini
                         label={t("farmer.analytics.batches.costPerBird")}
                         value={row.costPerBird != null ? rupees(row.costPerBird) : "—"}
