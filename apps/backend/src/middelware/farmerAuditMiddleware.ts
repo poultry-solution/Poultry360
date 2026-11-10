@@ -92,6 +92,9 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
 
   // Cash in hand
   "POST farmer/cash-in-hand/setup": { description: "Set up cash in hand", targetType: "Cash settings" },
+
+  // cFCR standard (the controller adds the new values to the text)
+  "PUT farmer/fcr-settings": { description: "Changed the cFCR standard", targetType: "cFCR settings" },
   "POST farmer/cash-in-hand/movements": { description: "Recorded a cash movement", targetType: "Cash movement" },
   "DELETE farmer/cash-in-hand/movements/record": { description: "Deleted a cash movement", targetType: "Cash movement" },
   "POST farmer/cash-in-hand/close-day": { description: "Closed the cash day", targetType: "Cash day close" },
@@ -170,7 +173,8 @@ export function auditSuccessfulFarmerMutation(
           action: `farmer.${actionRoute}.${verb(req.method)}`,
           targetType: presentation.targetType,
           targetId,
-          description: presentation.description,
+          // A route can give a more exact text (for example the new values).
+          description: typeof res.locals.auditDescription === "string" ? res.locals.auditDescription : presentation.description,
           businessType: "FARMER",
           businessId: business.id,
         });

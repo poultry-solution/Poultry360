@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { ACCOUNT_FEATURE_KEYS, isAccountFeatureEnabled } from "../services/accountFeatureService";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
@@ -1013,6 +1014,8 @@ export const getBatchPerformanceList = async (
   try {
     const currentUserId = req.userId;
     const { status, sortBy, sortOrder, farmId, limit, batchType } = req.query;
+    // Hide cFCR for accounts that have not turned it on.
+    const cfcrOn = currentUserId ? await isAccountFeatureEnabled(currentUserId, ACCOUNT_FEATURE_KEYS.FARMER_CFCR) : false;
 
     // Only known values reach Prisma (a raw sortBy used to crash with a 500).
     const safeSortBy = sortBy === "createdAt" ? "createdAt" : "startDate";
@@ -1123,7 +1126,7 @@ export const getBatchPerformanceList = async (
               ? (fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A')
               : (fcrResult?.currentFcr != null ? fcrResult.currentFcr.toFixed(2) : 'N/A'),
           cfcr:
-            fcrResult?.currentCfcr != null
+            cfcrOn && fcrResult?.currentCfcr != null
               ? fcrResult.currentCfcr.toFixed(2)
               : "N/A",
           cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",

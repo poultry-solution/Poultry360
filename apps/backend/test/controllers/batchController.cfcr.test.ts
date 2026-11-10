@@ -64,7 +64,7 @@ function existingBatch(status: "ACTIVE" | "COMPLETED") {
   };
 }
 
-describe("Farmer batch cFCR settings", () => {
+describe("Farmer batch cFCR (account standard, no per-batch settings)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedRefresh.mockResolvedValue(undefined);
@@ -74,7 +74,7 @@ describe("Farmer batch cFCR settings", () => {
     );
   });
 
-  it("saves safe defaults for a new Broiler batch from an old request", async () => {
+  it("creates a Broiler batch without per-batch cFCR settings (the account standard is used)", async () => {
     mockedPrisma.farm.findUnique.mockResolvedValue({
       id: "farm-1",
       ownerId: "farmer-1",
@@ -115,91 +115,55 @@ describe("Farmer batch cFCR settings", () => {
       response,
     );
 
-    expect(mockedPrisma.batch.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          cfcrTargetWeightKg: 2,
-          cfcrCorrectionFactorPerKg: 0.4,
-        }),
-      }),
-    );
+    const created = mockedPrisma.batch.create.mock.calls[0][0].data;
+    expect(created).not.toHaveProperty("cfcrTargetWeightKg");
+    expect(created).not.toHaveProperty("cfcrCorrectionFactorPerKg");
     expect(response.status).toHaveBeenCalledWith(201);
   });
 
-  it("saves valid settings on an active batch and rebuilds history", async () => {
-    // updateBatch calls batch.findFirst (not findUnique) because the
-    // ownership scope requires composing `{ farm: { ownerId } }` into the
-    // where fragment — see batchController.ts:699.
-    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("ACTIVE"));
-    mockedPrisma.batch.update.mockResolvedValue({
-      ...existingBatch("ACTIVE"),
-      cfcrTargetWeightKg: 2.2,
-      cfcrCorrectionFactorPerKg: 0.4,
-    });
+  it("refuses cFCR fields when creating a batch", async () => {
     const response = makeResponse();
-
-    await updateBatch(
+    await createBatch(
       {
-        params: { id: "batch-1" },
         userId: "farmer-1",
         role: "OWNER",
         body: {
-          cfcrTargetWeightKg: 2.2,
-          cfcrCorrectionFactorPerKg: 0.4,
+          batchNumber: "B-1",
+          batchType: "BROILER",
+          farmId: "farm-1",
+          startDate: "2026-10-01T00:00:00.000Z",
+          initialChickWeight: 0.045,
+          cfcrTargetWeightKg: 2,
+          chicksInventory: [{ itemId: "chicks-1", quantity: 100 }],
         },
       } as any,
       response,
     );
-
-    expect(mockedPrisma.batch.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "batch-1" },
-        data: expect.objectContaining({
-          cfcrTargetWeightKg: 2.2,
-          cfcrCorrectionFactorPerKg: 0.4,
-        }),
-      }),
-    );
-    expect(mockedRefresh).toHaveBeenCalledWith("batch-1");
+    expect(response.status).toHaveBeenCalledWith(400);
     expect(response.json).toHaveBeenCalledWith(
-      expect.objectContaining({ success: true }),
+      expect.objectContaining({ message: "cFCR is set once for all batches in Settings." }),
     );
+    expect(mockedPrisma.batch.create).not.toHaveBeenCalled();
   });
 
-  it("rejects cFCR setting changes after batch closure", async () => {
-    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("COMPLETED"));
+  it.each([
+    ["an active batch", "ACTIVE" as const, { cfcrTargetWeightKg: 2.2, cfcrCorrectionFactorPerKg: 0.4 }],
+    ["a closed batch", "COMPLETED" as const, { cfcrTargetWeightKg: 2.2 }],
+    ["only the correction", "ACTIVE" as const, { cfcrCorrectionFactorPerKg: -0.1 }],
+  ])("refuses per-batch cFCR changes on %s", async (_label, status, body) => {
+    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch(status));
     const response = makeResponse();
 
     await updateBatch(
-      {
-        params: { id: "batch-1" },
-        userId: "farmer-1",
-        role: "OWNER",
-        body: { cfcrTargetWeightKg: 2.2 },
-      } as any,
+      { params: { id: "batch-1" }, userId: "farmer-1", role: "OWNER", body } as any,
       response,
     );
 
     expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "cFCR is set once for all batches in Settings." }),
+    );
     expect(mockedPrisma.batch.update).not.toHaveBeenCalled();
     expect(mockedRefresh).not.toHaveBeenCalled();
-  });
-
-  it("rejects a negative correction factor", async () => {
-    mockedPrisma.batch.findFirst.mockResolvedValue(existingBatch("ACTIVE"));
-    const response = makeResponse();
-
-    await updateBatch(
-      {
-        params: { id: "batch-1" },
-        userId: "farmer-1",
-        role: "OWNER",
-        body: { cfcrCorrectionFactorPerKg: -0.1 },
-      } as any,
-      response,
-    );
-
-    expect(response.status).toHaveBeenCalledWith(400);
-    expect(mockedPrisma.batch.update).not.toHaveBeenCalled();
   });
 });

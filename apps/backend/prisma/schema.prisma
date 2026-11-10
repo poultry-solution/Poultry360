@@ -255,6 +255,7 @@ model User {
 
   // Farmer cash in hand (per user account)
   farmerCashSettings          FarmerCashSettings?
+  farmerFcrSettings           FarmerFcrSettings?
   farmerCashBookMovements     FarmerCashMovement[] @relation("FarmerCashBook")
   farmerCashDayCloses         FarmerCashDayClose[] @relation("FarmerCashDayCloseOwner")
   farmerCashMovementsRecorded FarmerCashMovement[] @relation("FarmerCashMovementRecorder")
@@ -428,7 +429,8 @@ model Batch {
   initialChicks             Int
   // Old batches keep this null and use the legacy 0.05 kg estimate.
   initialChickWeightKg      Decimal?    @db.Decimal(6, 3)
-  // Optional corrected-FCR settings. Existing batches stay null until set.
+  // Old per-batch cFCR settings: no longer read or written.
+  // cFCR now uses one standard per account (FarmerFcrSettings).
   cfcrTargetWeightKg        Decimal?    @db.Decimal(8, 3)
   cfcrCorrectionFactorPerKg Decimal?    @db.Decimal(8, 4)
   // Weight snapshot for birds still present when this batch was closed.
@@ -2587,6 +2589,19 @@ model FarmerCashSettings {
   user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   initialOpening Decimal @db.Decimal(10, 2)
   startBsDate    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// One cFCR standard per farmer account, used by every broiler batch so batches
+// can be compared fairly. No row = the default standard (2.0 kg, 0.25 per kg).
+model FarmerFcrSettings {
+  ownerId                   String  @id
+  owner                     User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  cfcrTargetWeightKg        Decimal @db.Decimal(8, 3)
+  cfcrCorrectionFactorPerKg Decimal @db.Decimal(8, 4)
+  updatedById               String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

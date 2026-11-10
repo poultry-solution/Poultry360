@@ -8,7 +8,8 @@ import { ApiHelper } from "../helpers/api.helper";
  * In the analytics response, totalMortality means natural deaths only; sales are
  * reported separately in totalSalesQuantity and are still removed from live birds.
  * 20 kg feed / (16 - 0.5) kg gain = 1.29032258 FCR
- * Average output is 2 kg, equal to the cFCR target, so cFCR equals FCR.
+ * Average output is 2 kg, equal to the default cFCR target (2.0 kg), so cFCR equals FCR.
+ * cFCR uses one standard per account (Settings), not per batch.
  */
 describe("Farmer broiler FCR and cFCR API journey", () => {
   const api = new ApiHelper();
@@ -36,6 +37,7 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
     expect(registration.status).toBe(201);
     api.setAuthToken(registration.body.accessToken);
     expect((await api.post("/test/approve-current-user")).status).toBe(200);
+    expect((await api.put("/account-features/FARMER_CFCR", { enabled: true })).status).toBe(200);
 
     const farm = await api.post("/farms", { name: `FCR Farm ${suffix}`, capacity: 100 });
     expect(farm.status).toBe(201);
@@ -58,8 +60,6 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
       startDate: now,
       batchType: "BROILER",
       initialChickWeight: 0.05,
-      cfcrTargetWeightKg: 2,
-      cfcrCorrectionFactorPerKg: 0.4,
       farmId,
       chicksInventory: [{ itemId: chicksItemId, quantity: 10 }],
     });
@@ -159,7 +159,7 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
       averageOutputWeightKg: 2,
       outputBirdCount: 8,
       cfcrTargetWeightKg: 2,
-      cfcrCorrectionFactorPerKg: 0.4,
+      cfcrCorrectionFactorPerKg: 0.25,
     });
 
     expect(fcrHistory.status).toBe(200);
@@ -176,5 +176,70 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
         }),
       ])
     );
+  });
+
+  it("uses the account cFCR standard from Settings for every batch", async () => {
+    const standard = await api.get("/farmer/fcr-settings");
+    expect(standard.status).toBe(200);
+    expect(standard.body.data).toEqual({ targetWeightKg: 2, correctionFactorPerKg: 0.25, isDefault: true });
+
+    for (const bad of [
+      { targetWeightKg: 0.5, correctionFactorPerKg: 0.25 },
+      { targetWeightKg: 5, correctionFactorPerKg: 0.25 },
+      { targetWeightKg: 2, correctionFactorPerKg: 1.5 },
+      { targetWeightKg: "abc", correctionFactorPerKg: 0.25 },
+      {},
+    ]) {
+      const response = await api.put("/farmer/fcr-settings", bad);
+      expect(response.status).toBe(400);
+    }
+
+    // Per-batch cFCR settings are refused.
+    const perBatch = await api.put(`/batches/${batchId}`, { cfcrTargetWeightKg: 2.2 });
+    expect(perBatch.status).toBe(400);
+    expect(perBatch.body.message).toBe("cFCR is set once for all batches in Settings.");
+
+    const saved = await api.put("/farmer/fcr-settings", { targetWeightKg: "2.2", correctionFactorPerKg: 0.3 });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data).toEqual({ targetWeightKg: 2.2, correctionFactorPerKg: 0.3, isDefault: false });
+
+    const [analytics, fcrHistory] = await Promise.all([
+      api.get(`/batches/${batchId}/analytics`),
+      api.get(`/batches/${batchId}/fcr-history`),
+    ]);
+    // Average output 2.0 kg: cFCR = FCR + (2.2 - 2.0) x 0.3
+    expect(analytics.body.data.cfcr).toBeCloseTo(20 / 15.5 + 0.06, 8);
+    expect(analytics.body.data.fcr).toBeCloseTo(20 / 15.5, 8);
+    expect(analytics.body.data.lastKnownCfcrDate).toEqual(expect.any(String));
+    expect(analytics.body.data.fcrData).toMatchObject({ cfcrTargetWeightKg: 2.2, cfcrCorrectionFactorPerKg: 0.3 });
+    expect(fcrHistory.body.data.at(-1)).toMatchObject({ cfcrTargetWeightKg: 2.2, cfcrCorrectionFactorPerKg: 0.3 });
+    // History is saved with 6 decimals.
+    expect(fcrHistory.body.data.at(-1).cfcr).toBeCloseTo(20 / 15.5 + 0.06, 5);
+  });
+
+  it("hides cFCR everywhere when the feature is turned off", async () => {
+    expect((await api.put("/account-features/FARMER_CFCR", { enabled: false })).status).toBe(200);
+    const [analytics, fcrHistory, performance, flock] = await Promise.all([
+      api.get(`/batches/${batchId}/analytics`),
+      api.get(`/batches/${batchId}/fcr-history`),
+      api.get("/dashboard/batch-performance"),
+      api.get("/analytics/farmer/flock-comparison"),
+    ]);
+    expect(analytics.body.data.cfcr).toBeNull();
+    expect(analytics.body.data.lastKnownCfcr).toBeNull();
+    expect(analytics.body.data.fcrData.cfcr).toBeNull();
+    expect(analytics.body.data.fcr).toBeCloseTo(20 / 15.5, 8);
+    expect(fcrHistory.body.data.every((row: { cfcr: number | null }) => row.cfcr === null)).toBe(true);
+    const row = performance.body.data.find((item: { id: string }) => item.id === batchId);
+    expect(row.cfcr).toBe("N/A");
+    expect(flock.status).toBe(200);
+    expect(flock.body.data.cfcrStandard).toBeNull();
+    expect(flock.body.data.batches.every((item: { cfcr: number | null }) => item.cfcr === null)).toBe(true);
+
+    expect((await api.put("/account-features/FARMER_CFCR", { enabled: true })).status).toBe(200);
+    const flockOn = await api.get("/analytics/farmer/flock-comparison");
+    expect(flockOn.body.data.cfcrStandard).toMatchObject({ targetWeightKg: 2.2, correctionFactorPerKg: 0.3 });
+    const thisBatch = flockOn.body.data.batches.find((item: { id: string }) => item.id === batchId);
+    expect(thisBatch.cfcr).toBeCloseTo(20 / 15.5 + 0.06, 2);
   });
 });

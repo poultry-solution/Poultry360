@@ -2,6 +2,7 @@ jest.mock("../../src/utils/prisma", () => ({
   __esModule: true,
   default: {
     batch: { findUnique: jest.fn() },
+    farmerFcrSettings: { findUnique: jest.fn() },
     sale: { findMany: jest.fn() },
     mortality: { findMany: jest.fn() },
     feedConsumption: { findMany: jest.fn() },
@@ -25,6 +26,7 @@ import { parseFcrFreshDays } from "../../src/config/fcr";
 
 const mocked = prisma as unknown as {
   batch: { findUnique: jest.Mock };
+  farmerFcrSettings: { findUnique: jest.Mock };
   sale: { findMany: jest.Mock };
   mortality: { findMany: jest.Mock };
   feedConsumption: { findMany: jest.Mock };
@@ -61,11 +63,20 @@ function setRows(options?: {
     endDate: options?.endDate ?? null,
     initialChicks: 100,
     initialChickWeightKg: 0.05,
-    cfcrTargetWeightKg: options?.cfcrTargetWeightKg ?? null,
-    cfcrCorrectionFactorPerKg:
-      options?.cfcrCorrectionFactorPerKg ?? null,
     closureBirdCount: options?.closureBirdCount ?? null,
+    farm: { ownerId: "owner-1" },
   });
+  // cFCR uses the account standard. Tests that pass a target save it as the
+  // account's setting; otherwise the default standard (2.0 kg, 0.25) is used.
+  mocked.farmerFcrSettings.findUnique.mockResolvedValue(
+    options?.cfcrTargetWeightKg != null
+      ? {
+          ownerId: "owner-1",
+          cfcrTargetWeightKg: options.cfcrTargetWeightKg,
+          cfcrCorrectionFactorPerKg: options.cfcrCorrectionFactorPerKg ?? 0.25,
+        }
+      : null,
+  );
   mocked.sale.findMany.mockResolvedValue(options?.sales ?? []);
   mocked.mortality.findMany.mockResolvedValue(options?.deaths ?? []);
   mocked.feedConsumption.findMany.mockResolvedValue(
@@ -683,6 +694,36 @@ describe("Farmer Phase 1 FCR", () => {
         }),
       }),
     );
+  });
+
+  it("uses the default account standard (2.0 kg, 0.25 per kg) when none is saved", async () => {
+    setRows({
+      sales: [{ id: "sale-1", date: now, quantity: 20, weight: 40 }],
+      weights: [{ id: "weight-1", date: now, avgWeight: 1.5, sampleCount: 10, createdAt: now }],
+    });
+
+    const result = await calculateFarmerBatchFcr("batch-1", now);
+    expect(mocked.farmerFcrSettings.findUnique).toHaveBeenCalledWith({ where: { ownerId: "owner-1" } });
+    expect(result?.cfcrTargetWeightKg).toBe(2);
+    expect(result?.cfcrCorrectionFactorPerKg).toBe(0.25);
+    expect(result?.averageOutputWeightKg).toBe(1.6);
+    // cFCR = FCR + (2.0 - 1.6) x 0.25
+    expect(result?.cfcr).toBeCloseTo(100 / 155 + 0.1, 8);
+  });
+
+  it("asks for a new weigh-in when birds sold later were heavier than the old weigh-in", async () => {
+    const weighDay = new Date("2026-01-09T06:00:00.000Z");
+    setRows({
+      // 100 birds weighed at 1.0 kg, then 90 birds sold at 150 kg: the 10 left would get no weight.
+      sales: [{ id: "sale-1", date: now, quantity: 90, weight: 150 }],
+      weights: [{ id: "weight-1", date: weighDay, avgWeight: 1, sampleCount: 10, createdAt: weighDay }],
+    });
+
+    const result = await calculateFarmerBatchFcr("batch-1", now);
+    expect(result?.status).toBe("NO_MANUAL_WEIGHT");
+    expect(result?.displayStatus).toBe("WEIGHT_REQUIRED");
+    expect(result?.fcr).toBeNull();
+    expect(result?.cfcr).toBeNull();
   });
 
   it("keeps stale cFCR as history but not as current", async () => {

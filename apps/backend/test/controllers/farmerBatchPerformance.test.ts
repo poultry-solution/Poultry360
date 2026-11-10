@@ -5,6 +5,8 @@ jest.mock("../../src/utils/prisma", () => ({
     batch: { findMany: jest.fn(), groupBy: jest.fn() },
     expense: { aggregate: jest.fn() },
     sale: { aggregate: jest.fn() },
+    // cFCR feature turned on for this account.
+    accountFeature: { findUnique: jest.fn().mockResolvedValue({ enabled: true }) },
   },
 }));
 

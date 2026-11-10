@@ -25,6 +25,8 @@ export interface BatchStatRow {
   avgWeightKg: number | null;
   fcr: number | null;
   fcrStatus: FarmerFcrResult["displayStatus"] | null;
+  /** FCR corrected to the account's cFCR standard (broilers). Same status as fcr. */
+  cfcr: number | null;
   sales: number;
   costs: number;
   profit: number;
@@ -117,6 +119,7 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
       // Value shown with its status, like the share page ("old weight" when stale).
       fcr: batch.batchType === "BROILER" && fcr?.fcr != null ? round(fcr.fcr, 2) : null,
       fcrStatus: batch.batchType === "BROILER" ? fcr?.displayStatus ?? null : null,
+      cfcr: batch.batchType === "BROILER" && fcr?.fcr != null && fcr.cfcr != null ? round(fcr.cfcr, 2) : null,
       sales: round(batchSales),
       costs: round(batchCosts),
       profit: round(profit),
