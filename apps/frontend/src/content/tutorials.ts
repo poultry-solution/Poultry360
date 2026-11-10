@@ -36,7 +36,6 @@ const dealer: TutorialSection[] = [
     description: "Short videos, step by step. Start with the quick tour.",
     videos: [
       v("dealer", "00-quick-tour-first-sale", "Quick tour: your first sale", "From sign up to your first sale and payment, in 3 minutes.", "2:43"),
-      v("dealer", "01-sign-up-and-get-approved", "Sign up and get approved", "Make your account and wait for approval.", "1:03"),
       v("dealer", "02-home-page-tour", "Home page", "What the cards, chart and reminders on your home page mean.", "0:56"),
       v("dealer", "03-companies-add-company-and-buy-feed", "Add a company and buy feed", "Add the company you buy from, record a purchase and save the bill photo.", "1:49"),
       v("dealer", "04-companies-pay-and-see-account", "Pay a company and see the account", "Record a payment and read the company account.", "1:10"),
@@ -62,7 +61,6 @@ const farmer: TutorialSection[] = [
     description: "Everything for a broiler batch. Start with the quick tour.",
     videos: [
       v("farmer-broiler", "00-quick-tour-your-first-batch", "Quick tour: your first batch", "From buying chicks to your profit, in 2 minutes.", "2:04"),
-      v("farmer-broiler", "01-sign-up-and-get-approved", "Sign up and get approved", "Make your farm account and wait for approval.", "0:52"),
       v("farmer-broiler", "02-home-page-tour", "Home page", "What your home page shows.", "0:37"),
       v("farmer-broiler", "03-farms-add-a-farm", "Add a farm", "Add the place where you keep your birds.", "0:34"),
       v("farmer-broiler", "04-suppliers-add-and-buy-chicks-feed", "Add your dealer and buy chicks and feed", "Record what you buy, with the bill photo.", "1:28"),
@@ -91,7 +89,6 @@ const farmer: TutorialSection[] = [
     description: "Everything for a layer batch, from day old chicks to eggs. Start with the quick tour.",
     videos: [
       v("farmer-layers", "00-quick-tour-layer-batch", "Quick tour: a layer batch", "From day old chicks to eggs, egg cost and profit.", "1:00"),
-      v("farmer-layers", "01-sign-up-and-get-approved", "Sign up and get approved", "Make your farm account and wait for approval.", "1:09"),
       v("farmer-layers", "02-home-page-tour", "Home page", "What your home page shows, and the quick buttons.", "0:39"),
       v("farmer-layers", "03-farms-add-a-farm", "Add a farm", "Add the place where you keep your hens.", "0:35"),
       v("farmer-layers", "04-suppliers-add-and-buy-chicks-feed", "Add your dealer and buy chicks and feed", "Record day old chicks and layer feed you buy, with the bill photo.", "1:32"),
@@ -127,7 +124,6 @@ const hatchery: TutorialSection[] = [
     description: "From eggs to chicks sold. Start with the quick tour.",
     videos: [
       v("hatchery", "00-quick-tour-eggs-to-chicks", "Quick tour: eggs to chicks", "The full path, from eggs to chicks sold.", "2:22"),
-      v("hatchery", "01-sign-up-and-get-approved", "Sign up and get approved", "Make your hatchery account and wait for approval.", "1:11"),
       v("hatchery", "02-home-and-todays-work", "Home and today's work", "What needs candling, moving or hatching today.", "0:41"),
       v("hatchery", "03-egg-types", "Egg types", "Hatchable, table and cracked eggs, and your own types.", "0:31"),
       v("hatchery", "04-parent-batches", "Parent batches", "Your breeder flocks and what each tab shows.", "0:57"),
