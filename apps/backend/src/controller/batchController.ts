@@ -1484,10 +1484,8 @@ export const getBatchAnalytics = async (
     const latestHistoricalFcr = fcrHistory.length > 0
       ? fcrHistory[fcrHistory.length - 1]
       : null;
-    // cFCR shows only for accounts that turned it on. The last known value comes
-    // from the newest day that has a cFCR, with its date.
+    // cFCR shows only for accounts that turned it on.
     const cfcrOn = await isAccountFeatureEnabled(batch.farm.ownerId, ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
-    const latestCfcrRow = [...fcrHistory].reverse().find((row) => row.cfcr != null) ?? null;
     const fcrResultShown = cfcrOn ? fcrResult : withoutCfcr(fcrResult);
     const fcrData = {
       initialTotalWeight: fcrResult.initialBiomassKg,
@@ -1546,8 +1544,6 @@ export const getBatchAnalytics = async (
         fcr,
         rawFcr: fcrResult.fcr,
         cfcr: cfcrOn ? fcrResult.currentCfcr : null,
-        lastKnownCfcr: cfcrOn ? latestCfcrRow?.cfcr ?? null : null,
-        lastKnownCfcrDate: cfcrOn ? latestCfcrRow?.calculationDate ?? null : null,
         cfcrStatus: fcrResult.cfcrStatus,
         lastKnownFcr: latestHistoricalFcr?.fcr ?? null,
         lastKnownFcrDate: latestHistoricalFcr?.calculationDate ?? null,

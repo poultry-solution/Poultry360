@@ -14,7 +14,6 @@ jest.mock("../../src/utils/prisma", () => ({
 
 import prisma from "../../src/utils/prisma";
 import {
-  aggregateCurrentCfcr,
   aggregateCurrentFcr,
   calculateCfcr,
   calculateFarmerBatchFcr,
@@ -774,52 +773,5 @@ describe("Farmer Phase 1 FCR", () => {
     expect(second.fcr).toBeCloseTo(first.fcr, 8);
     expect(second.cfcr).not.toBeCloseTo(first.cfcr, 8);
     expect(second.cfcrTargetWeightKg).toBe(2.2);
-  });
-
-  it("weights dashboard cFCR by gain and rejects mixed settings", () => {
-    const sameSettings = aggregateCurrentCfcr([
-      {
-        displayStatus: "FRESH",
-        cfcr: 1.5,
-        weightGainKg: 50,
-        targetWeightKg: 2,
-        correctionFactorPerKg: 0.4,
-      },
-      {
-        displayStatus: "FINAL",
-        cfcr: 1.8,
-        weightGainKg: 100,
-        targetWeightKg: 2,
-        correctionFactorPerKg: 0.4,
-      },
-      {
-        displayStatus: "STALE",
-        cfcr: 99,
-        weightGainKg: 100,
-        targetWeightKg: 2,
-        correctionFactorPerKg: 0.4,
-      },
-    ]);
-    expect(sameSettings.cfcr).toBeCloseTo((1.5 * 50 + 1.8 * 100) / 150, 8);
-    expect(sameSettings.mixedSettings).toBe(false);
-
-    const mixed = aggregateCurrentCfcr([
-      {
-        displayStatus: "FRESH",
-        cfcr: 1.5,
-        weightGainKg: 50,
-        targetWeightKg: 2,
-        correctionFactorPerKg: 0.4,
-      },
-      {
-        displayStatus: "FINAL",
-        cfcr: 1.6,
-        weightGainKg: 50,
-        targetWeightKg: 2.2,
-        correctionFactorPerKg: 0.4,
-      },
-    ]);
-    expect(mixed.cfcr).toBeNull();
-    expect(mixed.mixedSettings).toBe(true);
   });
 });

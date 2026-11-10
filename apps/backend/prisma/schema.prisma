@@ -429,10 +429,6 @@ model Batch {
   initialChicks             Int
   // Old batches keep this null and use the legacy 0.05 kg estimate.
   initialChickWeightKg      Decimal?    @db.Decimal(6, 3)
-  // Old per-batch cFCR settings: no longer read or written.
-  // cFCR now uses one standard per account (FarmerFcrSettings).
-  cfcrTargetWeightKg        Decimal?    @db.Decimal(8, 3)
-  cfcrCorrectionFactorPerKg Decimal?    @db.Decimal(8, 4)
   // Weight snapshot for birds still present when this batch was closed.
   closureBirdCount          Int?
   closureAverageWeightKg    Decimal?    @db.Decimal(6, 3)

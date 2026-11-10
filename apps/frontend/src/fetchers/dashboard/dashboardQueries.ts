@@ -79,10 +79,6 @@ export interface DashboardPerformanceMetrics {
   averageBatchDuration: number;
   mortalityRate: number;
   feedConversionRatio: number;
-  correctedFeedConversionRatio: number | null;
-  cfcrTargetWeightKg: number | null;
-  cfcrCorrectionFactorPerKg: number | null;
-  cfcrMixedSettings: boolean;
   topPerformingFarms: Array<{
     farmId: string;
     farmName: string;
@@ -103,10 +99,6 @@ export interface DashboardPerformanceMetrics {
     duration: number;
     profitPerBird: number;
     fcr: number | null;
-    cfcr: number | null;
-    cfcrTargetWeightKg: number | null;
-    cfcrCorrectionFactorPerKg: number | null;
-    cfcrStatus: string;
     fcrDisplayStatus: string;
   }>;
 }

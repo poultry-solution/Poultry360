@@ -5,7 +5,6 @@ import { UserRole } from "@prisma/client";
 import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
 import { naturalDeathWhere } from "../services/farmerAnalytics/scope";
 import {
-  aggregateCurrentCfcr,
   aggregateCurrentFcr,
   calculateFarmerBatchFcr,
 } from "../services/farmerFcrService";
@@ -598,11 +597,6 @@ export const getDashboardPerformanceMetrics = async (
           fcrWeightGainKg:
             includeInCurrentFcr ? fcrResult?.weightGainKg || 0 : 0,
           fcrDisplayStatus: fcrResult?.displayStatus || "NOT_CALCULABLE",
-          cfcr: includeInCurrentFcr ? fcrResult?.currentCfcr ?? null : null,
-          cfcrTargetWeightKg: fcrResult?.cfcrTargetWeightKg ?? null,
-          cfcrCorrectionFactorPerKg:
-            fcrResult?.cfcrCorrectionFactorPerKg ?? null,
-          cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
         };
       })
     );
@@ -661,16 +655,6 @@ export const getDashboardPerformanceMetrics = async (
       .sort((a, b) => b.totalProfit - a.totalProfit)
       .slice(0, 5);
 
-    const cfcrAggregate = aggregateCurrentCfcr(
-      batchPerformance.map((batch) => ({
-        displayStatus: batch.fcrDisplayStatus,
-        cfcr: batch.cfcr,
-        weightGainKg: batch.fcrWeightGainKg,
-        targetWeightKg: batch.cfcrTargetWeightKg,
-        correctionFactorPerKg: batch.cfcrCorrectionFactorPerKg,
-      })),
-    );
-
     return res.json({
       success: true,
       data: {
@@ -685,10 +669,6 @@ export const getDashboardPerformanceMetrics = async (
               weightGainKg: batch.fcrWeightGainKg,
             })),
           ) ?? 0,
-        correctedFeedConversionRatio: cfcrAggregate.cfcr,
-        cfcrTargetWeightKg: cfcrAggregate.targetWeightKg,
-        cfcrCorrectionFactorPerKg: cfcrAggregate.correctionFactorPerKg,
-        cfcrMixedSettings: cfcrAggregate.mixedSettings,
         topPerformingFarms,
         batchPerformance: batchPerformance.slice(0, 10), // Top 10 batches
       },

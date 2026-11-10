@@ -210,7 +210,6 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
     // Average output 2.0 kg: cFCR = FCR + (2.2 - 2.0) x 0.3
     expect(analytics.body.data.cfcr).toBeCloseTo(20 / 15.5 + 0.06, 8);
     expect(analytics.body.data.fcr).toBeCloseTo(20 / 15.5, 8);
-    expect(analytics.body.data.lastKnownCfcrDate).toEqual(expect.any(String));
     expect(analytics.body.data.fcrData).toMatchObject({ cfcrTargetWeightKg: 2.2, cfcrCorrectionFactorPerKg: 0.3 });
     expect(fcrHistory.body.data.at(-1)).toMatchObject({ cfcrTargetWeightKg: 2.2, cfcrCorrectionFactorPerKg: 0.3 });
     // History is saved with 6 decimals.
@@ -226,7 +225,6 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
       api.get("/analytics/farmer/flock-comparison"),
     ]);
     expect(analytics.body.data.cfcr).toBeNull();
-    expect(analytics.body.data.lastKnownCfcr).toBeNull();
     expect(analytics.body.data.fcrData.cfcr).toBeNull();
     expect(analytics.body.data.fcr).toBeCloseTo(20 / 15.5, 8);
     expect(fcrHistory.body.data.every((row: { cfcr: number | null }) => row.cfcr === null)).toBe(true);
