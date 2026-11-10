@@ -1,5 +1,4 @@
 {
-  "dealer/00-quick-tour-first-sale": "aj6wyoa1k7",
   "dealer/02-home-page-tour": "pp3sr7vw8m",
   "dealer/03-companies-add-company-and-buy-feed": "ixb6ub3z8p",
   "dealer/04-companies-pay-and-see-account": "k87zq1m7so",
@@ -77,5 +76,6 @@
   "farmer-layers/22-cash-in-hand": "4sekcvscnt",
   "farmer-layers/23-staff-payroll-and-staff-login": "b4hmn43pxq",
   "farmer-layers/24-layer-analytics": "xphbinsjuu",
-  "farmer-layers/25-activity-and-settings": "t40okgenef"
+  "farmer-layers/25-activity-and-settings": "t40okgenef",
+  "dealer/00-quick-tour-first-sale": "bkxpt7s2hr"
 }

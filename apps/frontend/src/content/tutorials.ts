@@ -35,7 +35,7 @@ const dealer: TutorialSection[] = [
     title: "Feed dealer",
     description: "Short videos, step by step. Start with the quick tour.",
     videos: [
-      v("dealer", "00-quick-tour-first-sale", "Quick tour: your first sale", "From sign up to your first sale and payment, in 3 minutes.", "2:43"),
+      v("dealer", "00-quick-tour-first-sale", "Quick tour: your first sale", "Add a company, your feed, a customer, and make your first sale, in 2 minutes.", "2:10"),
       v("dealer", "02-home-page-tour", "Home page", "What the cards, chart and reminders on your home page mean.", "0:56"),
       v("dealer", "03-companies-add-company-and-buy-feed", "Add a company and buy feed", "Add the company you buy from, record a purchase and save the bill photo.", "1:49"),
       v("dealer", "04-companies-pay-and-see-account", "Pay a company and see the account", "Record a payment and read the company account.", "1:10"),
