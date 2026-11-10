@@ -219,7 +219,8 @@ export default function BatchesPage() {
   const limit = 10;
   const [farmFilter, setFarmFilter] = useState("all");
   const [batchTypeFilter, setBatchTypeFilter] = useState<"ALL" | "BROILER" | "LAYERS">("ALL");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+  // Most farmers work on running batches, so the list opens on Active.
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ACTIVE");
 
   const router = useRouter();
 
@@ -399,13 +400,16 @@ export default function BatchesPage() {
     setPage(1);
     setFarmFilter("all");
     setBatchTypeFilter("ALL");
-    setStatusFilter("ALL");
+    setStatusFilter("ACTIVE");
   };
 
+  const otherFiltersDefault = farmFilter === "all" && batchTypeFilter === "ALL";
   const emptyMessage =
-    farmFilter === "all" && batchTypeFilter === "ALL" && statusFilter === "ALL"
+    otherFiltersDefault && statusFilter === "ALL"
       ? t("farmer.batches.emptyHelp")
-      : "No batches match the selected filters.";
+      : otherFiltersDefault && statusFilter === "ACTIVE"
+        ? "No running batches. Start a new batch, or choose All status to see closed batches."
+        : "No batches match the selected filters.";
 
   return (
     <div className="space-y-6">
