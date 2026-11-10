@@ -250,8 +250,8 @@ export default function Contact() {
                   <p className="text-gray-600">
                     SajiloDev Engineering Pvt. Ltd.
                   </p>
-                  <p className="text-gray-600">Province 5, Lumbini </p>
-                  <p className="text-gray-600">Lamahi, Dang</p>
+                  <p className="text-gray-600">Lamahi Municipality – Ward No. 3</p>
+                  <p className="text-gray-600">Tikuligadh, Dang</p>
                 </div>
               </div>
             </div>
