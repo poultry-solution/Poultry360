@@ -239,7 +239,9 @@ describe("Farmer broiler FCR and cFCR API journey", () => {
     expect((await api.put("/account-features/FARMER_CFCR", { enabled: true })).status).toBe(200);
     const flockOn = await api.get("/analytics/farmer/flock-comparison");
     expect(flockOn.body.data.cfcrStandard).toMatchObject({ targetWeightKg: 2.2, correctionFactorPerKg: 0.3 });
+    // cFCR is for finished batches: this batch still has live birds, so no cFCR in Analytics.
     const thisBatch = flockOn.body.data.batches.find((item: { id: string }) => item.id === batchId);
-    expect(thisBatch.cfcr).toBeCloseTo(20 / 15.5 + 0.06, 2);
+    expect(thisBatch.cfcr).toBeNull();
+    expect(thisBatch.fcr).toBeCloseTo(20 / 15.5, 2);
   });
 });

@@ -1126,8 +1126,9 @@ export const getBatchPerformanceList = async (
               ? (fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A')
               : (fcrResult?.currentFcr != null ? fcrResult.currentFcr.toFixed(2) : 'N/A'),
           cfcr:
-            cfcrOn && fcrResult?.currentCfcr != null
-              ? fcrResult.currentCfcr.toFixed(2)
+            // Final cFCR only (finished batches), for accounts that turned cFCR on.
+            cfcrOn && fcrResult?.displayStatus === "FINAL" && fcrResult?.cfcr != null
+              ? fcrResult.cfcr.toFixed(2)
               : "N/A",
           cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
           fcrStatus: fcrResult?.status || "NOT_AVAILABLE",
