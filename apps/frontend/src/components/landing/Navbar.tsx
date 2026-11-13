@@ -36,11 +36,12 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 px-3 pt-3 sm:px-4">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 rounded-full border border-gray-200/80 bg-white/85 pl-5 pr-2 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-md lg:h-16 lg:pl-7">
+      {/* On phones the pill clips anything too wide, so the page never scrolls sideways. */}
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full border border-gray-200/80 bg-white/85 pl-4 pr-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-md max-lg:overflow-hidden min-[400px]:gap-4 min-[400px]:pl-5 min-[400px]:pr-2 lg:h-16 lg:pl-7">
         {/* Logo - wordmark only for clear readability in navbar */}
         <Link
           href="/"
-          className="shrink-0 text-3xl font-[family-name:var(--font-caveat)] lg:text-4xl"
+          className="min-w-0 overflow-hidden whitespace-nowrap pr-1.5 text-[1.65rem] font-[family-name:var(--font-caveat)] min-[400px]:text-3xl lg:shrink-0 lg:text-4xl"
         >
           Poultry360
         </Link>
@@ -95,20 +96,24 @@ export default function Navbar() {
           />
         </div>
 
-        {/* Mobile: Log in and Sign up always visible, next to the menu button */}
-        <div className="flex items-center gap-1.5 lg:hidden">
-          <Link href="/auth/login" className="rounded-full px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">
+        {/* Mobile: Log in and Sign up next to the menu button. These never shrink; on
+            narrow screens (also big phone text, which narrows the page) Log in moves into the menu. */}
+        <div className="flex shrink-0 items-center gap-1 lg:hidden">
+          <Link
+            href="/auth/login"
+            className="whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 max-[359px]:hidden"
+          >
             {t("landing.navbar.logIn")}
           </Link>
           <SignupChooserDialog
             trigger={
-              <Button size="sm" className="rounded-full bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90">
+              <Button size="sm" className="whitespace-nowrap rounded-full bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary/90">
                 {t("landing.navbar.signUp")}
               </Button>
             }
           />
           <button
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 hover:bg-gray-100 transition-colors"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 hover:bg-gray-100 transition-colors"
             onClick={toggleMobileMenu}
             aria-label="Toggle menu"
           >
@@ -173,6 +178,13 @@ export default function Navbar() {
               className="block py-2 text-muted-foreground hover:text-foreground transition-colors font-medium"
             >
               {t("landing.navbar.contact")}
+            </Link>
+            <Link
+              href="/auth/login"
+              onClick={closeMobileMenu}
+              className="mt-2 flex h-11 items-center justify-center rounded-full border border-gray-200 font-medium text-gray-800 transition-colors hover:bg-gray-50"
+            >
+              {t("landing.navbar.logIn")}
             </Link>
           </div>
         </div>
