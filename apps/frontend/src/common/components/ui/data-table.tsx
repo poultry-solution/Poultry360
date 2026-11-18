@@ -41,6 +41,14 @@ export interface DataTableProps<T = any> {
   showHeader?: boolean;
   showFooter?: boolean;
   footerContent?: React.ReactNode;
+  /**
+   * Column-aligned footer. Each cell lines up with the column of the same index,
+   * matching its width + align. Prefer this over `footerContent` when you want
+   * totals to sit under their columns (e.g. total weight under Weight, total
+   * amount under Total). Null skips a cell; `{ content, colSpan }` spans multiple
+   * columns (useful for a "Total" label on the left).
+   */
+  footerCells?: Array<React.ReactNode | { content: React.ReactNode; colSpan?: number } | null>;
   // Selection (optional)
   selectable?: boolean;
   isAllSelected?: boolean;
@@ -70,6 +78,7 @@ export function DataTable<T = any>({
   showHeader = true,
   showFooter = false,
   footerContent,
+  footerCells,
   selectable = false,
   isAllSelected,
   onToggleAll,
@@ -307,10 +316,51 @@ export function DataTable<T = any>({
               })
             )}
           </tbody>
+          {showFooter && footerCells && (
+            <tfoot className="bg-gray-50 border-t border-gray-200">
+              <tr>
+                {selectable && <td className="px-4 py-3" />}
+                {(() => {
+                  // One footerCells entry per rendered <td>. A { colSpan: N } entry
+                  // fills N column positions; index into footerCells advances by 1
+                  // regardless of span, while `col` advances by the span so the
+                  // next cell's alignment still tracks the correct column.
+                  const out: React.ReactNode[] = [];
+                  let col = 0;
+                  let i = 0;
+                  while (col < columns.length) {
+                    const raw = i < footerCells.length ? footerCells[i] : null;
+                    const isSpan =
+                      raw && typeof raw === "object" && !React.isValidElement(raw) && "content" in (raw as object);
+                    const span = isSpan ? Math.max(1, (raw as { colSpan?: number }).colSpan ?? 1) : 1;
+                    const content = isSpan ? (raw as { content: React.ReactNode }).content : (raw as React.ReactNode);
+                    const column = columns[col];
+                    out.push(
+                      <td
+                        key={`${column.key}-${col}`}
+                        colSpan={span}
+                        style={column.width && span === 1 ? { width: column.width } : undefined}
+                        className={cn(
+                          "px-4 py-3 align-middle font-semibold text-gray-900 border-r border-gray-200 last:border-r-0",
+                          column.align === "center" && "text-center",
+                          column.align === "right" && "text-right",
+                        )}
+                      >
+                        {content ?? ""}
+                      </td>
+                    );
+                    col += span;
+                    i += 1;
+                  }
+                  return out;
+                })()}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
-      
-      {showFooter && footerContent && (
+
+      {showFooter && !footerCells && footerContent && (
         <div className="bg-gray-50 border-t border-gray-200 px-4 py-3 overflow-x-auto">
           <div className="min-w-max">{footerContent}</div>
         </div>
