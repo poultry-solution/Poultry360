@@ -3,15 +3,21 @@
  * Uses nepali-date-converter with Nepal timezone (UTC+5:45) for consistent conversions.
  *
  * All stored and transmitted dates are AD (Gregorian).
- * Display is converted using Nepal-local semantics via NEPAL_OFFSET.
+ * Display is converted using Nepal-local calendar rules.
  */
 
 import NepaliDate from "nepali-date-converter";
 
 export type CalendarType = "AD" | "BS";
 
-/** Nepal timezone offset in ms (UTC+5:45 = 5.75 hours) */
-const NEPAL_OFFSET = 5.75 * 60 * 60 * 1000;
+export const NEPAL_TIME_ZONE = "Asia/Kathmandu";
+
+const nepalAdDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: NEPAL_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 export const BS_MONTH_NAMES = [
   "Baisakh",
@@ -33,16 +39,7 @@ export const BS_MONTH_NAMES = [
  * For string input, parses as Nepal calendar day (UTC date) so picker round-trip is correct in any timezone.
  */
 export function getBSYearMonthFromAD(adDate: Date | string): { year: number; month: number } {
-  const dateObj =
-    typeof adDate === "string"
-      ? (() => {
-          const datePart = adDate.includes("T") ? adDate.split("T")[0] : adDate;
-          const [y, m, d] = datePart.split("-").map(Number);
-          if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date(NaN);
-          return new Date(Date.UTC(y, m - 1, d));
-        })()
-      : adDate;
-  const bsStr = convertADtoBS(dateObj);
+  const bsStr = convertADtoBS(adDate);
   const [year, month] = bsStr.split("-").map(Number);
   return { year, month };
 }
@@ -50,11 +47,11 @@ export function getBSYearMonthFromAD(adDate: Date | string): { year: number; mon
 /** Format a Date as YYYY-MM-DD using Nepal calendar day (so picker round-trip is correct in any timezone). */
 function formatADShortNepal(date: Date): string {
   if (isNaN(date.getTime())) return "";
-  const inNepal = new Date(date.getTime() + NEPAL_OFFSET);
-  const y = inNepal.getUTCFullYear();
-  const m = String(inNepal.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(inNepal.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const parts = nepalAdDateFormatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : "";
 }
 
 /** The Nepal calendar day (AD YYYY-MM-DD) a moment falls on, whatever the device time zone is. */
@@ -67,41 +64,32 @@ export function getNepalTodayAd(): string {
   return formatADShortNepal(new Date());
 }
 
-/**
- * Get the first day of a BS month as AD date string (YYYY-MM-DD).
- * Uses the library's toJsDate() directly and formats as Nepal calendar day.
- * (convertBSToAD subtracts NEPAL_OFFSET, which made the stored date one day early and showed the previous month in the picker.)
- */
-export function getFirstDayOfBSMonthAD(bsYear: number, bsMonth: number): string {
-  const nd = new NepaliDate(bsYear, bsMonth - 1, 1);
-  const jsDate = nd.toJsDate();
-  return formatADShortNepal(jsDate);
+/** Whole Nepal calendar days from `earlier` to `later`. */
+export function differenceInNepalDays(
+  later: Date | string,
+  earlier: Date | string
+): number {
+  const dayNumber = (value: Date | string) => {
+    const day = toNepalDayAd(value);
+    return Math.floor(Date.parse(`${day}T00:00:00.000Z`) / 86_400_000);
+  };
+  return dayNumber(later) - dayNumber(earlier);
 }
 
 /**
- * Parse YYYY-MM-DD string as local date to avoid UTC-midnight edge cases.
- * Handles both "YYYY-MM-DD" and ISO strings ("YYYY-MM-DDTHH:mm:ss...").
- * Using noon local time ensures the correct calendar day regardless of timezone.
+ * Get the first day of a BS month as AD date string (YYYY-MM-DD).
+ * Uses the converter's AD parts directly so the stored date cannot shift to the prior day.
  */
-export function parseDateStringLocal(dateStr: string): Date {
-  const datePart = dateStr.includes("T") ? dateStr.split("T")[0] : dateStr;
-  const [year, month, day] = datePart.split("-").map(Number);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) {
-    return new Date(NaN);
-  }
-  return new Date(year, month - 1, day, 12, 0, 0, 0);
+export function getFirstDayOfBSMonthAD(bsYear: number, bsMonth: number): string {
+  const ad = new NepaliDate(bsYear, bsMonth - 1, 1).getAD();
+  return `${ad.year}-${String(ad.month + 1).padStart(2, "0")}-${String(ad.date).padStart(2, "0")}`;
 }
 
 /**
  * Format AD Date to YYYY-MM-DD using local date (avoids toISOString UTC edge cases).
  */
 export function formatADShort(date: Date | string): string {
-  const d = typeof date === "string" ? parseDateStringLocal(date) : date;
-  if (isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return toNepalDayAd(date);
 }
 
 /**
@@ -109,13 +97,13 @@ export function formatADShort(date: Date | string): string {
  * For string input, parses as local date to avoid UTC-midnight edge cases.
  */
 export function convertADtoBS(adDate: Date | string): string {
-  const dateObj =
-    typeof adDate === "string" ? parseDateStringLocal(adDate) : adDate;
-  if (isNaN(dateObj.getTime())) {
+  const dayKey = toNepalDayAd(adDate);
+  const [adYear, adMonth, adDay] = dayKey.split("-").map(Number);
+  if (!dayKey || !adYear || !adMonth || !adDay) {
     throw new Error("Invalid AD date: invalid or unparseable date");
   }
-  const adjustedDate = new Date(dateObj.getTime() + NEPAL_OFFSET);
-  const nepaliDate = new NepaliDate(adjustedDate);
+  // Local noon keeps the chosen AD calendar day stable in every device TZ.
+  const nepaliDate = new NepaliDate(new Date(adYear, adMonth - 1, adDay, 12));
   const year = nepaliDate.getYear();
   const month = nepaliDate.getMonth() + 1;
   const day = nepaliDate.getDate();
@@ -131,8 +119,8 @@ export function convertBSToAD(bsDateString: string): Date {
     throw new Error("Invalid BS date");
   }
   const nepaliDate = new NepaliDate(year, month - 1, day);
-  const jsDate = nepaliDate.toJsDate();
-  return new Date(jsDate.getTime() - NEPAL_OFFSET);
+  const ad = nepaliDate.getAD();
+  return new Date(Date.UTC(ad.year, ad.month, ad.date));
 }
 
 export function validateBSDate(
@@ -164,13 +152,7 @@ export function formatBSMonthYear(adDate: Date | string): string {
  * Format BS date in long form (e.g. "Baisakh 1, 2081").
  */
 export function formatBSLong(adDate: Date | string): string {
-  const dateObj =
-    typeof adDate === "string" ? parseDateStringLocal(adDate) : adDate;
-  const adjustedDate = new Date(dateObj.getTime() + NEPAL_OFFSET);
-  const nepaliDate = new NepaliDate(adjustedDate);
-  const year = nepaliDate.getYear();
-  const month = nepaliDate.getMonth() + 1;
-  const day = nepaliDate.getDate();
+  const [year, month, day] = convertADtoBS(adDate).split("-").map(Number);
   return `${BS_MONTH_NAMES[month - 1]} ${day}, ${year}`;
 }
 
@@ -179,10 +161,7 @@ export function formatBSLong(adDate: Date | string): string {
  * Uses local date parsing so the correct BS day is used.
  */
 export function getBSMonthDayForDisplay(adDate: Date | string): string {
-  const dateObj =
-    typeof adDate === "string" ? parseDateStringLocal(adDate) : adDate;
-  if (isNaN(dateObj.getTime())) return "";
-  const long = formatBSLong(dateObj);
+  const long = formatBSLong(adDate);
   return long.replace(/\s(\d+), \d+$/, "-$1");
 }
 

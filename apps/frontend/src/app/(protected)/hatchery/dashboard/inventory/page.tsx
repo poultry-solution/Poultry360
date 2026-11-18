@@ -21,7 +21,8 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
-import { apiErrorText, formatRatePerUnit, getNowLocalDateTime } from "@/common/lib/utils";
+import { apiErrorText, formatRatePerUnit } from "@/common/lib/utils";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   useGetHatcheryInventoryTable,
   useGetHatcheryInventoryStatistics,
@@ -180,7 +181,7 @@ export default function HatcheryInventoryPage() {
 
   const openReorder = (item: HatcheryInventoryItem) => {
     setSelectedItem(item);
-    setReorderForm({ quantity: "", date: getNowLocalDateTime() });
+    setReorderForm({ quantity: "", date: getNepalTodayAd() });
     setIsReorderOpen(true);
   };
 

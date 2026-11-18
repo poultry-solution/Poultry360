@@ -8,9 +8,9 @@ import {
 import { fcrFreshDays } from "../config/fcr";
 import prisma from "../utils/prisma";
 import { getFarmerFcrSettings } from "./farmerFcrSettingsService";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 const LEGACY_INITIAL_CHICK_WEIGHT_KG = 0.05;
-const NEPAL_OFFSET_MINUTES = 5 * 60 + 45;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type FcrStatus =
@@ -174,23 +174,17 @@ type FcrInputs = {
   manualWeights: ManualWeightRow[];
 };
 
-function nepalDateParts(date: Date): { year: number; month: number; day: number } {
-  const shifted = new Date(date.getTime() + NEPAL_OFFSET_MINUTES * 60 * 1000);
-  return {
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-  };
+function nepalDateString(date: Date): string {
+  return toNepalDayKey(date);
 }
 
-function nepalDateString(date: Date): string {
-  const { year, month, day } = nepalDateParts(date);
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+function nepalDateParts(date: Date): { year: number; month: number; day: number } {
+  const [year, month, day] = toNepalDayKey(date).split("-").map(Number);
+  return { year, month, day };
 }
 
 export function startOfNepalDay(date: Date): Date {
-  const { year, month, day } = nepalDateParts(date);
-  return new Date(Date.UTC(year, month - 1, day, 0, -NEPAL_OFFSET_MINUTES));
+  return new Date(`${toNepalDayKey(date)}T00:00:00.000+05:45`);
 }
 
 export function endOfNepalDay(date: Date): Date {

@@ -50,7 +50,7 @@ import {
   useRecordDealerPayment,
 } from "@/fetchers/company/companyDealerAccountQueries";
 import { DateInput } from "@/common/components/ui/date-input";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 
 interface Dealer {
   id: string;
@@ -143,7 +143,7 @@ export default function CompanyDealersPage() {
     dealerId: "",
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: getNowLocalDateTime(),
+    paymentDate: getNepalTodayAd(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -179,7 +179,7 @@ export default function CompanyDealersPage() {
         dealerId: "",
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: getNowLocalDateTime(),
+        paymentDate: getNepalTodayAd(),
         notes: "",
         reference: "",
         receiptImageUrl: "",

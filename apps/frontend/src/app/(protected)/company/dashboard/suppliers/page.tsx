@@ -25,6 +25,7 @@ import { useGetCompanySuppliers, useCreateSupplier, type Supplier } from "@/fetc
 import { toast } from "sonner";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 export default function CompanySuppliersPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function CompanySuppliersPage() {
         { label: "Supplier", value: (row: Supplier) => row.name },
         { label: "Phone", value: (row: Supplier) => row.contact || "" },
         { label: "Address", value: (row: Supplier) => row.address || "" },
-        { label: "Added", value: (row: Supplier) => new Date(row.createdAt).toLocaleDateString() },
+        { label: "Added", value: (row: Supplier) => toNepalDayAd(row.createdAt) },
       ],
       rows,
       summary: [{ label: "Total suppliers", value: rows.length }],

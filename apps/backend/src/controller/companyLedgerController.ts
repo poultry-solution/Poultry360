@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyService } from "../services/companyService";
 import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET COMPANY LEDGER ENTRIES ====================
 export const getCompanyLedgerEntries = async (
@@ -30,12 +31,17 @@ export const getCompanyLedgerEntries = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+
     const result = await CompanyService.getLedgerEntries({
       companyId: company.id,
       type: type as string,
       partyId: partyId as string,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: rangeResult.filter.gte,
+      endDate: rangeResult.filter.lte,
       page: Number(page),
       limit: Number(limit),
     });
@@ -153,10 +159,17 @@ export const getCompanyLedgerSummary = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const summaryRange = parseNepalRange(startDate, endDate);
+    if (!summaryRange.ok) {
+      return res.status(400).json({ message: summaryRange.message });
+    }
+    const summaryGte = summaryRange.filter.gte;
+    const summaryLte = summaryRange.filter.lte;
+
     const stats = await CompanyService.getStatistics(
       company.id,
-      startDate ? new Date(startDate as string) : undefined,
-      endDate ? new Date(endDate as string) : undefined
+      summaryGte,
+      summaryLte
     );
 
     // Connection-era payment requests were removed from the schema.
@@ -174,11 +187,11 @@ export const getCompanyLedgerSummary = async (
         account: {
           companyId: company.id,
         },
-        ...(startDate || endDate
+        ...(summaryGte || summaryLte
           ? {
               paymentDate: {
-                ...(startDate ? { gte: new Date(startDate as string) } : {}),
-                ...(endDate ? { lte: new Date(endDate as string) } : {}),
+                ...(summaryGte ? { gte: summaryGte } : {}),
+                ...(summaryLte ? { lte: summaryLte } : {}),
               },
             }
           : {}),

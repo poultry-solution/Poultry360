@@ -21,7 +21,8 @@ import { Button } from "@/common/components/ui/button";
 import { Badge } from "@/common/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { formatRupeesExact, getNowLocalDateTime } from "@/common/lib/utils";
+import { formatRupeesExact } from "@/common/lib/utils";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   Modal,
   ModalContent,
@@ -289,16 +290,16 @@ export default function SupplierLedgerPage() {
     setSelectedIds(new Set());
   }, [purchasePage, paymentPage, activeTab, activeSupplierId]);
 
-  // Default Add Entry date to now when modal opens
+  // Date-only forms always use the Nepal calendar day.
   useEffect(() => {
     if (isAddEntryOpen) {
-      setNewEntry((prev) => ({ ...prev, date: getNowLocalDateTime() }));
+      setNewEntry((prev) => ({ ...prev, date: getNepalTodayAd() }));
     }
   }, [isAddEntryOpen]);
 
   useEffect(() => {
     if (isPaymentModalOpen) {
-      setPaymentForm((prev) => ({ ...prev, date: getNowLocalDateTime() }));
+      setPaymentForm((prev) => ({ ...prev, date: getNepalTodayAd() }));
     }
   }, [isPaymentModalOpen]);
 
@@ -579,7 +580,7 @@ export default function SupplierLedgerPage() {
     }
     const rate = Number(newEntry.rate);
     const quantity = Number(newEntry.quantity);
-    const date = newEntry.date || new Date().toISOString();
+    const date = newEntry.date || getNepalTodayAd();
     if (!newEntry.item || !rate || !quantity || !activeSupplierId) return;
 
     const freeQuantity = computeFreeQuantity();
@@ -645,7 +646,7 @@ export default function SupplierLedgerPage() {
     if (!paymentForm.amount || !activeSupplierId) return;
 
     const paymentAmount = Number(paymentForm.amount);
-    const paymentDate = paymentForm.date || new Date().toISOString();
+    const paymentDate = paymentForm.date || getNepalTodayAd();
 
     try {
       await addTransactionMutation.mutateAsync({

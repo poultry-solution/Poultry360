@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getNepalTodayAd, NEPAL_TIME_ZONE } from "@/common/lib/nepali-date"
 // import { User, UserSchema } from "@myapp/shared-types" // Removed - no longer using shared packages
 
 export function cn(...inputs: ClassValue[]) {
@@ -28,23 +29,9 @@ export function apiErrorText(err: unknown, fallback: string): string {
 //   return UserSchema.safeParse(user)
 // }
 
-// Date helpers (local timezone, UI-friendly)
+// Kept for old call sites. In this Nepal-only app, "local" always means Nepal.
 export function getTodayLocalDate(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
-
-export function getNowLocalDateTime(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  const hh = String(d.getHours()).padStart(2, "0")
-  const mm = String(d.getMinutes()).padStart(2, "0")
-  return `${y}-${m}-${day}T${hh}:${mm}`
+  return getNepalTodayAd()
 }
 
 export function formatDate(date: Date | string): string {
@@ -54,6 +41,7 @@ export function formatDate(date: Date | string): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: NEPAL_TIME_ZONE,
   })
 }
 

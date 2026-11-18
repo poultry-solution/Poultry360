@@ -1,4 +1,5 @@
 import { ApiHelper } from "../helpers/api.helper";
+import { toNepalDayKey } from "../../src/utils/nepalBsDate";
 
 describe("Farmer activity history API journey", () => {
   const ownerApi = new ApiHelper();
@@ -10,7 +11,7 @@ describe("Farmer activity history API journey", () => {
   const ownerPhone = `+97791${suffix}`;
   const staffPhone = `+977${suffix}`;
   const otherPhone = `+97792${suffix}`;
-  const day = new Date().toISOString().slice(0, 10);
+  const day = toNepalDayKey(new Date());
   let staffLoginId: string | undefined;
   let ownerItemId: string | undefined;
   let staffItemId: string | undefined;
@@ -116,5 +117,36 @@ describe("Farmer activity history API journey", () => {
     expect(staffExport.body.message).toContain("cannot export");
     expect(otherOwnerRead.status).toBe(200);
     expect(otherOwnerRead.body.data).toHaveLength(0);
+  });
+
+  it("rejects bad activity date filters instead of returning wider data", async () => {
+    const paths = [
+      "/business-activity?archived=all&startDate=not-a-date&endDate=2026-10-13",
+      "/business-activity?archived=all&startDate=2026-02-30&endDate=2026-03-01",
+      "/business-activity?archived=all&startDate=2026-10-14&endDate=2026-10-13",
+      "/business-activity/export?archived=all&startDate=not-a-date",
+      "/business-activity/export?archived=all&startDate=2026-10-14&endDate=2026-10-13",
+    ];
+
+    // Keep these serial: the local test database intentionally uses a tiny
+    // connection pool, and date validation does not need request concurrency.
+    for (const path of paths) {
+      const response = await ownerApi.get(path);
+      expect(response.status).toBe(400);
+      expect(typeof response.body.message).toBe("string");
+    }
+  });
+
+  it("accepts one-sided ISO activity filters", async () => {
+    const endDate = encodeURIComponent("2099-01-01T23:59:59.999+05:45");
+    const list = await ownerApi.get(
+      `/business-activity?archived=all&endDate=${endDate}`
+    );
+    const exported = await ownerApi.get(
+      `/business-activity/export?archived=all&endDate=${endDate}`
+    );
+
+    expect(list.status).toBe(200);
+    expect(exported.status).toBe(200);
   });
 });

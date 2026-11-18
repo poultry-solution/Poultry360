@@ -227,7 +227,7 @@ export function QuickSaleModal({
       const saleData: any = {
         date: saleDateOnly
           ? `${saleDateOnly}T00:00:00.000Z`
-          : new Date().toISOString(),
+          : `${getNepalTodayAd()}T00:00:00.000Z`,
         amount,
         quantity,
         unitPrice,

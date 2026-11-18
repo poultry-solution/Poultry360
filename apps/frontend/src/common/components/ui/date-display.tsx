@@ -1,6 +1,7 @@
 "use client";
 
 import { useCalendar } from "@/common/hooks/useCalendar";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 interface DateDisplayProps {
   date: Date | string;
@@ -40,8 +41,7 @@ export function DateDisplay({
   } catch (error) {
     console.error("Date display error:", error);
     // Fallback to ISO string if conversion fails
-    const fallback =
-      typeof date === "string" ? date : date.toISOString().split("T")[0];
+    const fallback = toNepalDayAd(date) || "-";
     return <span className={className}>{fallback}</span>;
   }
 }

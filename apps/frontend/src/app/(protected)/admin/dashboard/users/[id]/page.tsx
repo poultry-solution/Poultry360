@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, NEPAL_TIME_ZONE, toNepalDayAd } from "@/common/lib/nepali-date";
 import Link from "next/link";
 import {
   Card,
@@ -183,7 +183,7 @@ function FarmsSection({ title, farms }: {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(farm.createdAt).toLocaleDateString()}
+                  {toNepalDayAd(farm.createdAt)}
                 </TableCell>
               </TableRow>
             ))}
@@ -226,7 +226,7 @@ function DealerAccountsSection({ accounts }: {
                 <TableCell className="text-muted-foreground">{account.dealer.contact}</TableCell>
                 <TableCell className="text-muted-foreground">{account.dealer.address || "--"}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(account.accountCreatedAt).toLocaleDateString()}
+                  {toNepalDayAd(account.accountCreatedAt)}
                 </TableCell>
               </TableRow>
             ))}
@@ -427,8 +427,8 @@ function AccountPaymentsSection({
                       {payment.type === "INITIAL" ? "First-time payment" : "Annual maintenance"}
                     </TableCell>
                     <TableCell>{payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                    <TableCell>{new Date(payment.paidAt).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{toNepalDayAd(payment.paidAt)}</TableCell>
+                    <TableCell className="text-muted-foreground">{toNepalDayAd(payment.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -771,6 +771,7 @@ export default function AdminUserDetailPage({
                       month: "short",
                       day: "numeric",
                       year: "numeric",
+                      timeZone: NEPAL_TIME_ZONE,
                     })}
                   </span>
                 </div>

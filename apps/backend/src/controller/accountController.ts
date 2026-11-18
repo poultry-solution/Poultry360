@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { TransactionType } from "@prisma/client";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET ALL ACCOUNT TRANSACTIONS ====================
 export const getAllAccountTransactions = async (
@@ -71,14 +72,12 @@ export const getAllAccountTransactions = async (
     }
 
     // Date range filter
-    if (startDate || endDate) {
-      entityTransactionWhere.date = {};
-      if (startDate) {
-        entityTransactionWhere.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        entityTransactionWhere.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      entityTransactionWhere.date = rangeResult.filter;
     }
 
     // Search filter - use AND with existing conditions to avoid overwriting OR clauses
@@ -120,15 +119,9 @@ export const getAllAccountTransactions = async (
       salesWhere.id = { in: [] }; // Empty result
     }
 
-    // Date range filter for sales
-    if (startDate || endDate) {
-      salesWhere.date = {};
-      if (startDate) {
-        salesWhere.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        salesWhere.date.lte = new Date(endDate as string);
-      }
+    // Date range filter for sales (same parsed bounds as the entity-transaction filter above)
+    if (Object.keys(rangeResult.filter).length) {
+      salesWhere.date = rangeResult.filter;
     }
 
     // Search filter for sales
@@ -331,4 +324,3 @@ export const getAllAccountTransactions = async (
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-

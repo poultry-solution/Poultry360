@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 import { BatchStatus, SalesItemType, UserRole, WeightSource } from "@prisma/client";
 import {
   endOfNepalDay,
@@ -187,12 +188,12 @@ export const getBirdWeights = async (
     // Build where clause
     const where: any = { batchId };
 
-    if (startDate) {
-      where.date = { ...where.date, gte: new Date(startDate as string) };
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
     }
-
-    if (endDate) {
-      where.date = { ...where.date, lte: new Date(endDate as string) };
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = { ...where.date, ...rangeResult.filter };
     }
 
     if (source) {

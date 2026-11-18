@@ -18,6 +18,7 @@ import {
 } from "@/common/components/ui/table";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 import { Label } from "@/common/components/ui/label";
 import {
   Select,
@@ -347,7 +348,7 @@ export default function AdminUsersPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {toNepalDayAd(user.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/admin/dashboard/users/${user.id}`}>

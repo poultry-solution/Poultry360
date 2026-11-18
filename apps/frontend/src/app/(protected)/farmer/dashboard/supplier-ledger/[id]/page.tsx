@@ -56,6 +56,7 @@ import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 import { formatRupeesExact } from "@/common/lib/utils";
 import { StatTile, rupees } from "@/components/dashboard/StatsCards";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 function getCategoryBadgeColor(category: string | null | undefined) {
   switch (category) {
@@ -130,10 +131,11 @@ export default function SupplierDetailPage() {
   const formatCurrency = (amount: number) => formatRupeesExact(amount);
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString("en-IN", {
+    return new Date(`${toNepalDayAd(date)}T00:00:00.000Z`).toLocaleDateString("en-IN", {
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     });
   };
 
@@ -280,7 +282,7 @@ export default function SupplierDetailPage() {
       return { rows: data.data || [], totalPages: data.pagination?.totalPages };
     });
     const columns = [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.type || "" },
         { label: "Item", value: (row: any) => row.itemName || "" },
         { label: "Amount", value: (row: any) => Number(row.amount || row.totalAmount || 0).toFixed(2) },

@@ -20,6 +20,7 @@ import {
 import { DateDisplay } from "@/common/components/ui/date-display";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 export default function CompanySalesPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function CompanySalesPage() {
     });
     return {
       columns: [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Invoice", value: (row: any) => row.invoiceNumber || row.id?.slice(0, 8) },
         { label: "Dealer", value: (row: any) => row.dealer?.name || "—" },
         { label: "Total", value: (row: any) => Number(row.totalAmount || 0).toFixed(2) },

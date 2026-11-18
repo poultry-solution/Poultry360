@@ -60,6 +60,7 @@ import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/compo
 import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { ReminderCard } from "@/components/reminders/ReminderCard";
 import { useActiveReminders } from "@/fetchers/reminders/reminderQueries";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 import {
     ACCOUNT_FEATURE_KEYS,
     useAccountFeature,
@@ -157,7 +158,7 @@ export default function ManualCompanyAccountPage() {
         const rawOpeningAmount = Number(openingBalance?.amount || 0);
         const openingAmount = Number.isFinite(rawOpeningAmount) ? rawOpeningAmount : 0;
         const columns = [
-                { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+                { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
                 { label: "Type", value: (row: any) => String(row.type || "").replaceAll("_", " ") },
                 { label: "Direction", value: (row: any) => row.direction || "" },
                 { label: "Reference", value: (row: any) => row.reference || "" },

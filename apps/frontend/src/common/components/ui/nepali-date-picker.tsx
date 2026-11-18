@@ -8,6 +8,7 @@ import { Button } from "@/common/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/common/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 import { cn } from "@/common/lib/utils";
+import { convertADtoBS, getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 
 const MONTH_NAMES_EN = [
   "Baisakh", "Jestha", "Ashadh", "Shrawan", "Bhadra", "Ashwin",
@@ -42,6 +43,11 @@ interface NepaliDatePickerProps {
   className?: string;
 }
 
+function bsPartsFromAdDay(adYmd: string): { year: number; month: number; day: number } {
+  const [y, m, d] = convertADtoBS(adYmd).split("-").map(Number);
+  return { year: y, month: m, day: d };
+}
+
 function parseDefaultDate(defaultDate?: string | Date): { year: number; month: number; day: number } {
   if (typeof defaultDate === "string") {
     const [year, month, day] = defaultDate.split("-").map(Number);
@@ -49,12 +55,11 @@ function parseDefaultDate(defaultDate?: string | Date): { year: number; month: n
   }
 
   if (defaultDate instanceof Date && !Number.isNaN(defaultDate.getTime())) {
-    const date = new NepaliDate(defaultDate);
-    return { year: date.getYear(), month: date.getMonth() + 1, day: date.getDate() };
+    // Anchor to the Nepal day the moment falls on, not the device/UTC day.
+    return bsPartsFromAdDay(toNepalDayAd(defaultDate));
   }
 
-  const today = new NepaliDate();
-  return { year: today.getYear(), month: today.getMonth() + 1, day: today.getDate() };
+  return bsPartsFromAdDay(getNepalTodayAd());
 }
 
 function toAdYmd(year: number, month: number, day: number): string {

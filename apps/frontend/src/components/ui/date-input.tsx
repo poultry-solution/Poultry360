@@ -4,6 +4,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { CALENDAR_TOGGLE_VISIBLE } from "@/common/config/calendar";
 import { useCalendar } from "@/common/hooks/useCalendar";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 interface DateInputProps {
   label?: string;
@@ -30,7 +31,7 @@ export function DateInput({
     if (calendarType === 'BS') {
       // Convert BS to AD for storage
       const adDate = toISODate(inputValue);
-      onChange(adDate.toISOString().split('T')[0]);
+      onChange(toNepalDayAd(adDate));
     } else {
       onChange(inputValue);
     }

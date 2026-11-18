@@ -44,7 +44,15 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          # `set -e` makes every command fatal. If the pre-deploy backup
+          # fails we abort BEFORE touching the running container — the new
+          # image (which runs `prisma migrate deploy` at startup) never
+          # gets a chance to change the schema without a snapshot covering
+          # it. Backup is run from the home dir where the script lives;
+          # we cd into the app dir only for the docker compose commands.
           script: |
+            set -e
+            ~/backup-all-daily.sh
             cd ~/p360
             docker compose -f docker-compose.yml pull backend
             docker compose -f docker-compose.yml up -d backend

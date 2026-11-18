@@ -46,12 +46,7 @@ export function toNepalBsDayString(date: Date): string {
  * This is the authoritative source of "today" on the server.
  */
 export function getNepalBsTodayString(): string {
-  const nepaliNow = getNepaliNow();
-  const nd = new NepaliDate(nepaliNow);
-  const y = nd.getYear();
-  const m = String(nd.getMonth() + 1).padStart(2, "0");
-  const d = String(nd.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toNepalBsDayString(new Date());
 }
 
 /**

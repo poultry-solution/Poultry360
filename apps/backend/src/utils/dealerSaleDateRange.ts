@@ -11,6 +11,17 @@ export type DealerSaleDateRange =
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+function isValidDatePart(value: string): boolean {
+  if (!DATE_ONLY_RE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 function normalizeDatePart(value: unknown): string {
   if (value == null) return "";
   const raw = String(value).trim();
@@ -32,11 +43,65 @@ export function parseNepalBoundary(value: unknown, boundary: "start" | "end"): D
   const datePart = normalizeDatePart(value);
   if (!datePart) return null;
 
-  if (!DATE_ONLY_RE.test(datePart)) {
+  if (!isValidDatePart(datePart)) {
     throw new Error("Invalid date format (expected YYYY-MM-DD)");
   }
 
   return buildNepalBoundaryDate(datePart, boundary);
+}
+
+/**
+ * Internal fallback helper. Returns a Date for valid input, null for both
+ * empty input AND malformed input.
+ *
+ * ⚠️  NEVER use for request filters.
+ *
+ * Silently collapsing empty-vs-malformed means a bad `startDate` with a valid
+ * `endDate` widens the Prisma filter to all-time rows. For list/filter endpoints
+ * use {@link parseNepalRange} instead — it returns `{ok:false}` on malformed
+ * input so the controller can respond 400.
+ *
+ * Intended only for internal helpers (e.g. hatchery analytics default windows)
+ * that need to tell "empty" from "malformed" themselves before deciding whether
+ * to fall back or 400.
+ */
+export function parseOptionalNepalBoundary(
+  value: unknown,
+  boundary: "start" | "end"
+): Date | null {
+  try {
+    return parseNepalBoundary(value, boundary);
+  } catch {
+    return null;
+  }
+}
+
+export type NepalRangeResult =
+  | { ok: true; filter: { gte?: Date; lte?: Date } }
+  | { ok: false; message: string };
+
+/**
+ * Parse optional startDate/endDate pair into a Prisma date filter. Returns
+ * `ok:false` with a message when either value is non-empty but malformed, so
+ * the controller can respond 400 rather than silently drop the bad bound.
+ */
+export function parseNepalRange(
+  startDate: unknown,
+  endDate: unknown
+): NepalRangeResult {
+  try {
+    const gte = parseNepalBoundary(startDate, "start");
+    const lte = parseNepalBoundary(endDate, "end");
+    if (gte && lte && gte > lte) {
+      return { ok: false, message: "startDate must be before or equal to endDate" };
+    }
+    const filter: { gte?: Date; lte?: Date } = {};
+    if (gte) filter.gte = gte;
+    if (lte) filter.lte = lte;
+    return { ok: true, filter };
+  } catch {
+    return { ok: false, message: "Invalid startDate or endDate (expected YYYY-MM-DD)" };
+  }
 }
 
 export function parseDealerDateRange(

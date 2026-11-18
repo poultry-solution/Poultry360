@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { computeBroilerSaleAmount } from "../utils/broilerSaleAmount";
 import { applyBillDiscount, BillDiscountError, type BillDiscountResult } from "../utils/discountHelpers";
 import prisma from "../utils/prisma";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 import { UserRole, TransactionType, SalesItemType, BatchStatus } from "@prisma/client";
 import {
   CreateSaleSchema,
@@ -64,14 +65,12 @@ export const getAllSalePayments = async (
       where.sale = { ...where.sale, customerId: customerId as string };
     }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     if (search) {
@@ -121,10 +120,8 @@ export const getAllSalePayments = async (
     if (customerId) {
       txnWhere.customerId = customerId as string;
     }
-    if (startDate || endDate) {
-      txnWhere.date = {};
-      if (startDate) txnWhere.date.gte = new Date(startDate as string);
-      if (endDate) txnWhere.date.lte = new Date(endDate as string);
+    if (Object.keys(rangeResult.filter).length) {
+      txnWhere.date = rangeResult.filter;
     }
     if (search) {
       txnWhere.OR = [
@@ -284,14 +281,12 @@ export const getAllSales = async (
       where.itemType = itemType as SalesItemType;
     }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     if (search) {
@@ -382,7 +377,7 @@ export const getAllSales = async (
       prisma.sale.count({ where }),
       prisma.sale.aggregate({
         where,
-        _sum: { amount: true },
+        _sum: { amount: true, weight: true },
       }),
       prisma.sale.count({ where: { ...where, isCredit: true } }),
       prisma.sale.aggregate({
@@ -406,6 +401,7 @@ export const getAllSales = async (
       data: sales,
       summary: {
         totalAmount: Number(totalAmount._sum.amount || 0),
+        totalWeight: Number(totalAmount._sum.weight || 0),
         totalCount: total,
         pageAmount,
         creditSales,

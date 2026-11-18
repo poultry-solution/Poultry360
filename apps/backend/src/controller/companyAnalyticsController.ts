@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { getNepalBsMonthWindow, toNepalDayKey } from "../utils/nepalBsDate";
+import { parseNepalBoundary } from "../utils/dealerSaleDateRange";
 
 // ==================== GET COMPANY ANALYTICS ====================
 export const getCompanyAnalytics = async (
@@ -20,9 +22,12 @@ export const getCompanyAnalytics = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    const days = parseInt(period as string);
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const days = Math.max(1, parseInt(period as string, 10) || 30);
+    const now = new Date();
+    const startDay = toNepalDayKey(
+      new Date(now.getTime() - Math.max(0, days - 1) * 86_400_000)
+    );
+    const startDate = parseNepalBoundary(startDay, "start")!;
 
     // Revenue trends (last 30 days by default)
     // Get all sales and group by date manually since Prisma groupBy on DateTime doesn't work well
@@ -48,11 +53,7 @@ export const getCompanyAnalytics = async (
     allSales.forEach((sale) => {
       // Format date as YYYY-MM-DD using the date's year, month, day
       // This preserves the local date without timezone conversion issues
-      const date = new Date(sale.date);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
+      const dateKey = toNepalDayKey(sale.date);
       
       const existing = revenueTrendsMap.get(dateKey) || { revenue: 0, salesCount: 0 };
       revenueTrendsMap.set(dateKey, {
@@ -166,16 +167,13 @@ export const getCompanyAnalytics = async (
     });
 
     // Monthly comparison (current vs previous month)
-    const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const month = getNepalBsMonthWindow(now);
 
     const [currentMonthSales, previousMonthSales] = await Promise.all([
       prisma.companySale.aggregate({
         where: {
           companyId: company.id,
-          date: { gte: currentMonthStart },
+          date: { gte: month.currentStart },
         },
         _sum: { totalAmount: true },
         _count: true,
@@ -184,8 +182,8 @@ export const getCompanyAnalytics = async (
         where: {
           companyId: company.id,
           date: {
-            gte: previousMonthStart,
-            lte: previousMonthEnd,
+            gte: month.previousStart,
+            lte: month.previousSameDaysEnd,
           },
         },
         _sum: { totalAmount: true },

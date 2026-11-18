@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 import {
   CategoryType,
   InventoryItemType,
@@ -89,14 +90,12 @@ export const getAllExpenses = async (
       };
     }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     if (search) {

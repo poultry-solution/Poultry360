@@ -47,7 +47,7 @@ import {
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { LedgerPagination } from "@/common/components/ui/ledger-pagination";
-import { apiErrorText, formatRupeesExact, getNowLocalDateTime, nepalPhoneDigits } from "@/common/lib/utils";
+import { apiErrorText, formatRupeesExact, nepalPhoneDigits } from "@/common/lib/utils";
 import { toNepalDayAd, getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   useGetHatcherySuppliers,
@@ -68,7 +68,7 @@ import {
   useAccountFeature,
 } from "@/fetchers/accountFeatureQueries";
 import axiosInstance from "@/common/lib/axios";
-import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 
 // ==================== HELPERS ====================
 
@@ -294,12 +294,7 @@ export default function HatcherySupplierLedgerPage() {
       const { data } = await axiosInstance.get(`/hatchery/suppliers/${activeSupplierId}/transactions`, { params: { page, limit } });
       return { rows: data.data || [], total: data.pagination?.total };
     });
-    const start = range.startDate ? new Date(`${range.startDate}T00:00:00`) : null;
-    const end = range.endDate ? new Date(`${range.endDate}T23:59:59.999`) : null;
-    const rows = allRows.filter((row: any) => {
-      const date = new Date(row.date);
-      return (!start || date >= start) && (!end || date <= end);
-    });
+    const rows = filterRowsByDate(allRows, range, (row: any) => row.date);
     const columns = [
         { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.type || "" },
@@ -402,12 +397,12 @@ export default function HatcherySupplierLedgerPage() {
   // Reset default dates on modal open
   useEffect(() => {
     if (isAddPurchaseOpen) {
-      setPurchaseForm((p) => ({ ...p, date: getNowLocalDateTime() }));
+      setPurchaseForm((p) => ({ ...p, date: getNepalTodayAd() }));
     }
   }, [isAddPurchaseOpen]);
   useEffect(() => {
     if (isAddPaymentOpen) {
-      setPaymentForm((p) => ({ ...p, date: getNowLocalDateTime() }));
+      setPaymentForm((p) => ({ ...p, date: getNepalTodayAd() }));
     }
   }, [isAddPaymentOpen]);
   useEffect(() => {

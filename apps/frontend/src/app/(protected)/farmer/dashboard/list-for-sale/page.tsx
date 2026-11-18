@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
+import { buildListingAvailabilityBounds } from "@/common/lib/list-for-sale-dates";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import {
   Card,
@@ -49,22 +50,27 @@ import { usePublicLocationSearch, reversePublicLocation } from "@/fetchers/publi
 
 const CATEGORIES: ListForSaleCategory[] = ["CHICKEN", "EGGS", "LAYERS"];
 
-const defaultForm = (): CreateListForSaleBody => ({
-  category: "CHICKEN",
-  phone: "",
-  rate: null,
-  quantity: 0,
-  unit: "kg",
-  availabilityFrom: getNepalTodayAd() + "T00:00:00.000Z",
-  availabilityTo: toNepalDayAd(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) + "T23:59:59.999Z",
-  address: "",
-  province: null,
-  latitude: null,
-  longitude: null,
-  avgWeightKg: undefined,
-  eggVariants: null,
-  typeVariants: null,
-});
+const defaultForm = (): CreateListForSaleBody => {
+  const availability = buildListingAvailabilityBounds(
+    getNepalTodayAd(),
+    toNepalDayAd(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+  );
+  return {
+    category: "CHICKEN",
+    phone: "",
+    rate: null,
+    quantity: 0,
+    unit: "kg",
+    ...availability,
+    address: "",
+    province: null,
+    latitude: null,
+    longitude: null,
+    avgWeightKg: undefined,
+    eggVariants: null,
+    typeVariants: null,
+  };
+};
 
 function categoryLabelKey(cat: ListForSaleCategory): string {
   const keyMap: Partial<Record<ListForSaleCategory, string>> = {
@@ -272,10 +278,13 @@ function ListForSaleContent() {
 
   const handleSubmit = async () => {
     const category = form.category;
+    const availability = buildListingAvailabilityBounds(
+      form.availabilityFrom,
+      form.availabilityTo
+    );
     let payload: CreateListForSaleBody = {
       ...form,
-      availabilityFrom: form.availabilityFrom,
-      availabilityTo: form.availabilityTo,
+      ...availability,
     };
     if (category === "CHICKEN" || category === "LAYERS") {
       payload.quantity = Number(form.quantity) || 0;

@@ -42,7 +42,7 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
 import {
   useGetAllCompanyPayments,
@@ -62,7 +62,7 @@ export default function CompanyPaymentsPage() {
     dealerId: "",
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: getNowLocalDateTime(),
+    paymentDate: getNepalTodayAd(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -155,7 +155,7 @@ export default function CompanyPaymentsPage() {
         dealerId: "",
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: getNowLocalDateTime(),
+        paymentDate: getNepalTodayAd(),
         notes: "",
         reference: "",
         receiptImageUrl: "",

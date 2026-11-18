@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/common/components/ui/table";
+import { NEPAL_TIME_ZONE } from "@/common/lib/nepali-date";
 import {
   type LandingReviewStatus,
   useAdminLandingReviews,
@@ -232,7 +233,9 @@ export default function AdminLandingReviewsPage() {
                       <StatusBadge status={review.status} />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {new Date(review.createdAt).toLocaleString()}
+                      {new Date(review.createdAt).toLocaleString(undefined, {
+                        timeZone: NEPAL_TIME_ZONE,
+                      })}
                     </TableCell>
                     <TableCell>
                       <div className="flex min-w-[150px] flex-wrap gap-2">

@@ -8,6 +8,7 @@ import {
 } from "@myapp/shared-types";
 import { InventoryService } from "../services/inventoryService";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
+import { getNepalBsMonthWindow } from "../utils/nepalBsDate";
 import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
@@ -125,6 +126,7 @@ export const getAllDealers = async (
     ]);
 
     // Calculate balance for each dealer
+    const currentMonthStart = getNepalBsMonthWindow().currentStart;
     const dealersWithBalance = await Promise.all(
       dealers.map(async (dealer) => {
         let balance = 0;
@@ -158,45 +160,42 @@ export const getAllDealers = async (
 
           balance = account ? Number(account.balance) : 0;
 
-          const currentMonth = new Date();
-          currentMonth.setDate(1);
-          currentMonth.setHours(0, 0, 0, 0);
+          const [sales, thisMonthSales, totalSalesCount] = await Promise.all([
+            prisma.companySale.findMany({
+              where: {
+                companyId: company.id,
+                dealerId: dealer.id,
+              },
+              select: {
+                totalAmount: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "desc" },
+              take: 5,
+            }),
+            prisma.companySale.aggregate({
+              where: {
+                companyId: company.id,
+                dealerId: dealer.id,
+                date: { gte: currentMonthStart },
+              },
+              _sum: { totalAmount: true },
+            }),
+            prisma.companySale.count({
+              where: {
+                companyId: company.id,
+                dealerId: dealer.id,
+              },
+            }),
+          ]);
 
-          const sales = await prisma.companySale.findMany({
-            where: {
-              companyId: company.id,
-              dealerId: dealer.id,
-              createdAt: { gte: currentMonth },
-            },
-            select: {
-              totalAmount: true,
-              createdAt: true,
-            },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-          });
-
-          thisMonthAmount = sales.reduce(
-            (sum, s) => sum + Number(s.totalAmount),
-            0
-          );
-
-          const totalSalesCount = await prisma.companySale.count({
-            where: {
-              companyId: company.id,
-              dealerId: dealer.id,
-            },
-          });
+          thisMonthAmount = Number(thisMonthSales._sum.totalAmount || 0);
 
           totalTransactions = totalSalesCount;
           recentTransactions = sales;
         } else {
           // For manual dealers: use dealer.balance stored field
           balance = Number(dealer.balance);
-
-          const currentMonth = new Date();
-          currentMonth.setDate(1);
-          currentMonth.setHours(0, 0, 0, 0);
 
           const transactions = await prisma.entityTransaction.findMany({
             where: { dealerId: dealer.id },
@@ -208,7 +207,7 @@ export const getAllDealers = async (
             where: {
               dealerId: dealer.id,
               type: "PURCHASE",
-              date: { gte: currentMonth },
+              date: { gte: currentMonthStart },
             },
             select: { amount: true },
           });
@@ -280,9 +279,7 @@ export const getDealerById = async (
     // ── Manual dealers: use dealer.balance + EntityTransaction aggregates ──
     const balance = Number(dealer.balance);
 
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
+    const currentMonthStart = getNepalBsMonthWindow().currentStart;
 
     const [
       openingBalanceHistoryRaw,
@@ -310,7 +307,7 @@ export const getDealerById = async (
         where: {
           dealerId: id,
           type: TransactionType.PURCHASE,
-          date: { gte: currentMonth },
+          date: { gte: currentMonthStart },
         },
         _sum: { amount: true },
       }),
@@ -318,7 +315,7 @@ export const getDealerById = async (
         where: {
           dealerId: id,
           type: TransactionType.PURCHASE,
-          date: { gte: currentMonth },
+          date: { gte: currentMonthStart },
         },
       }),
       prisma.entityTransaction.count({
@@ -1364,9 +1361,7 @@ export const getDealerStatistics = async (
     let outstandingAmount = 0;
     let thisMonthAmount = 0;
 
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
+    const currentMonthStart = getNepalBsMonthWindow().currentStart;
 
     for (const dealer of dealers) {
       const balance = Number(dealer.balance);
@@ -1382,7 +1377,7 @@ export const getDealerStatistics = async (
         where: {
           dealerId: dealer.id,
           type: "PURCHASE",
-          date: { gte: currentMonth },
+          date: { gte: currentMonthStart },
         },
       });
 

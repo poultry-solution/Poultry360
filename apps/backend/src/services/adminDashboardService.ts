@@ -1,5 +1,7 @@
 import { BatchStatus, UserOnboardingPaymentState, UserRole } from "@prisma/client";
 import prisma from "../utils/prisma";
+import { parseNepalBoundary } from "../utils/dealerSaleDateRange";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * DAY_MS;
@@ -61,8 +63,7 @@ export type AdminDashboardOverview = {
  */
 export async function getAdminDashboardOverview(): Promise<AdminDashboardOverview> {
   const asOf = new Date();
-  const startOfToday = new Date(asOf);
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = parseNepalBoundary(toNepalDayKey(asOf), "start")!;
   const last24Hours = new Date(asOf.getTime() - DAY_MS);
   const last30Days = new Date(asOf.getTime() - THIRTY_DAYS_MS);
   const customerAccounts = { role: { not: UserRole.SUPER_ADMIN } };

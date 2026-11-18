@@ -82,7 +82,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { useI18n } from "@/i18n/useI18n";
 import { formatRupeesExact, getTodayLocalDate } from "@/common/lib/utils";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { StatTile, rupees } from "@/components/dashboard/StatsCards";
 import { Popover, PopoverContent, PopoverTrigger } from "@/common/components/ui/popover";
 import axiosInstance from "@/common/lib/axios";
@@ -384,7 +384,7 @@ export default function SalesLedgerPage() {
     });
     return {
       columns: [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Invoice", value: (row: any) => row.invoiceNumber || "" },
         { label: "Customer", value: (row: any) => row.customer?.name || "—" },
         { label: "Item", value: (row: any) => row.itemType || row.description || "—" },
@@ -502,6 +502,10 @@ export default function SalesLedgerPage() {
       salesSummary?.totalAmount ??
         sales.reduce((sum: number, sale: any) => sum + Number(sale.amount), 0)
     );
+    const totalWeight = Number(
+      salesSummary?.totalWeight ??
+        sales.reduce((sum: number, sale: any) => sum + Number(sale.weight || 0), 0)
+    );
     const creditSales = Number(
       salesSummary?.creditSales ?? sales.filter((sale: any) => sale.isCredit).length
     );
@@ -515,6 +519,7 @@ export default function SalesLedgerPage() {
     return {
       totalSales,
       totalAmount,
+      totalWeight,
       creditSales,
       creditAmount,
       cashSales: Number(salesSummary?.cashSales ?? totalSales - creditSales),
@@ -882,7 +887,7 @@ export default function SalesLedgerPage() {
       const saleData: any = {
         date: saleDateOnly
           ? `${saleDateOnly}T00:00:00.000Z`
-          : new Date().toISOString(),
+          : `${getNepalTodayAd()}T00:00:00.000Z`,
         amount,
         quantity,
         weight: weight ?? undefined,
@@ -1456,7 +1461,7 @@ export default function SalesLedgerPage() {
             label: t("farmer.salesLedger.overview.sales"),
             icon: Receipt,
             value: Number(salesStats.totalSales || 0).toLocaleString("en-IN"),
-            sub: `${rupees(salesStats.totalAmount)}${salesFiltersActive ? ` · ${t("farmer.salesLedger.ui.filtered")}` : ""}`,
+            sub: `${rupees(salesStats.totalAmount)}${salesStats.totalWeight > 0 ? ` · ${salesStats.totalWeight.toFixed(2)} kg` : ""}${salesFiltersActive ? ` · ${t("farmer.salesLedger.ui.filtered")}` : ""}`,
             loading: isLoading && !salesSummary,
           }}
         />
@@ -1605,6 +1610,7 @@ export default function SalesLedgerPage() {
                     <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
                       <span>{t("farmer.salesLedger.table.total")}: {salesStats.totalSales}</span>
                       <span>
+                        {salesStats.totalWeight > 0 ? `${salesStats.totalWeight.toFixed(2)} kg · ` : ""}
                         {formatRupeesExact(salesStats.totalAmount)}
                       </span>
                     </div>

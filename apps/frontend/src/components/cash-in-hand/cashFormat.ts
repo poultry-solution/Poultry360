@@ -1,5 +1,7 @@
 /** Shared number and time formats for the Cash in hand screens. */
 
+import { NEPAL_TIME_ZONE } from "@/common/lib/nepali-date";
+
 const amountFormat = new Intl.NumberFormat("en-NP", {
   style: "currency",
   currency: "NPR",
@@ -8,7 +10,7 @@ const amountFormat = new Intl.NumberFormat("en-NP", {
 });
 
 const nepalTime = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Asia/Kathmandu",
+  timeZone: NEPAL_TIME_ZONE,
   hour: "2-digit",
   minute: "2-digit",
   hour12: true,

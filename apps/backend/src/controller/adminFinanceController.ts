@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import prisma from "../utils/prisma";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 function parseAmount(value: unknown): Prisma.Decimal | null {
   const raw = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
@@ -16,9 +17,7 @@ function parseDate(value: unknown): Date | null {
   const date = new Date(`${value}T00:00:00.000Z`);
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
 
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return date <= today ? date : null;
+  return value <= toNepalDayKey(new Date()) ? date : null;
 }
 
 /** A simple cash-flow view: real customer payments less admin-entered expenses. */

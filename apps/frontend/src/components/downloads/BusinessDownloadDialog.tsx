@@ -22,8 +22,14 @@ import {
   getBSYearMonthFromAD,
   getFirstDayOfBSMonthAD,
   getNepalTodayAd,
-  toNepalDayAd,
 } from "@/common/lib/nepali-date";
+import {
+  filterRowsByDate,
+  type DownloadDateRange,
+} from "@/common/lib/download-date";
+
+export { filterRowsByDate };
+export type { DownloadDateRange };
 
 /** BS label for an AD YYYY-MM-DD date (falls back to the AD text). */
 function bsLabel(adDate?: string) {
@@ -34,11 +40,6 @@ function bsLabel(adDate?: string) {
     return adDate;
   }
 }
-
-export type DownloadDateRange = {
-  startDate?: string;
-  endDate?: string;
-};
 
 export type DownloadColumn = {
   label: string;
@@ -368,21 +369,4 @@ export async function fetchAllPages<T>(
     page += 1;
   }
   return rows;
-}
-
-export function filterRowsByDate<T>(
-  rows: T[],
-  range: DownloadDateRange,
-  getDate: (row: T) => string | Date | null | undefined
-) {
-  if (!range.startDate && !range.endDate) return rows;
-  // Compare Nepal calendar days, so the result is the same on any device time zone.
-  return rows.filter((row) => {
-    const value = getDate(row);
-    if (!value) return false;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return false;
-    const day = toNepalDayAd(date);
-    return (!range.startDate || day >= range.startDate) && (!range.endDate || day <= range.endDate);
-  });
 }

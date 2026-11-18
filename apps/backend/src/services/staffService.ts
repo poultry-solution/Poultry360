@@ -14,6 +14,7 @@ import NepaliDate from "nepali-date-converter";
 import prisma from "../utils/prisma";
 import { StaffAttendanceStatus, StaffPayType, StaffStatus } from "@prisma/client";
 import type { Staff, StaffSalary, StaffPayment, StaffAttendance } from "@prisma/client";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 /** First day of BS month (year, month 1-12) as AD Date at midnight UTC (date only). */
 function firstDayOfBSMonthAD(bsYear: number, bsMonth: number): Date {
@@ -107,11 +108,9 @@ function getRateOn(sortedNewestFirst: StaffSalary[], date: Date): number {
   return Number(sortedNewestFirst[sortedNewestFirst.length - 1].rate);
 }
 
-/** Current date in Nepal (UTC+5:45) so "today" in BS is correct regardless of server TZ. */
+/** Current date in Nepal so "today" in BS is correct regardless of server TZ. */
 export function getTodayInNepalDateOnly(): Date {
-  const nepalOffsetMs = 5.75 * 60 * 60 * 1000;
-  const inNepal = new Date(Date.now() + nepalOffsetMs);
-  return new Date(Date.UTC(inNepal.getUTCFullYear(), inNepal.getUTCMonth(), inNepal.getUTCDate(), 0, 0, 0, 0));
+  return new Date(`${toNepalDayKey(new Date())}T00:00:00.000Z`);
 }
 
 /**

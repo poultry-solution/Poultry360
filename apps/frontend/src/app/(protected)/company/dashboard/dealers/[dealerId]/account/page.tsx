@@ -44,7 +44,7 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DateInput } from "@/common/components/ui/date-input";
-import { getNowLocalDateTime } from "@/common/lib/utils";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import {
   useGetDealerAccount,
   useGetDealerAccountStatement,
@@ -66,7 +66,7 @@ export default function DealerAccountPage() {
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMethod: "CASH",
-    paymentDate: getNowLocalDateTime(),
+    paymentDate: getNepalTodayAd(),
     notes: "",
     reference: "",
     receiptImageUrl: "",
@@ -118,7 +118,7 @@ export default function DealerAccountPage() {
       setPaymentData({
         amount: 0,
         paymentMethod: "CASH",
-        paymentDate: getNowLocalDateTime(),
+        paymentDate: getNepalTodayAd(),
         notes: "",
         reference: "",
         receiptImageUrl: "",
@@ -142,7 +142,7 @@ export default function DealerAccountPage() {
       label: row.type === "SALE" ? "Sale" : "Payment",
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const columns = [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.label },
         { label: "Reference", value: (row: any) => row.reference || "" },
         { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },

@@ -11,6 +11,8 @@ import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
 } from "../services/accountFeatureService";
+import { getNepalBsMonthWindow } from "../utils/nepalBsDate";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 
 // ==================== LIST SUPPLIERS ====================
 export const listHatcherySuppliers = async (
@@ -73,9 +75,7 @@ export const hatcherySupplierStatistics = async (
     ).length;
 
     // This month's purchases
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+    const monthStart = getNepalBsMonthWindow().currentStart;
 
     const thisMonthAgg = await prisma.hatcherySupplierTxn.aggregate({
       _sum: { amount: true },
@@ -539,10 +539,12 @@ export const listHatcherySupplierTransactions = async (
     } else if (type) {
       where.type = type;
     }
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     const skip = (Number(page) - 1) * Number(limit);

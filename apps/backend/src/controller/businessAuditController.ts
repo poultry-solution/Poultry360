@@ -5,6 +5,21 @@ import {
   getAccountOwnerAndStaffAuditScope,
 } from "../services/businessAuditScopeService";
 import prisma from "../utils/prisma";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
+
+class AuditFilterError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuditFilterError";
+  }
+}
+
+function sendFilterError(res: Response, err: unknown): Response | null {
+  if (err instanceof AuditFilterError) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+  return null;
+}
 
 function parsePage(value: unknown, fallback: number) {
   const number = Number(value);
@@ -65,22 +80,11 @@ function buildAuditQueryWhere(
     directFilters.accountOwnerId = query.accountOwnerId.trim();
   }
   if (typeof query.startDate === "string" || typeof query.endDate === "string") {
-    const createdAt: Prisma.DateTimeFilter = {};
-    if (
-      typeof query.startDate === "string" &&
-      !Number.isNaN(Date.parse(query.startDate))
-    ) {
-      createdAt.gte = new Date(query.startDate);
+    const range = parseNepalRange(query.startDate, query.endDate);
+    if (!range.ok) throw new AuditFilterError(range.message);
+    if (Object.keys(range.filter).length) {
+      directFilters.createdAt = range.filter as Prisma.DateTimeFilter;
     }
-    if (
-      typeof query.endDate === "string" &&
-      !Number.isNaN(Date.parse(query.endDate))
-    ) {
-      const end = new Date(query.endDate);
-      end.setHours(23, 59, 59, 999);
-      createdAt.lte = end;
-    }
-    if (Object.keys(createdAt).length) directFilters.createdAt = createdAt;
   }
   if (Object.keys(directFilters).length) conditions.push(directFilters);
 
@@ -172,7 +176,15 @@ export async function getAccountBusinessAuditLogs(
       .status(403)
       .json({ message: "Staff accounts cannot view activity history." });
   }
-  return sendLogs(req, res, await buildAccountAuditWhere(req));
+  let where: Prisma.BusinessAuditLogWhereInput;
+  try {
+    where = await buildAccountAuditWhere(req);
+  } catch (err) {
+    const response = sendFilterError(res, err);
+    if (response) return response;
+    throw err;
+  }
+  return sendLogs(req, res, where);
 }
 
 export async function getAdminBusinessAuditLogs(
@@ -182,7 +194,15 @@ export async function getAdminBusinessAuditLogs(
   if (req.role !== UserRole.SUPER_ADMIN) {
     return res.status(403).json({ message: "Super Admin access required" });
   }
-  return sendLogs(req, res, buildAuditQueryWhere(req.query), true);
+  let where: Prisma.BusinessAuditLogWhereInput;
+  try {
+    where = buildAuditQueryWhere(req.query);
+  } catch (err) {
+    const response = sendFilterError(res, err);
+    if (response) return response;
+    throw err;
+  }
+  return sendLogs(req, res, where, true);
 }
 
 export async function exportAccountBusinessAuditLogs(
@@ -194,8 +214,16 @@ export async function exportAccountBusinessAuditLogs(
       .status(403)
       .json({ message: "Staff accounts cannot export activity history." });
   }
+  let where: Prisma.BusinessAuditLogWhereInput;
+  try {
+    where = await buildAccountAuditWhere(req);
+  } catch (err) {
+    const response = sendFilterError(res, err);
+    if (response) return response;
+    throw err;
+  }
   const rows = await prisma.businessAuditLog.findMany({
-    where: await buildAccountAuditWhere(req),
+    where,
     orderBy: { createdAt: "desc" },
     take: 10000,
   });
@@ -214,8 +242,16 @@ export async function exportAdminBusinessAuditLogs(
   if (req.role !== UserRole.SUPER_ADMIN) {
     return res.status(403).json({ message: "Super Admin access required" });
   }
+  let where: Prisma.BusinessAuditLogWhereInput;
+  try {
+    where = buildAuditQueryWhere(req.query);
+  } catch (err) {
+    const response = sendFilterError(res, err);
+    if (response) return response;
+    throw err;
+  }
   const rows = await prisma.businessAuditLog.findMany({
-    where: buildAuditQueryWhere(req.query),
+    where,
     include: { securityMetadata: true },
     orderBy: { createdAt: "desc" },
     take: 10000,

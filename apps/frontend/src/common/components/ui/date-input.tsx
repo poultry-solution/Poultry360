@@ -3,7 +3,7 @@
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { useCalendar } from "@/common/hooks/useCalendar";
-import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
+import { convertADtoBS, getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 
 interface DateInputProps {
@@ -34,10 +34,12 @@ export function DateInput({
 
     try {
       if (typeof value === "string") {
-        return value.includes("T") ? value.split("T")[0] : value;
+        // ISO strings like 2026-10-13T19:00Z are Oct 14 in Nepal; route through
+        // toNepalDayAd so the picker shows the Nepal day, not the UTC day.
+        return value.includes("T") ? toNepalDayAd(value) : value;
       }
       if (value instanceof Date && !isNaN(value.getTime())) {
-        return value.toISOString().split("T")[0];
+        return toNepalDayAd(value);
       }
     } catch (err) {
       console.error("Error normalizing value:", err);

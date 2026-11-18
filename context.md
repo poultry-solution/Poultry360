@@ -334,67 +334,83 @@ poller, provider, or socket work starts, and reuse the same TanStack Query cache
 
 ## Date Handling (Nepal Timezone)
 
-The app is Nepal-only (UTC+05:45). All stored and transmitted dates are AD (Gregorian); BS (Bikram Sambat) is a display-only concern — the AD/BS toggle UI exists but is hidden (`EFFECTIVE_CALENDAR_TYPE = "BS"`, `CALENDAR_TOGGLE_VISIBLE = false` in `apps/frontend/src/common/config/calendar.ts`), so every user sees BS in the UI.
+Nepal-only app (UTC+05:45). Live server runs Docker-UTC; dev Macs run Nepal time — that gap is where every historical bug came from.
 
-### Convention
+### Architecture in one line
 
-- A `DateTime` field in storage represents a **Nepal wall-clock calendar day**, serialized as `YYYY-MM-DDT00:00:00.000Z` (UTC midnight of the AD day). The UTC-midnight wire format is just the chosen encoding — semantically it means "the Nepal day the user picked".
-- Writers normalize via `date: new Date(payload.date)`. Readers must apply the Nepal offset (+05:45) before extracting day/month/year, or they drift one day between 00:00 and 05:45 Nepal time.
-- Do calculations in AD. Only convert to BS at display time.
+**AD is the spine. BS is paint at two seams: the BS picker (BS → AD before submit) and the display (AD → BS at render).** The backend stores, filters, aggregates, and compares in AD only.
 
-### Where the helpers live
+### Storage convention
 
-| Module | Purpose |
+- **Day-only fields** (e.g. `Sale.date`, `Expense.date`): `DateTime` column holding UTC midnight of the AD day the user picked (`2026-10-19T00:00:00.000Z` means "that AD Nepal day"). Write with `new Date("YYYY-MM-DD")` (or `` `${day}T00:00:00.000Z` ``).
+- **Moments** (e.g. `createdAt`): real UTC instants. Group/filter by Nepal day via the helpers; never by raw `date_trunc('day', col)`.
+- **Optional cached `bsDate` columns**: snapshots derived from the AD `date`. Never the source of truth, never filtered on.
+
+### Where BS *does* appear in the backend (and why it's still AD-canonical)
+
+| Helper | Returns | Why it's safe |
+|---|---|---|
+| `toNepalBsDayString(date)` | BS string | For writing cached `bsDate` columns only |
+| `getNepalBsMonthWindow(now?)` | **AD `Date` bounds** (`currentStart`, `previousStart`, …) | BS math lives inside the helper; Prisma only sees AD |
+| `bsMonthOfDayKey` / `bsMonthStartDayKey` | BS number from AD day-key | Used as `Map` keys for analytics grouping; underlying query is AD |
+
+Everything else named `nepal*` (`toNepalDayKey`, `nepalBatchDay`, `startOfNepalDay`, …) is **AD-Nepal** — it means the UTC+5:45 timezone, not the BS calendar.
+
+### Helper modules
+
+| Module | Role |
 |---|---|
-| `apps/frontend/src/common/lib/nepali-date.ts` | **Primary frontend module.** All date work on the client goes through here. |
-| `apps/backend/src/utils/nepalBsDate.ts` | **Primary backend module** for Nepal-day logic (today, day keys, BS month windows). |
-| `apps/backend/src/services/farmerFcrService.ts` | Exports `startOfNepalDay` / `endOfNepalDay`. Used by weight, batch, FCR controllers for `gte`/`lte` filters. |
-| `apps/backend/src/utils/dealerSaleDateRange.ts` | `parseNepalBoundary` + `parseDealerDateRange` for dealer list/filter endpoints. |
-| `apps/frontend/src/common/hooks/useCalendar.ts` | React hook wrapping the lib. Provides `toDisplayDate` + `formatRelativeDate` used by `<DateDisplay/>` and forms. |
+| `apps/backend/src/utils/nepalBsDate.ts` | `toNepalDayKey`, `toNepalBsDayString`, `getNepalBsTodayString`, `getNepalBsMonthWindow`, `nepalBatchDay`, `bsMonthOfDayKey` |
+| `apps/backend/src/utils/dealerSaleDateRange.ts` | `parseNepalRange` (user filter pair; `{ok, filter}`/`{ok:false, message}`), `parseNepalBoundary` (single required bound; throws on malformed), `parseOptionalNepalBoundary` (⚠️ internal-only silent-null fallback — never request filters), `parseDealerDateRange` (legacy both-or-nothing contract) |
+| `apps/backend/src/services/farmerFcrService.ts` | `startOfNepalDay`, `endOfNepalDay` for day-window filters |
+| `apps/frontend/src/common/lib/nepali-date.ts` | `getNepalTodayAd`, `toNepalDayAd`, `convertADtoBS`, `convertBSToAD`, `formatBSLong`, `nepalInclusiveRangeToIsoParams`, `differenceInNepalDays`, `NEPAL_TIME_ZONE` |
+| `apps/frontend/src/common/hooks/useCalendar.ts` | `toDisplayDate`, `formatRelativeDate` for `<DateDisplay/>` and forms |
 
-### Cheat sheet — what to use when
+### Cheat sheet
 
 | Situation | Frontend | Backend |
 |---|---|---|
-| "today" default for a form | `getNepalTodayAd()` | `getNepaliNow()` / `toNepalDayKey(new Date())` |
+| "today" default on a form | `getNepalTodayAd()` | `toNepalDayKey(new Date())` |
 | Day a timestamp falls on | `toNepalDayAd(x)` | `toNepalDayKey(x)` |
-| Display AD as BS | `convertADtoBS(x)` or `<DateDisplay/>` | — (never display server-side) |
-| `gte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.startDate` | `startOfNepalDay(x)` or `parseNepalBoundary(x, "start")` |
-| `lte` filter for a Nepal day | `nepalInclusiveRangeToIsoParams(...)` → `.endDate` | `endOfNepalDay(x)` or `parseNepalBoundary(x, "end")` |
-| Parse `YYYY-MM-DD` from UI | `parseDateStringLocal(s)` (noon-local; avoids UTC-midnight trap) | `new Date(s)` + wrap with `startOfNepalDay` if used for day logic |
-| Current BS month boundaries | — (ask backend) | `getNepalBsMonthWindow()` |
+| Display AD as BS | `convertADtoBS(x)` or `<DateDisplay/>` | — never display server-side |
+| User-supplied range filter on a list endpoint | `nepalInclusiveRangeToIsoParams(...)` emits ISO | `parseNepalRange(startDate, endDate)` — 400 on malformed/inverted, apply `rangeResult.filter` to Prisma `where.date` |
+| Single required bound (not a pair) | `nepalInclusiveRangeToIsoParams(...)` | `parseNepalBoundary(x, "start"\|"end")` — throws on malformed, catch at controller to return 400 |
+| Internal fallback window (analytics default) | — | `parseOptionalNepalBoundary(x, …)` — ⚠️ silently returns null; never use for request filters |
+| Current BS month boundaries | ask backend | `getNepalBsMonthWindow()` |
 | Batch day number | `nepalBatchAge(start)` | `nepalBatchDay(start, now)` |
+| Format a UTC moment in Nepal time | `toLocaleString(…, { timeZone: NEPAL_TIME_ZONE })` | — |
 | "N days from today" | `toNepalDayAd(new Date(Date.now() + n*86400000))` | `toNepalDayKey(new Date(Date.now() + n*86400000))` |
 
 ### Flow
 
 ```
-BS picker (NepaliDatePicker) → DateInput emits AD YYYY-MM-DD or ISO
-  → form state (AD string)
-  → POST { date: "2026-10-19T00:00:00.000Z" }
-  → backend `date: new Date(payload.date)` (UTC midnight)
-  → Prisma DateTime column
-  → GET response (ISO string)
-  → <DateDisplay/> → convertADtoBS() → "Magh 5, 2082" shown to user
+BS picker ─ convertBSToAD ─▶ AD "YYYY-MM-DD"
+                            │
+                            ▼ POST { date: "2026-10-19T00:00:00.000Z" }
+                      backend `new Date(payload.date)` ─▶ Prisma (AD UTC midnight)
+                            │
+                            ▼ GET (ISO string)
+                      <DateDisplay/> ─ convertADtoBS ─▶ "Magh 5, 2082"
 ```
 
-### Anti-patterns (will cause bugs between 00:00–05:45 Nepal time)
+Filter flow: UI sends AD day keys → `parseNepalBoundary("start"/"end")` builds Nepal 00:00 / 23:59:59.999 moments → Prisma `gte`/`lte`.
+
+### Anti-patterns (break between 00:00–05:45 Nepal time)
 
 ```ts
 new Date().toISOString().split("T")[0]      // ❌ UTC day, not Nepal day
-new Date().toISOString().slice(0, 10)       // ❌ same bug
-new Date(dateStr).getDate()                 // ❌ reads device-local, not Nepal
-new Date(a) > new Date(b)                   // ❌ for day-boundary comparisons — use startOfNepalDay
-date_trunc('day', col) in raw SQL           // ❌ Postgres groups by server UTC
+date.toLocaleDateString()                   // ❌ device TZ
+new Date("YYYY-MM-DD") as a filter bound    // ❌ UTC midnight, loses the 5:45h window
+setHours(0, 0, 0, 0)                        // ❌ server-local day
+new Date(a) > new Date(b) for day compares  // ❌ use toNepalDayKey(a) vs toNepalDayKey(b)
+date_trunc('day'/'month', col) in SQL       // ❌ server UTC; use `col + interval '5 hours 45 minutes'`
 ```
 
-### Known open items
+### Regression rule
 
-- **Dealer sales list filter** uses UTC days while stats use Nepal days — mismatch near midnight. Fix: route the list through `parseDealerDateRange`.
-- **Broiler settlement** default date uses UTC — can show yesterday before 05:45. Fix: swap default to `getNepalTodayAd()`.
-- **`useCalendar.formatRelativeDate`** (`apps/frontend/src/common/hooks/useCalendar.ts:71`) compares `new Date().getTime() - dateObj.getTime()` with no Nepal shift, so "Today"/"Yesterday"/"N days ago" labels can be off by one between 00:00 and 05:45 Nepal time.
-- **`useCalendar.toDisplayDate`** AD-format branch (line 42) uses `toLocaleDateString` which reads device-local time — latent only; the AD branch is dead code while `EFFECTIVE_CALENDAR_TYPE === "BS"` is forced.
-- Final sweep for stray `.toISOString().split('T')[0]` / `.slice(0, 10)` and bare `new Date()` sentinels (both backend and frontend) is still open.
+- UTC/Nepal sweep completed 2026-11-16. Do not reintroduce server-local or browser-local day math.
+- Jest in both apps defaults `process.env.TZ = "UTC"` (see `apps/backend/test/setup.ts`, `apps/frontend/jest.setup.ts`). Override with `TZ=Asia/Kathmandu` to cross-check. Shared date tests must pass under both.
+- Intentional cross-screen BS/AD split in `dashboardController.getDashboardFinancialSummary`: BS for "this month" card (per issue #175), AD for quarter/year/trend. Comment in the switch — do not "fix" by homogenizing.
 
 ---
 

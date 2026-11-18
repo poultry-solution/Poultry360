@@ -95,7 +95,7 @@ import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
 import { useI18n } from "@/i18n/useI18n";
-import { nepalBatchAge } from "@/common/lib/nepali-date";
+import { nepalBatchAge, toNepalDayAd } from "@/common/lib/nepali-date";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
 import { StatTile } from "@/components/dashboard/StatsCards";
 import { useCalendar } from "@/common/hooks/useCalendar";
@@ -693,7 +693,7 @@ export default function BatchDetailPage() {
       : "Other";
     setExpenseForm({
       category: category as ExpenseCategory,
-      date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
+      date: row.date ? toNepalDayAd(row.date) : "",
       notes: row.description || "",
       feedBrand: "",
       feedQuantity: row.quantity?.toString() || "",
@@ -927,7 +927,7 @@ export default function BatchDetailPage() {
       const expenseData = {
         date: expenseForm.date
           ? new Date(expenseForm.date).toISOString()
-          : new Date().toISOString(),
+          : `${getTodayLocalDate()}T00:00:00.000Z`,
         amount,
         description:
           expenseForm.notes.trim() || undefined,
@@ -1191,7 +1191,7 @@ export default function BatchDetailPage() {
       const saleData: any = {
         date: saleDateOnly
           ? `${saleDateOnly}T00:00:00.000Z`
-          : new Date().toISOString(),
+          : `${getTodayLocalDate()}T00:00:00.000Z`,
         amount,
         quantity,
         weight: weight ?? undefined,
@@ -1306,7 +1306,7 @@ export default function BatchDetailPage() {
   function openEditMortality(row: any) {
     setEditingMortalityId(row.id);
     setMortalityForm({
-      date: row.date ? new Date(row.date).toISOString().slice(0, 10) : "",
+      date: row.date ? toNepalDayAd(row.date) : "",
       count: String(row.count),
       reason: row.reason || "Natural Death",
     });
@@ -1346,7 +1346,7 @@ export default function BatchDetailPage() {
 
     try {
       const mortalityData = {
-        date: mortalityForm.date ? new Date(mortalityForm.date) : new Date(),
+        date: new Date(mortalityForm.date || getTodayLocalDate()),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
         batchId: safeBatchId,

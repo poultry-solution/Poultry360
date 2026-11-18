@@ -487,7 +487,7 @@ export default function InventoryPage() {
             const soonLimit = new Date(`${today}T00:00:00Z`);
             soonLimit.setUTCDate(soonLimit.getUTCDate() + 30);
             const isExpired = expiryDay < today;
-            const isSoon = !isExpired && expiryDay <= soonLimit.toISOString().slice(0, 10);
+            const isSoon = !isExpired && expiryDay <= toNepalDayAd(soonLimit);
             return (
               <span className={isExpired ? "font-medium text-red-600" : isSoon ? "font-medium text-amber-600" : ""}>
                 <DateDisplay date={value} format="short" />

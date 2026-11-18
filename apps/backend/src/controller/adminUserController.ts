@@ -5,15 +5,16 @@ import bcrypt from "bcrypt";
 import { getAdminResolvedAccountFeatures } from "../services/accountFeatureService";
 import { getAdminAccountUsageSummary } from "../services/adminAccountUsageService";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 type RecentAccountPayment = { paidAt: Date } | undefined;
 
 function getAccountPaymentStatus(payment: RecentAccountPayment) {
   if (!payment) return "NOT_PAID" as const;
 
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 1);
-  cutoff.setHours(0, 0, 0, 0);
+  const [year, month, day] = toNepalDayKey(new Date()).split("-").map(Number);
+  const cutoff = new Date(Date.UTC(year, month - 1, day));
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
   return payment.paidAt >= cutoff ? "PAID" as const : "NOT_PAID" as const;
 }
 
@@ -30,9 +31,7 @@ function parsePaidAt(value: unknown): Date | null {
   const paidAt = new Date(`${value}T00:00:00.000Z`);
   if (Number.isNaN(paidAt.getTime()) || paidAt.toISOString().slice(0, 10) !== value) return null;
 
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return paidAt <= today ? paidAt : null;
+  return value <= toNepalDayKey(new Date()) ? paidAt : null;
 }
 
 // ==================== GET ALL USERS ====================
