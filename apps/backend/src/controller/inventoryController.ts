@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 import {
   InventoryItemType,
   InventoryOrigin,
@@ -694,14 +695,12 @@ export const getInventoryTransactions = async (
       where.type = type as InventoryTransactionType;
     }
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     const [transactions, total] = await Promise.all([
@@ -759,14 +758,12 @@ export const getInventoryUsages = async (
       itemId,
     };
 
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) {
-        where.date.gte = new Date(startDate as string);
-      }
-      if (endDate) {
-        where.date.lte = new Date(endDate as string);
-      }
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+    if (Object.keys(rangeResult.filter).length) {
+      where.date = rangeResult.filter;
     }
 
     const [usages, total] = await Promise.all([

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Landmark, Plus } from "lucide-react";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
 import { Input } from "@/common/components/ui/input";
@@ -175,7 +175,7 @@ export default function AdminFinancesPage() {
                     <TableBody>
                       {finance?.entries.map((entry) => (
                         <TableRow key={entry.id}>
-                          <TableCell className="whitespace-nowrap">{new Date(entry.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="whitespace-nowrap">{toNepalDayAd(entry.date)}</TableCell>
                           <TableCell>
                             <p className="font-medium">{entry.description}</p>
                             {entry.reference && <p className="text-xs text-muted-foreground">{entry.reference}</p>}

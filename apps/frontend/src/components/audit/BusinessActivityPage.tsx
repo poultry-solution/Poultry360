@@ -6,7 +6,7 @@ import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/common/components/ui/select";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, NEPAL_TIME_ZONE, toNepalDayAd } from "@/common/lib/nepali-date";
 import { Input } from "@/common/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/common/components/ui/table";
 import { useAuthStore } from "@/common/store/store";
@@ -68,8 +68,12 @@ function relatedRecord(log: BusinessAuditLog) {
   return companyActivityPresentation[log.action]?.relatedTo || recordLabels[log.targetType] || "Business record";
 }
 
+function formatExportWhen(iso: string) {
+  return new Date(iso).toLocaleString(undefined, { timeZone: NEPAL_TIME_ZONE });
+}
+
 function rows(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
-  return logs.map((log) => [new Date(log.createdAt).toLocaleString(), actorDisplayName(log, scope, businessName), actorRoleLabel(log), activityDescription(log), relatedRecord(log), readableDetails(log.metadata, log.securityMetadata)]);
+  return logs.map((log) => [formatExportWhen(log.createdAt), actorDisplayName(log, scope, businessName), actorRoleLabel(log), activityDescription(log), relatedRecord(log), readableDetails(log.metadata, log.securityMetadata)]);
 }
 
 function exportCsv(logs: BusinessAuditLog[], scope: "account" | "admin", businessName?: string) {
@@ -87,7 +91,7 @@ function exportPdf(logs: BusinessAuditLog[], scope: "account" | "admin", busines
     format: "pdf",
     data: {
       columns: [
-        { label: "Time", value: (row: BusinessAuditLog) => new Date(row.createdAt).toLocaleString() },
+        { label: "Time", value: (row: BusinessAuditLog) => formatExportWhen(row.createdAt) },
         { label: "Actor", value: (row: BusinessAuditLog) => actorDisplayName(row, scope, businessName) },
         { label: "Role", value: actorRoleLabel },
         { label: "Action", value: activityDescription },
@@ -193,14 +197,13 @@ function readableDetails(metadata: BusinessAuditLog["metadata"], securityMetadat
   return details.join(" · ") || "—";
 }
 
-const NEPAL_OFFSET_MS = 5.75 * 60 * 60 * 1000;
-const nepalTimeFormat = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit", hour12: true });
+const nepalTimeFormat = new Intl.DateTimeFormat("en-GB", { timeZone: NEPAL_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: true });
 
 /** Nepali (BS) date and Nepal time for screen display. Exports keep their own format. */
 function formatWhen(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return { day: "—", time: "" };
-  const nepalDayAd = new Date(date.getTime() + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
+  const nepalDayAd = toNepalDayAd(date);
   let day = nepalDayAd;
   try { day = convertADtoBS(nepalDayAd); } catch { /* keep AD */ }
   return { day, time: nepalTimeFormat.format(date) };
@@ -327,7 +330,7 @@ export function BusinessActivityPage({ scope }: { scope: "account" | "admin" }) 
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Info className="h-3.5 w-3.5" />
-              New records are kept here for 10 days. Choose "Older records" to see earlier ones.
+              New records are kept here for 10 days. Choose &quot;Older records&quot; to see earlier ones.
             </span>
             {hasFilters ? (
               <button type="button" className="font-medium text-primary hover:underline" onClick={() => { setIsPickingDate(false); setFilters({ page: 1, limit: filters.limit, archived: "false" }); }}>

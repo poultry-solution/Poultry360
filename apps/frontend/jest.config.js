@@ -5,5 +5,6 @@ module.exports = {
   roots: ["<rootDir>/src"],
   testMatch: ["**/*.test.ts"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/src/$1" },
-  transform: { "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx", esModuleInterop: true, module: "commonjs" }, isolatedModules: true }] },
+  setupFiles: ["<rootDir>/jest.setup.ts"],
+  transform: { "^.+\\.tsx?$": ["ts-jest", { tsconfig: { jsx: "react-jsx", esModuleInterop: true, module: "commonjs" } }] },
 };

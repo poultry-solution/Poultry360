@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
+import { normalizeListingDates } from "@/common/lib/list-for-sale-dates";
 
 // ==================== TYPES ====================
 
@@ -82,7 +83,7 @@ export function useFarmerListForSale(filters?: { status?: ListForSaleStatus; cat
         "/farmer/list-for-sale",
         { params: filters }
       );
-      return data;
+      return { ...data, data: data.data.map(normalizeListingDates) };
     },
   });
 }
@@ -94,7 +95,7 @@ export function useFarmerListForSaleById(id: string | null) {
       const { data } = await axiosInstance.get<{ success: boolean; data: ListForSaleItem }>(
         `/farmer/list-for-sale/${id}`
       );
-      return data;
+      return { ...data, data: normalizeListingDates(data.data) };
     },
     enabled: !!id,
   });

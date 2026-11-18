@@ -49,9 +49,9 @@ For each hit, confirm either (a) the endpoint is owner-only, (b) the field is al
 
 ---
 
-## 3. UTC vs Nepal wall-clock date boundaries — deferred residual quirks
+## 3. UTC vs Nepal wall-clock date boundaries
 
-**Status:** partially addressed (frontend defaults fixed 2026-10-18). Residual items below are deferred.
+**Status:** resolved 2026-11-16.
 
 ### Convention this codebase uses
 
@@ -62,32 +62,18 @@ For each hit, confirm either (a) the endpoint is owner-only, (b) the field is al
 
 As long as writer and reader both use this, the surface is internally consistent — regardless of where the user physically is.
 
-### The underlying problem
+### Root cause and completed fix
 
-Nepal is UTC +05:45. The 5:45h gap between UTC midnight and Nepal midnight creates two midnight-adjacent failure modes:
+The app had four versions of "day": UTC day, Docker-local day, browser-local day, and Nepal day. They matched on Nepal-time Macs most of the day, but split near Nepal midnight when Docker ran in UTC.
 
-1. **Client-local defaults.** The old `new Date().toISOString().split("T")[0]` returns the *client's* local day. A Nepali user whose laptop/browser is set to UTC at 2 AM Nepal time picks "yesterday" without noticing. Fixed 2026-10-18 across ~15 frontend files by switching all date-picker defaults to `getNepalTodayAd()` (which is TZ-independent).
+- Backend list and download filters now use `parseNepalBoundary` / `parseDealerDateRange`.
+- Backend day keys, BS day strings, month cards, batch age, analytics buckets, and "today" use the helpers in `utils/nepalBsDate.ts`.
+- "This month" cards use `getNepalBsMonthWindow()` and no longer build month starts from the server clock.
+- Frontend defaults and download dates use `getNepalTodayAd()` / `toNepalDayAd()`.
+- The shared calendar display compares Nepal day keys, including Today / Yesterday labels.
+- AD ↔ BS conversion now uses calendar-day parts and returns UTC midnight for a picked AD day, so it is stable in both UTC and Asia/Kathmandu.
 
-2. **Surfaces that mix UTC-day and Nepal-day semantics on the same table.** The dealer dashboard is the known case:
-   - **List filter** (`dealerSaleController.ts`) uses `parseNepalBoundary` → Nepal wall-clock day.
-   - **Trend chart** (`dealerSalesTrendService.ts`) uses SQL `+ interval '5 hours 45 minutes'` → Nepal wall-clock day.
-   - **Monthly stats** (`dealerController.ts:160, 196, 282, 1342`) use `new Date(); setDate(1); setHours(0,0,0,0)` → AD calendar month in **UTC**.
-   During the 5:45h window after UTC midnight, chart buckets and list filter can show a sale that monthly stats haven't picked up yet (or vice-versa).
-
-### Why residual #2 is not being fixed now
-
-- No user has complained about it in testing; the midnight-form-default bug (fixed above) was the actual pain.
-- Aligning them cleanly would mean either picking a convention (Nepal wall-clock everywhere on dealer surfaces, or UTC everywhere) and migrating writers to match. Either direction is more invasive than the user-facing bug warrants.
-- `getNepalBsMonthWindow` was considered — rejected because it does `NepaliDate` AD → BS → AD arithmetic, which violates the "internally AD only" convention this codebase keeps on purpose.
-
-### If this ever needs picking up
-
-Two options, in order of invasiveness:
-
-- **Option A:** align dealer surfaces by shifting the monthly-stats boundary to Nepal wall-clock (AD calendar month, 00:00 Nepal time on the 1st). No BS math, no schema change — just offset the boundary. Resolves the chart-vs-stats disagreement on dealer dashboards.
-- **Option B:** change every "date" column that represents a calendar day (not a moment) from `DateTime` to `@db.Date`. Database-level date-only semantics mean no TZ math anywhere. Correct in theory, requires a schema migration + every Prisma query + seeds + test fixtures. Only worth it if a broader date-handling cleanup is already in flight.
-
-Grep hotspots if revisiting: `grep -rn "setHours(0, 0, 0, 0)\|interval '5 hours 45 minutes'\|parseNepalBoundary\|getNepalBsMonthWindow" src/`.
+Regression tests run the same fixed midnight cases with `TZ=UTC` and `TZ=Asia/Kathmandu`. Keep both runs when changing shared date code.
 
 ---
 
@@ -509,3 +495,83 @@ Do not rely on local `HATCHERY_PLAN.md` as the only deploy record because that f
 ### Known repository-wide check
 
 The frontend production build passes, but full frontend lint still has errors outside the hatchery files. Confirm whether CI treats lint as a release gate and clean those errors in their own small change if needed.
+
+---
+
+## 13. Backend rollback runbook (EC2 + docker-compose)
+
+**Status:** reference only (recorded 2026-11-06). This is the authoritative "something broke in prod, what do I do" for the backend. Edit when the deploy flow changes.
+
+### What is in place today
+
+1. **Daily cron backup** on the EC2 box: `/home/ubuntu/backup-all-daily.sh` runs via crontab and writes a timestamped `pg_dump` snapshot. Script path is `~/backup-all-daily.sh`. Owner: EC2 user `ubuntu`.
+2. **Pre-deploy backup** on every CI deploy. `.github/workflows/deploy-backend.yml` runs `~/backup-all-daily.sh` over SSH *before* `docker compose pull && up -d`. `set -e` aborts the deploy if the backup fails, so the new container (which runs `prisma migrate deploy` at startup via `scripts/docker-entrypoint.sh:28`) never gets a chance to change the schema without a snapshot covering it.
+3. **SHA-tagged docker images.** The build step pushes two tags for every deploy: `siddjuugi/poultry360-backend:latest` AND `siddjuugi/poultry360-backend:${{ github.sha }}`. Every previous release is retrievable by its commit SHA.
+4. **Running stack** (as of 2026-11-06): `poultry360-backend` (serves on 8081), `poultry360-db` (postgres:16-alpine, port 5432 bound to 127.0.0.1), `inventory-app` (separate service).
+
+### Correlating a snapshot to a deploy (no file tagging required)
+
+Snapshots are timestamped but not labelled with the SHA. Three timestamps always exist that you cross-reference:
+
+1. GitHub Actions deploy run → timestamp in the Actions UI.
+2. Backup filename → timestamp embedded by `backup-all-daily.sh`.
+3. `git log --before "<deploy ts>"` → the SHA that deployed at that moment.
+
+The pre-deploy backup is the one with timestamp closest-earlier than the Actions run; everything after it ran under the new image.
+
+### Rollback procedure
+
+Prerequisites: SSH access to EC2 as `ubuntu`; know the bad commit SHA and the previous good SHA (from `git log` on main).
+
+```bash
+# On EC2 — identify the pre-deploy snapshot
+ls -lt /path/to/backups/ | head -5
+# Pick the file dated just before the bad deploy's Actions run.
+
+# 1. Restore DB to the pre-deploy state
+docker compose -f ~/p360/docker-compose.yml stop backend
+gunzip -c /path/to/backups/<picked-file>.sql.gz \
+  | docker exec -i poultry360-db psql -U postgres -d poultry360
+
+# 2. Roll image back to the matching previous-good SHA
+# If docker-compose.yml hardcodes :latest, either edit it to :${PREV_SHA}
+# or (recommended, see "future improvement" below) use an env var tag.
+# Fast path: re-tag :latest to the previous SHA image locally:
+docker pull siddjuugi/poultry360-backend:<PREV_SHA>
+docker tag siddjuugi/poultry360-backend:<PREV_SHA> \
+  siddjuugi/poultry360-backend:latest
+
+# 3. Restart
+docker compose -f ~/p360/docker-compose.yml up -d backend
+
+# 4. Verify
+docker compose -f ~/p360/docker-compose.yml logs --tail=50 backend
+curl -sf http://localhost:8081/health   # if a health endpoint exists
+```
+
+After stabilising prod, immediately `git revert <bad-sha>` on `main` so the next deploy doesn't re-apply the broken change.
+
+### Scenario playbook
+
+| Situation | Action |
+|---|---|
+| Bad backend code only, migration safe | Roll image back to previous SHA (steps 2-4). DB untouched. Fastest path. |
+| Bad migration (lost / corrupted data) | Full rollback (steps 1-4). DB restore is non-destructive to running `poultry360-backend` because step 1 stops it first. |
+| Backend stuck in crash loop before health check | `docker compose logs backend` for the crash trace. If entrypoint crashes on `prisma migrate deploy`, the schema is in an indeterminate state — restore DB from pre-deploy snapshot before rolling the image. |
+| Can't SSH to EC2 | Backups are also in whatever offsite location `backup-all-daily.sh` writes to. Pull from there, spin up a replacement box from the latest AMI, repoint DNS. |
+| Prisma `_prisma_migrations` table desynced | Follow the DB restore path (step 1). Do NOT manually edit `_prisma_migrations` rows on a live DB — write a Prisma script that uses `prisma migrate resolve` instead. |
+
+### Future improvements (not required, flagged so the next reader can decide)
+
+- **Parametrize the image tag in docker-compose.yml.** Change `image: siddjuugi/poultry360-backend:latest` to `image: siddjuugi/poultry360-backend:${IMAGE_TAG:-latest}`. Rollback becomes one line: `IMAGE_TAG=<prev-sha> docker compose up -d backend`. No `docker tag` gymnastics, no edit to the compose file.
+- **Short `rollback.sh` on the repo** that wraps steps 1-4 given `<bad-sha>` and `<prev-sha>`. Current gap: nobody has tested the rollback under pressure; a runbook is only as good as the last drill.
+- **S3 versioning** on whichever bucket `backup-all-daily.sh` writes to, so an accidental `aws s3 rm` can be undone.
+- **`/health` endpoint** that returns `{ ok: true, version: "<git sha>" }`. Would let the deploy workflow auto-rollback on failed health check instead of relying on manual detection.
+
+### Do NOT
+
+- Do not edit `~/backup-all-daily.sh` without re-testing — current script works and is run both by cron and by CI. A silent regression here removes the whole safety net.
+- Do not restore a snapshot while the backend container is running. Always `stop backend` first; otherwise in-flight writes race the restore and you get inconsistent state.
+- Do not delete `siddjuugi/poultry360-backend:<old-sha>` images from Docker Hub. They are the only way to roll the image back cheaply. Space is free until you hit the Docker Hub tag limit.
+- Do not force-push over `main` to "revert" a bad deploy. Use `git revert`; it preserves history and makes the next deploy's audit trail honest.
+- Do not run `prisma migrate resolve` or any schema-touching command on a live prod DB without a fresh snapshot taken immediately before.

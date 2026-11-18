@@ -76,7 +76,7 @@ export function QuickMortalityModal({
 
     try {
       const mortalityData = {
-        date: form.date ? new Date(form.date) : new Date(),
+        date: new Date(form.date || getNepalTodayAd()),
         count: count,
         reason: form.reason || "Natural Death",
         batchId: form.batchId,

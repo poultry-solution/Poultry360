@@ -154,7 +154,7 @@ export default function BatchesPage() {
 
     const startDate = formData.startDate
       ? new Date(formData.startDate).toISOString()
-      : new Date().toISOString();
+      : `${getTodayLocalDate()}T00:00:00.000Z`;
 
     // Build chicksInventory payload
     const builtAllocations = multiSource

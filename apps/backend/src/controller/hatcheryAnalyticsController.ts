@@ -1,81 +1,79 @@
 import { Request, Response } from "express";
 import { HatcheryBatchStatus, HatcheryBatchType, Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
+import { parseOptionalNepalBoundary } from "../utils/dealerSaleDateRange";
+import { toNepalDayKey } from "../utils/nepalBsDate";
+
+const DAY_MS = 86_400_000;
 
 function getOwnerId(req: Request): string {
   return (req as any).userId as string;
 }
 
-function toDateOnly(value: string | undefined): Date | null {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function endOfDay(date: Date) {
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  end.setHours(23, 59, 59, 999);
-  return end;
-}
-
 function dateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return toNepalDayKey(date);
+}
+
+function addDaysToDayKey(dayKey: string, days: number): string {
+  return new Date(Date.parse(`${dayKey}T00:00:00.000Z`) + days * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function money(value: unknown) {
   return Number(value ?? 0);
 }
 
-// Nepal is UTC+05:45. Record dates arrive as "YYYY-MM-DD" and are stored as
-// UTC midnight, so "today" must be resolved to that same UTC-midnight key.
-const NEPAL_OFFSET_MS = 5.75 * 60 * 60 * 1000;
+type DayRangeResult<T> = { ok: true; value: T } | { ok: false; message: string };
 
 /**
- * The UTC-midnight day boundaries matching the calendar day currently in
- * progress in Nepal, or an explicit "YYYY-MM-DD" AD date when supplied.
+ * Nepal boundary for a user-supplied day string. Missing input returns `undefined`
+ * so the caller can apply a defined fallback; malformed input returns `null` so
+ * the caller can 400 instead of silently widening the result.
  */
-function nepalDayRange(explicitDate?: string): { start: Date; end: Date; date: string } {
-  let year: number;
-  let month: number;
-  let day: number;
-
-  const match = explicitDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    year = Number(match[1]);
-    month = Number(match[2]) - 1;
-    day = Number(match[3]);
-  } else {
-    const nepalNow = new Date(Date.now() + NEPAL_OFFSET_MS);
-    year = nepalNow.getUTCFullYear();
-    month = nepalNow.getUTCMonth();
-    day = nepalNow.getUTCDate();
-  }
-
-  const start = new Date(Date.UTC(year, month, day));
-  const end = new Date(Date.UTC(year, month, day + 1));
-  return { start, end, date: start.toISOString().slice(0, 10) };
+function resolveUserDay(value: string | undefined): string | null | undefined {
+  if (value == null || value === "") return undefined;
+  const boundary = parseOptionalNepalBoundary(value, "start");
+  return boundary ? toNepalDayKey(boundary) : null;
 }
 
-function buildRange(startDate?: string, endDate?: string, period = "30") {
-  const today = new Date();
-  const end = endDate ? endOfDay(toDateOnly(endDate) ?? today) : endOfDay(today);
-  const parsedStart = startDate ? startOfDay(toDateOnly(startDate) ?? today) : null;
+/**
+ * Nepal wall-clock boundaries for today, or for an explicit AD day.
+ * `end` is exclusive because the summary queries use `{ gte, lt }`.
+ */
+function nepalDayRangeExclusive(
+  explicitDate?: string
+): DayRangeResult<{ start: Date; end: Date; date: string }> {
+  const resolved = resolveUserDay(explicitDate);
+  if (resolved === null) return { ok: false, message: "Invalid date (expected YYYY-MM-DD)" };
+  const date = resolved ?? toNepalDayKey(new Date());
+  const start = parseOptionalNepalBoundary(date, "start")!;
+  const inclusiveEnd = parseOptionalNepalBoundary(date, "end")!;
+  return { ok: true, value: { start, end: new Date(inclusiveEnd.getTime() + 1), date } };
+}
 
-  if (parsedStart) {
-    return { start: parsedStart, end };
-  }
+/** Nepal date range with an inclusive end for queries that use `{ gte, lte }`. */
+function buildInclusiveRange(
+  startDate?: string,
+  endDate?: string,
+  period = "30"
+): DayRangeResult<{ start: Date; end: Date }> {
+  const resolvedEnd = resolveUserDay(endDate);
+  if (resolvedEnd === null) return { ok: false, message: "Invalid endDate (expected YYYY-MM-DD)" };
+  const resolvedStart = resolveUserDay(startDate);
+  if (resolvedStart === null) return { ok: false, message: "Invalid startDate (expected YYYY-MM-DD)" };
 
+  const today = toNepalDayKey(new Date());
+  const endDay = resolvedEnd ?? today;
   const days = Math.max(1, parseInt(period, 10) || 30);
-  const start = new Date(end);
-  start.setDate(start.getDate() - (days - 1));
-  return { start: startOfDay(start), end };
+  const startDay = resolvedStart ?? addDaysToDayKey(endDay, -(days - 1));
+
+  const start = parseOptionalNepalBoundary(startDay, "start")!;
+  const end = parseOptionalNepalBoundary(endDay, "end")!;
+  if (start > end) {
+    return { ok: false, message: "startDate must be before or equal to endDate" };
+  }
+  return { ok: true, value: { start, end } };
 }
 
 function buildDailySeries(start: Date, end: Date) {
@@ -96,7 +94,7 @@ function buildDailySeries(start: Date, end: Date) {
       expenses: 0,
       profit: 0,
     });
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setTime(cursor.getTime() + DAY_MS);
   }
 
   return series;
@@ -393,7 +391,11 @@ export async function getHatcheryAnalyticsOverview(req: Request, res: Response) 
     const ownerId = getOwnerId(req);
     const { startDate, endDate, period = "30" } = req.query as Record<string, string>;
 
-    const { start, end } = buildRange(startDate, endDate, period);
+    const rangeResult = buildInclusiveRange(startDate, endDate, period);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end } = rangeResult.value;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
@@ -517,11 +519,10 @@ export async function getHatcheryAnalyticsOverview(req: Request, res: Response) 
     // previous window is the same number of days, ending just before start.
     const rangeDays = Math.max(
       1,
-      Math.round((end.getTime() - start.getTime()) / 86400000)
+      Math.floor((end.getTime() - start.getTime()) / DAY_MS) + 1
     );
     const previousEnd = new Date(start.getTime() - 1);
-    const previousStart = new Date(start);
-    previousStart.setDate(previousStart.getDate() - rangeDays);
+    const previousStart = new Date(start.getTime() - rangeDays * DAY_MS);
 
     const [previousEggSales, previousParentSales, previousChickSales, previousExpenses] =
       await Promise.all([
@@ -671,7 +672,11 @@ export async function getHatcheryAnalyticsBatches(req: Request, res: Response) {
       limit = "10",
     } = req.query as Record<string, string>;
 
-    const { start, end } = buildRange(startDate, endDate, period);
+    const rangeResult = buildInclusiveRange(startDate, endDate, period);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end } = rangeResult.value;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
@@ -763,7 +768,11 @@ export async function getHatcheryAnalyticsIncubations(req: Request, res: Respons
       limit = "10",
     } = req.query as Record<string, string>;
 
-    const { start, end } = buildRange(startDate, endDate, period);
+    const rangeResult = buildInclusiveRange(startDate, endDate, period);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end } = rangeResult.value;
     const normalizedStage =
       stage === "SETTER" || stage === "CANDLING" || stage === "HATCHER" || stage === "COMPLETED"
         ? stage
@@ -1080,7 +1089,11 @@ export async function getHatcheryAnalyticsProduction(req: Request, res: Response
       limit = "10",
     } = req.query as Record<string, string>;
 
-    const { start, end } = buildRange(startDate, endDate, period);
+    const rangeResult = buildInclusiveRange(startDate, endDate, period);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end } = rangeResult.value;
 
     const batchWhere: Prisma.HatcheryBatchWhereInput = {
       hatcheryOwnerId: ownerId,
@@ -1179,12 +1192,10 @@ export async function getHatcheryAnalyticsProduction(req: Request, res: Response
     }));
 
     const toDateLabel = (date: Date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const d = String(date.getDate()).padStart(2, "0");
+      const dateKey = toNepalDayKey(date);
       return {
-        date: `${y}-${m}-${d}`,
-        label: `${m}-${d}`,
+        date: dateKey,
+        label: dateKey.slice(5),
       };
     };
 
@@ -1299,7 +1310,11 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
       limit = "10",
     } = req.query as Record<string, string>;
 
-    const { start, end } = buildRange(startDate, endDate, period);
+    const rangeResult = buildInclusiveRange(startDate, endDate, period);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end } = rangeResult.value;
     const normalizedSaleType =
       saleType === "EGG" || saleType === "PARENT" || saleType === "CHICK"
         ? (saleType as "EGG" | "PARENT" | "CHICK")
@@ -1520,15 +1535,16 @@ export async function getHatcheryAnalyticsSales(req: Request, res: Response) {
           });
         }
 
-        const trendBucket = acc.trendMap.get(row.date.slice(0, 10)) ?? {
-          date: row.date.slice(0, 10),
-          label: row.date.slice(5, 10),
+        const dayKey = toNepalDayKey(new Date(row.date));
+        const trendBucket = acc.trendMap.get(dayKey) ?? {
+          date: dayKey,
+          label: dayKey.slice(5, 10),
           revenue: 0,
           sales: 0,
         };
         trendBucket.revenue += row.amount;
         trendBucket.sales += 1;
-        acc.trendMap.set(row.date.slice(0, 10), trendBucket);
+        acc.trendMap.set(dayKey, trendBucket);
         return acc;
       },
       {
@@ -1615,7 +1631,11 @@ export async function getHatcheryTodaySummary(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { date } = req.query as Record<string, string>;
-    const { start, end, date: resolvedDate } = nepalDayRange(date);
+    const rangeResult = nepalDayRangeExclusive(date);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ success: false, message: rangeResult.message });
+    }
+    const { start, end, date: resolvedDate } = rangeResult.value;
 
     const [eggAgg, chickAgg] = await Promise.all([
       prisma.hatcheryEggProductionLine.aggregate({

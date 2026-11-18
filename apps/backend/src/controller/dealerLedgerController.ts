@@ -5,6 +5,7 @@ import { DealerService } from "../services/dealerService";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 import { writeBusinessAudit } from "../services/businessAuditService";
 import { cleanupUploadedImages } from "../utils/cloudinary";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 // ==================== GET LEDGER ENTRIES ====================
 export const getLedgerEntries = async (
@@ -864,7 +865,7 @@ function convertToCSV(entries: any[]): string {
   ];
 
   const rows = entries.map((entry) => [
-    new Date(entry.date).toLocaleDateString(),
+    toNepalDayKey(new Date(entry.date)),
     entry.type,
     entry.description || "",
     entry.reference || "",

@@ -22,6 +22,7 @@ import {
 } from "@/fetchers/sale/saleQueries";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 
 export default function PartyDetailsPage() {
   const { t } = useI18n();
@@ -109,7 +110,7 @@ export default function PartyDetailsPage() {
     const salesRows = allSales.map((sale: any) => ({ date: sale.date, type: "Sale", amount: Number(sale.amount || sale.totalAmount || 0), note: sale.description || "" }));
     const paymentRows = allPayments.map((payment: any) => ({ date: payment.date, type: "Payment", amount: Number(payment.amount || 0), note: payment.description || "" }));
     const columns = [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.type },
         { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
         { label: "Note", value: (row: any) => row.note },

@@ -52,6 +52,58 @@ describe("Hatchery bug fixes — HTTP regressions", () => {
     });
   });
 
+  describe("Analytics Nepal-day filter validation", () => {
+    const rangeEndpoints = [
+      "/hatchery/analytics/overview",
+      "/hatchery/analytics/batches",
+      "/hatchery/analytics/incubations",
+      "/hatchery/analytics/production",
+      "/hatchery/analytics/sales",
+    ];
+
+    it.each(rangeEndpoints)("rejects a malformed range on %s", async (endpoint) => {
+      const res = await api.get(
+        `${endpoint}?startDate=not-a-date&endDate=2026-10-13`
+      );
+      expect(res.status).toBe(400);
+      expect(String(res.body.message ?? "")).toMatch(/invalid startDate/i);
+    });
+
+    it.each(rangeEndpoints)("rejects an impossible calendar day on %s", async (endpoint) => {
+      const res = await api.get(
+        `${endpoint}?startDate=2026-02-30&endDate=2026-03-01`
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it.each(rangeEndpoints)("rejects an inverted range on %s", async (endpoint) => {
+      const res = await api.get(
+        `${endpoint}?startDate=2026-10-14&endDate=2026-10-13`
+      );
+      expect(res.status).toBe(400);
+      expect(String(res.body.message ?? "")).toMatch(/before or equal/i);
+    });
+
+    it.each(rangeEndpoints)("accepts an ISO end-only bound on %s", async (endpoint) => {
+      const endDate = encodeURIComponent("2026-10-13T23:59:59.999+05:45");
+      const res = await api.get(`${endpoint}?endDate=${endDate}`);
+      expect(res.status).toBe(200);
+    });
+
+    it("rejects a malformed explicit date on the today summary", async () => {
+      const res = await api.get("/hatchery/analytics/today?date=not-a-date");
+      expect(res.status).toBe(400);
+      expect(String(res.body.message ?? "")).toMatch(/invalid date/i);
+    });
+
+    it("normalizes an ISO explicit date in the today-summary response", async () => {
+      const date = encodeURIComponent("2026-10-13T23:59:59.999+05:45");
+      const res = await api.get(`/hatchery/analytics/today?date=${date}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data.date).toBe("2026-10-13");
+    });
+  });
+
   describe("Incubation create validation (P1 — bug §7 HIGH / §5 LOW)", () => {
     const commonBody = { parentBatchId: "non-existent-parent", startDate: "2026-01-01" };
 

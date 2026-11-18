@@ -13,6 +13,7 @@ import {
 } from "@/common/components/ui/table";
 import { Badge } from "@/common/components/ui/badge";
 import { Button } from "@/common/components/ui/button";
+import { NEPAL_TIME_ZONE } from "@/common/lib/nepali-date";
 import { useI18n } from "@/i18n/useI18n";
 import { demoEnquiryFollowUp, type AdminDemoEnquiry } from "@/fetchers/admin/demoEnquiryQueries";
 import { landingContactFollowUp, type AdminLandingContact } from "@/fetchers/admin/landingContactQueries";
@@ -23,6 +24,7 @@ const LIST_LIMIT = 200;
 /** "20 Oct 2026, 11:39": short enough to keep the table narrow. */
 const formatWhen = (value: string) =>
   new Date(value).toLocaleString("en-GB", {
+    timeZone: NEPAL_TIME_ZONE,
     day: "numeric",
     month: "short",
     year: "numeric",

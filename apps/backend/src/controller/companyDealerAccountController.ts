@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
+import { parseNepalRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET DEALER ACCOUNT (COMPANY SIDE) ====================
 export const getDealerAccount = async (
@@ -82,11 +83,16 @@ export const getDealerAccountStatement = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+
     const statement = await CompanyDealerAccountService.getAccountStatement({
       companyId: company.id,
       dealerId,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: rangeResult.filter.gte,
+      endDate: rangeResult.filter.lte,
       page: Number(page),
       limit: Number(limit),
     });
@@ -329,10 +335,15 @@ export const getAllDealerPayments = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const rangeResult = parseNepalRange(startDate, endDate);
+    if (!rangeResult.ok) {
+      return res.status(400).json({ message: rangeResult.message });
+    }
+
     const result = await CompanyDealerAccountService.getAllPayments({
       companyId: company.id,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
+      startDate: rangeResult.filter.gte,
+      endDate: rangeResult.filter.lte,
       page: Number(page),
       limit: Number(limit),
       dealerId: dealerId as string,

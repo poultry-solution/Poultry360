@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { publicApi } from "@/common/lib/axios";
+import { normalizeListingDates } from "@/common/lib/list-for-sale-dates";
 
 // ==================== TYPES ====================
 
@@ -56,7 +57,7 @@ export function usePublicListForSale(
       const { data } = await publicApi.get<PublicListForSaleResponse>("/public/list-for-sale", {
         params,
       });
-      return data;
+      return { ...data, data: data.data.map(normalizeListingDates) };
     },
   });
 }

@@ -375,7 +375,7 @@ export function QuickActionBtnsFarmer() {
       const expenseData = {
         date: expenseForm.date
           ? new Date(expenseForm.date).toISOString()
-          : new Date().toISOString(),
+          : `${getTodayLocalDate()}T00:00:00.000Z`,
         amount,
         description,
         quantity,
@@ -452,7 +452,7 @@ export function QuickActionBtnsFarmer() {
     }
     try {
       await createMortalityMutation.mutateAsync({
-        date: mortalityForm.date ? new Date(mortalityForm.date) : new Date(),
+        date: new Date(mortalityForm.date || getTodayLocalDate()),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
         batchId: mortalityForm.batchId,

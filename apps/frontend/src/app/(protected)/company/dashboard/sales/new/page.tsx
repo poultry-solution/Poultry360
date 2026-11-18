@@ -26,6 +26,7 @@ import { useSearchableDealerSelect } from "@/hooks/useSearchableDealerSelect";
 import { useSearchableProductSelect } from "@/hooks/useSearchableProductSelect";
 import { useCreateCompanySale } from "@/fetchers/company/companySaleQueries";
 import { useCheckDealerBalanceLimit } from "@/fetchers/company/companyDealerAccountQueries";
+import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import {
   Select,
   SelectContent,
@@ -168,7 +169,7 @@ export default function NewCompanySalePage() {
         })),
         paymentMethod: "CREDIT",
         notes: notes || undefined,
-        date: new Date(),
+        date: new Date(`${getNepalTodayAd()}T00:00:00.000Z`),
         overrideBalanceLimit: overrideConfirmed,
         discount:
           discountValue > 0

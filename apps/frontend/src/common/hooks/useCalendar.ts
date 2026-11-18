@@ -5,7 +5,9 @@ import {
   convertBSToAD,
   formatADShort,
   formatBSLong,
-  parseDateStringLocal,
+  differenceInNepalDays,
+  getNepalTodayAd,
+  toNepalDayAd,
   type CalendarType,
 } from "@/common/lib/nepali-date";
 
@@ -30,24 +32,24 @@ export const useCalendar = () => {
     date: Date | string,
     format: "short" | "long" = "short"
   ): string => {
-    const dateObj =
-      typeof date === "string" ? parseDateStringLocal(date) : date;
-    if (isNaN(dateObj.getTime())) return "";
+    const day = toNepalDayAd(date);
+    if (!day) return "";
 
     if (calendarType === "BS") {
-      if (format === "long") return formatBSLong(dateObj);
-      return convertADtoBS(dateObj);
+      if (format === "long") return formatBSLong(day);
+      return convertADtoBS(day);
     }
 
     if (format === "long") {
-      return dateObj.toLocaleDateString("en-US", {
+      return new Date(`${day}T00:00:00.000Z`).toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
+        timeZone: "UTC",
       });
     }
 
-    return formatADShort(dateObj);
+    return formatADShort(day);
   };
 
   /**
@@ -62,19 +64,16 @@ export const useCalendar = () => {
     if (inputCalendarType === "BS" || (!inputCalendarType && isBS)) {
       return convertBSToAD(dateString);
     }
-    return parseDateStringLocal(dateString);
+    return new Date(`${dateString}T00:00:00.000Z`);
   };
 
   /**
    * Format relative date (Today, Yesterday, etc.) or full date
    */
   const formatRelativeDate = (date: Date | string): string => {
-    const dateObj =
-      typeof date === "string" ? parseDateStringLocal(date) : date;
-    if (isNaN(dateObj.getTime())) return "";
-    const now = new Date();
-    const diffMs = now.getTime() - dateObj.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const day = toNepalDayAd(date);
+    if (!day) return "";
+    const diffDays = differenceInNepalDays(getNepalTodayAd(), day);
 
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
@@ -82,7 +81,7 @@ export const useCalendar = () => {
     if (diffDays > 0 && diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 0 && diffDays > -7) return `In ${Math.abs(diffDays)} days`;
 
-    return toDisplayDate(dateObj, "long");
+    return toDisplayDate(day, "long");
   };
 
   return {

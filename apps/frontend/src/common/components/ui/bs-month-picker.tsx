@@ -12,6 +12,7 @@ import {
   BS_MONTH_NAMES,
   getBSYearMonthFromAD,
   getFirstDayOfBSMonthAD,
+  getNepalTodayAd,
 } from "@/common/lib/nepali-date";
 
 interface BSMonthPickerProps {
@@ -24,8 +25,7 @@ interface BSMonthPickerProps {
 const BS_YEAR_RANGE = 5;
 
 export function BSMonthPicker({ label, value, onChange, className }: BSMonthPickerProps) {
-  const now = new Date();
-  const { year: currentBSYear } = getBSYearMonthFromAD(now);
+  const { year: currentBSYear } = getBSYearMonthFromAD(getNepalTodayAd());
   const years = Array.from(
     { length: BS_YEAR_RANGE * 2 + 1 },
     (_, i) => currentBSYear - BS_YEAR_RANGE + i

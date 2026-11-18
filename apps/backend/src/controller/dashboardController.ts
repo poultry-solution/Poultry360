@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import { ACCOUNT_FEATURE_KEYS, isAccountFeatureEnabled } from "../services/accountFeatureService";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
-import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
+import { getNepalBsMonthWindow, nepalBatchDay, toNepalDayKey } from "../utils/nepalBsDate";
+import { parseNepalBoundary } from "../utils/dealerSaleDateRange";
 import { naturalDeathWhere } from "../services/farmerAnalytics/scope";
 import {
   aggregateCurrentFcr,
@@ -342,20 +343,36 @@ export const getDashboardFinancialSummary = async (
       });
     }
 
-    // Calculate date range based on period
+    // "This month" follows the Nepali (BS) calendar per issue #175 so the card matches
+    // what owners see in BS pickers elsewhere. Quarter and year stay on the AD-Nepal
+    // calendar (no business ask for BS quarters/fiscal years today), and the 12-month
+    // trend bucket below also groups by AD-Nepal month — a BS GROUP BY would need
+    // round-tripping every row through NepaliDate. Keep these intents documented so the
+    // next reader doesn't "fix" one to match the others.
     const now = new Date();
+    const [nepalYear, nepalMonth] = toNepalDayKey(now).split("-").map(Number);
+    const monthStartDay = (year: number, zeroBasedMonth: number) =>
+      new Date(Date.UTC(year, zeroBasedMonth, 1)).toISOString().slice(0, 10);
     let startDate: Date;
 
     switch (period) {
       case "quarter":
-        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        startDate = parseNepalBoundary(
+          monthStartDay(nepalYear, nepalMonth - 4),
+          "start"
+        )!;
         break;
       case "year":
-        startDate = new Date(now.getFullYear(), 0, 1);
+        startDate = parseNepalBoundary(`${nepalYear}-01-01`, "start")!;
         break;
-      default: // month
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      default: // month — BS, intentional
+        startDate = getNepalBsMonthWindow(now).currentStart;
     }
+
+    const lastTwelveMonthsStart = parseNepalBoundary(
+      monthStartDay(nepalYear - 1, nepalMonth - 1),
+      "start"
+    )!;
 
     const [
       totalRevenue,
@@ -407,7 +424,7 @@ export const getDashboardFinancialSummary = async (
       // Monthly trend (last 12 months)
       prisma.$queryRaw`
         SELECT 
-          DATE_TRUNC('month', date) as month,
+          DATE_TRUNC('month', date + interval '5 hours 45 minutes') as month,
           SUM(CASE WHEN "entityType" = 'SALE' THEN amount ELSE 0 END) as revenue,
           SUM(CASE WHEN "entityType" = 'EXPENSE' THEN amount ELSE 0 END) as expenses
         FROM (
@@ -415,8 +432,8 @@ export const getDashboardFinancialSummary = async (
           UNION ALL
           SELECT date, amount, 'EXPENSE' as "entityType" FROM "Expense" WHERE "farmId" = ANY(${farmIds})
         ) combined
-        WHERE date >= ${new Date(now.getFullYear() - 1, now.getMonth(), 1)}
-        GROUP BY DATE_TRUNC('month', date)
+        WHERE date >= ${lastTwelveMonthsStart}
+        GROUP BY DATE_TRUNC('month', date + interval '5 hours 45 minutes')
         ORDER BY month DESC
         LIMIT 12
       `,
@@ -850,14 +867,11 @@ export const getMoneyToPayDetails = async (
     };
 
     // Helper function to get this month's amount
+    const currentMonthStart = getNepalBsMonthWindow().currentStart;
     const getThisMonthAmount = (transactions: any[]) => {
-      const currentMonth = new Date();
-      currentMonth.setDate(1);
-      currentMonth.setHours(0, 0, 0, 0);
-
       return transactions
         .filter(
-          (t) => new Date(t.date) >= currentMonth && t.type === "PURCHASE"
+          (t) => new Date(t.date) >= currentMonthStart && t.type === "PURCHASE"
         )
         .reduce((sum, t) => sum + Number(t.amount), 0);
     };

@@ -22,6 +22,7 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import { BusinessDownloadDialog, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
+import { toNepalDayAd } from "@/common/lib/nepali-date";
 import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
@@ -161,7 +162,7 @@ export default function SupplierLedgerPage() {
     const purchases = filterRowsByDate(purchaseRows.map((row) => ({ date: row._purchaseDate, type: "Purchase", item: row.rawMaterial?.name || "", amount: Number(row.totalAmount || 0), method: "", note: row._purchaseNotes || "" })), range, (row) => row.date);
     const payments = filterRowsByDate(paymentRows.map((row) => ({ date: row.paymentDate, type: "Payment", item: "", amount: Number(row.amount || 0), method: row.paymentMethod || "", note: row.notes || "" })), range, (row) => row.date);
     const columns = [
-        { label: "Date", value: (row: any) => new Date(row.date).toLocaleDateString() },
+        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
         { label: "Type", value: (row: any) => row.type },
         { label: "Item", value: (row: any) => row.item },
         { label: "Amount", value: (row: any) => row.amount.toFixed(2) },
