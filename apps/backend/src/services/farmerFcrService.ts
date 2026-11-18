@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { fcrFreshDays } from "../config/fcr";
 import prisma from "../utils/prisma";
+import { getFarmerFcrSettings } from "./farmerFcrSettingsService";
 
 const LEGACY_INITIAL_CHICK_WEIGHT_KG = 0.05;
 const NEPAL_OFFSET_MINUTES = 5 * 60 + 45;
@@ -353,12 +354,14 @@ async function loadFcrInputs(batchId: string, now: Date): Promise<FcrInputs | nu
       endDate: true,
       initialChicks: true,
       initialChickWeightKg: true,
-      cfcrTargetWeightKg: true,
-      cfcrCorrectionFactorPerKg: true,
       closureBirdCount: true,
+      farm: { select: { ownerId: true } },
     },
   });
   if (!batch) return null;
+  // cFCR uses one standard per account (Settings), not per batch, so all batches compare fairly.
+  const { farm, ...batchRow } = batch;
+  const cfcrSettings = await getFarmerFcrSettings(farm.ownerId);
 
   const rangeStart = startOfNepalDay(batch.startDate);
   const rangeEnd =
@@ -389,7 +392,11 @@ async function loadFcrInputs(batchId: string, now: Date): Promise<FcrInputs | nu
   ]);
 
   return {
-    batch,
+    batch: {
+      ...batchRow,
+      cfcrTargetWeightKg: cfcrSettings.targetWeightKg,
+      cfcrCorrectionFactorPerKg: cfcrSettings.correctionFactorPerKg,
+    },
     initialWeightEstimated: batch.initialChickWeightKg == null,
     initialChickWeightKg:
       batch.initialChickWeightKg == null
@@ -402,6 +409,11 @@ async function loadFcrInputs(batchId: string, now: Date): Promise<FcrInputs | nu
     feedRows,
     manualWeights,
   };
+}
+
+/** cFCR fields blanked out, for accounts that have the cFCR feature turned off. */
+export function withoutCfcr<T extends Partial<{ cfcr: number | null; currentCfcr: number | null; cfcrTargetWeightKg: number | null; cfcrCorrectionFactorPerKg: number | null }>>(row: T): T {
+  return { ...row, cfcr: null, currentCfcr: null, cfcrTargetWeightKg: null, cfcrCorrectionFactorPerKg: null };
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -534,13 +546,17 @@ function calculatePoint(
   // remove that measured weight from the weigh-in biomass instead of applying
   // the old average to all remaining birds. Natural deaths have no output
   // weight, so remove their estimated share using the same recorded average.
+  const estimatedRemainingKg = weightBiomassAtWeightDate -
+    soldWeightSinceWeightDate -
+    deathsSinceWeightDate * averageWeightKg;
+  // Birds sold after the weigh-in were heavier than that weigh-in says, so the
+  // birds still in the shed would get no weight and FCR/cFCR would look worse
+  // than they are. Ask for a new weigh-in instead of showing a wrong number.
+  if (context.basis === "LIVE" && remainingBirds > 0 && estimatedRemainingKg <= 0) {
+    return fail("NO_MANUAL_WEIGHT");
+  }
   const remainingLiveWeightKg = context.basis === "LIVE"
-    ? Math.max(
-      0,
-      weightBiomassAtWeightDate -
-        soldWeightSinceWeightDate -
-        deathsSinceWeightDate * averageWeightKg,
-    )
+    ? Math.max(0, estimatedRemainingKg)
     : 0;
   const producedLiveWeightKg = soldLiveWeightKg + remainingLiveWeightKg;
   const initialBiomassKg = batch.initialChicks * inputs.initialChickWeightKg;
@@ -918,66 +934,4 @@ export function aggregateCurrentFcr(
   return totalWeightGainKg > 0 ? totalFeedKg / totalWeightGainKg : null;
 }
 
-export interface CfcrDashboardAggregate {
-  cfcr: number | null;
-  targetWeightKg: number | null;
-  correctionFactorPerKg: number | null;
-  mixedSettings: boolean;
-}
 
-export function aggregateCurrentCfcr(
-  rows: Array<{
-    displayStatus: FcrDisplayStatus;
-    cfcr: number | null;
-    weightGainKg: number;
-    targetWeightKg: number | null;
-    correctionFactorPerKg: number | null;
-  }>,
-): CfcrDashboardAggregate {
-  const included = rows.filter(
-    (row) =>
-      (row.displayStatus === "FRESH" || row.displayStatus === "FINAL") &&
-      row.cfcr != null && Number.isFinite(row.cfcr) && row.cfcr >= 0 &&
-      Number.isFinite(row.weightGainKg) && row.weightGainKg > 0 &&
-      row.targetWeightKg != null && row.targetWeightKg > 0 &&
-      row.correctionFactorPerKg != null && row.correctionFactorPerKg >= 0,
-  );
-  if (included.length === 0) {
-    return {
-      cfcr: null,
-      targetWeightKg: null,
-      correctionFactorPerKg: null,
-      mixedSettings: false,
-    };
-  }
-
-  const settings = new Set(
-    included.map(
-      (row) =>
-        `${row.targetWeightKg!.toFixed(6)}:${row.correctionFactorPerKg!.toFixed(6)}`,
-    ),
-  );
-  if (settings.size > 1) {
-    return {
-      cfcr: null,
-      targetWeightKg: null,
-      correctionFactorPerKg: null,
-      mixedSettings: true,
-    };
-  }
-
-  const totalWeightGainKg = included.reduce(
-    (sum, row) => sum + row.weightGainKg,
-    0,
-  );
-  const weightedCfcr = included.reduce(
-    (sum, row) => sum + row.cfcr! * row.weightGainKg,
-    0,
-  );
-  return {
-    cfcr: totalWeightGainKg > 0 ? weightedCfcr / totalWeightGainKg : null,
-    targetWeightKg: included[0].targetWeightKg,
-    correctionFactorPerKg: included[0].correctionFactorPerKg,
-    mixedSettings: false,
-  };
-}

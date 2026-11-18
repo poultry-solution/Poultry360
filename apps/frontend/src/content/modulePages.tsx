@@ -2,6 +2,16 @@ import type { Metadata } from "next";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  Bell,
+  CalendarCheck,
+  Camera,
+  KeyRound,
+  Languages,
+  Scale,
+  Share2,
+  Thermometer,
+  Undo2,
+  Wallet,
   BarChart3,
   Bird,
   CheckCircle2,
@@ -25,6 +35,8 @@ export type ModuleFeature = {
   title: string;
   description: string;
   icon: LucideIcon;
+  /** Which group the card is shown in (see `featureGroups`). */
+  group: string;
 };
 
 type ModuleFaq = {
@@ -35,15 +47,6 @@ type ModuleFaq = {
 type ModuleValueProp = {
   title: string;
   description: string;
-};
-
-type ModuleAccent = {
-  border: string;
-  chipBg: string;
-  chipBorder: string;
-  chipText: string;
-  iconBg: string;
-  iconText: string;
 };
 
 export type ModulePageContent = {
@@ -70,7 +73,8 @@ export type ModulePageContent = {
   faqs: ModuleFaq[];
   ctaHeading: string;
   ctaDescription: string;
-  accent: ModuleAccent;
+  /** Order of the feature groups on the page. */
+  featureGroups: string[];
   features: ModuleFeature[];
 };
 
@@ -84,25 +88,21 @@ const sharedFarmerFeatureDescriptions = {
   mortalityManagement:
     "Log daily mortality and monitor unusual loss patterns early so farm managers can react before small issues become larger losses.",
   salesManagement:
-    "Manage sales entries, customer billing, delivery records, and changing market rates from one reliable operating system.",
+    "Manage sales entries, customer billing, shareable bills, and changing rates from one reliable operating system.",
   salesBalanceManagement:
     "See which buyers still owe payment, how much balance is pending, and where collection follow-up is needed.",
   partiesManagement:
     "Maintain supplier, customer, and business party ledgers in one place so payment history and transaction records remain easy to audit.",
   inventoryManagement:
-    "Monitor stock for feed, medicines, vaccines, packaging, and farm supplies so shortages do not interrupt routine operations.",
+    "Monitor stock for feed, chicks, medicines, vaccines, and farm supplies so shortages do not interrupt routine operations.",
   purchaseManagement:
     "Track purchases by vendor, quantity, price, and due amount so procurement stays transparent and easier to control.",
   feedSupplierManagement:
-    "Manage feed supplier relationships, order flow, and supply history clearly across batches and farm cycles.",
-  connectionSupplierFeatures:
-    "Coordinate with connected suppliers and related businesses inside the system instead of depending only on manual calls and chat follow-up.",
+    "Manage feed supplier relationships, purchases, payments, and supply history clearly across batches and farm cycles.",
   listForSale:
     "List eggs, birds, or other available products for sale so interested buyers can respond faster through your network and marketplace presence.",
   staffSalaryManagement:
     "Track staff roles, salary entries, and payment status so labor costs stay organized and easier to reconcile.",
-  fcrEvaluation:
-    "Use feed conversion and efficiency indicators to understand where feed cost is rising and where management changes can improve results.",
 };
 
 export function buildModuleMetadata(content: ModulePageContent): Metadata {
@@ -136,7 +136,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
     metaTitle:
       "Layer Farm Software for Nepal | Egg Production Management | Poultry360",
     metaDescription:
-      "Layer farm software for Nepal to manage egg production, batch records, mortality, expenses, inventory, sales, supplier ledgers, and FCR in one poultry management system.",
+      "Layer farm software for Nepal to manage egg production, batch records, mortality, expenses, inventory, sales, supplier ledgers, and egg cost in one poultry management system.",
     openGraphTitle: "Layer Farm Software for Nepal | Poultry360",
     openGraphDescription:
       "Manage egg production, flock batches, inventory, expenses, supplier records, and sales with Poultry360 layer farm software.",
@@ -186,7 +186,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       {
         title: "Stronger performance review",
         description:
-          "Use batch records, egg percentage, and FCR evaluation to review which flock is performing and where corrective action is needed.",
+          "Use batch records, egg percentage, and egg cost per egg to review which flock is performing and where corrective action is needed.",
       },
     ],
     faqs: [
@@ -220,99 +220,173 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Start with a cleaner system for production, inventory, expenses, and egg sales",
     ctaDescription:
       "If you are comparing poultry software in Nepal, Poultry360 gives layer farms a focused operating system built around daily production reality, not generic farm record keeping.",
-    accent: {
-      border: "border-emerald-200",
-      chipBg: "bg-emerald-50",
-      chipBorder: "border-emerald-200",
-      chipText: "text-emerald-700",
-      iconBg: "bg-emerald-100",
-      iconText: "text-emerald-700",
-    },
+    featureGroups: ["Hens and eggs", "Money", "Buying and stock", "Team and tools"],
     features: [
       {
         title: "Farm management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.farmManagement,
         icon: Egg,
       },
       {
         title: "Batch management",
+        group: "Hens and eggs",
         description:
           "Track every flock batch from chick placement to laying cycle with batch-wise age, production stage, and performance history.",
         icon: ClipboardList,
       },
       {
         title: "Expenses management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.expensesManagement,
         icon: Coins,
       },
       {
         title: "Mortality management",
+        group: "Hens and eggs",
         description: sharedFarmerFeatureDescriptions.mortalityManagement,
         icon: Activity,
       },
       {
         title: "Sales management",
+        group: "Money",
         description:
-          "Handle egg sales, customer billing, rate changes, and daily dispatch without relying on scattered notebooks or spreadsheets.",
+          "Handle egg sales by type, customer billing, rate changes, and buyer payments without relying on scattered notebooks or spreadsheets.",
         icon: TrendingUp,
       },
       {
         title: "Sales balance management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.salesBalanceManagement,
         icon: Receipt,
       },
       {
         title: "Parties management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.partiesManagement,
         icon: Users,
       },
       {
         title: "Inventory management",
+        group: "Buying and stock",
         description:
-          "Monitor stock for feed, medicine, vaccines, trays, packaging, and farm supplies to avoid costly shortages during peak production.",
+          "Monitor stock for feed, chicks, medicine, vaccines, and eggs to avoid costly shortages during peak production.",
         icon: Package,
       },
       {
         title: "Purchase management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.purchaseManagement,
         icon: ShoppingCart,
       },
       {
         title: "Feed Supplier management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.feedSupplierManagement,
         icon: Wheat,
       },
       {
-        title: "Connection supplier features",
-        description: sharedFarmerFeatureDescriptions.connectionSupplierFeatures,
-        icon: Handshake,
-      },
-      {
         title: "List for sale your products",
+        group: "Team and tools",
         description: sharedFarmerFeatureDescriptions.listForSale,
         icon: CheckCircle2,
       },
       {
         title: "Staff salary management",
+        group: "Team and tools",
         description: sharedFarmerFeatureDescriptions.staffSalaryManagement,
         icon: Users,
       },
       {
-        title: "FCR evaluation",
-        description: sharedFarmerFeatureDescriptions.fcrEvaluation,
-        icon: BarChart3,
-      },
-      {
         title: "Egg production tracking by type",
+        group: "Hens and eggs",
         description:
           "Record production by egg category or type to understand output mix, sales potential, and layer performance more clearly.",
         icon: Egg,
       },
       {
         title: "Egg % tracking",
+        group: "Hens and eggs",
         description:
           "Follow daily egg production percentage against flock size so you can spot performance drops early and act before losses compound.",
         icon: TrendingUp,
+      },
+      {
+        title: "Egg stock",
+        group: "Hens and eggs",
+        description:
+          "See how many eggs of each type are in stock for every layer batch. Eggs you record go up, and eggs you sell go down by themselves.",
+        icon: Package,
+      },
+      {
+        title: "Egg cost per egg and per carat",
+        group: "Money",
+        description:
+          "Know what one egg and one carat really cost you, your sale price, and your margin, so you can price eggs with confidence.",
+        icon: Coins,
+      },
+      {
+        title: "Profit per batch and hen payback",
+        group: "Money",
+        description:
+          "See the profit and loss of each layer batch, and how egg sales pay back the cost of raising the hens.",
+        icon: TrendingUp,
+      },
+      {
+        title: "Sell old hens",
+        group: "Money",
+        description:
+          "Sell hens that stopped laying, and add that money to the batch profit before you close the batch.",
+        icon: Bird,
+      },
+      {
+        title: "Make your own feed",
+        group: "Buying and stock",
+        description:
+          "Record feed you make from maize, soybean, and premix, and know its real cost per kilo.",
+        icon: Wheat,
+      },
+      {
+        title: "Staff login and activity log",
+        group: "Team and tools",
+        description:
+          "Give workers their own login with only the access they need, and see who did what, and when, in the activity log.",
+        icon: KeyRound,
+      },
+      {
+        title: "Cash in hand",
+        group: "Team and tools",
+        description:
+          "Keep a daily cash book for the farm: cash in, cash out, and the cash you should have now. Close each day when the count matches.",
+        icon: Wallet,
+      },
+      {
+        title: "Reminders and batch notes",
+        group: "Team and tools",
+        description:
+          "Set reminders for vaccines, payments, and other work, and keep batch notes that show who wrote each one.",
+        icon: Bell,
+      },
+      {
+        title: "Share a health report with your vet",
+        group: "Team and tools",
+        description:
+          "Send a live batch health report to your veterinary doctor on WhatsApp. It shows deaths, weight, feed, and medicine, but no money.",
+        icon: Share2,
+      },
+      {
+        title: "Analytics and downloads",
+        group: "Team and tools",
+        description:
+          "See sales, costs, profit, and batch results over time, and download statements and reports to share or print.",
+        icon: BarChart3,
+      },
+      {
+        title: "Nepali date and Nepali language",
+        group: "Team and tools",
+        description:
+          "Use the app in Nepali or English, with Nepali (BS) dates on records and reports.",
+        icon: Languages,
       },
     ],
   },
@@ -406,88 +480,152 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Bring every broiler batch, sale, and farm cost into one working system",
     ctaDescription:
       "For broiler farms in Nepal, Poultry360 gives a structured way to manage fast cycle operations without losing visibility across costs, stock, and customer payments.",
-    accent: {
-      border: "border-orange-200",
-      chipBg: "bg-orange-50",
-      chipBorder: "border-orange-200",
-      chipText: "text-orange-700",
-      iconBg: "bg-orange-100",
-      iconText: "text-orange-700",
-    },
+    featureGroups: ["Birds and growth", "Money", "Buying and stock", "Team and tools"],
     features: [
       {
         title: "Farm management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.farmManagement,
         icon: Bird,
       },
       {
         title: "Batch management",
+        group: "Birds and growth",
         description:
           "Track every broiler batch from placement to sale with age, flock cycle, and performance history tied to the same record.",
         icon: ClipboardList,
       },
       {
         title: "Expenses management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.expensesManagement,
         icon: Coins,
       },
       {
         title: "Mortality management",
+        group: "Birds and growth",
         description: sharedFarmerFeatureDescriptions.mortalityManagement,
         icon: Activity,
       },
       {
         title: "Sales management",
+        group: "Money",
         description:
-          "Record bird sales, customer billing, dispatch details, and pricing changes without depending on manual sheets.",
+          "Record bird sales by weight, customer billing, weight discount, and pricing changes without depending on manual sheets.",
         icon: TrendingUp,
       },
       {
         title: "Sales balance management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.salesBalanceManagement,
         icon: Receipt,
       },
       {
         title: "Parties management",
+        group: "Money",
         description: sharedFarmerFeatureDescriptions.partiesManagement,
         icon: Users,
       },
       {
         title: "Inventory management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.inventoryManagement,
         icon: Package,
       },
       {
         title: "Purchase management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.purchaseManagement,
         icon: ShoppingCart,
       },
       {
         title: "Feed Supplier management",
+        group: "Buying and stock",
         description: sharedFarmerFeatureDescriptions.feedSupplierManagement,
         icon: Wheat,
       },
       {
-        title: "Connection supplier features",
-        description: sharedFarmerFeatureDescriptions.connectionSupplierFeatures,
-        icon: Handshake,
-      },
-      {
         title: "List for sale your products",
+        group: "Team and tools",
         description:
           "List available birds or related products for sale so buyers can discover stock faster and your team can move inventory efficiently.",
         icon: CheckCircle2,
       },
       {
         title: "Staff salary management",
+        group: "Team and tools",
         description: sharedFarmerFeatureDescriptions.staffSalaryManagement,
         icon: Users,
       },
       {
         title: "FCR evaluation",
+        group: "Birds and growth",
         description:
           "Evaluate feed conversion by batch so broiler farms can compare flock performance and spot efficiency issues earlier.",
         icon: BarChart3,
+      },
+      {
+        title: "Weight and corrected FCR (cFCR)",
+        group: "Birds and growth",
+        description:
+          "Record bird weight every week, and compare batches fairly with FCR corrected to one target weight.",
+        icon: Scale,
+      },
+      {
+        title: "Share a health report with your vet",
+        group: "Birds and growth",
+        description:
+          "Send a live batch health report to your veterinary doctor on WhatsApp. It shows deaths, weight, feed, and medicine, but no money.",
+        icon: Share2,
+      },
+      {
+        title: "Profit per batch",
+        group: "Money",
+        description:
+          "See money from sales, all costs, and the profit of each batch, with cost per bird and per kilo.",
+        icon: TrendingUp,
+      },
+      {
+        title: "Make your own feed",
+        group: "Buying and stock",
+        description:
+          "Record feed you make from maize, soybean, and premix, and know its real cost per kilo.",
+        icon: Wheat,
+      },
+      {
+        title: "Staff login and activity log",
+        group: "Team and tools",
+        description:
+          "Give workers their own login with only the access they need, and see who did what, and when, in the activity log.",
+        icon: KeyRound,
+      },
+      {
+        title: "Cash in hand",
+        group: "Team and tools",
+        description:
+          "Keep a daily cash book for the farm: cash in, cash out, and the cash you should have now. Close each day when the count matches.",
+        icon: Wallet,
+      },
+      {
+        title: "Reminders and batch notes",
+        group: "Team and tools",
+        description:
+          "Set reminders for vaccines, payments, and other work, and keep batch notes that show who wrote each one.",
+        icon: Bell,
+      },
+      {
+        title: "Analytics and downloads",
+        group: "Team and tools",
+        description:
+          "See sales, costs, profit, and batch results over time, and download statements and reports to share or print.",
+        icon: BarChart3,
+      },
+      {
+        title: "Nepali date and Nepali language",
+        group: "Team and tools",
+        description:
+          "Use the app in Nepali or English, with Nepali (BS) dates on records and reports.",
+        icon: Languages,
       },
     ],
   },
@@ -497,7 +635,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
     metaTitle:
       "Feed Dealer Software for Nepal | Inventory and Farmer Network | Poultry360",
     metaDescription:
-      "Feed dealer software for Nepal to manage company purchases, balances, payments, inventory, sales, farmer records, staff salary, and dealer-farmer connections.",
+      "Feed dealer software for Nepal to manage company purchases, balances, payments, inventory, sales, farmer records, staff salary, and payment reminders.",
     openGraphTitle: "Feed Dealer Software for Nepal | Poultry360",
     openGraphDescription:
       "Manage inventory, company balances, sales, farmer records, and payments with Poultry360 feed dealer software.",
@@ -517,7 +655,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Dealer inventory and stock movement tracking",
       "Company purchase, balance, and payment records in one system",
       "Farmer account management for repeat poultry customers in Nepal",
-      "Sales follow-up and dealer-farmer connection history without ledger confusion",
+      "Sales follow-up and customer payment history without ledger confusion",
     ],
     outcomes: [
       "Clear visibility into current stock and sales movement",
@@ -542,7 +680,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       {
         title: "Farmer network visibility",
         description:
-          "Maintain farmer records and connection history so repeat customers, credit behavior, and service follow-up are easier to manage.",
+          "Maintain farmer records, credit, and payment history so repeat customers, credit behavior, and service follow-up are easier to manage.",
       },
       {
         title: "Sales process clarity",
@@ -559,7 +697,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       {
         question: "Can Poultry360 manage both company-side and farmer-side records?",
         answer:
-          "Yes. The dealer module tracks company purchases, balances, and payments while also managing farmer records, sales, and connection history.",
+          "Yes. The dealer module tracks company purchases, balances, and payments while also managing farmer records, sales, and payment history.",
       },
       {
         question: "Does it help with stock and inventory management?",
@@ -581,62 +719,119 @@ export const modulePageContent: Record<string, ModulePageContent> = {
       "Build a cleaner system for dealership inventory, payments, and farmer service",
     ctaDescription:
       "If your feed dealership is growing, Poultry360 helps centralize company accounts, inventory movement, and farmer records before manual processes slow everything down.",
-    accent: {
-      border: "border-blue-200",
-      chipBg: "bg-blue-50",
-      chipBorder: "border-blue-200",
-      chipText: "text-blue-700",
-      iconBg: "bg-blue-100",
-      iconText: "text-blue-700",
-    },
+    featureGroups: ["Companies", "Stock and sales", "Customers", "Team and tools"],
     features: [
       {
         title: "Company Purchase management",
+        group: "Companies",
         description:
           "Track feed or product purchases from the parent company with quantity, pricing, and incoming stock details in one place.",
         icon: ShoppingCart,
       },
       {
         title: "Company Balance management",
+        group: "Companies",
         description:
           "Monitor how much balance is outstanding with the supplying company so dealer cash flow decisions stay clearer.",
         icon: Receipt,
       },
       {
         title: "Company Payment management",
+        group: "Companies",
         description:
           "Record payments made to the company and reconcile purchase obligations without depending on manual ledger matching.",
         icon: Coins,
       },
       {
         title: "Inventory management",
+        group: "Stock and sales",
         description:
           "Keep stock levels, movement, and available product visibility updated so dealer operations do not run blind on inventory.",
         icon: Package,
       },
       {
         title: "Sales management",
+        group: "Stock and sales",
         description:
-          "Manage dealer sales entries, farmer billing, delivery activity, and product movement from one dashboard.",
+          "Manage dealer sales entries, farmer billing, bills shared on WhatsApp, and product movement from one dashboard.",
         icon: TrendingUp,
       },
       {
         title: "Farmer management",
+        group: "Customers",
         description:
           "Maintain farmer profiles, buying history, contact details, and account relationships to support repeat business.",
         icon: Users,
       },
       {
         title: "Staff salary management",
+        group: "Team and tools",
         description:
           "Track staff salary records and payment status so dealership labor management stays organized.",
         icon: Users,
       },
       {
-        title: "Connection with farmer",
+        title: "Sell stock back to a company",
+        group: "Companies",
         description:
-          "Keep dealer-farmer connection history visible so communication, support, and customer follow-up remain easier to manage.",
+          "Give stock back to a company and lower what you owe them, with the company account updated at once.",
+        icon: Undo2,
+      },
+      {
+        title: "Purchase bill photos",
+        group: "Companies",
+        description:
+          "Save a photo of every purchase bill and payment receipt with the record, so nothing is lost.",
+        icon: Camera,
+      },
+      {
+        title: "Share bills on WhatsApp",
+        group: "Stock and sales",
+        description:
+          "Print a sale bill or share it with your customer on WhatsApp right after the sale.",
+        icon: Share2,
+      },
+      {
+        title: "Payment reminders",
+        group: "Customers",
+        description:
+          "Set reminders to collect money from customers and to pay companies on time.",
+        icon: Bell,
+      },
+      {
+        title: "Broiler sales and settlement",
+        group: "Customers",
+        description:
+          "Sell a farmer's broilers to buyers, keep your margin, and settle the farmer's feed credit in one place.",
         icon: Handshake,
+      },
+      {
+        title: "Staff login and activity log",
+        group: "Team and tools",
+        description:
+          "Give staff their own login with only the access they need, and see who did what, and when.",
+        icon: KeyRound,
+      },
+      {
+        title: "Cash in hand",
+        group: "Team and tools",
+        description:
+          "Keep a daily cash book for the shop: cash in, cash out, and the cash you should have now.",
+        icon: Wallet,
+      },
+      {
+        title: "Analytics and downloads",
+        group: "Team and tools",
+        description:
+          "See sales, profit, and money owed over time, and download statements and reports.",
+        icon: BarChart3,
+      },
+      {
+        title: "Nepali date and Nepali language",
+        group: "Team and tools",
+        description:
+          "Use the app in Nepali or English, with Nepali (BS) dates on records and reports.",
+        icon: Languages,
       },
     ],
   },
@@ -656,7 +851,7 @@ export const modulePageContent: Record<string, ModulePageContent> = {
     heroTitle:
       "Track parent flock eggs, incubation, hatch result, and chick sales in one hatchery system",
     heroDescription:
-      "Poultry360 gives hatchery businesses in Nepal a clearer way to manage parent flock batches, egg inventory, incubation stages, hatch performance, chick grading, party balances, and delivery records. It turns the full hatchery lifecycle into an organized digital workflow.",
+      "Poultry360 gives hatchery businesses in Nepal a clearer way to manage parent flock batches, egg inventory, incubation stages, hatch performance, chick grading, party balances, and sales records. It turns the full hatchery lifecycle into an organized digital workflow.",
     wistiaMediaId: "e36j6s9t1k",
     moduleEyebrow: "Built for hatchery operations",
     moduleTitle: "Hatchery Module",
@@ -729,75 +924,127 @@ export const modulePageContent: Record<string, ModulePageContent> = {
     ctaHeading:
       "Connect incubation workflow, hatch output, and chick sales in one hatchery platform",
     ctaDescription:
-      "For hatcheries in Nepal, Poultry360 helps turn complex lifecycle tracking into a cleaner operating system with stronger visibility from parent flock to delivered chicks.",
-    accent: {
-      border: "border-rose-200",
-      chipBg: "bg-rose-50",
-      chipBorder: "border-rose-200",
-      chipText: "text-rose-700",
-      iconBg: "bg-rose-100",
-      iconText: "text-rose-700",
-    },
+      "For hatcheries in Nepal, Poultry360 helps turn complex lifecycle tracking into a cleaner operating system with stronger visibility from parent flock to sold chicks.",
+    featureGroups: ["Parent flock and eggs", "Incubation", "Sales and money", "Team and tools"],
     features: [
       {
         title: "Supplier ledger management",
+        group: "Sales and money",
         description:
           "Track supplier account activity and ledger balance so procurement and partner relationships stay transparent.",
         icon: Users,
       },
       {
         title: "Inventory management",
+        group: "Sales and money",
         description:
           "Monitor hatchery inventory, operational materials, and available stock so supply gaps do not disrupt workflow.",
         icon: Package,
       },
       {
         title: "Parent flock batch management",
+        group: "Parent flock and eggs",
         description:
           "Maintain parent flock batch records with structured history so egg production and hatch performance can be reviewed accurately.",
         icon: Bird,
       },
       {
         title: "Egg production tracking by type",
+        group: "Parent flock and eggs",
         description:
           "Record egg production by type or category to improve inventory review and planning before incubation.",
         icon: Egg,
       },
       {
         title: "Batch-wise egg inventory",
+        group: "Parent flock and eggs",
         description:
           "Track egg inventory by batch so available stock, usage, and incubation flow remain easier to manage.",
         icon: ClipboardList,
       },
       {
         title: "Incubation lifecycle (setter/candling/hatcher)",
+        group: "Incubation",
         description:
           "Follow each incubation stage in sequence so hatchery teams know where eggs are in the process and where issues may be occurring.",
         icon: Layers,
       },
       {
         title: "Hatch result and chick grade tracking",
+        group: "Incubation",
         description:
           "Review hatch performance and chick grading outcomes clearly so quality and productivity trends are easier to identify.",
         icon: BarChart3,
       },
       {
         title: "Chick sales management",
+        group: "Sales and money",
         description:
-          "Manage chick sales, customer records, dispatch activity, and sales follow-up in one hatchery workflow.",
+          "Manage chick sales, customer records, shareable bills, and sales follow-up in one hatchery workflow.",
         icon: TrendingUp,
       },
       {
         title: "Party ledger and payments",
+        group: "Sales and money",
         description:
           "Track customer or partner ledger activity and payments so hatchery business records stay easier to reconcile.",
         icon: Receipt,
       },
       {
         title: "Produced chicks stock view",
+        group: "Incubation",
         description:
-          "Keep a clear view of produced chick stock so delivery planning and inventory decisions can happen with confidence.",
+          "Keep a clear view of produced chick stock so sales planning and inventory decisions can happen with confidence.",
         icon: ShoppingBag,
+      },
+      {
+        title: "Your own egg types",
+        group: "Parent flock and eggs",
+        description:
+          "Use hatchable, table, and cracked eggs, and add your own egg types for your business.",
+        icon: Egg,
+      },
+      {
+        title: "Candling and move to hatcher",
+        group: "Incubation",
+        description:
+          "Record candling on day 9 and moving eggs to the hatcher on day 18, with infertile and dead eggs taken out.",
+        icon: Thermometer,
+      },
+      {
+        title: "Today's work",
+        group: "Incubation",
+        description:
+          "See which incubations need candling, moving, or hatching today, right on the home page.",
+        icon: CalendarCheck,
+      },
+      {
+        title: "Sell eggs and parent birds",
+        group: "Sales and money",
+        description:
+          "Sell table and cracked eggs, and old parent birds, with the money added to the right party account.",
+        icon: ShoppingCart,
+      },
+      {
+        title: "Staff login and activity log",
+        group: "Team and tools",
+        description:
+          "Give staff their own login with only the access they need, and see who did what, and when.",
+        icon: KeyRound,
+      },
+      {
+        title: "Reminders and notes",
+        group: "Team and tools",
+        description:
+          "Set reminders so no stage is missed, and keep batch and incubation notes that show who wrote each one.",
+        icon: Bell,
+      },
+      {
+        title: "Analytics and downloads",
+        group: "Team and tools",
+        description:
+          "See hatch percent, sales, and profit over time, and download party statements.",
+        icon: BarChart3,
       },
     ],
   },

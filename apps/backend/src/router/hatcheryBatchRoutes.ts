@@ -27,6 +27,12 @@ import {
   addParentSale,
   deleteParentSale,
 } from "../controller/hatcheryBatchController";
+import {
+  listHatcheryBatchNotes,
+  createHatcheryBatchNote,
+  updateHatcheryBatchNote,
+  deleteHatcheryBatchNote,
+} from "../controller/hatcheryNoteController";
 
 const router = express.Router();
 
@@ -45,6 +51,12 @@ router.put("/:id", updateHatcheryBatch);
 router.delete("/:id", deleteHatcheryBatch);
 router.post("/:id/close", closeHatcheryBatch);
 router.post("/:id/reopen", reopenHatcheryBatch);
+
+// Notes (owner and staff; only the writer or the owner can change one)
+router.get("/:id/notes", listHatcheryBatchNotes);
+router.post("/:id/notes", createHatcheryBatchNote);
+router.put("/:id/notes/:noteId", updateHatcheryBatchNote);
+router.delete("/:id/notes/:noteId", deleteHatcheryBatchNote);
 
 // Mortality
 router.get("/:id/mortalities", listHatcheryMortalities);

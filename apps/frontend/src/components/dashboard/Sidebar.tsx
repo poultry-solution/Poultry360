@@ -27,6 +27,7 @@ import {
   Wallet,
   Star,
   Settings,
+  PlayCircle,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { useAuth } from "@/common/store/store";
@@ -129,6 +130,11 @@ export const farmerNavigation: NavigationItem[] = [
     icon: BarChart3,
     requiredStaffPermission: "FARMER_VIEW_ANALYTICS",
   },
+  {
+    nameKey: "sidebar.nav.tutorials",
+    href: "/farmer/dashboard/tutorials",
+    icon: PlayCircle,
+  },
 ];
 
 export const dealerNavigation: NavigationItem[] = [
@@ -185,6 +191,11 @@ export const dealerNavigation: NavigationItem[] = [
     href: "/dealer/dashboard/analytics",
     icon: BarChart3,
     requiredStaffPermission: "DEALER_VIEW_FINANCIAL_SUMMARIES",
+  },
+  {
+    nameKey: "sidebar.nav.tutorials",
+    href: "/dealer/dashboard/tutorials",
+    icon: PlayCircle,
   },
 ];
 
@@ -343,6 +354,11 @@ export const hatcheryNavigation: NavigationItem[] = [
     href: "/hatchery/dashboard/analytics",
     icon: BarChart3,
     requiredStaffPermission: "HATCHERY_VIEW_ANALYTICS",
+  },
+  {
+    nameKey: "sidebar.nav.tutorials",
+    href: "/hatchery/dashboard/tutorials",
+    icon: PlayCircle,
   },
 ];
 

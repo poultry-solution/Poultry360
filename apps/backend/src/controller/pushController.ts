@@ -13,7 +13,7 @@ export const subscribe = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, message: "Invalid push subscription" });
       return;
     }
-    await saveSubscription(userId, subscription, userAgent);
+    await saveSubscription(userId, subscription, userAgent, req.staffUserId ?? null);
     res.json({ success: true });
   } catch (error) {
     console.error("Push subscribe error:", error);

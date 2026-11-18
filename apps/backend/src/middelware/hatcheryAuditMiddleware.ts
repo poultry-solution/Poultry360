@@ -40,6 +40,12 @@ const hatcheryActivityCopy: Record<string, HatcheryActivityCopy> = {
   // Batch-scoped activity
   "POST batches/record/mortalities": { description: "Recorded batch mortality", targetType: "Hatchery mortality" },
   "DELETE batches/record/mortalities/record": { description: "Deleted batch mortality", targetType: "Hatchery mortality" },
+  "POST batches/record/notes": { description: "Added a batch note", targetType: "Hatchery batch note" },
+  "PUT batches/record/notes/record": { description: "Changed a batch note", targetType: "Hatchery batch note" },
+  "DELETE batches/record/notes/record": { description: "Deleted a batch note", targetType: "Hatchery batch note" },
+  "POST incubations/record/notes": { description: "Added an incubation note", targetType: "Hatchery incubation note" },
+  "PUT incubations/record/notes/record": { description: "Changed an incubation note", targetType: "Hatchery incubation note" },
+  "DELETE incubations/record/notes/record": { description: "Deleted an incubation note", targetType: "Hatchery incubation note" },
   "POST batches/record/expenses": { description: "Recorded a batch expense", targetType: "Hatchery expense" },
   "DELETE batches/record/expenses/record": { description: "Deleted a batch expense", targetType: "Hatchery expense" },
   "POST batches/record/egg-productions": { description: "Recorded egg production", targetType: "Hatchery egg production" },
@@ -76,6 +82,14 @@ const hatcheryActivityCopy: Record<string, HatcheryActivityCopy> = {
   "POST egg-types": { description: "Added an egg type", targetType: "Hatchery egg type" },
   "PUT egg-types/record": { description: "Updated an egg type", targetType: "Hatchery egg type" },
   "DELETE egg-types/record": { description: "Deleted an egg type", targetType: "Hatchery egg type" },
+
+  // Reminders (shared /reminders route, not under /hatchery/)
+  "POST reminders": { description: "Added a reminder", targetType: "Reminder" },
+  "PATCH reminders/record": { description: "Changed a reminder", targetType: "Reminder" },
+  "POST reminders/record/done": { description: "Marked a reminder done", targetType: "Reminder" },
+  "POST reminders/record/undo": { description: "Undid a done reminder", targetType: "Reminder" },
+  "POST reminders/record/snooze": { description: "Snoozed a reminder", targetType: "Reminder" },
+  "DELETE reminders/record": { description: "Deleted a reminder", targetType: "Reminder" },
 };
 
 function activityCopy(method: string, route: string): HatcheryActivityCopy {
@@ -106,6 +120,8 @@ export function auditSuccessfulHatcheryMutation(
     const rawRoute = `${req.baseUrl}${req.route?.path || req.path}`;
     const route = rawRoute
       .replace(/^.*\/hatchery\/?/, "")
+      // Shared routes such as /api/v1/reminders have no /hatchery/ part.
+      .replace(/^\/?api(?:\/v\d+)?\//, "")
       .replace(/:[^/]+/g, "record")
       .replace(/\/[A-Za-z0-9_-]{12,}(?=\/|$)/g, "/record")
       .replace(/\/+/g, "/")

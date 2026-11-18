@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { Bar, CartesianGrid, ComposedChart, Line, XAxis, YAxis } from "recharts";
-import { Egg, Package, Percent, TrendingUp } from "lucide-react";
+import { Egg, Percent, TrendingUp } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/common/components/ui/chart";
 import { StatTile, rupees } from "@/components/dashboard/StatsCards";
-import { formatRupeesExact } from "@/common/lib/utils";
 import type { FarmerEggsAnalytics } from "@/fetchers/analytics/farmerAnalyticsQueries";
 import { useI18n } from "@/i18n/useI18n";
 import { EmptyLine, Section, ShareBars, TabLoading, count, moneyClass, percent, periodLabel, signedRupees } from "./shared";
@@ -25,18 +24,10 @@ export function EggsTab({ data, loading }: { data?: FarmerEggsAnalytics; loading
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatTile tile={{ label: t("farmer.analytics.eggs.laid"), icon: Egg, value: count(totals.eggsLaid), sub: t("farmer.analytics.eggs.inStock", { n: count(totals.stock) }) }} />
         <StatTile tile={{ label: t("farmer.analytics.eggs.layingPercent"), icon: Percent, value: percent(totals.layingPercent, 1), sub: t("farmer.analytics.eggs.layingHint") }} />
         <StatTile tile={{ label: t("farmer.analytics.eggs.sold"), icon: TrendingUp, value: count(totals.eggsSold), sub: rupees(totals.eggSales) }} />
-        <StatTile
-          tile={{
-            label: t("farmer.analytics.eggs.costPerEgg"),
-            icon: Package,
-            value: totals.costPerEgg != null ? formatRupeesExact(totals.costPerEgg) : "—",
-            sub: t("farmer.analytics.eggs.costPerEggHint"),
-          }}
-        />
       </div>
 
       <Section title={t("farmer.analytics.eggs.chartTitle")} icon={Egg}>

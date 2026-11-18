@@ -4,6 +4,7 @@ import {
   CreateEggProductionSchema,
   UpdateEggProductionSchema,
 } from "@myapp/shared-types";
+import { EggStockError, takeEggStock } from "../utils/eggStock";
 
 /** Updates per-batch egg inventory (BatchEggInventory) for production create/update/delete. */
 async function updateBatchEggInventoryForProduction(
@@ -28,17 +29,26 @@ async function updateBatchEggInventoryForProduction(
         });
       }
     } else {
-      const existing = await tx.batchEggInventory.findUnique({
-        where: { batchId_eggTypeId: { batchId, eggTypeId } },
-      });
-      if (existing) {
-        await tx.batchEggInventory.update({
-          where: { id: existing.id },
-          data: { quantity: { decrement: Math.abs(count) } },
-        });
-      }
+      // Removing eggs that were already sold would make stock negative.
+      await takeEggStock(tx, batchId, eggTypeId, Math.abs(count), "remove");
     }
   }
+}
+
+/** Clear status codes for errors thrown inside the transactions below. */
+function sendEggProductionError(res: Response, error: any) {
+  const message: string = error?.message || "Internal server error";
+  const status =
+    error instanceof EggStockError
+      ? 400
+      : /not found/i.test(message)
+        ? 404
+        : message === "Access denied"
+          ? 403
+          : /only for Layers/i.test(message)
+            ? 400
+            : 500;
+  return res.status(status).json({ message: status === 500 ? "Internal server error" : message });
 }
 
 // GET /batches/:id/egg-production
@@ -171,9 +181,7 @@ export const createEggProduction = async (
     return res.status(201).json({ success: true, data: record });
   } catch (error: any) {
     console.error("Create egg production error:", error);
-    return res.status(500).json({
-      message: error?.message || "Internal server error",
-    });
+    return sendEggProductionError(res, error);
   }
 };
 
@@ -256,9 +264,7 @@ export const updateEggProduction = async (
     return res.json({ success: true, data: updated });
   } catch (error: any) {
     console.error("Update egg production error:", error);
-    return res.status(500).json({
-      message: error?.message || "Internal server error",
-    });
+    return sendEggProductionError(res, error);
   }
 };
 
@@ -299,8 +305,6 @@ export const deleteEggProduction = async (
     return res.json({ success: true, message: "Record deleted" });
   } catch (error: any) {
     console.error("Delete egg production error:", error);
-    return res.status(500).json({
-      message: error?.message || "Internal server error",
-    });
+    return sendEggProductionError(res, error);
   }
 };

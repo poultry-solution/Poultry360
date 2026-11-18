@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { BroilerWeightDiscountField } from "@/components/sales/BroilerWeightDiscountField";
 import { computeBroilerSaleAmount, parseWeightDiscountPercent, previewBillDiscount, type BillDiscountType } from "@/fetchers/sale/broilerSaleAmount";
 import Link from "next/link";
@@ -23,6 +24,7 @@ import {
   CheckCircle,
   Bird,
   CalendarDays,
+  Egg,
   HeartPulse,
   Scale,
   Share2,
@@ -31,9 +33,9 @@ import {
   useGetBatchById,
   useGetBatchAnalytics,
   useGetBatchFcrHistory,
+  useGetBatchEggCost,
   useDeleteBatch,
   useCloseBatch,
-  useUpdateBatch,
   useVerifyPasswordForBatchDelete,
 } from "@/fetchers/batches/batchQueries";
 import {
@@ -103,6 +105,7 @@ import { MortalityTab } from "@/components/batches/tabs/MortalityTab";
 import { ProfitLossTab } from "@/components/batches/tabs/ProfitLossTab";
 import { GrowthTab } from "@/components/batches/tabs/GrowthTab";
 import { EggProductionTab } from "@/components/batches/tabs/EggProductionTab";
+import { EggCostTab } from "@/components/batches/tabs/EggCostTab";
 import { NotesTab } from "@/components/batches/tabs/NotesTab";
 import { createExpenseColumns } from "@/components/batches/configs/expenseColumns";
 import { createSalesColumns } from "@/components/batches/configs/salesColumns";
@@ -146,7 +149,7 @@ const BASE_TABS = [
   "Profit & Loss",
 ] as const;
 // Growth for Broiler, Egg Production for Layers
-type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Notes";
+type TabName = (typeof BASE_TABS)[number] | "Growth" | "Egg Production" | "Egg cost" | "Notes";
 
 
 // helper banner
@@ -181,10 +184,19 @@ export default function BatchDetailPage() {
 
   const batch = batchResponse?.data;
   const analytics = analyticsResponse?.data;
+  // Layers: cost per tray and hen payback replace "per bird" while the batch runs.
+  // Same query as the Egg cost tab, so it is shared and refreshed with it.
+  const isLayers = (batch as any)?.batchType === "LAYERS";
+  const eggCostQuery = useGetBatchEggCost(safeBatchId, { enabled: !!batchId && isLayers });
   const fcrHistory = fcrHistoryResponse?.data || [];
 
   const tabs: TabName[] = batch
-    ? [...BASE_TABS, (batch as any).batchType === "LAYERS" ? "Egg Production" : "Growth", "Notes"]
+    ? [
+        ...BASE_TABS,
+        // Layers: eggs, then cost per egg. Broilers: growth.
+        ...((batch as any).batchType === "LAYERS" ? (["Egg Production", "Egg cost"] as const) : (["Growth"] as const)),
+        "Notes",
+      ]
     : [...BASE_TABS, "Growth", "Notes"];
 
   const [activeTab, setActiveTab] = useState<TabName>("Overview");
@@ -208,22 +220,7 @@ export default function BatchDetailPage() {
 
   const deleteBatchMutation = useDeleteBatch();
   const closeBatchMutation = useCloseBatch();
-  const updateBatchMutation = useUpdateBatch();
   const verifyPasswordMutation = useVerifyPasswordForBatchDelete();
-
-  const saveCfcrSettings = async (
-    targetWeightKg: number,
-    correctionFactorPerKg: number,
-  ) => {
-    await updateBatchMutation.mutateAsync({
-      id: safeBatchId,
-      data: {
-        cfcrTargetWeightKg: targetWeightKg,
-        cfcrCorrectionFactorPerKg: correctionFactorPerKg,
-      },
-    });
-    toast.success("Corrected FCR settings saved");
-  };
 
   // Fetch real expense data
   const {
@@ -340,41 +337,25 @@ export default function BatchDetailPage() {
     const netExpenses = totalExpenses - totalSales;
 
     const initialBroilers = Number(batch?.initialChicks || 0);
+    // Real deaths only; birds still alive when the batch was closed are counted apart.
     const totalMortality = Number(mortalityStats?.totalMortality || 0);
+    const leftAtClose = Number((mortalityStats as any)?.leftAtClose || 0);
     const totalSold = Number(analytics?.totalSalesQuantity || 0);
-    const remainingBroilers = Math.max(
-      0,
-      initialBroilers - (totalMortality + totalSold)
-    );
+    // Birds alive now (0 once the batch is closed).
+    const remainingBroilers = Math.max(0, Number((batch as any)?.currentChicks ?? 0));
 
-    let perBroilerExpense = 0;
-    let displayValue = 0;
-    let isProfit = false;
-
-    if (remainingBroilers > 0) {
-      perBroilerExpense = netExpenses / remainingBroilers;
-      if (perBroilerExpense < 0) {
-        isProfit = true;
-        displayValue = Math.abs(perBroilerExpense);
-      } else {
-        displayValue = perBroilerExpense;
-      }
-    } else if (initialBroilers > 0) {
-      perBroilerExpense = netExpenses / initialBroilers;
-      if (perBroilerExpense < 0) {
-        isProfit = true;
-        displayValue = Math.abs(perBroilerExpense);
-      } else {
-        displayValue = perBroilerExpense;
-      }
-    } else {
-      displayValue = 0;
-    }
+    // Per bird is always shared over the birds the batch started with, the same
+    // as Analytics and downloads, so the number does not jump when birds are sold.
+    const perBroilerExpense = initialBroilers > 0 ? netExpenses / initialBroilers : 0;
+    const isProfit = perBroilerExpense < 0;
+    const displayValue = Math.abs(perBroilerExpense);
 
     return {
       netExpenses,
+      initialBroilers,
       remainingBroilers,
       totalMortality,
+      leftAtClose,
       totalSold,
       perBroilerExpense,
       displayValue,
@@ -382,9 +363,10 @@ export default function BatchDetailPage() {
     };
   }, [
     (batch as any)?.expenses,
+    (batch as any)?.currentChicks,
     batchSales,
     batch?.initialChicks,
-    mortalityStats?.totalMortality,
+    mortalityStats,
     analytics?.totalSalesQuantity,
   ]);
 
@@ -1280,7 +1262,12 @@ export default function BatchDetailPage() {
       setSaleErrors({});
     } catch (error) {
       console.error("Failed to save sale:", error);
-      flash("error", "Failed to save sale");
+      // Show the server's reason (e.g. not enough eggs in stock) when there is one.
+      const serverMessage = (error as any)?.response?.data?.message;
+      const message = typeof serverMessage === "string" && serverMessage ? serverMessage : "Failed to save sale";
+      // Egg stock problems are shown under the egg lines, inside the open form.
+      if (/egg inventory/i.test(message)) setSaleErrors((prev) => ({ ...prev, eggLineItems: message }));
+      flash("error", message);
     }
   }
 
@@ -1501,6 +1488,11 @@ export default function BatchDetailPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <RemindMeButton
+          module="farmer"
+          link={{ farmId: batch.farm?.id ?? batch.farmId, batchId: batch.id }}
+          className="h-9 text-xs sm:text-sm"
+        />
         <Button
           variant="outline"
           className="text-emerald-700 border-emerald-200 hover:bg-emerald-50 text-xs sm:text-sm"
@@ -1572,23 +1564,42 @@ export default function BatchDetailPage() {
             value: Number(mortalityStats?.totalMortality || 0).toLocaleString("en-IN"),
             sub:
               analytics?.mortalityRate != null
-                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds`
+                ? `${Number(analytics.mortalityRate).toFixed(2)}% of birds${
+                    Number(analytics?.leftAtClose || 0) > 0
+                      ? ` · ${Number(analytics.leftAtClose).toLocaleString("en-IN")} left at close`
+                      : ""
+                  }`
                 : "—",
             loading: mortalityLoading || analyticsLoading,
           }}
         />
-        <StatTile
-          tile={{
-            label: "Avg weight",
-            icon: Scale,
-            value:
-              analytics?.currentAvgWeight != null
-                ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
-                : "—",
-            sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
-            loading: analyticsLoading,
-          }}
-        />
+        {(batch as any).batchType === "LAYERS" ? (
+          // Layers are not weighed for FCR; eggs are what matter here.
+          <StatTile
+            tile={{
+              label: "Eggs collected",
+              icon: Egg,
+              value: analytics?.layers ? Number(analytics.layers.eggsCollected).toLocaleString("en-IN") : "—",
+              sub: analytics?.layers
+                ? `${Number(analytics.layers.eggsInStock).toLocaleString("en-IN")} in stock`
+                : "",
+              loading: analyticsLoading,
+            }}
+          />
+        ) : (
+          <StatTile
+            tile={{
+              label: "Avg weight",
+              icon: Scale,
+              value:
+                analytics?.currentAvgWeight != null
+                  ? `${Number(analytics.currentAvgWeight).toFixed(2)} kg`
+                  : "—",
+              sub: analytics?.currentAvgWeight != null ? "Last weight" : "No weight yet",
+              loading: analyticsLoading,
+            }}
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -1610,6 +1621,10 @@ export default function BatchDetailPage() {
 
       {activeTab === "Overview" && (
         <OverviewTab
+          isLayers={isLayers}
+          eggCost={eggCostQuery.data}
+          eggCostLoading={eggCostQuery.isLoading}
+          onOpenEggCost={() => setActiveTab("Egg cost")}
           batch={batch}
           analytics={analytics}
           fcrHistory={fcrHistory}
@@ -1624,8 +1639,6 @@ export default function BatchDetailPage() {
           recentMortalities={batchMortalities.slice(0, 5)}
           onRecordWeight={() => setIsWeightModalOpen(true)}
           cfcrEnabled={cfcrFeature.isEnabled}
-          onSaveCfcrSettings={saveCfcrSettings}
-          cfcrSettingsSaving={updateBatchMutation.isPending}
         />
       )}
 
@@ -1683,6 +1696,9 @@ export default function BatchDetailPage() {
 
       {activeTab === "Profit & Loss" && (
         <ProfitLossTab
+          isLayers={isLayers}
+          eggCost={eggCostQuery.data}
+          onOpenEggCost={() => setActiveTab("Egg cost")}
           batch={batch}
           analytics={analytics}
           salesTotal={salesTotal}
@@ -1716,6 +1732,10 @@ export default function BatchDetailPage() {
           batchId={batchId}
           isBatchClosed={isBatchClosed}
         />
+      )}
+
+      {activeTab === "Egg cost" && batchId && (batch as any).batchType === "LAYERS" && (
+        <EggCostTab batchId={batchId} onGoToEggs={() => setActiveTab("Egg Production")} />
       )}
 
       {/* Close Batch Modal */}
@@ -1946,11 +1966,18 @@ export default function BatchDetailPage() {
                             <SelectValue placeholder="Egg type" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
-                            {eggTypes.map((t) => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {t.name}
-                              </SelectItem>
-                            ))}
+                            {/* A type already picked on another line is hidden, so one type is one line. */}
+                            {eggTypes
+                              .filter(
+                                (t) =>
+                                  t.id === line.eggTypeId ||
+                                  !saleForm.eggLineItems.some((l, i) => i !== idx && l.eggTypeId === t.id)
+                              )
+                              .map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {t.name}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

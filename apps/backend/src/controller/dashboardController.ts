@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
+import { ACCOUNT_FEATURE_KEYS, isAccountFeatureEnabled } from "../services/accountFeatureService";
 import prisma from "../utils/prisma";
 import { UserRole } from "@prisma/client";
 import { getNepalBsMonthWindow, nepalBatchDay } from "../utils/nepalBsDate";
+import { naturalDeathWhere } from "../services/farmerAnalytics/scope";
 import {
-  aggregateCurrentCfcr,
   aggregateCurrentFcr,
   calculateFarmerBatchFcr,
 } from "../services/farmerFcrService";
@@ -548,7 +549,7 @@ export const getDashboardPerformanceMetrics = async (
     // Calculate batch performance metrics
     const batchPerformance = await Promise.all(
       batchStats.map(async (batch) => {
-        const [expenses, sales, fcrResult] = await Promise.all([
+        const [expenses, sales, fcrResult, naturalDeaths] = await Promise.all([
           prisma.expense.aggregate({
             where: { batchId: batch.id },
             _sum: { amount: true },
@@ -558,11 +559,16 @@ export const getDashboardPerformanceMetrics = async (
             _sum: { amount: true },
           }),
           calculateFarmerBatchFcr(batch.id),
+          // Real deaths only; birds still alive at closing are not deaths.
+          prisma.mortality.aggregate({
+            where: { batchId: batch.id, ...naturalDeathWhere },
+            _sum: { count: true },
+          }),
         ]);
 
         const totalExpenses = Number(expenses._sum.amount || 0);
         const totalSales = Number(sales._sum.amount || 0);
-        const totalMortality = fcrResult?.currentDeaths || 0;
+        const totalMortality = Number(naturalDeaths._sum.count || 0);
         const profit = totalSales - totalExpenses;
         const duration = batch.endDate ? nepalBatchDay(batch.startDate, batch.endDate) : 0;
 
@@ -591,11 +597,6 @@ export const getDashboardPerformanceMetrics = async (
           fcrWeightGainKg:
             includeInCurrentFcr ? fcrResult?.weightGainKg || 0 : 0,
           fcrDisplayStatus: fcrResult?.displayStatus || "NOT_CALCULABLE",
-          cfcr: includeInCurrentFcr ? fcrResult?.currentCfcr ?? null : null,
-          cfcrTargetWeightKg: fcrResult?.cfcrTargetWeightKg ?? null,
-          cfcrCorrectionFactorPerKg:
-            fcrResult?.cfcrCorrectionFactorPerKg ?? null,
-          cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
         };
       })
     );
@@ -654,16 +655,6 @@ export const getDashboardPerformanceMetrics = async (
       .sort((a, b) => b.totalProfit - a.totalProfit)
       .slice(0, 5);
 
-    const cfcrAggregate = aggregateCurrentCfcr(
-      batchPerformance.map((batch) => ({
-        displayStatus: batch.fcrDisplayStatus,
-        cfcr: batch.cfcr,
-        weightGainKg: batch.fcrWeightGainKg,
-        targetWeightKg: batch.cfcrTargetWeightKg,
-        correctionFactorPerKg: batch.cfcrCorrectionFactorPerKg,
-      })),
-    );
-
     return res.json({
       success: true,
       data: {
@@ -678,10 +669,6 @@ export const getDashboardPerformanceMetrics = async (
               weightGainKg: batch.fcrWeightGainKg,
             })),
           ) ?? 0,
-        correctedFeedConversionRatio: cfcrAggregate.cfcr,
-        cfcrTargetWeightKg: cfcrAggregate.targetWeightKg,
-        cfcrCorrectionFactorPerKg: cfcrAggregate.correctionFactorPerKg,
-        cfcrMixedSettings: cfcrAggregate.mixedSettings,
         topPerformingFarms,
         batchPerformance: batchPerformance.slice(0, 10), // Top 10 batches
       },
@@ -1007,6 +994,8 @@ export const getBatchPerformanceList = async (
   try {
     const currentUserId = req.userId;
     const { status, sortBy, sortOrder, farmId, limit, batchType } = req.query;
+    // Hide cFCR for accounts that have not turned it on.
+    const cfcrOn = currentUserId ? await isAccountFeatureEnabled(currentUserId, ACCOUNT_FEATURE_KEYS.FARMER_CFCR) : false;
 
     // Only known values reach Prisma (a raw sortBy used to crash with a 500).
     const safeSortBy = sortBy === "createdAt" ? "createdAt" : "startDate";
@@ -1117,8 +1106,9 @@ export const getBatchPerformanceList = async (
               ? (fcrResult?.fcr != null ? fcrResult.fcr.toFixed(2) : 'N/A')
               : (fcrResult?.currentFcr != null ? fcrResult.currentFcr.toFixed(2) : 'N/A'),
           cfcr:
-            fcrResult?.currentCfcr != null
-              ? fcrResult.currentCfcr.toFixed(2)
+            // Final cFCR only (finished batches), for accounts that turned cFCR on.
+            cfcrOn && fcrResult?.displayStatus === "FINAL" && fcrResult?.cfcr != null
+              ? fcrResult.cfcr.toFixed(2)
               : "N/A",
           cfcrStatus: fcrResult?.cfcrStatus || "SOURCE_FCR_UNAVAILABLE",
           fcrStatus: fcrResult?.status || "NOT_AVAILABLE",

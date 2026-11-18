@@ -35,18 +35,19 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 px-3 pt-3 sm:px-4">
+      {/* On phones the pill clips anything too wide, so the page never scrolls sideways. */}
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 rounded-full border border-gray-200/80 bg-white/85 pl-4 pr-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-md max-lg:overflow-hidden min-[400px]:gap-4 min-[400px]:pl-5 min-[400px]:pr-2 lg:h-16 lg:pl-7">
         {/* Logo - wordmark only for clear readability in navbar */}
         <Link
           href="/"
-          className="text-4xl   shrink-0 font-[family-name:var(--font-caveat)]"
+          className="min-w-0 overflow-hidden whitespace-nowrap pr-1.5 text-[1.65rem] font-[family-name:var(--font-caveat)] min-[400px]:text-3xl lg:shrink-0 lg:text-4xl"
         >
           Poultry360
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-8">
+        <div className="hidden items-center gap-7 text-[15px] lg:flex">
           <div className="relative group">
             <button
               type="button"
@@ -81,31 +82,50 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Desktop: Language Toggle + Get Started */}
-        <div className="hidden md:flex items-center gap-3">
+        {/* Desktop: Log in + Sign up */}
+        <div className="hidden items-center gap-2 lg:flex">
+          <Link href="/auth/login" className="rounded-full px-4 py-2 text-[15px] font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900">
+            {t("landing.navbar.logIn")}
+          </Link>
           <SignupChooserDialog
             trigger={
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
-                {t("landing.navbar.getStarted")}
+              <Button className="rounded-full bg-primary px-6 font-semibold text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90">
+                {t("landing.navbar.signUp")}
               </Button>
             }
           />
         </div>
 
-        {/* Mobile: Hamburger Menu Button */}
-        <button
-          className="md:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
-          onClick={toggleMobileMenu}
-          aria-label="Toggle menu"
-        >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        {/* Mobile: Log in and Sign up next to the menu button. These never shrink; on
+            narrow screens (also big phone text, which narrows the page) Log in moves into the menu. */}
+        <div className="flex shrink-0 items-center gap-1 lg:hidden">
+          <Link
+            href="/auth/login"
+            className="whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 max-[359px]:hidden"
+          >
+            {t("landing.navbar.logIn")}
+          </Link>
+          <SignupChooserDialog
+            trigger={
+              <Button size="sm" className="whitespace-nowrap rounded-full bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary/90">
+                {t("landing.navbar.signUp")}
+              </Button>
+            }
+          />
+          <button
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 hover:bg-gray-100 transition-colors"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t bg-white">
-          <div className="px-4 py-4 space-y-3">
+        <div className="mx-auto mt-2 max-w-6xl rounded-3xl border border-gray-200/80 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.1)] lg:hidden">
+          <div className="space-y-1 px-5 py-4">
             {/* Nav Links */}
             <button
               type="button"
@@ -159,17 +179,13 @@ export default function Navbar() {
             >
               {t("landing.navbar.contact")}
             </Link>
-
-            <div className="border-t pt-3 space-y-3">
-              {/* Get Started */}
-              <SignupChooserDialog
-                trigger={
-                  <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-                    {t("landing.navbar.getStarted")}
-                  </Button>
-                }
-              />
-            </div>
+            <Link
+              href="/auth/login"
+              onClick={closeMobileMenu}
+              className="mt-2 flex h-11 items-center justify-center rounded-full border border-gray-200 font-medium text-gray-800 transition-colors hover:bg-gray-50"
+            >
+              {t("landing.navbar.logIn")}
+            </Link>
           </div>
         </div>
       )}

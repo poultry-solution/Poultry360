@@ -4,6 +4,7 @@ import { useState } from "react";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
   convertADtoBS,
+  formatBSLong,
   getBSYearMonthFromAD,
   getFirstDayOfBSMonthAD,
   getNepalTodayAd,
@@ -28,10 +29,18 @@ export function toBsLabel(adDate: string) {
   }
 }
 
+function toBsLong(adDate: string) {
+  try {
+    return formatBSLong(adDate);
+  } catch {
+    return adDate;
+  }
+}
+
 export function describeRange(range: DateRange | null) {
   if (!range) return "All time";
-  const start = toBsLabel(range.startDate);
-  const end = toBsLabel(range.endDate);
+  const start = toBsLong(range.startDate);
+  const end = toBsLong(range.endDate);
   return start === end ? start : `${start} to ${end}`;
 }
 

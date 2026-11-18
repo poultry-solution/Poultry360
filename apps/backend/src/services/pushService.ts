@@ -22,21 +22,40 @@ export interface PushPayload {
   data?: Record<string, unknown>;
 }
 
+/**
+ * Save this browser for the person who is logged in now.
+ * One browser belongs to one person at a time: rows for the same endpoint
+ * under any other account are removed, so a shared phone never gets the
+ * previous user's alerts.
+ */
 export async function saveSubscription(
   userId: string,
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
-  userAgent?: string
+  userAgent?: string,
+  staffUserId: string | null = null
 ) {
-  return prisma.pushSubscription.upsert({
-    where: { userId_endpoint: { userId, endpoint: subscription.endpoint } },
-    update: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth, userAgent, revokedAt: null },
-    create: {
-      userId,
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys.p256dh,
-      auth: subscription.keys.auth,
-      userAgent,
-    },
+  return prisma.$transaction(async (tx) => {
+    await tx.pushSubscription.deleteMany({
+      where: { endpoint: subscription.endpoint, NOT: { userId } },
+    });
+    return tx.pushSubscription.upsert({
+      where: { userId_endpoint: { userId, endpoint: subscription.endpoint } },
+      update: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        userAgent,
+        staffUserId,
+        revokedAt: null,
+      },
+      create: {
+        userId,
+        staffUserId,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        userAgent,
+      },
+    });
   });
 }
 
@@ -44,9 +63,14 @@ export async function removeSubscription(userId: string, endpoint: string) {
   return prisma.pushSubscription.deleteMany({ where: { userId, endpoint } });
 }
 
-export async function sendPushToUser(userId: string, payload: PushPayload) {
+/** Push to the owner's devices (staffUserId null) or to one staff login's devices. */
+export async function sendPushToUser(
+  userId: string,
+  payload: PushPayload,
+  staffUserId: string | null = null
+) {
   const subs = await prisma.pushSubscription.findMany({
-    where: { userId, revokedAt: null },
+    where: { userId, staffUserId, revokedAt: null },
   });
 
   const results = await Promise.allSettled(
@@ -72,7 +96,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   const sent = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
 
-  console.log(`[push] userId=${userId} total=${subs.length} sent=${sent} failed=${failed}`);
+  console.log(`[push] userId=${userId} staff=${staffUserId ?? "-"} total=${subs.length} sent=${sent} failed=${failed}`);
 
   results.forEach((result, i) => {
     if (result.status === "rejected") {

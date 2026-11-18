@@ -1,17 +1,25 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { Egg, Percent, Receipt, TrendingUp, Wallet } from "lucide-react";
 import { StatTile, rupees } from "@/components/dashboard/StatsCards";
+import type { BatchEggCost } from "@/fetchers/batches/batchQueries";
+import { LayerPaybackBlock } from "@/components/batches/eggCost/LayerSummary";
 
 interface ProfitLossTabProps {
+  /** Running layer batches show hen cost payback instead of "per bird". */
+  isLayers?: boolean;
+  eggCost?: BatchEggCost;
+  onOpenEggCost?: () => void;
   salesTotal: number;
   expensesTotal: number;
   profit: number;
   analytics: any;
   perBroilerExpenseData: {
     netExpenses: number;
+    initialBroilers: number;
     remainingBroilers: number;
     totalMortality: number;
+    leftAtClose: number;
     totalSold: number;
     perBroilerExpense: number;
     displayValue: number;
@@ -55,7 +63,12 @@ export function ProfitLossTab({
   isBatchClosed,
   perBirdRevenue,
   expenses,
+  isLayers: isLayersProp,
+  eggCost,
+  onOpenEggCost,
 }: ProfitLossTabProps) {
+  const isLayers = isLayersProp ?? batch?.batchType === "LAYERS";
+  const bird = isLayers ? "hen" : "bird";
   const roundedProfit = Math.round(profit);
   const profitClass = roundedProfit > 0 ? "text-green-600" : roundedProfit < 0 ? "text-red-600" : "text-gray-900";
   const initialBirds = Number(batch?.initialChicks || 0);
@@ -63,17 +76,19 @@ export function ProfitLossTab({
   const margin = Number(analytics?.profitMargin);
   const hasSales = salesTotal > 0 && Number.isFinite(margin);
 
-  // Per bird: same value and divisor as before (birds left, or birds started when none are left).
+  // Per bird: always shared over the birds the batch started with (same as Analytics).
   const perBirdRounded = Math.round(perBroilerExpenseData.displayValue);
-  const divisor =
-    perBroilerExpenseData.remainingBroilers > 0
-      ? { birds: perBroilerExpenseData.remainingBroilers, label: "birds left" }
-      : initialBirds > 0
-        ? { birds: initialBirds, label: "birds started" }
-        : null;
+  const divisor = initialBirds > 0 ? { birds: initialBirds, label: `${bird}s started` } : null;
+
+  // Layers: margin is not useful early on (hens cost money before eggs pay it back),
+  // so the 4th tile shows egg sales instead.
+  const eggs = analytics?.layers as
+    | { eggsCollected: number; eggsInStock: number; eggsSold: number; eggSalesAmount: number }
+    | null
+    | undefined;
   const perBirdLabel = !divisor || perBirdRounded === 0
-    ? "Per bird"
-    : perBroilerExpenseData.isProfit ? "Profit per bird" : "Loss per bird";
+    ? `Per ${bird}`
+    : perBroilerExpenseData.isProfit ? `Profit per ${bird}` : `Loss per ${bird}`;
   const perBirdValue = !divisor
     ? "—"
     : perBirdRounded === 0
@@ -98,6 +113,10 @@ export function ProfitLossTab({
     ["Started with", initialBirds],
     ["Died", perBroilerExpenseData.totalMortality],
     ["Sold", perBroilerExpenseData.totalSold],
+    // Birds still alive when the batch was closed (not deaths).
+    ...(perBroilerExpenseData.leftAtClose > 0
+      ? ([["Left at close", perBroilerExpenseData.leftAtClose]] as Array<[string, number]>)
+      : []),
   ];
 
   return (
@@ -129,22 +148,58 @@ export function ProfitLossTab({
             sub: isBatchClosed ? "Final" : "So far",
           }}
         />
-        <StatTile
-          tile={{
-            label: "Margin",
-            icon: Percent,
-            value: hasSales ? `${margin.toFixed(1)}%` : "—",
-            valueClass: !hasSales ? "text-gray-400" : margin < 0 ? "text-red-600" : "",
-            sub: hasSales ? "of sales" : "No sales yet",
-          }}
-        />
+        {isLayers ? (
+          <StatTile
+            tile={{
+              label: "Egg sales",
+              icon: Egg,
+              value: eggs ? rupees(eggs.eggSalesAmount) : "—",
+              sub: eggs ? `${count(eggs.eggsSold)} eggs sold` : "",
+            }}
+          />
+        ) : (
+          <StatTile
+            tile={{
+              label: "Margin",
+              icon: Percent,
+              value: hasSales ? `${margin.toFixed(1)}%` : "—",
+              valueClass: !hasSales ? "text-gray-400" : margin < 0 ? "text-red-600" : "",
+              sub: hasSales ? "of sales" : "No sales yet",
+            }}
+          />
+        )}
       </div>
 
-      {/* Per bird */}
+      {/* Per bird (broiler, closed layer) · hen cost payback (running layer) */}
+      {isLayers && !isBatchClosed ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <LayerPaybackBlock eggCost={eggCost} onOpen={onOpenEggCost} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Hens</CardTitle>
+              <CardDescription>Where the hens went</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                {birdSteps.map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium">{count(value)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between gap-4 border-t pt-2">
+                  <span className="font-medium">Left</span>
+                  <span className="font-semibold">{count(perBroilerExpenseData.remainingBroilers)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Per bird</CardTitle>
-          <CardDescription>Sales minus costs, shared over the birds</CardDescription>
+          <CardTitle className="text-base">{isLayers ? "Per hen (final)" : "Per bird"}</CardTitle>
+          <CardDescription>Sales minus costs, shared over the {bird}s</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 md:grid-cols-2">
@@ -172,6 +227,7 @@ export function ProfitLossTab({
           </div>
         </CardContent>
       </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Sales */}
@@ -188,9 +244,9 @@ export function ProfitLossTab({
               </div>
               <div className="flex justify-between gap-4 border-t pt-3">
                 <span className="text-muted-foreground">
-                  Sales per bird
+                  Sales per {bird}
                   {initialBirds > 0 && (
-                    <span className="ml-1.5 text-xs text-gray-400">÷ {count(initialBirds)} birds started</span>
+                    <span className="ml-1.5 text-xs text-gray-400">÷ {count(initialBirds)} {bird}s started</span>
                   )}
                 </span>
                 <span className="font-medium">{initialBirds > 0 ? rupees(perBirdRevenue) : "—"}</span>

@@ -248,10 +248,10 @@ export default function Contact() {
                     {t("landing.contact.officeLabel")}
                   </h4>
                   <p className="text-gray-600">
-                    Poultry360 Solutions Pvt. Ltd.
+                    SajiloDev Engineering Pvt. Ltd.
                   </p>
-                  <p className="text-gray-600">Province 5, Lumbini </p>
-                  <p className="text-gray-600">Lamahi, Dang</p>
+                  <p className="text-gray-600">Lamahi Municipality – Ward No. 3</p>
+                  <p className="text-gray-600">Tikuligadh, Dang</p>
                 </div>
               </div>
             </div>
@@ -263,11 +263,11 @@ export default function Contact() {
               <div className="space-y-2 text-gray-600">
                 <div className="flex justify-between">
                   <span>{t("landing.contact.monFri")}</span>
-                  <span>9:00 AM - 6:00 PM</span>
+                  <span>9:00 AM - 5:00 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t("landing.contact.saturday")}</span>
-                  <span>9:00 AM - 12:00 PM</span>
+                  <span>{t("landing.contact.closed")}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{t("landing.contact.sunday")}</span>

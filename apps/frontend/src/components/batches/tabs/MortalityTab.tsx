@@ -75,7 +75,9 @@ export function MortalityTab({
                       {mortalityStats.totalMortality || 0}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
-                      (Excluding sales)
+                      {Number(mortalityStats.leftAtClose || 0) > 0
+                        ? `(${Number(mortalityStats.leftAtClose).toLocaleString("en-IN")} left at close, not counted)`
+                        : "(Excluding sales)"}
                     </div>
                   </div>
                   <div>
@@ -107,7 +109,7 @@ export function MortalityTab({
                       Total Records
                     </div>
                     <div className="text-lg font-semibold text-gray-900">
-                      {batchMortalities.length}
+                      {mortalityStats.totalRecords ?? batchMortalities.length}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
                       (Disease/Natural)

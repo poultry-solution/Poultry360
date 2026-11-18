@@ -1,25 +1,29 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Egg,
   Layers,
   FlaskConical,
   Bird,
-  CalendarDays,
-  DollarSign,
-  Users,
+  Package,
   AlertTriangle,
   Lightbulb,
   Replace,
   Sparkles,
   CheckCircle2,
   ChevronRight,
+  ChevronDown,
+  Loader2,
+  Plus,
+  Wallet,
+  Banknote,
 } from "lucide-react";
+import { Button } from "@/common/components/ui/button";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { useAuthStore } from "@/common/store/store";
-import { convertADtoBS, getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
+import { formatBSLong, getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { formatRupeesExact } from "@/common/lib/utils";
 import { useHatcheryBatches, useHatcheryEggInventory } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useHatcheryTodaySummary } from "@/fetchers/hatchery/hatcheryAnalyticsQueries";
@@ -30,17 +34,23 @@ import {
 } from "@/fetchers/hatchery/hatcheryIncubationQueries";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
 import { useGetHatcheryInventoryStatistics } from "@/fetchers/hatchery/hatcheryInventoryQueries";
+import { ReminderCard } from "@/components/reminders/ReminderCard";
+import { HatchResultChart } from "@/components/hatchery/HatchResultChart";
+import { HatcheryBatchProfitChart } from "@/components/hatchery/HatcheryBatchProfitChart";
 
 // 21-day chicken-egg incubation: candle day 9, move to hatcher day 18, hatch day 21.
 const CANDLE_DAY = 9;
 const TRANSFER_DAY = 18;
 const HATCH_DAY = 21;
 
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 type ActionKind = "CANDLE" | "TRANSFER" | "HATCH";
 
 type CycleAction = {
   kind: ActionKind;
-  day: number;
+  /** Incubation day the step is planned for (9, 18 or 21). */
+  dueDay: number;
   /** Positive: due in N days. Zero: today. Negative: N days late. */
   daysUntil: number;
   batch: IncubationBatch;
@@ -61,17 +71,15 @@ function nextCycleAction(batch: IncubationBatch, today: string): CycleAction | n
   if (day < 1) return null;
 
   // Walk the pipeline: whichever step has not been completed is "next".
-  // `daysUntil` is `targetDay - day` so positive = upcoming, 0 = today,
-  // negative = overdue.
-  if (!batch.candledAt) {
-    return { kind: "CANDLE", day, daysUntil: CANDLE_DAY - day, batch };
-  }
-  if (!batch.transferredAt) {
-    return { kind: "TRANSFER", day, daysUntil: TRANSFER_DAY - day, batch };
-  }
-  if (!batch.hatchedAt) {
-    return { kind: "HATCH", day, daysUntil: HATCH_DAY - day, batch };
-  }
+  const step = (kind: ActionKind, dueDay: number): CycleAction => ({
+    kind,
+    dueDay,
+    daysUntil: dueDay - day,
+    batch,
+  });
+  if (!batch.candledAt) return step("CANDLE", CANDLE_DAY);
+  if (!batch.transferredAt) return step("TRANSFER", TRANSFER_DAY);
+  if (!batch.hatchedAt) return step("HATCH", HATCH_DAY);
   return null;
 }
 
@@ -81,7 +89,7 @@ function dueBadge(daysUntil: number): { text: string; className: string } {
     const n = -daysUntil;
     return {
       text: `${n} day${n === 1 ? "" : "s"} late`,
-      className: "bg-amber-50 text-amber-700 border-amber-200",
+      className: "bg-red-50 text-red-700 border-red-200",
     };
   }
   if (daysUntil === 0) {
@@ -105,36 +113,105 @@ const ACTION_META: Record<
   HATCH: { label: "Hatching", icon: Sparkles, accent: "text-green-700" },
 };
 
-function fmtNpr(amount: number) {
-  return formatRupeesExact(amount);
+function actionText(a: CycleAction): string {
+  const label = ACTION_META[a.kind].label;
+  if (a.daysUntil < 0) return `${label} was due on day ${a.dueDay}`;
+  if (a.daysUntil === 0) return `${label} today (day ${a.dueDay})`;
+  return `${label} on day ${a.dueDay}`;
 }
 
-function KpiCard({
-  title,
-  value,
-  subtitle,
+/** "Friday, Kartik 20, 2083" for a Nepal-day YYYY-MM-DD string. */
+function formatNepalToday(todayAd: string): string {
+  const weekday = WEEKDAYS[new Date(`${todayAd}T00:00:00Z`).getUTCDay()];
+  return `${weekday}, ${formatBSLong(todayAd)}`;
+}
+
+/** Small tile, same size as the dealer and farmer Home tiles. */
+function HomeStat({
+  label,
   icon: Icon,
-  valueClassName,
+  value,
+  sub,
+  href,
+  valueClass,
 }: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
+  label: string;
   icon: React.ComponentType<{ className?: string }>;
-  valueClassName?: string;
+  /** null while loading. */
+  value: string | null;
+  sub: string;
+  href: string;
+  valueClass?: string;
 }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted-foreground">{title}</p>
-            <p className={`text-2xl font-bold mt-1 ${valueClassName ?? "text-foreground"}`}>{value}</p>
-            {subtitle ? <p className="text-xs text-muted-foreground mt-1">{subtitle}</p> : null}
+    <Link
+      href={href}
+      className="block rounded-lg border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-gray-300 hover:bg-gray-50"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-medium text-gray-600">{label}</p>
+        <Icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+      </div>
+      {value === null ? (
+        <Loader2 className="my-1 h-5 w-5 animate-spin text-gray-400" />
+      ) : (
+        <p className={`mt-0.5 truncate text-lg font-bold md:text-xl ${valueClass ?? ""}`}>{value}</p>
+      )}
+      <p className="truncate text-[11px] text-gray-500">{sub}</p>
+    </Link>
+  );
+}
+
+function StatGroup({
+  title,
+  children,
+  wide,
+}: {
+  title: string;
+  children: React.ReactNode;
+  /** 4 tiles in one row from tablet width up. */
+  wide?: boolean;
+}) {
+  return (
+    <section className="space-y-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</h2>
+      <div className={`grid grid-cols-2 gap-3 ${wide ? "md:grid-cols-4" : ""}`}>{children}</div>
+    </section>
+  );
+}
+
+function WorkRow({ action }: { action: CycleAction }) {
+  const meta = ACTION_META[action.kind];
+  const Icon = meta.icon;
+  const badge = dueBadge(action.daysUntil);
+  return (
+    <li>
+      <Link
+        href={`/hatchery/dashboard/incubations/${action.batch.id}`}
+        className="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/40 active:bg-muted/60"
+      >
+        <div className="flex min-w-0 items-start gap-2.5">
+          <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${meta.accent}`} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {action.batch.code}
+              {action.batch.name ? (
+                <span className="font-normal text-muted-foreground"> · {action.batch.name}</span>
+              ) : null}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {actionText(action)} · {action.batch.eggsSetCount.toLocaleString()} eggs
+            </p>
           </div>
-          <Icon className="h-5 w-5 text-muted-foreground" />
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+            {badge.text}
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Link>
+    </li>
   );
 }
 
@@ -145,105 +222,76 @@ function TodaysWork({
   incubations: IncubationBatch[];
   loading: boolean;
 }) {
+  const [showLater, setShowLater] = useState(false);
   const today = useMemo(() => getNepalTodayAd(), []);
-  const groups = useMemo(() => {
-    const buckets: Record<ActionKind, CycleAction[]> = {
-      CANDLE: [],
-      TRANSFER: [],
-      HATCH: [],
+
+  // Late, today and tomorrow are shown; anything later sits behind a toggle.
+  const { urgent, later } = useMemo(() => {
+    const actions = incubations
+      .map((b) => nextCycleAction(b, today))
+      .filter((a): a is CycleAction => a !== null)
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+    return {
+      urgent: actions.filter((a) => a.daysUntil <= 1),
+      later: actions.filter((a) => a.daysUntil > 1),
     };
-    for (const b of incubations) {
-      const action = nextCycleAction(b, today);
-      if (action) buckets[action.kind].push(action);
-    }
-    // Most urgent first within each group: late → today → tomorrow → farther out.
-    for (const kind of Object.keys(buckets) as ActionKind[]) {
-      buckets[kind].sort((a, b) => a.daysUntil - b.daysUntil);
-    }
-    return buckets;
   }, [incubations, today]);
 
-  const total = groups.CANDLE.length + groups.TRANSFER.length + groups.HATCH.length;
-
   return (
-    <Card>
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div>
-            <p className="text-xs text-muted-foreground">Today&apos;s work</p>
-            <h2 className="text-base sm:text-lg font-semibold">Incubation schedule</h2>
-          </div>
-          <CalendarDays className="h-5 w-5 text-muted-foreground" />
-        </div>
+    <Card className="gap-0 rounded-lg border-gray-200 py-0">
+      <CardContent className="px-4 py-3">
+        <h2 className="mb-2 text-base font-semibold">Today&apos;s work</h2>
 
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="h-10 rounded bg-muted animate-pulse" />
+              <div key={i} className="h-10 animate-pulse rounded bg-muted" />
             ))}
           </div>
-        ) : total === 0 ? (
+        ) : urgent.length === 0 && later.length === 0 ? (
           <div className="flex items-start gap-3 rounded-md border bg-muted/30 p-3">
-            <CheckCircle2 className="h-5 w-5 text-green-700 shrink-0 mt-0.5" />
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-700" />
             <div className="text-sm">
-              <p className="font-medium">No active incubations</p>
+              <p className="font-medium">No incubations running</p>
               <p className="text-muted-foreground">
-                Start an incubation to see candling (day 9), transfer (day 18) and hatch (day 21) reminders here.
+                Start an incubation to see candling (day 9), move to hatcher (day 18) and hatch (day 21) here.
               </p>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {(Object.keys(groups) as ActionKind[]).map((kind) => {
-              const items = groups[kind];
-              if (items.length === 0) return null;
-              const meta = ACTION_META[kind];
-              const Icon = meta.icon;
-              return (
-                <section key={kind}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Icon className={`h-4 w-4 ${meta.accent}`} />
-                    <h3 className="text-sm font-semibold">{meta.label}</h3>
-                    <span className="text-xs text-muted-foreground">
-                      {items.length} batch{items.length === 1 ? "" : "es"}
-                    </span>
-                  </div>
+          <div className="space-y-2">
+            {urgent.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2.5 text-sm">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-green-700" />
+                Nothing due today or tomorrow.
+              </div>
+            ) : (
+              <ul className="divide-y rounded-md border">
+                {urgent.map((a) => (
+                  <WorkRow key={a.batch.id} action={a} />
+                ))}
+              </ul>
+            )}
+
+            {later.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowLater((v) => !v)}
+                  className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showLater ? "rotate-180" : ""}`} />
+                  {showLater ? "Hide" : "Show"} {later.length} coming up later
+                </button>
+                {showLater ? (
                   <ul className="divide-y rounded-md border">
-                    {items.map((a) => (
-                      <li key={a.batch.id}>
-                        <Link
-                          href={`/hatchery/dashboard/incubations/${a.batch.id}`}
-                          className="flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-muted/40 active:bg-muted/60"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {a.batch.code}
-                              {a.batch.name ? (
-                                <span className="font-normal text-muted-foreground"> · {a.batch.name}</span>
-                              ) : null}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Day {a.day} of {HATCH_DAY} · {a.batch.eggsSetCount.toLocaleString()} eggs set
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {(() => {
-                              const badge = dueBadge(a.daysUntil);
-                              return (
-                                <span className={`rounded-full text-xs font-medium px-2 py-0.5 border ${badge.className}`}>
-                                  {badge.text}
-                                </span>
-                              );
-                            })()}
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </Link>
-                      </li>
+                    {later.map((a) => (
+                      <WorkRow key={a.batch.id} action={a} />
                     ))}
                   </ul>
-                </section>
-              );
-            })}
+                ) : null}
+              </>
+            ) : null}
           </div>
         )}
       </CardContent>
@@ -253,15 +301,13 @@ function TodaysWork({
 
 function HatcheryHomeContent() {
   const { user } = useAuthStore();
+  // Charts read analytics data: owners always, staff only with the analytics permission.
+  const canViewAnalytics = !user?.isStaff || Boolean(user.permissions?.includes("HATCHERY_VIEW_ANALYTICS"));
   const { data: todaySummary, isLoading: isTodaySummaryLoading } = useHatcheryTodaySummary();
 
-  // Label comes from the SAME AD day the server counted, parsed as UTC midnight
-  // exactly like stored record dates. Converting `new Date()` directly would
-  // double-apply the Nepal offset and roll to the next BS day in the evening.
-  const today = useMemo(
-    () => (todaySummary?.date ? convertADtoBS(new Date(todaySummary.date)) : "—"),
-    [todaySummary?.date]
-  );
+  // Use the SAME AD day the server counted, so the date and the "today"
+  // numbers always match. Fall back to the Nepal day while it loads.
+  const todayLabel = formatNepalToday(todaySummary?.date ?? getNepalTodayAd());
 
   const { data: activeParentBatchData, isLoading: isActiveParentBatchLoading } = useHatcheryBatches({
     type: "PARENT_FLOCK",
@@ -281,80 +327,126 @@ function HatcheryHomeContent() {
   ).length;
   const totalEggStock = Number(eggInventoryRes?.summary?.totalStock ?? 0);
   const totalProducedChicks = Number(producedChickRes?.summary?.totalStock ?? 0);
-  const outstandingPartiesBalance = (partiesData?.parties ?? []).reduce(
+  const partiesBalance = (partiesData?.parties ?? []).reduce(
     (sum, p) => sum + Number(p.balance ?? 0),
     0
   );
   const lowStockItems = Number(statsRes?.data?.lowStockCount ?? 0);
-  const isLoadingCards =
-    isTodaySummaryLoading ||
-    isActiveParentBatchLoading ||
-    isIncubationLoading ||
-    isEggStockLoading ||
-    isProducedChickLoading ||
-    isPartiesLoading ||
-    isInventoryStatsLoading;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Welcome, {user?.name ?? "User"}</h1>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Welcome, {user?.name ?? "User"}</h1>
+          <p className="text-sm text-muted-foreground md:text-base">{todayLabel}</p>
+        </div>
+        <Link href="/hatchery/dashboard/incubations?new=1">
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-green-200 hover:bg-green-50 hover:text-green-700 md:w-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Start incubation
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {isLoadingCards ? (
-          Array.from({ length: 8 }).map((_, idx) => (
-            <Card key={`kpi-skeleton-${idx}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2 w-full">
-                    <div className="h-3 w-32 rounded bg-muted animate-pulse" />
-                    <div className="h-7 w-20 rounded bg-muted animate-pulse" />
-                    <div className="h-3 w-40 rounded bg-muted animate-pulse" />
-                  </div>
-                  <div className="h-5 w-5 rounded bg-muted animate-pulse" />
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <>
-            <KpiCard title="Active Parent Batches" value={activeParentBatches} subtitle="Parent flock batches currently active" icon={Layers} />
-            <KpiCard title="Active Incubations" value={activeIncubations} subtitle="Setter/Candling/Hatcher stages" icon={FlaskConical} />
-            <KpiCard title="Total Egg Stock" value={totalEggStock.toLocaleString()} subtitle="Across all egg types and batches" icon={Egg} />
-            <KpiCard title="Total Produced Chicks" value={totalProducedChicks.toLocaleString()} subtitle="Available stock across incubations" icon={Bird} />
-            <KpiCard
-              title="Today Egg Production"
-              value={(todaySummary?.eggProduction ?? 0).toLocaleString()}
-              subtitle={`Production records on ${today}`}
-              icon={CalendarDays}
+      {/* Left: today's work and numbers. Right: reminders, which can get long,
+          so they scroll inside their own card and never leave a gap. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="min-w-0 space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <StatGroup title="Today">
+              <HomeStat
+                label="Eggs today"
+                icon={Egg}
+                value={isTodaySummaryLoading ? null : (todaySummary?.eggProduction ?? 0).toLocaleString()}
+                sub="All parent batches"
+                href="/hatchery/dashboard/batches"
+              />
+              <HomeStat
+                label="Chick sales today"
+                icon={Banknote}
+                value={isTodaySummaryLoading ? null : formatRupeesExact(todaySummary?.chickSalesRevenue ?? 0)}
+                sub="Sold today"
+                href="/hatchery/dashboard/produced-chicks"
+                valueClass="text-green-700"
+              />
+            </StatGroup>
+
+            <StatGroup title="Money">
+              <HomeStat
+                label={partiesBalance >= 0 ? "Parties owe you" : "You owe parties"}
+                icon={Wallet}
+                value={isPartiesLoading ? null : formatRupeesExact(Math.abs(partiesBalance))}
+                sub="Current unpaid amount"
+                href="/hatchery/dashboard/parties"
+                valueClass={partiesBalance >= 0 ? "text-green-700" : "text-red-600"}
+              />
+              <HomeStat
+                label="Items low in stock"
+                icon={lowStockItems > 0 ? AlertTriangle : Package}
+                value={isInventoryStatsLoading ? null : String(lowStockItems)}
+                sub="Below minimum stock"
+                href="/hatchery/dashboard/inventory"
+                valueClass={lowStockItems > 0 ? "text-orange-600" : "text-gray-500"}
+              />
+            </StatGroup>
+          </div>
+
+          <StatGroup title="Stock now" wide>
+            <HomeStat
+              label="Eggs in stock"
+              icon={Egg}
+              value={isEggStockLoading ? null : totalEggStock.toLocaleString()}
+              sub="All egg types"
+              href="/hatchery/dashboard/egg-inventory"
             />
-            <KpiCard
-              title="Today Chick Sales Revenue"
-              value={fmtNpr(todaySummary?.chickSalesRevenue ?? 0)}
-              subtitle={`Chick sales on ${today}`}
-              icon={DollarSign}
-              valueClassName="text-green-700"
+            <HomeStat
+              label="Chicks to sell"
+              icon={Bird}
+              value={isProducedChickLoading ? null : totalProducedChicks.toLocaleString()}
+              sub="Hatched, not sold yet"
+              href="/hatchery/dashboard/produced-chicks"
             />
-            <KpiCard
-              title="Outstanding Parties Balance"
-              value={fmtNpr(outstandingPartiesBalance)}
-              subtitle="Total receivable from hatchery parties"
-              icon={Users}
-              valueClassName={outstandingPartiesBalance > 0 ? "text-red-600" : "text-green-700"}
+            <HomeStat
+              label="Incubations"
+              icon={FlaskConical}
+              value={isIncubationLoading ? null : String(activeIncubations)}
+              sub="Running now"
+              href="/hatchery/dashboard/incubations"
             />
-            <KpiCard
-              title="Low Inventory Items"
-              value={lowStockItems}
-              subtitle="Items at or below minimum stock"
-              icon={AlertTriangle}
-              valueClassName={lowStockItems > 0 ? "text-red-600" : "text-green-700"}
+            <HomeStat
+              label="Parent batches"
+              icon={Layers}
+              value={isActiveParentBatchLoading ? null : String(activeParentBatches)}
+              sub="Active parent flocks"
+              href="/hatchery/dashboard/batches"
             />
-          </>
-        )}
+          </StatGroup>
+
+          <TodaysWork incubations={incubations} loading={isIncubationLoading} />
+          {/* Smaller screens: reminders full width, right after today's work. */}
+          <ReminderCard module="hatchery" className="xl:hidden" />
+        </div>
+        <ReminderCard module="hatchery" className="hidden xl:sticky xl:top-4 xl:block" />
       </div>
 
-      <TodaysWork incubations={incubations} loading={isIncubationLoading} />
+      {canViewAnalytics ? (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Results</h2>
+            <Link href="/hatchery/dashboard/analytics" className="text-xs font-medium text-primary hover:underline">
+              See more in Analytics →
+            </Link>
+          </div>
+          {/* Full width, one under the other, so more bars fit before scrolling. */}
+          <div className="space-y-4">
+            <HatchResultChart enabled={canViewAnalytics} />
+            <HatcheryBatchProfitChart enabled={canViewAnalytics} />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

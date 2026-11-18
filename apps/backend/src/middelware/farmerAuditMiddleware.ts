@@ -29,6 +29,9 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
   "POST batches": { description: "Added a batch", targetType: "Batch" },
   "PUT batches/record": { description: "Updated a batch", targetType: "Batch" },
   "DELETE batches/record": { description: "Deleted a batch", targetType: "Batch" },
+  "POST batches/record/notes": { description: "Added a batch note", targetType: "Batch note" },
+  "PUT batches/record/notes/record": { description: "Changed a batch note", targetType: "Batch note" },
+  "DELETE batches/record/notes/record": { description: "Deleted a batch note", targetType: "Batch note" },
   "POST batches/record/close": { description: "Closed a batch", targetType: "Batch" },
   "POST batches/record/reopen": { description: "Reopened a batch", targetType: "Batch" },
 
@@ -89,6 +92,9 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
 
   // Cash in hand
   "POST farmer/cash-in-hand/setup": { description: "Set up cash in hand", targetType: "Cash settings" },
+
+  // cFCR standard (the controller adds the new values to the text)
+  "PUT farmer/fcr-settings": { description: "Changed the cFCR standard", targetType: "cFCR settings" },
   "POST farmer/cash-in-hand/movements": { description: "Recorded a cash movement", targetType: "Cash movement" },
   "DELETE farmer/cash-in-hand/movements/record": { description: "Deleted a cash movement", targetType: "Cash movement" },
   "POST farmer/cash-in-hand/close-day": { description: "Closed the cash day", targetType: "Cash day close" },
@@ -100,6 +106,10 @@ const farmerActivityCopy: Record<string, FarmerActivityCopy> = {
 
   // Reminders
   "POST reminders": { description: "Added a reminder", targetType: "Reminder" },
+  "PATCH reminders/record": { description: "Changed a reminder", targetType: "Reminder" },
+  "POST reminders/record/done": { description: "Marked a reminder done", targetType: "Reminder" },
+  "POST reminders/record/undo": { description: "Undid a done reminder", targetType: "Reminder" },
+  "POST reminders/record/snooze": { description: "Snoozed a reminder", targetType: "Reminder" },
   "DELETE reminders/record": { description: "Deleted a reminder", targetType: "Reminder" },
 
   // List for sale
@@ -163,7 +173,8 @@ export function auditSuccessfulFarmerMutation(
           action: `farmer.${actionRoute}.${verb(req.method)}`,
           targetType: presentation.targetType,
           targetId,
-          description: presentation.description,
+          // A route can give a more exact text (for example the new values).
+          description: typeof res.locals.auditDescription === "string" ? res.locals.auditDescription : presentation.description,
           businessType: "FARMER",
           businessId: business.id,
         });

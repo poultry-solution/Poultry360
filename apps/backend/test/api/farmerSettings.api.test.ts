@@ -84,5 +84,29 @@ describe("Farmer settings API journey", () => {
     expect(featuresAfterStaffChange.body.data).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: "FARMER_LIST_FOR_SALE", enabled: false }),
     ]));
+
+    // cFCR standard: staff can see it, only the owner can change it.
+    const staffSees = await staffApi.get("/farmer/fcr-settings");
+    expect(staffSees.status).toBe(200);
+    expect(staffSees.body.data).toMatchObject({ targetWeightKg: 2, correctionFactorPerKg: 0.25 });
+    const staffChange = await staffApi.put("/farmer/fcr-settings", { targetWeightKg: 2.5, correctionFactorPerKg: 0.2 });
+    expect(staffChange.status).toBe(403);
+    expect(staffChange.body.code).toBe("OWNER_ONLY");
+  });
+
+  it("saves the cFCR standard and writes it to the activity log", async () => {
+    const saved = await ownerApi.put("/farmer/fcr-settings", { targetWeightKg: 2.5, correctionFactorPerKg: 0.2 });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data).toEqual({ targetWeightKg: 2.5, correctionFactorPerKg: 0.2, isDefault: false });
+    expect((await ownerApi.get("/farmer/fcr-settings")).body.data.targetWeightKg).toBe(2.5);
+
+    let entry: any;
+    for (let attempt = 0; attempt < 15 && !entry; attempt += 1) {
+      const log = await ownerApi.get("/business-activity?archived=all&limit=100");
+      entry = (log.body.data || []).find((row: { description?: string }) =>
+        row.description === "Changed the cFCR standard to 2.5 kg, 0.2 per kg");
+      if (!entry) await new Promise((resolve) => setTimeout(resolve, 80));
+    }
+    expect(entry).toBeDefined();
   });
 });

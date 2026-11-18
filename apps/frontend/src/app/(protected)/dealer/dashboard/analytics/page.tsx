@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CalendarRange, RefreshCcw } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/common/components/ui/card";
-import { CustomRangePickers, RangeModeSwitch, useNepaliDateRange } from "@/components/dealer/NepaliRangeFilter";
+import { CustomRangePickers, RangeModeSwitch, useNepaliDateRange } from "@/components/common/NepaliRangeFilter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetInventorySummary, useGetDealerProducts } from "@/fetchers/dealer/dealerProductQueries";
 import { useGetSalesStatistics, useGetDealerCustomers } from "@/fetchers/dealer/dealerSaleQueries";

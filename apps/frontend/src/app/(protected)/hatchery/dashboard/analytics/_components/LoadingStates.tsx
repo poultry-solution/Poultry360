@@ -4,22 +4,18 @@ import { Card, CardContent } from "@/common/components/ui/card";
 
 function SkeletonCard() {
   return (
-    <Card className="border-slate-200/80 shadow-sm">
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          <div className="h-3 w-28 rounded bg-slate-100 animate-pulse" />
-          <div className="h-8 w-36 rounded bg-slate-100 animate-pulse" />
-          <div className="h-3 w-40 rounded bg-slate-100 animate-pulse" />
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
+      <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
+      <div className="h-6 w-28 animate-pulse rounded bg-slate-100" />
+      <div className="h-2.5 w-32 animate-pulse rounded bg-slate-100" />
+    </div>
   );
 }
 
 export function OverviewLoadingState() {
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonCard key={index} />
         ))}
@@ -50,7 +46,7 @@ export function OverviewLoadingState() {
 export function BatchAnalyticsLoadingState() {
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonCard key={index} />
         ))}
@@ -68,7 +64,7 @@ export function BatchAnalyticsLoadingState() {
 export function IncubationAnalyticsLoadingState() {
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonCard key={index} />
         ))}
@@ -86,7 +82,7 @@ export function IncubationAnalyticsLoadingState() {
 export function ProductionAnalyticsLoadingState() {
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonCard key={index} />
         ))}
@@ -104,7 +100,7 @@ export function ProductionAnalyticsLoadingState() {
 export function SalesAnalyticsLoadingState() {
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <SkeletonCard key={index} />
         ))}

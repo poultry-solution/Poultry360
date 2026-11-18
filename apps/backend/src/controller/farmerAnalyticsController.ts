@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { ACCOUNT_FEATURE_KEYS, isAccountFeatureEnabled } from "../services/accountFeatureService";
+import { getFarmerFcrSettings } from "../services/farmerFcrSettingsService";
 import { AnalyticsRangeError, parseAnalyticsRange, withAllTimeStart } from "../services/farmerAnalytics/period";
 import { AnalyticsScopeError, buildAnalyticsScope, findFirstDate, type AnalyticsScope } from "../services/farmerAnalytics/scope";
 import type { AnalyticsRange } from "../services/farmerAnalytics/period";
@@ -46,9 +48,16 @@ export const getFarmerAnalyticsOverview = handler("overview", (_req, userId, sco
   getOverview(userId, scope, range)
 );
 export const getFarmerFinanceAnalytics = handler("money", (_req, _userId, scope, range) => getMoney(scope, range));
-export const getFarmerFlockComparisonAnalytics = handler("batches", (_req, _userId, scope, range) =>
-  getBatches(scope, range)
-);
+// Batches tab: cFCR column only for accounts that turned cFCR on, with the standard used.
+export const getFarmerFlockComparisonAnalytics = handler("batches", async (_req, userId, scope, range) => {
+  const [data, cfcrOn, standard] = await Promise.all([
+    getBatches(scope, range),
+    isAccountFeatureEnabled(userId, ACCOUNT_FEATURE_KEYS.FARMER_CFCR),
+    getFarmerFcrSettings(userId),
+  ]);
+  if (!cfcrOn) return { ...data, cfcrStandard: null, batches: data.batches.map((row) => ({ ...row, cfcr: null })) };
+  return { ...data, cfcrStandard: standard };
+});
 export const getFarmerOperationsAnalytics = handler("health-feed", (_req, _userId, scope, range) =>
   getHealthFeed(scope, range)
 );

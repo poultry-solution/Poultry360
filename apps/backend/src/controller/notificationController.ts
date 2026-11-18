@@ -15,7 +15,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const result = await listNotifications(userId, { status, limit, offset });
+    const result = await listNotifications({ userId, staffUserId: req.staffUserId ?? null }, { status, limit, offset });
     res.json({ success: true, data: result.items, total: result.total });
   } catch (error) {
     console.error("Get notifications error:", error);
@@ -28,7 +28,7 @@ export const getNotificationUnreadCount = async (req: Request, res: Response): P
     const userId = req.userId;
     if (!userId) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
 
-    const count = await getUnreadCount(userId);
+    const count = await getUnreadCount({ userId, staffUserId: req.staffUserId ?? null });
     res.json({ success: true, data: { count } });
   } catch (error) {
     console.error("Get unread count error:", error);
@@ -42,7 +42,7 @@ export const markNotificationRead = async (req: Request, res: Response): Promise
     if (!userId) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
 
     const { id } = req.params;
-    await markAsRead(id, userId);
+    await markAsRead(id, { userId, staffUserId: req.staffUserId ?? null });
     res.json({ success: true });
   } catch (error) {
     console.error("Mark notification read error:", error);
@@ -55,7 +55,7 @@ export const markAllNotificationsRead = async (req: Request, res: Response): Pro
     const userId = req.userId;
     if (!userId) { res.status(401).json({ success: false, message: "Unauthorized" }); return; }
 
-    await markAllAsRead(userId);
+    await markAllAsRead({ userId, staffUserId: req.staffUserId ?? null });
     res.json({ success: true });
   } catch (error) {
     console.error("Mark all read error:", error);

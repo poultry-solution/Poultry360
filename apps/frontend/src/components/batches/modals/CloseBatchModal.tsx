@@ -104,8 +104,9 @@ export function CloseBatchModal({
             {Number(analytics?.currentChicks || 0) > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
                 <p className="text-sm text-amber-900">
-                  {analytics?.currentChicks?.toLocaleString()} birds remain. If you close this
-                  batch, they will be treated as dead and their weight will not be added to FCR.
+                  {batch?.batchType === "LAYERS"
+                    ? `${analytics?.currentChicks?.toLocaleString()} hens are still on the farm. If you close now, they will be saved as "left at close" (not as deaths). Sell them first if you want that money in this batch.`
+                    : `${analytics?.currentChicks?.toLocaleString()} birds remain. If you close this batch, they will be saved as "left at close" (not as deaths) and their weight will not be added to FCR.`}
                 </p>
                 <label className="mt-3 flex items-start gap-2 text-sm text-amber-950">
                   <input
@@ -137,25 +138,24 @@ export function CloseBatchModal({
                   <div>
                     Current Birds: {analytics.currentChicks?.toLocaleString()}
                   </div>
-                  <div>Total Mortality: {analytics.totalMortality || 0}</div>
+                  <div>Deaths: {analytics.totalMortality || 0}</div>
                   <div>Days Active: {analytics.daysActive}</div>
                   <div>
-                    Total Sales: ₹{analytics.totalSales?.toLocaleString()}
+                    Total Sales: रू {analytics.totalSales?.toLocaleString("en-IN")}
                   </div>
                   <div>
-                    Total Expenses: ₹
-                    {analytics.totalExpenses?.toLocaleString()}
+                    Total Expenses: रू {analytics.totalExpenses?.toLocaleString("en-IN")}
                   </div>
                   <div
                     className={`col-span-2 font-medium ${analytics.profit >= 0 ? "text-green-600" : "text-red-600"}`}
                   >
-                    Net Profit: ₹{analytics.profit?.toLocaleString()}
+                    Net Profit: रू {analytics.profit?.toLocaleString("en-IN")}
                   </div>
                 </div>
                 {analytics.currentChicks > 0 && (
                   <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
                     <strong>Note:</strong> The {analytics.currentChicks} remaining birds will be
-                    recorded as closure deaths after you confirm.
+                    saved as &quot;left at close&quot; after you confirm.
                   </div>
                 )}
               </div>

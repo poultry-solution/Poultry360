@@ -347,9 +347,10 @@ export const hatcheryAnalyticsKeys = {
   ) => [...hatcheryAnalyticsKeys.all, "sales", params] as const,
 };
 
-export function useGetHatcheryAnalyticsOverview(params: HatcheryAnalyticsOverviewParams) {
+export function useGetHatcheryAnalyticsOverview(params: HatcheryAnalyticsOverviewParams, enabled = true) {
   return useQuery({
     queryKey: hatcheryAnalyticsKeys.overview(params),
+    enabled,
     queryFn: async () => {
       const searchParams = new URLSearchParams();
       if (params.startDate) searchParams.set("startDate", params.startDate);

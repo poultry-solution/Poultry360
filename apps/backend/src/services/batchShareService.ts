@@ -186,7 +186,11 @@ export function assembleShareReport(input: ShareReportInput) {
   }
   const totalDeaths = deathRows.reduce((sum, row) => sum + row.count, 0);
   const sold = input.fcr?.currentSoldBirds ?? 0;
-  const leftAtClose = input.fcr?.closureDeaths ?? 0;
+  // Read from the saved closing rows: the FCR field is 0 for layers and for
+  // broilers whose FCR can't be worked out.
+  const leftAtClose = input.mortalities
+    .filter((row) => row.reason === "BATCH_CLOSURE")
+    .reduce((sum, row) => sum + row.count, 0);
   const alive =
     input.fcr?.currentBirds ?? Math.max(0, batch.initialChicks - totalDeaths - sold);
 

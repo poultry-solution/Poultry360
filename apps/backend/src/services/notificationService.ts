@@ -8,6 +8,18 @@ export interface NotifyUserInput {
   body: string;
   data?: Record<string, unknown>;
   sendPush?: boolean;
+  /** Staff login that should get it. Omit/null for the owner's own inbox. */
+  staffUserId?: string | null;
+}
+
+/** Inbox owner: the account owner (staffUserId null) or one staff login. */
+export interface InboxScope {
+  userId: string;
+  staffUserId?: string | null;
+}
+
+function inboxWhere(scope: InboxScope) {
+  return { userId: scope.userId, staffUserId: scope.staffUserId ?? null };
 }
 
 /**
@@ -18,6 +30,7 @@ export async function notifyUser(userId: string, input: NotifyUserInput) {
   const notification = await prisma.notification.create({
     data: {
       userId,
+      staffUserId: input.staffUserId ?? null,
       type: input.type,
       title: input.title,
       body: input.body,
@@ -34,7 +47,7 @@ export async function notifyUser(userId: string, input: NotifyUserInput) {
       data: input.data,
     };
     try {
-      const pushResult = await sendPushToUser(userId, payload);
+      const pushResult = await sendPushToUser(userId, payload, input.staffUserId ?? null);
       if (pushResult.failed > 0) {
         console.warn(`[notify] push had failures userId=${userId} sent=${pushResult.sent} failed=${pushResult.failed} total=${pushResult.total}`);
       }
@@ -48,10 +61,10 @@ export async function notifyUser(userId: string, input: NotifyUserInput) {
 }
 
 export async function listNotifications(
-  userId: string,
+  scope: InboxScope,
   opts: { status?: "UNREAD" | "READ"; limit?: number; offset?: number } = {}
 ) {
-  const where: any = { userId };
+  const where: any = inboxWhere(scope);
   if (opts.status) where.status = opts.status;
 
   const [items, total] = await Promise.all([
@@ -67,20 +80,20 @@ export async function listNotifications(
   return { items, total };
 }
 
-export async function getUnreadCount(userId: string) {
-  return prisma.notification.count({ where: { userId, status: "UNREAD" } });
+export async function getUnreadCount(scope: InboxScope) {
+  return prisma.notification.count({ where: { ...inboxWhere(scope), status: "UNREAD" } });
 }
 
-export async function markAsRead(notificationId: string, userId: string) {
+export async function markAsRead(notificationId: string, scope: InboxScope) {
   return prisma.notification.updateMany({
-    where: { id: notificationId, userId },
+    where: { id: notificationId, ...inboxWhere(scope) },
     data: { status: "READ", readAt: new Date() },
   });
 }
 
-export async function markAllAsRead(userId: string) {
+export async function markAllAsRead(scope: InboxScope) {
   return prisma.notification.updateMany({
-    where: { userId, status: "UNREAD" },
+    where: { ...inboxWhere(scope), status: "UNREAD" },
     data: { status: "READ", readAt: new Date() },
   });
 }

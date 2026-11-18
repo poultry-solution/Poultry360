@@ -5,6 +5,8 @@ jest.mock("../../src/utils/prisma", () => ({
     batch: { findMany: jest.fn(), groupBy: jest.fn() },
     expense: { aggregate: jest.fn() },
     sale: { aggregate: jest.fn() },
+    // cFCR feature turned on for this account.
+    accountFeature: { findUnique: jest.fn().mockResolvedValue({ enabled: true }) },
   },
 }));
 
@@ -54,6 +56,18 @@ describe("Farmer batch performance (Home profit graph)", () => {
     db.expense.aggregate.mockResolvedValue({ _sum: { amount: 300000 } });
     db.sale.aggregate.mockResolvedValue({ _sum: { amount: 360000 } });
     fcr.mockResolvedValue({ fcr: 1.6, currentFcr: 1.6, currentCfcr: 1.55, currentDeaths: 50, remainingAverageWeightKg: 0 });
+  });
+
+  it("shows cFCR only for a finished batch (final), not for a running one", async () => {
+    db.batch.findMany.mockResolvedValue([batch("done"), { ...batch("running"), status: "ACTIVE", endDate: null }]);
+    fcr.mockImplementation(async (id: string) =>
+      id === "done"
+        ? { fcr: 1.63, currentFcr: 1.63, cfcr: 1.58, currentCfcr: 1.58, displayStatus: "FINAL", currentDeaths: 30, remainingAverageWeightKg: 0 }
+        : { fcr: 1.2, currentFcr: 1.2, cfcr: 1.47, currentCfcr: 1.47, displayStatus: "FRESH", currentDeaths: 24, remainingAverageWeightKg: 0.9 });
+    const res = await run({});
+    const rows = res.json.mock.calls[0][0].data;
+    expect(rows.find((r: any) => r.id === "done").cfcr).toBe("1.58");
+    expect(rows.find((r: any) => r.id === "running").cfcr).toBe("N/A");
   });
 
   it("returns the latest N batches and says when there are more", async () => {

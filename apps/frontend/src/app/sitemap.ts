@@ -13,6 +13,8 @@ const publicPaths = [
   "/broiler-farm-software",
   "/feed-dealer-software",
   "/hatchery-software",
+  "/terms",
+  "/privacy",
 ];
 
 export const dynamic = "force-dynamic";

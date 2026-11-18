@@ -45,17 +45,12 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { useI18n } from "@/i18n/useI18n";
 import { DataTable, type Column } from "@/common/components/ui/data-table";
-import {
-  ACCOUNT_FEATURE_KEYS,
-  useAccountFeature,
-} from "@/fetchers/accountFeatureQueries";
 import { StatTile } from "@/components/dashboard/StatsCards";
 
 
 export default function BatchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { t } = useI18n();
-  const cfcrFeature = useAccountFeature(ACCOUNT_FEATURE_KEYS.FARMER_CFCR);
 
   // Fetch farms for the form
   const { data: farmsResponse, isLoading: farmsLoading } = useGetFarms("all");
@@ -70,8 +65,6 @@ export default function BatchesPage() {
     farmId: "",
     startDate: getTodayLocalDate(),
     initialChickWeight: "0.045",
-    cfcrTargetWeightKg: "2.00",
-    cfcrCorrectionFactorPerKg: "0.40",
     notes: "",
   });
 
@@ -187,14 +180,6 @@ export default function BatchesPage() {
         farmId: formData.farmId,
         startDate: startDate,
         initialChickWeight: parseFloat(formData.initialChickWeight),
-        ...(cfcrFeature.isEnabled && formData.batchType === "BROILER"
-          ? {
-              cfcrTargetWeightKg: Number(formData.cfcrTargetWeightKg),
-              cfcrCorrectionFactorPerKg: Number(
-                formData.cfcrCorrectionFactorPerKg
-              ),
-            }
-          : {}),
         status: "ACTIVE" as BatchStatus,
         chicksInventory: builtAllocations,
       });
@@ -207,8 +192,6 @@ export default function BatchesPage() {
         farmId: "",
         startDate: "",
         initialChickWeight: "0.045",
-        cfcrTargetWeightKg: "2.00",
-        cfcrCorrectionFactorPerKg: "0.40",
         notes: "",
       });
       setSingleAlloc({ itemId: "", quantity: "" });
@@ -228,8 +211,6 @@ export default function BatchesPage() {
       farmId: "",
       startDate: getTodayLocalDate(),
       initialChickWeight: "0.045",
-      cfcrTargetWeightKg: "2.00",
-      cfcrCorrectionFactorPerKg: "0.40",
       notes: "",
     });
   };
@@ -238,7 +219,8 @@ export default function BatchesPage() {
   const limit = 10;
   const [farmFilter, setFarmFilter] = useState("all");
   const [batchTypeFilter, setBatchTypeFilter] = useState<"ALL" | "BROILER" | "LAYERS">("ALL");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+  // Most farmers work on running batches, so the list opens on Active.
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ACTIVE");
 
   const router = useRouter();
 
@@ -418,13 +400,16 @@ export default function BatchesPage() {
     setPage(1);
     setFarmFilter("all");
     setBatchTypeFilter("ALL");
-    setStatusFilter("ALL");
+    setStatusFilter("ACTIVE");
   };
 
+  const otherFiltersDefault = farmFilter === "all" && batchTypeFilter === "ALL";
   const emptyMessage =
-    farmFilter === "all" && batchTypeFilter === "ALL" && statusFilter === "ALL"
+    otherFiltersDefault && statusFilter === "ALL"
       ? t("farmer.batches.emptyHelp")
-      : "No batches match the selected filters.";
+      : otherFiltersDefault && statusFilter === "ACTIVE"
+        ? "No running batches. Start a new batch, or choose All status to see closed batches."
+        : "No batches match the selected filters.";
 
   return (
     <div className="space-y-6">
@@ -886,36 +871,6 @@ export default function BatchesPage() {
                   required
                 />
               </div>
-              {cfcrFeature.isEnabled && formData.batchType === "BROILER" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="cfcrTargetWeightKg">cFCR target weight (kg)</Label>
-                    <Input
-                      id="cfcrTargetWeightKg"
-                      name="cfcrTargetWeightKg"
-                      type="number"
-                      min="0.001"
-                      step="0.01"
-                      value={formData.cfcrTargetWeightKg}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cfcrCorrectionFactorPerKg">Correction per kg</Label>
-                    <Input
-                      id="cfcrCorrectionFactorPerKg"
-                      name="cfcrCorrectionFactorPerKg"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.cfcrCorrectionFactorPerKg}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
               <div>
                 <Label htmlFor="notes">{t("farmer.batches.modal.notesOptional")}</Label>
                 <textarea

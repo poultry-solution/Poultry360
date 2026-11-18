@@ -18,6 +18,12 @@ import {
   listProducedChickStock,
   getHatchableStockForBatch,
 } from "../controller/hatcheryIncubationController";
+import {
+  listIncubationNotes,
+  createIncubationNote,
+  updateIncubationNote,
+  deleteIncubationNote,
+} from "../controller/hatcheryNoteController";
 
 const router = express.Router();
 
@@ -34,6 +40,12 @@ const requireHatchery: express.RequestHandler = (req, res, next) => {
 router.get("/hatchery/incubations", requireHatchery, listIncubationBatches);
 router.post("/hatchery/incubations", requireHatchery, createIncubationBatch);
 router.get("/hatchery/incubations/:id", requireHatchery, getIncubationBatch);
+
+// Notes (owner and staff; only the writer or the owner can change one)
+router.get("/hatchery/incubations/:id/notes", requireHatchery, listIncubationNotes);
+router.post("/hatchery/incubations/:id/notes", requireHatchery, createIncubationNote);
+router.put("/hatchery/incubations/:id/notes/:noteId", requireHatchery, updateIncubationNote);
+router.delete("/hatchery/incubations/:id/notes/:noteId", requireHatchery, deleteIncubationNote);
 
 // Stage transitions
 router.post("/hatchery/incubations/:id/candling", requireHatchery, recordCandling);

@@ -3,7 +3,7 @@ import prisma from "../../utils/prisma";
 import { aggregateCurrentFcr, calculateFarmerBatchFcr, type FarmerFcrResult } from "../farmerFcrService";
 import { batchDayOf } from "../batchShareService";
 import { round } from "./period";
-import { naturalDeathWhere, type ScopeBatch } from "./scope";
+import { closureLeftWhere, naturalDeathWhere, type ScopeBatch } from "./scope";
 
 /** Whole-life numbers of one batch, the same as the batch page. */
 export interface BatchStatRow {
@@ -25,6 +25,8 @@ export interface BatchStatRow {
   avgWeightKg: number | null;
   fcr: number | null;
   fcrStatus: FarmerFcrResult["displayStatus"] | null;
+  /** Final cFCR (broilers, all birds sold or closed), corrected to the account's standard. */
+  cfcr: number | null;
   sales: number;
   costs: number;
   profit: number;
@@ -55,11 +57,16 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
   if (batches.length === 0) return [];
   const ids = batches.map((batch) => batch.id);
 
-  const [fcrResults, deaths, feed, sales, costs, weights] = await Promise.all([
+  const [fcrResults, deaths, closureLeft, feed, sales, costs, weights] = await Promise.all([
     mapLimited(batches, (batch) => calculateFarmerBatchFcr(batch.id, now)),
     prisma.mortality.groupBy({
       by: ["batchId"],
       where: { batchId: { in: ids }, ...naturalDeathWhere },
+      _sum: { count: true },
+    }),
+    prisma.mortality.groupBy({
+      by: ["batchId"],
+      where: { batchId: { in: ids }, ...closureLeftWhere },
       _sum: { count: true },
     }),
     prisma.feedConsumption.groupBy({ by: ["batchId"], where: { batchId: { in: ids } }, _sum: { quantityKg: true } }),
@@ -74,6 +81,7 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
   ]);
 
   const deathsBy = new Map(deaths.map((row) => [row.batchId, Number(row._sum.count ?? 0)]));
+  const closureBy = new Map(closureLeft.map((row) => [row.batchId, Number(row._sum.count ?? 0)]));
   const feedBy = new Map(feed.map((row) => [row.batchId, Number(row._sum.quantityKg ?? 0)]));
   const salesBy = new Map(sales.map((row) => [row.batchId, Number(row._sum.amount ?? 0)]));
   const costsBy = new Map(costs.map((row) => [row.batchId, Number(row._sum.amount ?? 0)]));
@@ -84,7 +92,8 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
     // All natural deaths to date (the FCR "deaths" field stops at the last weighing).
     const died = deathsBy.get(batch.id) ?? 0;
     const sold = fcr?.currentSoldBirds ?? 0;
-    const leftAtClose = batch.status === BatchStatus.COMPLETED ? Math.max(0, (fcr?.currentDeaths ?? died) - died) : 0;
+    // From the saved closing rows, so batches closed before closureBirdCount existed still show it.
+    const leftAtClose = batch.status === BatchStatus.COMPLETED ? closureBy.get(batch.id) ?? 0 : 0;
     const alive = batch.status === BatchStatus.COMPLETED ? 0 : fcr?.currentBirds ?? 0;
     const lastDay = batch.status === BatchStatus.COMPLETED && batch.endDate ? batch.endDate : now;
     const batchSales = salesBy.get(batch.id) ?? 0;
@@ -110,6 +119,8 @@ export async function getBatchStats(batches: ScopeBatch[], now = new Date()): Pr
       // Value shown with its status, like the share page ("old weight" when stale).
       fcr: batch.batchType === "BROILER" && fcr?.fcr != null ? round(fcr.fcr, 2) : null,
       fcrStatus: batch.batchType === "BROILER" ? fcr?.displayStatus ?? null : null,
+      // cFCR is for comparing finished batches, so a running batch has none.
+      cfcr: batch.batchType === "BROILER" && fcr?.displayStatus === "FINAL" && fcr.cfcr != null ? round(fcr.cfcr, 2) : null,
       sales: round(batchSales),
       costs: round(batchCosts),
       profit: round(profit),

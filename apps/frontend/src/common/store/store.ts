@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
+import { getCurrentPushEndpoint } from "@/common/lib/pushEndpoint";
 
 // Types based on your backend
 export interface DealerBusiness {
@@ -341,6 +342,15 @@ export const useAuthStore = create<AuthState>()(
 
           try {
             const { accessToken, authMode } = get();
+            // Stop this person's alerts on this device before the token goes away.
+            const endpoint = accessToken ? await getCurrentPushEndpoint() : null;
+            if (endpoint) {
+              await apiCall("/push/unsubscribe", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: JSON.stringify({ endpoint }),
+              }).catch(() => undefined);
+            }
             await apiCall(authMode === "staff" ? "/staff-auth/logout" : "/auth/logout", {
               method: "POST",
               headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,

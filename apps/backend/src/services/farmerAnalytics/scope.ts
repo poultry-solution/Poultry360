@@ -130,3 +130,12 @@ export const naturalDeathWhere: Prisma.MortalityWhereInput = {
   saleId: null,
   OR: [{ reason: null }, { reason: { notIn: ["SLAUGHTERED_FOR_SALE", "BATCH_CLOSURE"] } }],
 };
+
+/** Birds still alive when the batch was closed. Saved as a mortality row, but they did not die. */
+export const CLOSURE_REASON = "BATCH_CLOSURE";
+export const closureLeftWhere: Prisma.MortalityWhereInput = { reason: CLOSURE_REASON };
+
+/** Same rule as `naturalDeathWhere`, for rows already loaded. */
+export function isNaturalDeathRow(row: { saleId?: string | null; reason?: string | null }) {
+  return !row.saleId && row.reason !== "SLAUGHTERED_FOR_SALE" && row.reason !== CLOSURE_REASON;
+}

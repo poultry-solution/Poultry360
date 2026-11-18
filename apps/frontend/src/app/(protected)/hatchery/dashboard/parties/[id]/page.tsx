@@ -1,5 +1,6 @@
 "use client";
 
+import { RemindMeButton } from "@/components/reminders/RemindMeButton";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, FileText, Plus, Trash2, Loader2 } from "lucide-react";
@@ -222,6 +223,12 @@ export default function HatcheryPartyDetailPage() {
           <p className="text-sm text-muted-foreground">{party.phone}{party.address ? ` · ${party.address}` : ""}</p>
         </div>
         <BusinessDownloadDialog title={`${party.name} statement`} fileName={`${party.name}-statement`} getData={downloadStatement} />
+        <RemindMeButton
+          module="hatchery"
+          link={{ hatcheryPartyId: party.id }}
+          defaultTitle="Call for payment"
+          className="h-9"
+        />
       </div>
 
       {/* KPI cards */}
