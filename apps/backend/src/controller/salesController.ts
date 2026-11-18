@@ -600,7 +600,7 @@ export const getBatchSales = async (
       prisma.sale.count({ where: { batchId } }),
       prisma.sale.aggregate({
         where: { batchId },
-        _sum: { amount: true },
+        _sum: { amount: true, weight: true },
       }),
     ]);
 
@@ -614,6 +614,7 @@ export const getBatchSales = async (
       data: sales,
       summary: {
         totalAmount: Number(totalAmount._sum.amount || 0),
+        totalWeight: Number(totalAmount._sum.weight || 0),
         totalCount: total,
         pageAmount,
       },

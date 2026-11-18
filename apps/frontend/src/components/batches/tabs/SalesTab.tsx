@@ -19,6 +19,7 @@ interface SalesTabProps {
   };
   salesSummary?: {
     totalAmount: number;
+    totalWeight?: number;
     totalCount: number;
     pageAmount: number;
   };
@@ -44,6 +45,10 @@ export function SalesTab({
   refetchSales,
 }: SalesTabProps) {
   const totalAmount = Number(salesSummary?.totalAmount ?? salesTotal ?? 0);
+  const totalWeight = Number(
+    salesSummary?.totalWeight ??
+      (batchSales ?? []).reduce((sum: number, sale: any) => sum + Number(sale.weight || 0), 0)
+  );
   const totalRows = Number(salesPagination?.total ?? salesSummary?.totalCount ?? 0);
   const pageLimit = Number(salesPagination?.limit ?? 10);
   const totalPages = Math.max(1, Number(salesPagination?.totalPages ?? 1));
@@ -101,16 +106,18 @@ export function SalesTab({
               data={batchSales || []}
               columns={salesColumns}
               showFooter={true}
-              footerContent={
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">
-                    Total Sales
-                  </span>
-                  <span className="font-bold text-lg text-green-600">
-                    ₹{totalAmount.toLocaleString()}
-                  </span>
-                </div>
-              }
+              // Columns: Date · Item Type · Quantity · Weight · Rate · Total · Credit · Actions.
+              // Label spans the first three; totals sit under Weight and Total.
+              footerCells={[
+                { content: "Total Sales", colSpan: 3 },
+                totalWeight > 0 ? `${totalWeight.toFixed(2)} kg` : "",
+                null,
+                <span key="amount" className="font-bold text-green-600">
+                  ₹{totalAmount.toLocaleString()}
+                </span>,
+                null,
+                null,
+              ]}
               emptyMessage="No sales recorded yet"
             />
             <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:justify-between">

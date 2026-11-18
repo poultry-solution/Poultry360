@@ -74,6 +74,7 @@ interface OverviewTabProps {
     isProfit: boolean;
   };
   salesTotal: number;
+  salesTotalWeight?: number;
   expensesTotal: number;
   mortalityStats: any;
   recentExpenses: any[];
@@ -91,6 +92,7 @@ export function OverviewTab({
   currentAge,
   perBroilerExpenseData,
   salesTotal,
+  salesTotalWeight = 0,
   expensesTotal,
   mortalityStats,
   recentExpenses,
@@ -267,7 +269,12 @@ export function OverviewTab({
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Sales</span>
-                <span className="font-medium">{rupees(salesTotal)}</span>
+                <span className="font-semibold text-emerald-700">
+                  {salesTotalWeight > 0 ? (
+                    <span className="mr-2">{salesTotalWeight.toFixed(2)} kg</span>
+                  ) : null}
+                  {rupees(salesTotal)}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Costs</span>

@@ -1606,15 +1606,18 @@ export default function SalesLedgerPage() {
                   columns={salesColumns}
                   emptyMessage={salesFiltersActive ? t("farmer.salesLedger.ui.noMatch") : undefined}
                   showFooter={true}
-                  footerContent={
-                    <div className="flex items-center justify-between text-xs md:text-sm text-muted-foreground">
-                      <span>{t("farmer.salesLedger.table.total")}: {salesStats.totalSales}</span>
-                      <span>
-                        {salesStats.totalWeight > 0 ? `${salesStats.totalWeight.toFixed(2)} kg · ` : ""}
-                        {formatRupeesExact(salesStats.totalAmount)}
-                      </span>
-                    </div>
-                  }
+                  // Columns: Date · Invoice · Item Type · Customer · Quantity · Weight · Rate · Total · Credit · Actions.
+                  // Label spans the first five; totals sit under Weight and Total.
+                  footerCells={[
+                    { content: `${t("farmer.salesLedger.table.total")}: ${salesStats.totalSales}`, colSpan: 5 },
+                    salesStats.totalWeight > 0 ? `${salesStats.totalWeight.toFixed(2)} kg` : "",
+                    null,
+                    <span key="amount" className="font-semibold text-gray-900">
+                      {formatRupeesExact(salesStats.totalAmount)}
+                    </span>,
+                    null,
+                    null,
+                  ]}
                 />
               </div>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

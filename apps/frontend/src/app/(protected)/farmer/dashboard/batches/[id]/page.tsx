@@ -1409,6 +1409,12 @@ export default function BatchDetailPage() {
       (sum: number, sale: any) => sum + Number(sale.amount),
       0
     ) || 0;
+  const salesTotalWeight =
+    Number(salesSummary?.totalWeight) ||
+    batchSales?.reduce(
+      (sum: number, sale: any) => sum + Number(sale.weight || 0),
+      0
+    ) || 0;
   const expensesTotal =
     (batch as any).expenses?.reduce(
       (sum: number, ex: any) => sum + Number(ex.amount),
@@ -1632,6 +1638,7 @@ export default function BatchDetailPage() {
           currentAge={currentAge}
           perBroilerExpenseData={perBroilerExpenseData}
           salesTotal={salesTotal}
+          salesTotalWeight={salesTotalWeight}
           expensesTotal={expensesTotal}
           mortalityStats={mortalityStats}
           recentExpenses={(batch as any).expenses?.slice(0, 5) || []}
