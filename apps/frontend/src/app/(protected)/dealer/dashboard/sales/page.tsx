@@ -35,7 +35,12 @@ import { DealerSaleBill } from "@/app/(protected)/dealer/dashboard/sales/_compon
 import { useAuthStore } from "@/common/store/store";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
-import { toNepalDayAd } from "@/common/lib/nepali-date";
+import { convertADtoBS } from "@/common/lib/nepali-date";
+
+/** BS "YYYY-MM-DD" for the download date column, matching the on-screen BS table. */
+const bsDay = (date: unknown): string => {
+  try { return convertADtoBS(date as Date | string); } catch { return ""; }
+};
 import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
 import { NewSaleMenuButton } from "@/components/dealer/sales/NewSaleMenuButton";
 
@@ -81,7 +86,7 @@ export default function DealerSalesPage() {
     });
     return {
       columns: [
-        { label: "Date", value: (row: any) => toNepalDayAd(row.date) },
+        { label: "Date", value: (row: any) => bsDay(row.date) },
         { label: "Invoice", value: (row: any) => row.invoiceNumber || row.id?.slice(0, 8) },
         { label: "Customer", value: (row: any) => row.customer?.name || row.manualCompany?.name || row.sourceFarmer?.name || "—" },
         { label: "Type", value: (row: any) => row.isSupplierSettlementSale ? "Supplier settlement" : row.isChickenSale ? "Broiler sale" : "Sale" },
