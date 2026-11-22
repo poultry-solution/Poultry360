@@ -155,40 +155,20 @@ export async function setupCashBook(
 }
 
 export async function addMovement(
-  userId: string,
-  recordedById: string,
-  direction: "IN" | "OUT",
-  amount: number,
-  partyName: string,
-  notes?: string
+  _userId: string,
+  _recordedById: string,
+  _direction: "IN" | "OUT",
+  _amount: number,
+  _partyName: string,
+  _notes?: string
 ): Promise<void> {
-  const settings = await getSettings(userId);
-  if (!settings) throw new Error("Cash book not set up yet");
-
-  const todayBs = getNepalBsTodayString();
-
-  await ensureSystemCloseYesterday(userId, todayBs, settings);
-
-  const todayClose = await prisma.farmerCashDayClose.findUnique({
-    where: { userId_bsDate: { userId, bsDate: todayBs } },
-  });
-  if (todayClose) {
-    throw new Error("Today is already closed. New entries will be added to tomorrow.");
-  }
-
-  if (amount <= 0) throw new Error("Amount must be greater than 0");
-
-  await prisma.farmerCashMovement.create({
-    data: {
-      userId,
-      bsDate: todayBs,
-      direction,
-      amount: new Prisma.Decimal(amount),
-      partyName: partyName.trim(),
-      notes: notes?.trim() || null,
-      recordedById,
-    },
-  });
+  // Deprecated in favour of /farmer/cashflow. FarmerCashMovement now requires
+  // accountId / category / sourceType, which the old single-account flow
+  // doesn't provide. Route layer 410s this endpoint; service-level throw is
+  // a belt-and-braces guard in case something else calls it directly.
+  throw new Error(
+    "Deprecated: /farmer/cash-in-hand has been replaced by /farmer/cashflow",
+  );
 }
 
 export async function deleteMovement(userId: string, movementId: string): Promise<void> {
