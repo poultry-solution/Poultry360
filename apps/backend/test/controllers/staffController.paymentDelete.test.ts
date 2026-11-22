@@ -1,6 +1,5 @@
-jest.mock("../../src/utils/prisma", () => ({
-  __esModule: true,
-  default: {
+jest.mock("../../src/utils/prisma", () => {
+  const client: any = {
     staff: { findFirst: jest.fn(), delete: jest.fn() },
     staffPayment: {
       findFirst: jest.fn(),
@@ -8,8 +7,16 @@ jest.mock("../../src/utils/prisma", () => ({
       delete: jest.fn(),
     },
     user: { findUnique: jest.fn() },
-  },
-}));
+    // Phase 5 wired deletePayment inside a $transaction so the cashbook
+    // mirror cleanup is atomic with the staffPayment delete. OWNER-only
+    // role guard means these tests (which don't set req.role) never touch
+    // the farmerCashMovement table — the mock is here as a safety net.
+    farmerCashAccount: { findFirst: jest.fn(), create: jest.fn() },
+    farmerCashMovement: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+  };
+  client.$transaction = jest.fn((fn: (tx: any) => unknown) => fn(client));
+  return { __esModule: true, default: client };
+});
 
 jest.mock("../../src/services/staffService", () => ({
   listStaffForOwner: jest.fn(),

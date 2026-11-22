@@ -47,6 +47,8 @@ export type CashSourceType =
   | "SALE_PAYMENT"
   | "CUSTOMER_RECEIPT"
   | "EXPENSE"
+  | "SUPPLIER_PAYMENT"
+  | "STAFF_PAYMENT"
   | "TRANSFER"
   | "OPENING_ADJUSTMENT";
 

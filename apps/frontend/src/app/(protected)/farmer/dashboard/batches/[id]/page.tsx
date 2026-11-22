@@ -926,6 +926,11 @@ export default function BatchDetailPage() {
         return;
       }
 
+      // Cash-only expenses mirror into the cashbook; inventory-backed ones
+      // already have their cash out at supplier-payment time and the server
+      // skips the mirror. The batch form has no account picker today — we
+      // ship an explicit Cash id so the mirror lands deterministically on
+      // the user's Cash account instead of relying on the server fallback.
       const expenseData = {
         date: expenseForm.date
           ? new Date(expenseForm.date).toISOString()
@@ -939,6 +944,9 @@ export default function BatchDetailPage() {
         batchId: batchId,
         categoryId: category.id,
         inventoryItems: inventoryItems.length > 0 ? inventoryItems : undefined,
+        ...(inventoryItems.length === 0 && cashAccountId
+          ? { accountId: cashAccountId }
+          : {}),
       };
 
       if (editingExpenseId) {

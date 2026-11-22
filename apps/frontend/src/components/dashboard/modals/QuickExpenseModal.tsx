@@ -8,6 +8,7 @@ import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 import { getNepalTodayAd, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
 
 interface QuickExpenseModalProps {
   isOpen: boolean;
@@ -56,6 +57,13 @@ export function QuickExpenseModal({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Quick action: no picker, deterministic default of the user's Cash
+  // account. We still ship the explicit accountId so the server never has
+  // to fall back silently.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
 
   // Ensure default date when modal opens
   useEffect(() => {
@@ -135,7 +143,7 @@ export function QuickExpenseModal({
       }
 
       // Create basic expense data
-      const expenseData = {
+      const expenseData: Record<string, unknown> = {
         date: nepalNoonFromAdDay(form.date).toISOString(),
         amount: Number(form.amount),
         description: `${form.category} expense${form.notes ? ` • Notes: ${form.notes}` : ""}`,
@@ -145,6 +153,8 @@ export function QuickExpenseModal({
         batchId: form.batchId,
         categoryId: selectedCategory.id,
       };
+      // Quick expenses always post as cash-out from the user's Cash account.
+      if (cashAccountId) expenseData.accountId = cashAccountId;
 
       await onSubmit(expenseData);
 
