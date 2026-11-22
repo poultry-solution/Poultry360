@@ -1,7 +1,7 @@
 /**
  * Farmer cashflow (cash book) service — Approach A, v1.
  *
- * Owns writes into FarmerCashAccount + FarmerCashMovement. Pure math is
+ * Owns writes into CashAccount + CashMovement. Pure math is
  * delegated to `common/cashflow/*` so dealer v2 can reuse the exact same
  * balance / report / transfer logic.
  */
@@ -26,7 +26,7 @@ export { CashflowError };
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
 /**
- * Canonical column list for every FarmerCashMovement read. Centralised so the
+ * Canonical column list for every CashMovement read. Centralised so the
  * returned shape stays in sync with the `CashMovement` interface — missing one
  * column here is how `partyName`/`notes` disappeared from the list endpoint.
  */
@@ -44,9 +44,9 @@ const MOVEMENT_SELECT = {
   partyName: true,
   notes: true,
   createdAt: true,
-} as const satisfies Prisma.FarmerCashMovementSelect;
+} as const satisfies Prisma.CashMovementSelect;
 
-type MovementRow = Prisma.FarmerCashMovementGetPayload<{ select: typeof MOVEMENT_SELECT }>;
+type MovementRow = Prisma.CashMovementGetPayload<{ select: typeof MOVEMENT_SELECT }>;
 
 function toCashMovement(row: MovementRow): CashMovement {
   return { ...row, amount: Number(row.amount) };
@@ -100,13 +100,13 @@ export async function ensureCashAccount(
   userId: string,
   db: DbClient = prisma,
 ): Promise<CashAccount> {
-  const existing = await db.farmerCashAccount.findFirst({
+  const existing = await db.cashAccount.findFirst({
     where: { userId, type: "CASH", archivedAt: null },
   });
   if (existing) return toCashAccount(existing);
 
   try {
-    const created = await db.farmerCashAccount.create({
+    const created = await db.cashAccount.create({
       data: {
         userId,
         type: "CASH",
@@ -123,7 +123,7 @@ export async function ensureCashAccount(
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
     ) {
-      const row = await db.farmerCashAccount.findFirst({
+      const row = await db.cashAccount.findFirst({
         where: { userId, type: "CASH", archivedAt: null },
       });
       if (row) return toCashAccount(row);
@@ -136,7 +136,7 @@ export async function listAccounts(
   userId: string,
   options: { includeArchived?: boolean } = {},
 ): Promise<CashAccount[]> {
-  const rows = await prisma.farmerCashAccount.findMany({
+  const rows = await prisma.cashAccount.findMany({
     where: {
       userId,
       ...(options.includeArchived ? {} : { archivedAt: null }),
@@ -163,7 +163,7 @@ export async function createBankAccount(
   assertValidBsDate(input.openingBsDate, "openingBsDate");
 
   try {
-    const created = await prisma.farmerCashAccount.create({
+    const created = await prisma.cashAccount.create({
       data: {
         userId,
         type: "BANK",
@@ -191,7 +191,7 @@ async function findOwnAccount(
   userId: string,
   accountId: string,
 ): Promise<CashAccount> {
-  const row = await prisma.farmerCashAccount.findUnique({
+  const row = await prisma.cashAccount.findUnique({
     where: { id: accountId },
   });
   if (!row) throw new CashflowError("Account not found", 404);
@@ -212,7 +212,7 @@ export async function renameAccount(
   if (name === account.name) return account;
 
   try {
-    const updated = await prisma.farmerCashAccount.update({
+    const updated = await prisma.cashAccount.update({
       where: { id: accountId },
       data: { name },
     });
@@ -241,7 +241,7 @@ export async function archiveAccount(
   }
   if (account.archivedAt !== null) return account;
 
-  const movements = await prisma.farmerCashMovement.findMany({
+  const movements = await prisma.cashMovement.findMany({
     where: { accountId },
     select: MOVEMENT_SELECT,
   });
@@ -253,7 +253,7 @@ export async function archiveAccount(
     );
   }
 
-  const updated = await prisma.farmerCashAccount.update({
+  const updated = await prisma.cashAccount.update({
     where: { id: accountId },
     data: { archivedAt: new Date() },
   });
@@ -271,7 +271,7 @@ export async function unarchiveAccount(
     throw new CashflowError("The system Cash account is always active", 409);
   }
   try {
-    const updated = await prisma.farmerCashAccount.update({
+    const updated = await prisma.cashAccount.update({
       where: { id: accountId },
       data: { archivedAt: null },
     });
@@ -303,14 +303,14 @@ export async function deleteAccount(
   if (account.type === "CASH") {
     throw new CashflowError("The system Cash account cannot be deleted", 409);
   }
-  const count = await prisma.farmerCashMovement.count({ where: { accountId } });
+  const count = await prisma.cashMovement.count({ where: { accountId } });
   if (count > 0) {
     throw new CashflowError(
       `This account has ${count} transaction${count === 1 ? "" : "s"}. Delete the transactions first, or archive the account to hide it.`,
       409,
     );
   }
-  await prisma.farmerCashAccount.delete({ where: { id: accountId } });
+  await prisma.cashAccount.delete({ where: { id: accountId } });
 }
 
 /**
@@ -324,7 +324,7 @@ export async function deleteMovement(
   userId: string,
   movementId: string,
 ): Promise<{ deletedIds: string[] }> {
-  const movement = await prisma.farmerCashMovement.findUnique({
+  const movement = await prisma.cashMovement.findUnique({
     where: { id: movementId },
     select: { id: true, userId: true, sourceType: true, transferId: true },
   });
@@ -334,7 +334,7 @@ export async function deleteMovement(
   }
 
   if (movement.sourceType === "MANUAL") {
-    await prisma.farmerCashMovement.delete({ where: { id: movementId } });
+    await prisma.cashMovement.delete({ where: { id: movementId } });
     return { deletedIds: [movementId] };
   }
 
@@ -347,11 +347,11 @@ export async function deleteMovement(
     }
     const transferId = movement.transferId;
     return prisma.$transaction(async (tx) => {
-      const legs = await tx.farmerCashMovement.findMany({
+      const legs = await tx.cashMovement.findMany({
         where: { transferId, userId },
         select: { id: true },
       });
-      await tx.farmerCashMovement.deleteMany({
+      await tx.cashMovement.deleteMany({
         where: { transferId, userId },
       });
       return { deletedIds: legs.map((l) => l.id) };
@@ -375,7 +375,7 @@ export async function editOpeningBalance(
   const account = await findOwnAccount(userId, accountId);
   assertAccountActive(account);
 
-  const movementCount = await prisma.farmerCashMovement.count({
+  const movementCount = await prisma.cashMovement.count({
     where: { accountId },
   });
   if (movementCount > 0) {
@@ -385,7 +385,7 @@ export async function editOpeningBalance(
     );
   }
 
-  const updated = await prisma.farmerCashAccount.update({
+  const updated = await prisma.cashAccount.update({
     where: { id: accountId },
     data: { openingBalance: new Prisma.Decimal(nextOpening) },
   });
@@ -421,7 +421,7 @@ export async function getAccountBalances(
   if (accounts.length === 0) return [];
 
   const ids = accounts.map((a) => a.id);
-  const movementsRaw = await prisma.farmerCashMovement.findMany({
+  const movementsRaw = await prisma.cashMovement.findMany({
     where: { userId, accountId: { in: ids } },
     select: MOVEMENT_SELECT,
   });
@@ -504,7 +504,7 @@ async function loadOwnedActiveAccount(
   if (typeof accountId !== "string" || accountId.length === 0) {
     throw new CashflowError("accountId is required", 400);
   }
-  const row = await db.farmerCashAccount.findUnique({ where: { id: accountId } });
+  const row = await db.cashAccount.findUnique({ where: { id: accountId } });
   if (!row) throw new CashflowError("Account not found", 404);
   assertAccountOwner(row, userId);
   const account = toCashAccount(row);
@@ -527,7 +527,7 @@ export async function listMovements(
   if (options.toBsDate !== undefined) assertValidBsDate(options.toBsDate, "toBsDate");
   const limit = options.limit ?? 500;
 
-  const rows = await prisma.farmerCashMovement.findMany({
+  const rows = await prisma.cashMovement.findMany({
     where: {
       userId,
       ...(options.accountId ? { accountId: options.accountId } : {}),
@@ -580,7 +580,7 @@ export async function postManualMovement(
         400,
       );
     }
-    const row = await tx.farmerCashMovement.create({
+    const row = await tx.cashMovement.create({
       data: {
         userId,
         accountId: account.id,
@@ -643,7 +643,7 @@ export async function postTransfer(
     });
 
     const makeLeg = (leg: typeof outLeg) =>
-      tx.farmerCashMovement.create({
+      tx.cashMovement.create({
         data: {
           userId,
           accountId: leg.accountId,
@@ -689,6 +689,8 @@ export async function getReport(
   range: ReportRange;
   totals: {
     openingBalance: number;
+    /** Opening amounts of accounts whose opening date falls inside the range. */
+    accountOpeningBalance: number;
     closingBalance: number;
     inflow: number;
     outflow: number;
@@ -711,6 +713,7 @@ export async function getReport(
       range,
       totals: {
         openingBalance: 0,
+        accountOpeningBalance: 0,
         closingBalance: 0,
         inflow: 0,
         outflow: 0,
@@ -722,7 +725,7 @@ export async function getReport(
     };
   }
 
-  const movementsRaw = await prisma.farmerCashMovement.findMany({
+  const movementsRaw = await prisma.cashMovement.findMany({
     where: { userId },
     select: MOVEMENT_SELECT,
   });
@@ -746,6 +749,19 @@ export async function getReport(
           0,
         );
 
+  // An account can start during the selected period. Its opening amount is
+  // part of the closing balance even though it is not a cash movement. Keep
+  // it separate from the balance at the start of the period so the statement
+  // remains truthful and still adds up to the account balances shown above.
+  const accountOpeningBalance = accounts.reduce(
+    (sum, account) =>
+      account.openingBsDate >= range.fromBsDate &&
+      account.openingBsDate <= range.toBsDate
+        ? sum + account.openingBalance
+        : sum,
+    0,
+  );
+
   const statement = rollupCashflowStatement(movements, range, openingBalance);
 
   const touched = new Set(movements.map((m) => m.accountId));
@@ -759,7 +775,8 @@ export async function getReport(
     range,
     totals: {
       openingBalance: statement.openingBalance,
-      closingBalance: statement.closingBalance,
+      accountOpeningBalance,
+      closingBalance: statement.closingBalance + accountOpeningBalance,
       inflow: statement.totalInflow,
       outflow: statement.totalOutflow,
       netChange: statement.netChange,
@@ -782,4 +799,173 @@ function decrementBsDay(bsDate: string): string {
     prevBsDate: (bs: string) => string;
   };
   return prevBsDate(bsDate);
+}
+
+// ──────────────────────────── RECONCILIATION WIZARD ────────────────────────────
+
+/**
+ * Returns the current reconciliation status for a farmer.
+ *
+ * Decision matrix:
+ *   - no movements, no/any settings     → needsReconciliation = false
+ *     (truly new or wiped-clean user; nothing to anchor against)
+ *   - has movements, no settings row    → needsReconciliation = true
+ *     (either Phase 2 backfill or Phase 5 auto-posts ran; user hasn't confirmed)
+ *   - has movements, reconciledAt null  → needsReconciliation = true
+ *   - has movements, reconciledAt set   → needsReconciliation = false
+ *
+ * For the "zero movements" case we also idempotently stamp the settings row
+ * as reconciled so a farmer who later adds their first movement won't suddenly
+ * get a surprise wizard — the anchor was already implicitly ₹0.
+ */
+export async function getReconciliationStatus(
+  userId: string,
+): Promise<{ needsReconciliation: boolean; computedCash: number }> {
+  const [settings, cash] = await Promise.all([
+    prisma.farmerCashSettings.findUnique({ where: { userId } }),
+    ensureCashAccount(userId),
+  ]);
+
+  const movementsRaw = await prisma.cashMovement.findMany({
+    where: { userId, accountId: cash.id },
+    select: MOVEMENT_SELECT,
+  });
+  const hasMovements = movementsRaw.length > 0;
+  const computedCash = computeAccountBalance(cash, movementsRaw.map(toCashMovement));
+
+  if (!hasMovements) {
+    // Idempotently seed settings as reconciled for brand-new users. Guards
+    // against future surprise prompts after their first auto-posted sale.
+    if (!settings) {
+      const todayBs = getNepalBsTodayString();
+      try {
+        await prisma.farmerCashSettings.create({
+          data: {
+            userId,
+            initialOpening: new Prisma.Decimal(0),
+            startBsDate: todayBs,
+            reconciledAt: new Date(),
+          },
+        });
+      } catch (err) {
+        if (
+          !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+          err.code !== "P2002"
+        ) {
+          throw err;
+        }
+      }
+    } else if (settings.reconciledAt === null) {
+      await prisma.farmerCashSettings.update({
+        where: { id: settings.id },
+        data: { reconciledAt: new Date() },
+      });
+    }
+    return { needsReconciliation: false, computedCash };
+  }
+
+  return {
+    needsReconciliation: settings === null || settings.reconciledAt === null,
+    computedCash,
+  };
+}
+
+export interface ReconcileResult {
+  computed: number;
+  drawer: number;
+  diff: number;
+  adjustmentMovementId: string | null;
+  settingsId: string;
+}
+
+/**
+ * Stamps the one-shot reconciliation anchor. If the drawer amount differs from
+ * the computed Cash balance, inserts a single `OPENING_ADJUSTMENT` movement so
+ * the balance exactly matches the physical drawer going forward. Refuses once
+ * `reconciledAt` is already set — further corrections go through normal manual
+ * Cash_in / Cash_out movements with a full audit trail.
+ */
+export async function reconcile(
+  userId: string,
+  recordedById: string,
+  drawerAmount: number,
+): Promise<ReconcileResult> {
+  if (!Number.isFinite(drawerAmount) || drawerAmount < 0) {
+    throw new CashflowError("drawer must be a non-negative number", 400);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const cash = await ensureCashAccount(userId, tx);
+    const settingsRow = await tx.farmerCashSettings.findUnique({
+      where: { userId },
+    });
+
+    let settingsId: string;
+    if (!settingsRow) {
+      const todayBs = getNepalBsTodayString();
+      const created = await tx.farmerCashSettings.create({
+        data: {
+          userId,
+          initialOpening: new Prisma.Decimal(0),
+          startBsDate: todayBs,
+          reconciledAt: null,
+        },
+      });
+      settingsId = created.id;
+    } else {
+      if (settingsRow.reconciledAt !== null) {
+        throw new CashflowError(
+          "Cash has already been reconciled. Record a manual Cash in / Cash out to correct the balance.",
+          409,
+        );
+      }
+      settingsId = settingsRow.id;
+    }
+
+    const movementsRaw = await tx.cashMovement.findMany({
+      where: { userId, accountId: cash.id },
+      select: MOVEMENT_SELECT,
+    });
+    const computed = computeAccountBalance(cash, movementsRaw.map(toCashMovement));
+    const diff = Math.round((drawerAmount - computed) * 100) / 100;
+
+    let adjustmentMovementId: string | null = null;
+
+    if (Math.abs(diff) >= 0.01) {
+      const todayBs = getNepalBsTodayString();
+      const created = await tx.cashMovement.create({
+        data: {
+          userId,
+          accountId: cash.id,
+          bsDate: todayBs,
+          direction:
+            diff > 0
+              ? CashMovementDirection.IN
+              : CashMovementDirection.OUT,
+          amount: new Prisma.Decimal(Math.abs(diff)),
+          category: CashCategory.OPENING_ADJUSTMENT,
+          sourceType: CashSourceType.OPENING_ADJUSTMENT,
+          sourceId: settingsId,
+          partyName: `Reconciliation on ${todayBs}`,
+          notes: null,
+          recordedById,
+        },
+        select: { id: true },
+      });
+      adjustmentMovementId = created.id;
+    }
+
+    await tx.farmerCashSettings.update({
+      where: { id: settingsId },
+      data: { reconciledAt: new Date() },
+    });
+
+    return {
+      computed,
+      drawer: drawerAmount,
+      diff,
+      adjustmentMovementId,
+      settingsId,
+    };
+  });
 }

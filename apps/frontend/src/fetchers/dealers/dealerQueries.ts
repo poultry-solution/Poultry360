@@ -206,7 +206,7 @@ export const useAddDealerTransaction = () => {
         paymentAmount?: number;
         paymentDescription?: string;
         paymentToPurchaseId?: string;
-        /** Which FarmerCashAccount the PAYMENT (or inline purchase payment)
+        /** Which CashAccount the PAYMENT (or inline purchase payment)
          *  was drawn from. Optional — backend defaults to Cash. */
         accountId?: string;
       };

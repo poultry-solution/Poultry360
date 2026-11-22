@@ -580,6 +580,7 @@ export default function BatchDetailPage() {
     otherQuantity: "",
     extraName: "",
     extraAmount: "",
+    accountId: "",
   });
   function updateExpenseField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }
@@ -684,6 +685,7 @@ export default function BatchDetailPage() {
       otherQuantity: "",
       extraName: "",
       extraAmount: "",
+      accountId: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -719,6 +721,7 @@ export default function BatchDetailPage() {
       otherQuantity: row.quantity?.toString() || "",
       extraName: "",
       extraAmount: "",
+      accountId: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -928,9 +931,11 @@ export default function BatchDetailPage() {
 
       // Cash-only expenses mirror into the cashbook; inventory-backed ones
       // already have their cash out at supplier-payment time and the server
-      // skips the mirror. The batch form has no account picker today — we
-      // ship an explicit Cash id so the mirror lands deterministically on
-      // the user's Cash account instead of relying on the server fallback.
+      // skips the mirror. On edit, omit an untouched account so the server
+      // keeps the account already on the existing mirror.
+      const accountIdForCashOnlyExpense =
+        expenseForm.accountId ||
+        (editingExpenseId === null ? cashAccountId : "");
       const expenseData = {
         date: expenseForm.date
           ? new Date(expenseForm.date).toISOString()
@@ -944,8 +949,8 @@ export default function BatchDetailPage() {
         batchId: batchId,
         categoryId: category.id,
         inventoryItems: inventoryItems.length > 0 ? inventoryItems : undefined,
-        ...(inventoryItems.length === 0 && cashAccountId
-          ? { accountId: cashAccountId }
+        ...(inventoryItems.length === 0 && accountIdForCashOnlyExpense
+          ? { accountId: accountIdForCashOnlyExpense }
           : {}),
       };
 
@@ -1050,6 +1055,7 @@ export default function BatchDetailPage() {
   );
   const cashAccountId =
     (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
+  const effectiveExpenseAccountId = expenseForm.accountId || cashAccountId;
   const effectiveSaleAccountId = saleForm.accountId || cashAccountId;
   const { data: eggInventoryResponse } = useGetEggInventory({
     batchId: batchId ?? null,
@@ -1860,6 +1866,11 @@ export default function BatchDetailPage() {
         onMedicineSelection={handleMedicineSelection}
         onOtherSelection={handleOtherSelection}
         onOtherCategorySelection={handleOtherCategorySelection}
+        cashflowAccounts={cashflowAccounts ?? []}
+        defaultCashAccountId={effectiveExpenseAccountId}
+        onCashAccountChange={(accountId) =>
+          setExpenseForm((form) => ({ ...form, accountId }))
+        }
         isPending={
           createExpenseMutation.isPending ||
           updateExpenseMutation.isPending ||

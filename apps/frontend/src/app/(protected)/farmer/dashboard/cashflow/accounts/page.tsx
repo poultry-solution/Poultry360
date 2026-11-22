@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 
 import { AccountFormModal } from "@/components/cashflow/AccountFormModal";
+import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
 
 import {
   useCreateBankAccount,
@@ -38,6 +39,7 @@ export default function FarmerCashflowAccountsPage() {
   const del = useDeleteAccount();
 
   const [modal, setModal] = useState<EditState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CashAccount | null>(null);
 
   const accounts = accountsQ.data ?? [];
   const sorted = useMemo(
@@ -73,16 +75,12 @@ export default function FarmerCashflowAccountsPage() {
     }
   }
 
-  async function handleDelete(a: CashAccount) {
-    if (
-      !window.confirm(
-        `Delete "${a.name}"? This can't be undone. If the account has transactions, delete those first, or archive it to hide.`,
-      )
-    )
-      return;
+  async function confirmDelete(password: string) {
+    if (!deleteTarget) return;
     try {
-      await del.mutateAsync(a.id);
+      await del.mutateAsync({ id: deleteTarget.id, password });
       toast.success("Account deleted");
+      setDeleteTarget(null);
     } catch (e: unknown) {
       toast.error(message(e, "Delete failed"));
     }
@@ -177,7 +175,7 @@ export default function FarmerCashflowAccountsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(a)}
+                        onClick={() => setDeleteTarget(a)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -203,6 +201,20 @@ export default function FarmerCashflowAccountsPage() {
             throw e;
           }
         }}
+      />
+
+      <CashflowDeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete account?"
+        description={
+          deleteTarget
+            ? `Delete "${deleteTarget.name}"? This cannot be undone. If it has movements, delete those first or archive it instead.`
+            : ""
+        }
+        confirmLabel="Delete account"
+        submitting={del.isPending}
+        onConfirm={confirmDelete}
       />
 
       <AccountFormModal

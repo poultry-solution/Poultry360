@@ -481,7 +481,7 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ success: false, message: "Staff not found" });
       return;
     }
-    const { amount, paidAt, note, receiptImageUrl } = req.body;
+    const { amount, paidAt, note, receiptImageUrl, accountId } = req.body;
     const amt = parseDecimal(amount);
     if (amt === null || amt <= 0) {
       res.status(400).json({ success: false, message: "Valid amount is required" });
@@ -524,7 +524,10 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
         },
       });
       if (req.role === UserRole.OWNER) {
-        const accountIdForCashbook = await ensureCashAccountId(tx, ownerId);
+        const accountIdForCashbook =
+          typeof accountId === "string" && accountId.trim()
+            ? accountId.trim()
+            : await ensureCashAccountId(tx, ownerId);
         await postStaffSalaryMovement({
           tx,
           userId: ownerId,

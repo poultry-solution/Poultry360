@@ -1286,7 +1286,7 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
 
       // Remove the cashbook mirror for every SalePayment on this sale. The
       // SalePayment rows themselves vanish via Prisma cascade on the sale
-      // delete below, but there's no FK from FarmerCashMovement to
+      // delete below, but there's no FK from CashMovement to
       // SalePayment, so orphan mirror rows would otherwise stay in the
       // cashbook pointing at missing ids.
       const payments = await tx.salePayment.findMany({

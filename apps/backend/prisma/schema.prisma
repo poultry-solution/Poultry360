@@ -253,13 +253,13 @@ model User {
   // Business details printed on sale bills (per business account)
   billSettings BillSettings? @relation("UserBillSettings")
 
-  // Farmer cash in hand (per user account)
+  // Cash accounts and movements (currently used by Farmer cashflow)
   farmerCashSettings          FarmerCashSettings?
   farmerFcrSettings           FarmerFcrSettings?
-  farmerCashBookMovements     FarmerCashMovement[] @relation("FarmerCashBook")
+  cashBookMovements           CashMovement[] @relation("CashBook")
   farmerCashDayCloses         FarmerCashDayClose[] @relation("FarmerCashDayCloseOwner")
-  farmerCashMovementsRecorded FarmerCashMovement[] @relation("FarmerCashMovementRecorder")
-  farmerCashAccounts          FarmerCashAccount[]  @relation("FarmerCashAccountOwner")
+  cashMovementsRecorded       CashMovement[] @relation("CashMovementRecorder")
+  cashAccounts                CashAccount[]  @relation("CashAccountOwner")
 
   // List for sale (farmer marketplace listings)
   listForSaleListings ListForSale[] @relation("ListForSaleOwner")
@@ -2605,12 +2605,12 @@ model FarmerFcrSettings {
   updatedAt DateTime @updatedAt
 }
 
-model FarmerCashMovement {
+model CashMovement {
   id            String                @id @default(cuid())
   userId        String
-  user          User                  @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
+  user          User                  @relation("CashBook", fields: [userId], references: [id], onDelete: Cascade)
   accountId     String
-  account       FarmerCashAccount     @relation(fields: [accountId], references: [id])
+  account       CashAccount     @relation(fields: [accountId], references: [id])
   bsDate        String
   direction     CashMovementDirection
   amount        Decimal               @db.Decimal(10, 2)
@@ -2622,7 +2622,7 @@ model FarmerCashMovement {
   partyName     String
   notes         String?
   recordedById  String?
-  recordedBy    User?                 @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
+  recordedBy    User?                 @relation("CashMovementRecorder", fields: [recordedById], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -2679,12 +2679,12 @@ enum CashSourceType {
 }
 
 // One CASH account per farmer (enforced by raw-SQL partial unique index in the
-// farmer_cashflow_v1 migration) + 0..N BANK accounts. Every FarmerCashMovement
+// farmer_cashflow_v1 migration) + 0..N BANK accounts. Every CashMovement
 // row points at exactly one of these.
-model FarmerCashAccount {
+model CashAccount {
   id             String      @id @default(cuid())
   userId         String
-  user           User        @relation("FarmerCashAccountOwner", fields: [userId], references: [id], onDelete: Cascade)
+  user           User        @relation("CashAccountOwner", fields: [userId], references: [id], onDelete: Cascade)
   type           AccountType
   name           String
   openingBalance Decimal     @default(0) @db.Decimal(14, 2)
@@ -2694,7 +2694,7 @@ model FarmerCashAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  movements FarmerCashMovement[]
+  movements CashMovement[]
 
   @@unique([userId, name])
   @@index([userId, archivedAt])

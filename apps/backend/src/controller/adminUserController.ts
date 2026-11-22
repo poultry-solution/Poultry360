@@ -531,7 +531,7 @@ async function hardDeleteUserData(userId: string) {
       },
     });
 
-    await tx.farmerCashMovement.updateMany({
+    await tx.cashMovement.updateMany({
       where: {
         recordedById: userId,
       },

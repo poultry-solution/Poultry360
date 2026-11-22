@@ -4,7 +4,7 @@
  * idempotency path (find-then-update vs find-then-create), and the account
  * ownership + active guards.
  *
- * End-to-end integration (sale -> SalePayment -> FarmerCashMovement in one tx)
+ * End-to-end integration (sale -> SalePayment -> CashMovement in one tx)
  * is covered by salesController integration tests at the controller level.
  */
 
@@ -30,12 +30,12 @@ import {
 import { Prisma } from "@prisma/client";
 
 type MockedTx = {
-  farmerCashAccount: {
+  cashAccount: {
     findUnique: jest.Mock;
     findFirst: jest.Mock;
     create: jest.Mock;
   };
-  farmerCashMovement: {
+  cashMovement: {
     findFirst: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -45,12 +45,12 @@ type MockedTx = {
 
 function tx(): MockedTx {
   return {
-    farmerCashAccount: {
+    cashAccount: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
     },
-    farmerCashMovement: {
+    cashMovement: {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -78,13 +78,13 @@ describe("upsertExpenseMovement", () => {
 
   it("creates a new OUT / EXPENSE movement the first time", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashMovement.create.mockResolvedValueOnce({ id: "m-1" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+    t.cashMovement.create.mockResolvedValueOnce({ id: "m-1" });
 
     await upsertExpenseMovement({ tx: t as any, ...baseInput });
 
-    expect(t.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           userId: "u1",
@@ -98,14 +98,14 @@ describe("upsertExpenseMovement", () => {
         }),
       }),
     );
-    expect(t.farmerCashMovement.update).not.toHaveBeenCalled();
+    expect(t.cashMovement.update).not.toHaveBeenCalled();
   });
 
   it("updates the existing mirror on a second call (idempotent amount change)", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce({ id: "m-1" });
-    t.farmerCashMovement.update.mockResolvedValueOnce({ id: "m-1" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce({ id: "m-1" });
+    t.cashMovement.update.mockResolvedValueOnce({ id: "m-1" });
 
     await upsertExpenseMovement({
       tx: t as any,
@@ -114,8 +114,8 @@ describe("upsertExpenseMovement", () => {
       label: "Feed from Ram supplier (edited)",
     });
 
-    expect(t.farmerCashMovement.create).not.toHaveBeenCalled();
-    expect(t.farmerCashMovement.update).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).not.toHaveBeenCalled();
+    expect(t.cashMovement.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "m-1" },
         data: expect.objectContaining({
@@ -135,18 +135,18 @@ describe("upsertExpenseMovement", () => {
 
   it("refuses when the account is archived (409)", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    t.cashAccount.findUnique.mockResolvedValueOnce(
       activeAccount({ archivedAt: new Date() }),
     );
     await expect(
       upsertExpenseMovement({ tx: t as any, ...baseInput }),
     ).rejects.toMatchObject({ status: 409 });
-    expect(t.farmerCashMovement.create).not.toHaveBeenCalled();
+    expect(t.cashMovement.create).not.toHaveBeenCalled();
   });
 
   it("refuses when the account belongs to someone else (403)", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    t.cashAccount.findUnique.mockResolvedValueOnce(
       activeAccount({ userId: "other-user" }),
     );
     await expect(
@@ -156,7 +156,7 @@ describe("upsertExpenseMovement", () => {
 
   it("404s when the account id is unknown", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(null);
+    t.cashAccount.findUnique.mockResolvedValueOnce(null);
     await expect(
       upsertExpenseMovement({ tx: t as any, ...baseInput }),
     ).rejects.toMatchObject({ status: 404 });
@@ -166,9 +166,9 @@ describe("upsertExpenseMovement", () => {
 describe("postSalePaymentMovement", () => {
   it("writes an IN / SALE_RECEIPT with sourceType = SALE_PAYMENT", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashMovement.create.mockResolvedValueOnce({ id: "m-sp" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+    t.cashMovement.create.mockResolvedValueOnce({ id: "m-sp" });
 
     await postSalePaymentMovement({
       tx: t as any,
@@ -181,7 +181,7 @@ describe("postSalePaymentMovement", () => {
       recordedById: "u1",
     });
 
-    expect(t.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           direction: "IN",
@@ -199,9 +199,9 @@ describe("postSalePaymentMovement", () => {
 describe("postCustomerReceiptMovement", () => {
   it("writes an IN / SALE_RECEIPT with sourceType = CUSTOMER_RECEIPT", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashMovement.create.mockResolvedValueOnce({ id: "m-r" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+    t.cashMovement.create.mockResolvedValueOnce({ id: "m-r" });
 
     await postCustomerReceiptMovement({
       tx: t as any,
@@ -214,7 +214,7 @@ describe("postCustomerReceiptMovement", () => {
       recordedById: "u1",
     });
 
-    expect(t.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           direction: "IN",
@@ -230,9 +230,9 @@ describe("postCustomerReceiptMovement", () => {
 describe("postSupplierPaymentMovement", () => {
   it("writes an OUT / PAYMENT_TO_DEALER with sourceType = SUPPLIER_PAYMENT", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashMovement.create.mockResolvedValueOnce({ id: "m-sup" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+    t.cashMovement.create.mockResolvedValueOnce({ id: "m-sup" });
 
     await postSupplierPaymentMovement({
       tx: t as any,
@@ -245,7 +245,7 @@ describe("postSupplierPaymentMovement", () => {
       recordedById: "u1",
     });
 
-    expect(t.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           direction: "OUT",
@@ -263,9 +263,9 @@ describe("postSupplierPaymentMovement", () => {
 describe("postStaffSalaryMovement", () => {
   it("writes an OUT / EXPENSE with sourceType = STAFF_PAYMENT and the staff name as party", async () => {
     const t = tx();
-    t.farmerCashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-    t.farmerCashMovement.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashMovement.create.mockResolvedValueOnce({ id: "m-staff" });
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+    t.cashMovement.create.mockResolvedValueOnce({ id: "m-staff" });
 
     await postStaffSalaryMovement({
       tx: t as any,
@@ -278,7 +278,7 @@ describe("postStaffSalaryMovement", () => {
       recordedById: "u1",
     });
 
-    expect(t.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(t.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           direction: "OUT",
@@ -297,7 +297,7 @@ describe("delete helpers", () => {
   it("deleteExpenseMovement scopes by (userId, sourceType=EXPENSE, sourceId)", async () => {
     const t = tx();
     await deleteExpenseMovement(t as any, "u1", "exp-1");
-    expect(t.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1", sourceType: "EXPENSE", sourceId: "exp-1" },
     });
   });
@@ -305,7 +305,7 @@ describe("delete helpers", () => {
   it("deleteSalePaymentMovement scopes by SALE_PAYMENT", async () => {
     const t = tx();
     await deleteSalePaymentMovement(t as any, "u1", "sp-1");
-    expect(t.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1", sourceType: "SALE_PAYMENT", sourceId: "sp-1" },
     });
   });
@@ -313,7 +313,7 @@ describe("delete helpers", () => {
   it("deleteCustomerReceiptMovement scopes by CUSTOMER_RECEIPT", async () => {
     const t = tx();
     await deleteCustomerReceiptMovement(t as any, "u1", "ctx-1");
-    expect(t.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1", sourceType: "CUSTOMER_RECEIPT", sourceId: "ctx-1" },
     });
   });
@@ -321,7 +321,7 @@ describe("delete helpers", () => {
   it("deleteSupplierPaymentMovement scopes by SUPPLIER_PAYMENT", async () => {
     const t = tx();
     await deleteSupplierPaymentMovement(t as any, "u1", "et-1");
-    expect(t.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1", sourceType: "SUPPLIER_PAYMENT", sourceId: "et-1" },
     });
   });
@@ -329,7 +329,7 @@ describe("delete helpers", () => {
   it("deleteStaffSalaryMovement scopes by STAFF_PAYMENT", async () => {
     const t = tx();
     await deleteStaffSalaryMovement(t as any, "u1", "sp-1");
-    expect(t.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1", sourceType: "STAFF_PAYMENT", sourceId: "sp-1" },
     });
   });
@@ -338,19 +338,19 @@ describe("delete helpers", () => {
 describe("ensureCashAccountId", () => {
   it("returns the existing CASH account id without creating", async () => {
     const t = tx();
-    t.farmerCashAccount.findFirst.mockResolvedValueOnce({ id: "cash-existing" });
+    t.cashAccount.findFirst.mockResolvedValueOnce({ id: "cash-existing" });
     const id = await ensureCashAccountId(t as any, "u1");
     expect(id).toBe("cash-existing");
-    expect(t.farmerCashAccount.create).not.toHaveBeenCalled();
+    expect(t.cashAccount.create).not.toHaveBeenCalled();
   });
 
   it("creates when missing, anchored at BS 2000-01-01", async () => {
     const t = tx();
-    t.farmerCashAccount.findFirst.mockResolvedValueOnce(null);
-    t.farmerCashAccount.create.mockResolvedValueOnce({ id: "cash-new" });
+    t.cashAccount.findFirst.mockResolvedValueOnce(null);
+    t.cashAccount.create.mockResolvedValueOnce({ id: "cash-new" });
     const id = await ensureCashAccountId(t as any, "u1");
     expect(id).toBe("cash-new");
-    expect(t.farmerCashAccount.create).toHaveBeenCalledWith(
+    expect(t.cashAccount.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           userId: "u1",

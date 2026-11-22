@@ -12,6 +12,7 @@ export const farmerCashflowKeys = {
   }) => [...farmerCashflowKeys.all, "movements", filters] as const,
   report: (range: { from: string; to: string }) =>
     [...farmerCashflowKeys.all, "report", range] as const,
+  reconciliation: () => [...farmerCashflowKeys.all, "reconciliation"] as const,
 };
 
 export type AccountType = "CASH" | "BANK";
@@ -72,6 +73,8 @@ export interface CashflowReport {
   range: { fromBsDate: string; toBsDate: string };
   totals: {
     openingBalance: number;
+    /** Opening amounts from accounts added during the selected period. */
+    accountOpeningBalance: number;
     closingBalance: number;
     inflow: number;
     outflow: number;
@@ -97,6 +100,25 @@ export function useGetCashflowAccounts(includeArchived: boolean = false) {
       return res.data.data.accounts as CashAccount[];
     },
     staleTime: 15_000,
+  });
+}
+
+export interface CashflowReconciliationStatus {
+  needsReconciliation: boolean;
+  computedCash: number;
+}
+
+export function useGetCashflowReconciliationStatus() {
+  return useQuery<CashflowReconciliationStatus>({
+    queryKey: farmerCashflowKeys.reconciliation(),
+    queryFn: async () => {
+      const res = await axiosInstance.get("/farmer/cashflow/accounts");
+      return {
+        needsReconciliation: Boolean(res.data.data.needsReconciliation),
+        computedCash: Number(res.data.data.computedCash ?? 0),
+      };
+    },
+    staleTime: 60_000,
   });
 }
 
@@ -183,9 +205,10 @@ export function usePatchAccount() {
 export function useDeleteAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
       await axiosInstance.delete(
         `/farmer/cashflow/accounts/${encodeURIComponent(id)}`,
+        { data: { password } },
       );
     },
     onSuccess: () => invalidateAll(qc),
@@ -243,10 +266,37 @@ export function usePostTransfer() {
 export function useDeleteCashflowMovement() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, password }: { id: string; password: string }) => {
       await axiosInstance.delete(
         `/farmer/cashflow/movements/${encodeURIComponent(id)}`,
+        { data: { password } },
       );
+    },
+    onSuccess: () => invalidateAll(qc),
+  });
+}
+
+export interface ReconcileCashflowInput {
+  drawer: number;
+}
+
+export interface ReconcileCashflowResult {
+  computed: number;
+  drawer: number;
+  diff: number;
+  adjustmentMovementId: string | null;
+  settingsId: string;
+}
+
+export function useReconcileCashflow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ReconcileCashflowInput) => {
+      const res = await axiosInstance.post(
+        "/farmer/cashflow/reconcile",
+        input,
+      );
+      return res.data.data as ReconcileCashflowResult;
     },
     onSuccess: () => invalidateAll(qc),
   });

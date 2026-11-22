@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BarChart3, Settings } from "lucide-react";
+import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BarChart3, Filter, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -21,42 +21,41 @@ import { CashflowStatement } from "@/components/cashflow/CashflowStatement";
 import { MovementsTable } from "@/components/cashflow/MovementsTable";
 import { ManualMovementModal } from "@/components/cashflow/ManualMovementModal";
 import { TransferModal } from "@/components/cashflow/TransferModal";
+import { ReconcileWizard } from "@/components/cashflow/ReconcileWizard";
+import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
 
 import {
   useDeleteCashflowMovement,
   useGetCashflowAccounts,
   useGetCashflowMovements,
+  useGetCashflowReconciliationStatus,
   useGetCashflowReport,
   usePostManualMovement,
   usePostTransfer,
+  useReconcileCashflow,
   type CashMovement,
 } from "@/fetchers/farmer/farmerCashflowQueries";
 import {
   convertADtoBS,
-  getLastDayOfBSMonth,
   toNepalDayAd,
 } from "@/common/lib/nepali-date";
 
-function currentBsMonthRange() {
+function todayBsRange() {
   const todayBs = convertADtoBS(toNepalDayAd(new Date()));
-  const [yStr, mStr] = todayBs.split("-");
-  const y = Number(yStr);
-  const m = Number(mStr);
-  // End the default view at the last day of the current BS month, not today.
-  // Picking tomorrow (or any later day this month) on a Sale / Expense /
-  // supplier-payment form otherwise creates a mirror row that would be
-  // filtered out of the default view.
-  return {
-    from: `${yStr}-${mStr}-01`,
-    to: getLastDayOfBSMonth(y, m),
-  };
+  // Default view is "today only". Any wider range is a user-driven filter.
+  return { from: todayBs, to: todayBs };
 }
 
 export default function FarmerCashflowPage() {
-  const [range, setRange] = useState(currentBsMonthRange);
+  const [range, setRange] = useState(todayBsRange);
   const [dir, setDir] = useState<"IN" | "OUT" | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const defaultRange = useMemo(todayBsRange, []);
+  const isFiltered =
+    range.from !== defaultRange.from || range.to !== defaultRange.to;
 
   const accountsQ = useGetCashflowAccounts(false);
   const reportQ = useGetCashflowReport({ from: range.from, to: range.to });
@@ -64,6 +63,7 @@ export default function FarmerCashflowPage() {
     from: range.from,
     to: range.to,
   });
+  const reconciliationQ = useGetCashflowReconciliationStatus();
 
   const accounts = accountsQ.data ?? [];
   const movements = movementsQ.data ?? [];
@@ -75,18 +75,18 @@ export default function FarmerCashflowPage() {
   const addMovement = usePostManualMovement();
   const transfer = usePostTransfer();
   const del = useDeleteCashflowMovement();
+  const reconcile = useReconcileCashflow();
 
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CashMovement | null>(null);
 
-  async function handleDelete(m: CashMovement) {
-    const legs = m.transferId
-      ? "This transfer deletes both legs. Continue?"
-      : "Delete this movement?";
-    if (!window.confirm(legs)) return;
-    setPendingDelete(m.id);
+  async function confirmDelete(password: string) {
+    if (!deleteTarget) return;
+    setPendingDelete(deleteTarget.id);
     try {
-      await del.mutateAsync(m.id);
+      await del.mutateAsync({ id: deleteTarget.id, password });
       toast.success("Movement deleted");
+      setDeleteTarget(null);
     } catch (e: unknown) {
       toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Delete failed");
     } finally {
@@ -114,9 +114,70 @@ export default function FarmerCashflowPage() {
       <AccountBalancesCard accounts={accounts} />
 
       <Card>
-        <CardContent className="py-5">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="flex flex-wrap items-end gap-3">
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setDir("IN")}
+              disabled={accounts.length === 0}
+              className="bg-emerald-600 text-white shadow-xs hover:bg-emerald-700"
+            >
+              <ArrowDownLeft className="mr-1 h-4 w-4" />
+              Cash in
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDir("OUT")}
+              disabled={accounts.length === 0}
+            >
+              <ArrowUpRight className="mr-1 h-4 w-4" />
+              Cash out
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTransferOpen(true)}
+              disabled={!hasBanks}
+              title={
+                hasBanks
+                  ? undefined
+                  : "Add a bank account before transferring"
+              }
+            >
+              <ArrowRightLeft className="mr-1 h-4 w-4" />
+              Transfer
+            </Button>
+
+            <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSummaryOpen(true)}
+                disabled={!reportQ.data}
+              >
+                <BarChart3 className="mr-1 h-4 w-4" />
+                Summary
+              </Button>
+              <Button
+                type="button"
+                variant={isFiltered ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterOpen((v) => !v)}
+                aria-pressed={filterOpen}
+              >
+                <Filter className="mr-1 h-4 w-4" />
+                Filter
+                {isFiltered && (
+                  <span className="ml-1 inline-flex h-2 w-2 rounded-full bg-primary-foreground/80" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {filterOpen && (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4">
               <div>
                 <Label>From (BS)</Label>
                 <NepaliDatePicker
@@ -135,51 +196,18 @@ export default function FarmerCashflowPage() {
                   }
                 />
               </div>
+              {isFiltered && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setRange(defaultRange)}
+                >
+                  Reset to today
+                </Button>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setDir("IN")}
-                disabled={accounts.length === 0}
-              >
-                <ArrowDownLeft className="mr-1 h-4 w-4" />
-                Cash in
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setDir("OUT")}
-                disabled={accounts.length === 0}
-              >
-                <ArrowUpRight className="mr-1 h-4 w-4" />
-                Cash out
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setTransferOpen(true)}
-                disabled={!hasBanks}
-                title={
-                  hasBanks
-                    ? undefined
-                    : "Add a bank account before transferring"
-                }
-              >
-                <ArrowRightLeft className="mr-1 h-4 w-4" />
-                Transfer
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setSummaryOpen(true)}
-                disabled={!reportQ.data}
-              >
-                <BarChart3 className="mr-1 h-4 w-4" />
-                Summary
-              </Button>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -191,7 +219,7 @@ export default function FarmerCashflowPage() {
           movements={movements}
           accounts={accounts}
           deleting={pendingDelete}
-          onDelete={handleDelete}
+          onDelete={setDeleteTarget}
         />
       </section>
 
@@ -243,6 +271,44 @@ export default function FarmerCashflowPage() {
           {reportQ.data && <CashflowStatement report={reportQ.data} />}
         </DialogContent>
       </Dialog>
+
+      <CashflowDeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={deleteTarget?.transferId ? "Delete transfer?" : "Delete movement?"}
+        description={
+          deleteTarget?.transferId
+            ? "This will permanently delete both sides of this transfer."
+            : "This will permanently delete this movement."
+        }
+        confirmLabel={deleteTarget?.transferId ? "Delete transfer" : "Delete movement"}
+        submitting={del.isPending}
+        onConfirm={confirmDelete}
+      />
+
+      {reconciliationQ.data?.needsReconciliation === true && (
+        <ReconcileWizard
+          computedCash={reconciliationQ.data.computedCash}
+          submitting={reconcile.isPending}
+          onSubmit={async (drawer) => {
+            try {
+              const result = await reconcile.mutateAsync({ drawer });
+              if (result.adjustmentMovementId) {
+                toast.success(
+                  `Cash reconciled. Posted adjustment of ${Math.abs(result.diff).toFixed(2)}.`,
+                );
+              } else {
+                toast.success("Cash balance confirmed");
+              }
+            } catch (e: unknown) {
+              toast.error(
+                (e as { response?: { data?: { message?: string } } })?.response
+                  ?.data?.message ?? "Could not confirm reconciliation",
+              );
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

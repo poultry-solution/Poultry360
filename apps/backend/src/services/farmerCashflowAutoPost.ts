@@ -1,11 +1,11 @@
 /**
  * Phase 5 auto-posting hooks. Each helper is called from inside the source
  * controller's existing `prisma.$transaction(async tx => ...)` block so the
- * FarmerCashMovement row is created / updated / deleted atomically with the
+ * CashMovement row is created / updated / deleted atomically with the
  * business event (Sale, SalePayment, CustomerTransaction(RECEIPT), Expense).
  *
  * Idempotency: writes are keyed by `(userId, sourceType, sourceId)` — the
- * partial unique index on FarmerCashMovement enforces one-row-per-source so a
+ * partial unique index on CashMovement enforces one-row-per-source so a
  * controller retry can't double-count money. The helpers use find-then-update
  * (not Prisma `upsert`) because the partial index is created in raw SQL and is
  * invisible to Prisma's upsert validator.
@@ -27,7 +27,7 @@ async function assertAccountOwnedActive(
   userId: string,
   accountId: string,
 ): Promise<void> {
-  const acc = await tx.farmerCashAccount.findUnique({
+  const acc = await tx.cashAccount.findUnique({
     where: { id: accountId },
     select: { userId: true, archivedAt: true },
   });
@@ -79,13 +79,13 @@ async function upsertSourceMovement(params: UpsertParams): Promise<void> {
 
   const bsDate = toNepalBsDayString(date);
 
-  const existing = await tx.farmerCashMovement.findFirst({
+  const existing = await tx.cashMovement.findFirst({
     where: { userId, sourceType, sourceId },
     select: { id: true },
   });
 
   if (existing) {
-    await tx.farmerCashMovement.update({
+    await tx.cashMovement.update({
       where: { id: existing.id },
       data: {
         accountId,
@@ -100,7 +100,7 @@ async function upsertSourceMovement(params: UpsertParams): Promise<void> {
     return;
   }
 
-  await tx.farmerCashMovement.create({
+  await tx.cashMovement.create({
     data: {
       userId,
       accountId,
@@ -123,7 +123,7 @@ async function deleteSourceMovement(
   sourceType: CashSourceType,
   sourceId: string,
 ): Promise<void> {
-  await tx.farmerCashMovement.deleteMany({
+  await tx.cashMovement.deleteMany({
     where: { userId, sourceType, sourceId },
   });
 }
@@ -364,7 +364,7 @@ export async function ensureCashAccountId(
   tx: Tx,
   userId: string,
 ): Promise<string> {
-  const existing = await tx.farmerCashAccount.findFirst({
+  const existing = await tx.cashAccount.findFirst({
     where: { userId, type: "CASH", archivedAt: null },
     select: { id: true },
   });
@@ -372,7 +372,7 @@ export async function ensureCashAccountId(
 
   // Mirror of the service-level seed; kept here so this file stays
   // self-sufficient when called from controllers.
-  const created = await tx.farmerCashAccount.create({
+  const created = await tx.cashAccount.create({
     data: {
       userId,
       type: "CASH",

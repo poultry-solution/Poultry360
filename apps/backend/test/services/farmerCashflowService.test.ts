@@ -7,7 +7,7 @@
 
 jest.mock("../../src/utils/prisma", () => {
   const m = {
-    farmerCashAccount: {
+    cashAccount: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -15,7 +15,7 @@ jest.mock("../../src/utils/prisma", () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
-    farmerCashMovement: {
+    cashMovement: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       count: jest.fn(),
@@ -65,7 +65,7 @@ import {
 } from "../../src/services/farmerCashflowService";
 
 const mocked = prisma as unknown as {
-  farmerCashAccount: {
+  cashAccount: {
     findFirst: jest.Mock;
     findUnique: jest.Mock;
     findMany: jest.Mock;
@@ -73,7 +73,7 @@ const mocked = prisma as unknown as {
     update: jest.Mock;
     delete: jest.Mock;
   };
-  farmerCashMovement: {
+  cashMovement: {
     findMany: jest.Mock;
     findUnique: jest.Mock;
     count: jest.Mock;
@@ -111,18 +111,18 @@ beforeEach(() => {
 
 describe("ensureCashAccount", () => {
   it("returns the existing CASH account without creating a second one", async () => {
-    mocked.farmerCashAccount.findFirst.mockResolvedValueOnce(row());
+    mocked.cashAccount.findFirst.mockResolvedValueOnce(row());
     const result = await ensureCashAccount("u1");
     expect(result.id).toBe("acc-1");
-    expect(mocked.farmerCashAccount.create).not.toHaveBeenCalled();
+    expect(mocked.cashAccount.create).not.toHaveBeenCalled();
   });
 
   it("creates when none exists", async () => {
-    mocked.farmerCashAccount.findFirst.mockResolvedValueOnce(null);
-    mocked.farmerCashAccount.create.mockResolvedValueOnce(row({ id: "new-1" }));
+    mocked.cashAccount.findFirst.mockResolvedValueOnce(null);
+    mocked.cashAccount.create.mockResolvedValueOnce(row({ id: "new-1" }));
     const result = await ensureCashAccount("u1");
     expect(result.id).toBe("new-1");
-    expect(mocked.farmerCashAccount.create).toHaveBeenCalledWith(
+    expect(mocked.cashAccount.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ userId: "u1", type: "CASH", name: "Cash" }),
       }),
@@ -130,18 +130,18 @@ describe("ensureCashAccount", () => {
   });
 
   it("recovers from P2002 by re-fetching the winning row", async () => {
-    mocked.farmerCashAccount.findFirst
+    mocked.cashAccount.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(row({ id: "winner-1" }));
     const p2002 = new Prisma.PrismaClientKnownRequestError(
       "unique violation",
       { code: "P2002", clientVersion: "test" },
     );
-    mocked.farmerCashAccount.create.mockRejectedValueOnce(p2002);
+    mocked.cashAccount.create.mockRejectedValueOnce(p2002);
 
     const result = await ensureCashAccount("u1");
     expect(result.id).toBe("winner-1");
-    expect(mocked.farmerCashAccount.findFirst).toHaveBeenCalledTimes(2);
+    expect(mocked.cashAccount.findFirst).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -181,7 +181,7 @@ describe("createBankAccount", () => {
       "unique violation",
       { code: "P2002", clientVersion: "test" },
     );
-    mocked.farmerCashAccount.create.mockRejectedValueOnce(p2002);
+    mocked.cashAccount.create.mockRejectedValueOnce(p2002);
     await expect(
       createBankAccount("u1", {
         name: "NIC Main",
@@ -192,7 +192,7 @@ describe("createBankAccount", () => {
   });
 
   it("creates a BANK account with trimmed name", async () => {
-    mocked.farmerCashAccount.create.mockResolvedValueOnce(
+    mocked.cashAccount.create.mockResolvedValueOnce(
       row({ id: "bank-1", type: "BANK", name: "NIC Main" }),
     );
     const result = await createBankAccount("u1", {
@@ -201,7 +201,7 @@ describe("createBankAccount", () => {
       openingBsDate: "2083-04-01",
     });
     expect(result.name).toBe("NIC Main");
-    expect(mocked.farmerCashAccount.create).toHaveBeenCalledWith(
+    expect(mocked.cashAccount.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ name: "NIC Main", type: "BANK" }),
       }),
@@ -211,14 +211,14 @@ describe("createBankAccount", () => {
 
 describe("renameAccount", () => {
   it("refuses to rename the system Cash account", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH", name: "Cash" }));
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH", name: "Cash" }));
     await expect(renameAccount("u1", "acc-1", "Treasury")).rejects.toMatchObject({
       status: 409,
     });
   });
 
   it("refuses cross-user access with a 403", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(
       row({ userId: "other-user", type: "BANK", name: "NIC" }),
     );
     await expect(renameAccount("u1", "acc-1", "Renamed")).rejects.toMatchObject({
@@ -228,10 +228,10 @@ describe("renameAccount", () => {
   });
 
   it("renames a bank account", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(
       row({ type: "BANK", name: "NIC" }),
     );
-    mocked.farmerCashAccount.update.mockResolvedValueOnce(
+    mocked.cashAccount.update.mockResolvedValueOnce(
       row({ type: "BANK", name: "NIC Main" }),
     );
     const result = await renameAccount("u1", "acc-1", "NIC Main");
@@ -241,29 +241,29 @@ describe("renameAccount", () => {
 
 describe("archiveAccount", () => {
   it("refuses to archive the Cash account", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
     await expect(archiveAccount("u1", "acc-1")).rejects.toMatchObject({
       status: 409,
     });
   });
 
   it("refuses to archive an account with a non-zero balance", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(
       row({ type: "BANK", openingBalance: new Prisma.Decimal(500) }),
     );
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([]);
     await expect(archiveAccount("u1", "acc-1")).rejects.toMatchObject({
       status: 409,
     });
   });
 
   it("archives an account with zero balance", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(
       row({ type: "BANK", openingBalance: new Prisma.Decimal(0) }),
     );
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([]);
     const archivedAt = new Date();
-    mocked.farmerCashAccount.update.mockResolvedValueOnce(
+    mocked.cashAccount.update.mockResolvedValueOnce(
       row({ type: "BANK", archivedAt }),
     );
     const result = await archiveAccount("u1", "acc-1");
@@ -273,8 +273,8 @@ describe("archiveAccount", () => {
 
 describe("editOpeningBalance", () => {
   it("refuses once the account has movements", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
-    mocked.farmerCashMovement.count.mockResolvedValueOnce(1);
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashMovement.count.mockResolvedValueOnce(1);
     await expect(editOpeningBalance("u1", "acc-1", 500)).rejects.toMatchObject({
       status: 409,
     });
@@ -282,13 +282,13 @@ describe("editOpeningBalance", () => {
 
   it("refuses negative values", async () => {
     await expect(editOpeningBalance("u1", "acc-1", -1)).rejects.toThrow();
-    expect(mocked.farmerCashAccount.findUnique).not.toHaveBeenCalled();
+    expect(mocked.cashAccount.findUnique).not.toHaveBeenCalled();
   });
 
   it("updates the opening when no movements exist", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
-    mocked.farmerCashMovement.count.mockResolvedValueOnce(0);
-    mocked.farmerCashAccount.update.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashMovement.count.mockResolvedValueOnce(0);
+    mocked.cashAccount.update.mockResolvedValueOnce(
       row({ type: "BANK", openingBalance: new Prisma.Decimal(1234) }),
     );
     const result = await editOpeningBalance("u1", "acc-1", 1234);
@@ -299,13 +299,13 @@ describe("editOpeningBalance", () => {
 describe("getAccountBalances", () => {
   it("skips archived accounts by default", async () => {
     const active = row({ id: "cash-1", type: "CASH" });
-    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([active]);
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([]);
+    mocked.cashAccount.findMany.mockResolvedValueOnce([active]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([]);
 
     const balances = await getAccountBalances("u1");
 
     expect(balances.map((b) => b.id)).toEqual(["cash-1"]);
-    expect(mocked.farmerCashAccount.findMany).toHaveBeenCalledWith(
+    expect(mocked.cashAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ archivedAt: null }),
       }),
@@ -321,8 +321,8 @@ describe("getAccountBalances", () => {
       openingBsDate: "2083-04-01",
       openingBalance: new Prisma.Decimal(500),
     });
-    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([active, archived]);
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([
+    mocked.cashAccount.findMany.mockResolvedValueOnce([active, archived]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
       // Historical movement on the archived account — must still count.
       {
         id: "m1",
@@ -342,7 +342,7 @@ describe("getAccountBalances", () => {
 
     const arch = balances.find((b) => b.id === "bank-arch");
     expect(arch?.balance).toBe(700); // 500 opening + 200 historical IN
-    expect(mocked.farmerCashAccount.findMany).toHaveBeenCalledWith(
+    expect(mocked.cashAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.not.objectContaining({ archivedAt: null }),
       }),
@@ -352,33 +352,33 @@ describe("getAccountBalances", () => {
 
 describe("deleteAccount", () => {
   it("refuses to delete the Cash account", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
     await expect(deleteAccount("u1", "acc-1")).rejects.toMatchObject({ status: 409 });
-    expect(mocked.farmerCashAccount.delete).not.toHaveBeenCalled();
+    expect(mocked.cashAccount.delete).not.toHaveBeenCalled();
   });
 
   it("refuses when the account has movements and points at archive as the hide path", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
-    mocked.farmerCashMovement.count.mockResolvedValueOnce(5);
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashMovement.count.mockResolvedValueOnce(5);
     await expect(deleteAccount("u1", "acc-1")).rejects.toMatchObject({
       status: 409,
       message: expect.stringMatching(/5 transactions.*archive/i),
     });
-    expect(mocked.farmerCashAccount.delete).not.toHaveBeenCalled();
+    expect(mocked.cashAccount.delete).not.toHaveBeenCalled();
   });
 
   it("hard-deletes a clean (empty) bank account", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
-    mocked.farmerCashMovement.count.mockResolvedValueOnce(0);
-    mocked.farmerCashAccount.delete.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashMovement.count.mockResolvedValueOnce(0);
+    mocked.cashAccount.delete.mockResolvedValueOnce(row({ type: "BANK" }));
     await expect(deleteAccount("u1", "acc-1")).resolves.toBeUndefined();
-    expect(mocked.farmerCashAccount.delete).toHaveBeenCalledWith({
+    expect(mocked.cashAccount.delete).toHaveBeenCalledWith({
       where: { id: "acc-1" },
     });
   });
 
   it("refuses cross-user deletion with a 403", async () => {
-    mocked.farmerCashAccount.findUnique.mockResolvedValueOnce(
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(
       row({ userId: "someone-else", type: "BANK" }),
     );
     await expect(deleteAccount("u1", "acc-1")).rejects.toMatchObject({
@@ -390,30 +390,30 @@ describe("deleteAccount", () => {
 
 describe("deleteMovement", () => {
   it("deletes a MANUAL movement", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce({
+    mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m1",
       userId: "u1",
       sourceType: "MANUAL",
       transferId: null,
     });
-    mocked.farmerCashMovement.delete.mockResolvedValueOnce({ id: "m1" });
+    mocked.cashMovement.delete.mockResolvedValueOnce({ id: "m1" });
 
     const result = await deleteMovement("u1", "m1");
     expect(result.deletedIds).toEqual(["m1"]);
-    expect(mocked.farmerCashMovement.delete).toHaveBeenCalledWith({
+    expect(mocked.cashMovement.delete).toHaveBeenCalledWith({
       where: { id: "m1" },
     });
   });
 
   it("deletes both legs of a TRANSFER atomically", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce({
+    mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m-out",
       userId: "u1",
       sourceType: "TRANSFER",
       transferId: "t-42",
     });
     const tx = {
-      farmerCashMovement: {
+      cashMovement: {
         findMany: jest.fn().mockResolvedValue([{ id: "m-out" }, { id: "m-in" }]),
         deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
@@ -424,13 +424,13 @@ describe("deleteMovement", () => {
 
     const result = await deleteMovement("u1", "m-out");
     expect(result.deletedIds.sort()).toEqual(["m-in", "m-out"]);
-    expect(tx.farmerCashMovement.deleteMany).toHaveBeenCalledWith({
+    expect(tx.cashMovement.deleteMany).toHaveBeenCalledWith({
       where: { transferId: "t-42", userId: "u1" },
     });
   });
 
   it("refuses to delete auto-posted movements (must go through the source)", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce({
+    mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m2",
       userId: "u1",
       sourceType: "SALE_PAYMENT",
@@ -443,7 +443,7 @@ describe("deleteMovement", () => {
   });
 
   it("refuses to delete OPENING_ADJUSTMENT (would break reconciliation audit trail)", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce({
+    mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m3",
       userId: "u1",
       sourceType: "OPENING_ADJUSTMENT",
@@ -453,7 +453,7 @@ describe("deleteMovement", () => {
   });
 
   it("refuses cross-user deletion", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce({
+    mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m4",
       userId: "someone-else",
       sourceType: "MANUAL",
@@ -463,7 +463,7 @@ describe("deleteMovement", () => {
   });
 
   it("returns 404 for unknown movement id", async () => {
-    mocked.farmerCashMovement.findUnique.mockResolvedValueOnce(null);
+    mocked.cashMovement.findUnique.mockResolvedValueOnce(null);
     await expect(deleteMovement("u1", "missing")).rejects.toMatchObject({
       status: 404,
     });
@@ -472,14 +472,14 @@ describe("deleteMovement", () => {
 
 describe("listMovements", () => {
   it("filters by range + account + limit", async () => {
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([]);
     await listMovements("u1", {
       fromBsDate: "2083-04-01",
       toBsDate: "2083-04-30",
       accountId: "cash-1",
       limit: 50,
     });
-    expect(mocked.farmerCashMovement.findMany).toHaveBeenCalledWith(
+    expect(mocked.cashMovement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           userId: "u1",
@@ -500,10 +500,10 @@ describe("listMovements", () => {
 });
 
 function fakeTx(
-  farmerCashAccount: Record<string, jest.Mock>,
-  farmerCashMovement: Record<string, jest.Mock>,
+  cashAccount: Record<string, jest.Mock>,
+  cashMovement: Record<string, jest.Mock>,
 ) {
-  return { farmerCashAccount, farmerCashMovement };
+  return { cashAccount, cashMovement };
 }
 
 describe("postManualMovement", () => {
@@ -572,7 +572,7 @@ describe("postManualMovement", () => {
     });
 
     expect(result.direction).toBe("IN");
-    expect(tx.farmerCashMovement.create).toHaveBeenCalledWith(
+    expect(tx.cashMovement.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           direction: "IN",
@@ -597,7 +597,7 @@ describe("postManualMovement", () => {
     await expect(
       postManualMovement("u1", "u1", baseInput),
     ).rejects.toMatchObject({ status: 403 });
-    expect(tx.farmerCashMovement.create).not.toHaveBeenCalled();
+    expect(tx.cashMovement.create).not.toHaveBeenCalled();
   });
 
   it("refuses dates before the account's openingBsDate", async () => {
@@ -685,7 +685,7 @@ describe("postTransfer", () => {
 
     const result = await postTransfer("u1", "u1", baseInput);
 
-    expect(tx.farmerCashMovement.create).toHaveBeenCalledTimes(2);
+    expect(tx.cashMovement.create).toHaveBeenCalledTimes(2);
     expect(result.legs[0].transferId).toBe(result.legs[1].transferId);
     expect(result.legs.map((l) => l.direction).sort()).toEqual(["IN", "OUT"]);
   });
@@ -693,7 +693,7 @@ describe("postTransfer", () => {
 
 describe("getReport", () => {
   it("returns zeroed totals and empty balances when the user has no accounts", async () => {
-    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([]);
+    mocked.cashAccount.findMany.mockResolvedValueOnce([]);
     const r = await getReport("u1", {
       fromBsDate: "2083-04-01",
       toBsDate: "2083-04-30",
@@ -719,7 +719,7 @@ describe("getReport", () => {
       throw new Error("Date lib: cannot go before BS 2000");
     });
 
-    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([
+    mocked.cashAccount.findMany.mockResolvedValueOnce([
       row({
         id: "cash-1",
         type: "CASH",
@@ -727,7 +727,7 @@ describe("getReport", () => {
         openingBsDate: "2000-01-01",
       }),
     ]);
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
       {
         id: "m-a",
         userId: "u1",
@@ -757,10 +757,10 @@ describe("getReport", () => {
   });
 
   it("totals opening + closing balances from movements", async () => {
-    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([
+    mocked.cashAccount.findMany.mockResolvedValueOnce([
       row({ id: "cash-1", type: "CASH", openingBalance: new Prisma.Decimal(100), openingBsDate: "2083-03-01" }),
     ]);
-    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
       {
         id: "m-a",
         userId: "u1",
@@ -801,6 +801,51 @@ describe("getReport", () => {
     expect(r.byCategory.inflow.SALE_RECEIPT).toBe(200);
     expect(r.balances).toHaveLength(1);
     expect(r.balances[0].balance).toBe(350);
+  });
+
+  it("includes an account opening amount when the account starts in the selected period", async () => {
+    mocked.cashAccount.findMany.mockResolvedValueOnce([
+      row({
+        id: "cash-1",
+        type: "CASH",
+        openingBalance: new Prisma.Decimal(0),
+        openingBsDate: "2000-01-01",
+      }),
+      row({
+        id: "bank-1",
+        type: "BANK",
+        name: "Bank",
+        openingBalance: new Prisma.Decimal(50000),
+        openingBsDate: "2083-04-10",
+      }),
+    ]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
+      {
+        id: "sale-1",
+        userId: "u1",
+        accountId: "cash-1",
+        bsDate: "2083-04-15",
+        direction: "IN",
+        amount: new Prisma.Decimal(18000),
+        category: "SALE_RECEIPT",
+        sourceType: "SALE_PAYMENT",
+        sourceId: "sp-1",
+        transferId: null,
+        partyName: "Ram",
+        notes: null,
+        createdAt: new Date(0),
+      },
+    ]);
+
+    const r = await getReport("u1", {
+      fromBsDate: "2083-04-01",
+      toBsDate: "2083-04-30",
+    });
+
+    expect(r.totals.openingBalance).toBe(0);
+    expect(r.totals.accountOpeningBalance).toBe(50000);
+    expect(r.totals.inflow).toBe(18000);
+    expect(r.totals.closingBalance).toBe(68000);
   });
 });
 

@@ -584,12 +584,12 @@ After stabilising prod, immediately `git revert <bad-sha>` on `main` so the next
 
 ### What happens
 
-Farmer staff payments now create a `FarmerCashMovement` with
+Farmer staff payments now create a `CashMovement` with
 `sourceType = STAFF_PAYMENT`. Deleting one payment removes its matching
 cashbook row correctly.
 
 However, `deleteStaff` deletes the whole `Staff` row. Prisma then cascades to
-all of its `StaffPayment` rows, but `FarmerCashMovement` has no foreign key to
+all of its `StaffPayment` rows, but `CashMovement` has no foreign key to
 `StaffPayment`. The matching cashbook rows remain and show salary payments
 whose source records no longer exist.
 

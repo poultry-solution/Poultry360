@@ -941,7 +941,7 @@ export const updateExpense = async (
       if (pickedUpdateAccountId) {
         accountIdForCashbook = pickedUpdateAccountId;
       } else {
-        const existingMirror = await tx.farmerCashMovement.findFirst({
+        const existingMirror = await tx.cashMovement.findFirst({
           where: {
             userId: currentUserId!,
             sourceType: "EXPENSE",

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 import type { CashCategory } from "@prisma/client";
+import prisma from "../utils/prisma";
 import {
   CashflowError,
   archiveAccount,
@@ -9,15 +11,18 @@ import {
   editOpeningBalance,
   ensureCashAccount,
   getAccountBalances,
+  getReconciliationStatus,
   getReport,
   listAccounts,
   listMovements,
   postManualMovement,
   postTransfer,
+  reconcile as reconcileService,
   renameAccount,
   unarchiveAccount,
 } from "../services/farmerCashflowService";
 import { writeBusinessAudit } from "../services/businessAuditService";
+import { getNepalBsTodayString } from "../utils/nepalBsDate";
 
 function handle(err: unknown, res: Response, scope: string): Response {
   if (err instanceof CashflowError) {
@@ -27,15 +32,92 @@ function handle(err: unknown, res: Response, scope: string): Response {
   return res.status(500).json({ message: "Internal server error" });
 }
 
+/** Require the password of the person who is signed in before a hard delete. */
+async function assertDeletePassword(req: Request): Promise<void> {
+  const password = req.body?.password;
+  if (typeof password !== "string" || password.length === 0) {
+    throw new CashflowError("Password confirmation is required", 400);
+  }
+
+  const hash = req.actorType === "STAFF"
+    ? (
+        await prisma.staffUser.findUnique({
+          where: { id: req.staffUserId },
+          select: { passwordHash: true },
+        })
+      )?.passwordHash
+    : (
+        await prisma.user.findUnique({
+          where: { id: req.userId },
+          select: { password: true },
+        })
+      )?.password;
+
+  if (!hash || !(await bcrypt.compare(password, hash))) {
+    throw new CashflowError("Invalid password. Deletion cancelled.", 401);
+  }
+}
+
 export const getAccounts = async (req: Request, res: Response): Promise<any> => {
   try {
     const userId = req.userId!;
     await ensureCashAccount(userId);
     const includeArchived = req.query.includeArchived === "true";
-    const accounts = await getAccountBalances(userId, { includeArchived });
-    return res.status(200).json({ success: true, data: { accounts } });
+    // Cap at Nepal-today so a back-dated tomorrow-expense doesn't show up in
+    // "Account balances" before it's actually posted. Without this the top
+    // card and the cashflow statement (which respects the selected range)
+    // disagree whenever a user books a future-dated sale or expense.
+    const asOfBsDate = getNepalBsTodayString();
+    const [accounts, reconciliation] = await Promise.all([
+      getAccountBalances(userId, { includeArchived, asOfBsDate }),
+      getReconciliationStatus(userId),
+    ]);
+    return res.status(200).json({
+      success: true,
+      data: {
+        accounts,
+        needsReconciliation: reconciliation.needsReconciliation,
+        computedCash: reconciliation.computedCash,
+      },
+    });
   } catch (err) {
     return handle(err, res, "farmerCashflow.getAccounts");
+  }
+};
+
+export const reconcileHandler = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const recordedById = req.actorType === "STAFF"
+      ? req.staffUserId ?? userId
+      : userId;
+    const drawerRaw = req.body?.drawer;
+    const drawer = Number(drawerRaw);
+    if (!Number.isFinite(drawer) || drawer < 0) {
+      return res.status(400).json({ message: "drawer must be a non-negative number" });
+    }
+    const result = await reconcileService(userId, recordedById, drawer);
+    await writeBusinessAudit(req, {
+      action: "cashflow.reconciled",
+      targetType: "FarmerCashSettings",
+      targetId: result.settingsId,
+      description:
+        result.adjustmentMovementId !== null
+          ? `Cash reconciled: drawer ${result.drawer} vs computed ${result.computed} (diff ${result.diff})`
+          : `Cash reconciled: drawer matches computed (${result.drawer})`,
+      metadata: {
+        drawer: result.drawer,
+        computed: result.computed,
+        diff: result.diff,
+        adjustmentMovementId: result.adjustmentMovementId,
+      },
+    });
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.reconcile");
   }
 };
 
@@ -54,7 +136,7 @@ export const createAccount = async (
     });
     await writeBusinessAudit(req, {
       action: "cashflow.account.created",
-      targetType: "FarmerCashAccount",
+      targetType: "CashAccount",
       targetId: created.id,
       description: `Bank account "${created.name}" added`,
       metadata: {
@@ -102,7 +184,7 @@ export const patchAccount = async (
       const updated = await renameAccount(userId, id, String(body.name));
       await writeBusinessAudit(req, {
         action: "cashflow.account.renamed",
-        targetType: "FarmerCashAccount",
+        targetType: "CashAccount",
         targetId: id,
         description: `Account renamed to "${updated.name}"`,
       });
@@ -117,7 +199,7 @@ export const patchAccount = async (
       const updated = await editOpeningBalance(userId, id, next);
       await writeBusinessAudit(req, {
         action: "cashflow.account.opening_edited",
-        targetType: "FarmerCashAccount",
+        targetType: "CashAccount",
         targetId: id,
         description: `Opening balance set to ${updated.openingBalance}`,
         metadata: {
@@ -135,7 +217,7 @@ export const patchAccount = async (
       : await unarchiveAccount(userId, id);
     await writeBusinessAudit(req, {
       action: next ? "cashflow.account.archived" : "cashflow.account.unarchived",
-      targetType: "FarmerCashAccount",
+      targetType: "CashAccount",
       targetId: id,
       description: `Account ${next ? "archived" : "restored"}: ${updated.name}`,
     });
@@ -155,6 +237,10 @@ export const deleteAccount = async (
     if (!id) {
       return res.status(400).json({ message: "Account id is required" });
     }
+    // Hard-delete needs the signed-in user's password. Reversible edits
+    // (rename / archive / opening-balance) do not — they can be undone via
+    // the UI without touching the audit trail of a destroyed row.
+    await assertDeletePassword(req);
     // Fetch the name up front for a useful audit log entry — the row is gone
     // after the service call.
     const existing = (
@@ -163,7 +249,7 @@ export const deleteAccount = async (
     await deleteAccountService(userId, id);
     await writeBusinessAudit(req, {
       action: "cashflow.account.deleted",
-      targetType: "FarmerCashAccount",
+      targetType: "CashAccount",
       targetId: id,
       description: `Account deleted: ${existing?.name ?? id}`,
     });
@@ -183,10 +269,11 @@ export const deleteMovement = async (
     if (!id) {
       return res.status(400).json({ message: "Movement id is required" });
     }
+    await assertDeletePassword(req);
     const { deletedIds } = await deleteMovementService(userId, id);
     await writeBusinessAudit(req, {
       action: "cashflow.movement.deleted",
-      targetType: "FarmerCashMovement",
+      targetType: "CashMovement",
       targetId: id,
       description:
         deletedIds.length > 1
@@ -250,7 +337,7 @@ export const createMovement = async (
     });
     await writeBusinessAudit(req, {
       action: "cashflow.movement.manual_added",
-      targetType: "FarmerCashMovement",
+      targetType: "CashMovement",
       targetId: movement.id,
       description: `Manual ${movement.direction} ${movement.amount} on ${movement.bsDate} (${movement.category})`,
       metadata: {
@@ -285,7 +372,7 @@ export const createTransfer = async (
     });
     await writeBusinessAudit(req, {
       action: "cashflow.transfer.posted",
-      targetType: "FarmerCashMovement",
+      targetType: "CashMovement",
       targetId: result.transferId,
       description: `Transfer ${result.legs[0].amount} on ${result.legs[0].bsDate}`,
       metadata: {

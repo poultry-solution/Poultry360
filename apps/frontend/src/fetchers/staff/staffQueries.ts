@@ -260,6 +260,8 @@ export interface AddPaymentBody {
   paidAt: string;
   note?: string;
   receiptImageUrl?: string;
+  /** Farmer only: account the salary was paid from. */
+  accountId?: string;
 }
 
 export function useAddStaffPayment(owner: StaffOwner) {

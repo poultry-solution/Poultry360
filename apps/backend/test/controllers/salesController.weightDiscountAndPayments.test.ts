@@ -19,12 +19,12 @@ jest.mock("../../src/utils/prisma", () => {
     // Phase 5 auto-post lives in the same tx as the sale writes; stubbed so
     // the controller's ensureCashAccountId + postSalePaymentMovement +
     // deleteCustomerReceiptMovement calls resolve during the test.
-    farmerCashAccount: {
+    cashAccount: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    farmerCashMovement: {
+    cashMovement: {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -96,15 +96,15 @@ beforeEach(() => {
   // Defaults for the auto-post mirror writes. `findFirst` returns an existing
   // cash account id so ensureCashAccountId skips the create path; mirror writes
   // succeed quietly.
-  db.farmerCashAccount.findFirst.mockResolvedValue({ id: "cash-1" });
-  db.farmerCashAccount.findUnique.mockResolvedValue({
+  db.cashAccount.findFirst.mockResolvedValue({ id: "cash-1" });
+  db.cashAccount.findUnique.mockResolvedValue({
     id: "cash-1",
     userId: "farmer-1",
     archivedAt: null,
   });
-  db.farmerCashMovement.findFirst.mockResolvedValue(null);
-  db.farmerCashMovement.create.mockResolvedValue({ id: "mov-1" });
-  db.farmerCashMovement.deleteMany.mockResolvedValue({ count: 1 });
+  db.cashMovement.findFirst.mockResolvedValue(null);
+  db.cashMovement.create.mockResolvedValue({ id: "mov-1" });
+  db.cashMovement.deleteMany.mockResolvedValue({ count: 1 });
   db.salePayment.create.mockImplementation(({ data }: any) =>
     Promise.resolve({ id: "pay-new", ...data }),
   );
@@ -232,18 +232,18 @@ describe("Sale payments", () => {
 });
 
 describe("Sale + cashflow mirror atomicity", () => {
-  it("createSale pairs salePayment.create with farmerCashMovement.create inside one $transaction", async () => {
+  it("createSale pairs salePayment.create with cashMovement.create inside one $transaction", async () => {
     db.customer.findFirst.mockResolvedValue({ id: "cust-1", name: "Ram" });
     const res = makeResponse();
     await createSale(makeRequest({ ...broilerSale }), res);
 
     expect(db.salePayment.create).toHaveBeenCalledTimes(1);
-    expect(db.farmerCashMovement.create).toHaveBeenCalledTimes(1);
+    expect(db.cashMovement.create).toHaveBeenCalledTimes(1);
     // Both writes must happen inside the same $transaction callback — the
     // mock's $transaction is called once per full sale save.
     expect(db.$transaction).toHaveBeenCalledTimes(1);
 
-    const mirror = db.farmerCashMovement.create.mock.calls[0][0].data;
+    const mirror = db.cashMovement.create.mock.calls[0][0].data;
     expect(mirror.sourceType).toBe("SALE_PAYMENT");
     expect(mirror.category).toBe("SALE_RECEIPT");
     expect(mirror.direction).toBe("IN");
@@ -252,7 +252,7 @@ describe("Sale + cashflow mirror atomicity", () => {
 
   it("createSale rolls the whole save back when the mirror write throws", async () => {
     db.customer.findFirst.mockResolvedValue({ id: "cust-1", name: "Ram" });
-    db.farmerCashMovement.create.mockRejectedValueOnce(new Error("FK fail"));
+    db.cashMovement.create.mockRejectedValueOnce(new Error("FK fail"));
 
     const res = makeResponse();
     await createSale(makeRequest({ ...broilerSale }), res);
@@ -287,7 +287,7 @@ describe("Sale + cashflow mirror atomicity", () => {
     // Three cashbook mirror deletes should fire inside the single $transaction:
     //   1) SALE_PAYMENT mirror for pay-2 (the linked SalePayment)
     //   2) CUSTOMER_RECEIPT mirror for rcpt-2 (the receipt row itself)
-    const sourceTypesCleared = db.farmerCashMovement.deleteMany.mock.calls.map(
+    const sourceTypesCleared = db.cashMovement.deleteMany.mock.calls.map(
       (call: any) => call[0].where.sourceType,
     );
     expect(sourceTypesCleared).toEqual(

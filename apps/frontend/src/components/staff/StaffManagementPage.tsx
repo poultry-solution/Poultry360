@@ -29,6 +29,8 @@ import { BSMonthPicker } from "@/common/components/ui/bs-month-picker";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { StaffAttendanceCalendar } from "@/components/staff/StaffAttendanceCalendar";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
 import {
   useDeleteStaff,
   useCreateStaff,
@@ -126,7 +128,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
 
   const emptyAddForm = { name: "", payType: "MONTHLY" as StaffPayType, startDate: getTodayLocalDate(), rate: "" };
   const [addForm, setAddForm] = useState(emptyAddForm);
-  const [payForm, setPayForm] = useState({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
+  const [payForm, setPayForm] = useState({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "", accountId: "" });
   const [editSalaryForm, setEditSalaryForm] = useState({ rate: "", effectiveFrom: getTodayLocalDate() });
   const [stopForm, setStopForm] = useState({ endDate: getTodayLocalDate() });
 
@@ -222,10 +224,11 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
         paidAt,
         note: payForm.note.trim() || undefined,
         receiptImageUrl: payForm.receiptImageUrl.trim() || undefined,
+        accountId: payForm.accountId || undefined,
       },
     });
     setPayStaffId(null);
-    setPayForm({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
+    setPayForm({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "", accountId: "" });
   };
 
   const handleEditSalary = async () => {
@@ -528,7 +531,7 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                               className="h-8 text-primary"
                               onClick={() => {
                                 setPayStaffId(s.id);
-                                setPayForm({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "" });
+                                setPayForm({ amount: "", paidAt: getTodayLocalDate(), note: "", receiptImageUrl: "", accountId: "" });
                               }}
                             >
                               <DollarSign className="mr-1 h-4 w-4" />
@@ -711,6 +714,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 onChange={(v) => setPayForm((f) => ({ ...f, paidAt: v?.split("T")[0] ?? getTodayLocalDate() }))}
               />
             </div>
+            {owner === "farmer" && (
+              <FarmerSalaryAccountPicker
+                value={payForm.accountId}
+                onChange={(accountId) =>
+                  setPayForm((form) => ({ ...form, accountId }))
+                }
+              />
+            )}
             <div>
               <Label>{text("note", "Note")}</Label>
               <Input
@@ -1213,6 +1224,35 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
           </Button>
         </ModalFooter>
       </Modal>
+    </div>
+  );
+}
+
+/** Only mounted for Farmer, so other modules do not call the Farmer cashflow API. */
+function FarmerSalaryAccountPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (accountId: string) => void;
+}) {
+  const { data: accounts } = useGetCashflowAccounts(false);
+  const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
+  const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
+
+  if (activeAccounts.length <= 1) return null;
+
+  return (
+    <div>
+      <Label>Paid from</Label>
+      <AccountPicker
+        accounts={activeAccounts}
+        value={value || cashId}
+        onChange={onChange}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        Default: Cash. Pick a bank if the salary was paid from there.
+      </p>
     </div>
   );
 }

@@ -19,12 +19,12 @@ jest.mock("../../src/utils/prisma", () => {
     // Phase 5 auto-post runs inside createSale's $transaction whenever
     // paidAmount > 0. These stubs resolve the cashbook branch so the
     // controller doesn't 500 silently and give a false green.
-    farmerCashAccount: {
+    cashAccount: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
     },
-    farmerCashMovement: {
+    cashMovement: {
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -102,14 +102,14 @@ beforeEach(() => {
   // circuits ensureCashAccountId; findUnique returns an active owned account
   // so assertAccountOwnedActive passes; salePayment.create echoes back an id
   // so the mirror's upsert path has something to key on.
-  db.farmerCashAccount.findFirst.mockResolvedValue({ id: "cash-1" });
-  db.farmerCashAccount.findUnique.mockResolvedValue({
+  db.cashAccount.findFirst.mockResolvedValue({ id: "cash-1" });
+  db.cashAccount.findUnique.mockResolvedValue({
     id: "cash-1",
     userId: "farmer-1",
     archivedAt: null,
   });
-  db.farmerCashMovement.findFirst.mockResolvedValue(null);
-  db.farmerCashMovement.create.mockResolvedValue({ id: "mov-1" });
+  db.cashMovement.findFirst.mockResolvedValue(null);
+  db.cashMovement.create.mockResolvedValue({ id: "mov-1" });
   db.salePayment.create.mockImplementation(({ data }: any) =>
     Promise.resolve({ id: "pay-new", ...data }),
   );

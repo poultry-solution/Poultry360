@@ -705,7 +705,7 @@ export const addDealerTransaction = async (
       paymentDescription,
       // link standalone PAYMENT to a purchase (optional for khata-style)
       paymentToPurchaseId,
-      // cashflow mirror: which FarmerCashAccount the money came out of
+      // cashflow mirror: which CashAccount the money came out of
       accountId: pickedAccountId,
     } = req.body;
 
@@ -878,7 +878,7 @@ export const addDealerTransaction = async (
           });
           // Mirror into the farmer cashbook only when the caller is a farmer
           // owner. Company owners share this endpoint but their own cashbook
-          // isn't built yet; writing a FarmerCashAccount on their id would
+          // isn't built yet; writing a CashAccount on their id would
           // leak farmer-only state into a Company tenant.
           if (req.role === UserRole.OWNER) {
             const accountIdForCashbook =

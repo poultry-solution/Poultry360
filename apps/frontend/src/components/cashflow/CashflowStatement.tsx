@@ -44,6 +44,12 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
         </h2>
 
         <Row label="Opening balance" value={report.totals.openingBalance} />
+        {report.totals.accountOpeningBalance > 0 && (
+          <Row
+            label="Account opening balance added in this period"
+            value={report.totals.accountOpeningBalance}
+          />
+        )}
 
         <Section title="Inflow">
           {inflowRows.length === 0 && <Empty />}
