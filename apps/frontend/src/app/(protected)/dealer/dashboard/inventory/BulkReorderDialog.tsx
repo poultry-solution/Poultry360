@@ -32,7 +32,7 @@ import {
   type ManualCompany,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { getTodayLocalDate } from "@/common/lib/utils";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
 import {
   ACCOUNT_FEATURE_KEYS,
@@ -182,7 +182,7 @@ export default function BulkReorderDialog({ open, onOpenChange }: BulkReorderDia
     try {
       await recordPurchaseMutation.mutateAsync({
         companyId,
-        date: new Date((dateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
+        date: nepalNoonFromAdDay(dateAd || getTodayLocalDate()).toISOString(),
         tradeDiscountAmount: discountNum || 0,
         billImageUrl:
           isPurchaseBillEnabled && billImageUrl ? billImageUrl : undefined,

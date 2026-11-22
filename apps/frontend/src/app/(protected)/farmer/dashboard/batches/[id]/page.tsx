@@ -95,7 +95,7 @@ import { CloseBatchModal } from "@/components/batches/modals/CloseBatchModal";
 import { DeleteBatchModal } from "@/components/batches/modals/DeleteBatchModal";
 import { ShareBatchModal } from "@/components/batches/modals/ShareBatchModal";
 import { useI18n } from "@/i18n/useI18n";
-import { nepalBatchAge, toNepalDayAd } from "@/common/lib/nepali-date";
+import { nepalBatchAge, nepalNoonFromAdDay, toNepalDayAd } from "@/common/lib/nepali-date";
 import { OverviewTab } from "@/components/batches/tabs/OverviewTab";
 import { StatTile } from "@/components/dashboard/StatsCards";
 import { useCalendar } from "@/common/hooks/useCalendar";
@@ -1346,7 +1346,7 @@ export default function BatchDetailPage() {
 
     try {
       const mortalityData = {
-        date: new Date(mortalityForm.date || getTodayLocalDate()),
+        date: nepalNoonFromAdDay(mortalityForm.date || getTodayLocalDate()),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
         batchId: safeBatchId,

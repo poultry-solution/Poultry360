@@ -64,6 +64,30 @@ export function getNepalTodayAd(): string {
   return formatADShortNepal(new Date());
 }
 
+/**
+ * Stable UTC instant anchored to Nepal noon of the given AD calendar day.
+ * The `+05:45` offset is literal in the string so the result is the same
+ * `Date` in every browser TZ.
+ *
+ * Accepts either a `"YYYY-MM-DD"` day key (from `NepaliDatePicker`) or a
+ * full ISO like `"YYYY-MM-DDTHH:mm:ss.sssZ"` (from `<DateInput>`). Only the
+ * first 10 chars are used — the time component of an ISO input is ignored.
+ * Throws if the leading 10 chars are not `YYYY-MM-DD`.
+ *
+ * Use this when posting a day-only field. Never build the `Date` with a
+ * bare `"YYYY-MM-DDTHH:MM:SS"` — that parses in browser-local time and
+ * silently stores wrong-day values for any user not on Nepal time.
+ */
+export function nepalNoonFromAdDay(ad: string): Date {
+  const day = ad.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    throw new Error(
+      `nepalNoonFromAdDay: expected "YYYY-MM-DD" or ISO prefix, got "${ad}"`
+    );
+  }
+  return new Date(`${day}T12:00:00+05:45`);
+}
+
 /** Whole Nepal calendar days from `earlier` to `later`. */
 export function differenceInNepalDays(
   later: Date | string,

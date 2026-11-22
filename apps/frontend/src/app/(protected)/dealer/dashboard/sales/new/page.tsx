@@ -51,7 +51,7 @@ import { useI18n } from "@/i18n/useI18n";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
 import { getTodayLocalDate } from "@/common/lib/utils";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 
 interface UnitConversion {
   unitName: string;
@@ -282,7 +282,7 @@ export default function NewSalePage() {
         paidAmount,
         paymentMethod,
         notes: notes || undefined,
-        date: new Date((saleDateAd || getTodayLocalDate()) + "T12:00:00"),
+        date: nepalNoonFromAdDay(saleDateAd || getTodayLocalDate()),
         discount:
           discountValue > 0
             ? { type: discountType, value: discountValue }

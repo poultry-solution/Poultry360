@@ -38,7 +38,7 @@ import {
 import { toast } from "sonner";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
-import { convertADtoBS } from "@/common/lib/nepali-date";
+import { convertADtoBS, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog } from "@/components/downloads/BusinessDownloadDialog";
 import { ImageUpload } from "@/common/components/ui/image-upload";
@@ -255,7 +255,7 @@ export default function DealerCompanyPage() {
                         : Number(item.minStock),
                 })),
                 notes: purchaseNotes || undefined,
-                date: new Date((purchaseDateAd || getTodayLocalDate()) + "T12:00:00").toISOString(),
+                date: nepalNoonFromAdDay(purchaseDateAd || getTodayLocalDate()).toISOString(),
                 tradeDiscountAmount: purchaseTradeDiscount || 0,
                 billImageUrl:
                     isPurchaseBillEnabled && purchaseBillImageUrl
@@ -298,8 +298,8 @@ export default function DealerCompanyPage() {
                 direction: effectivePaymentDirection,
                 paymentMethod: paymentMethod,
                 notes: paymentNotes || undefined,
-                paymentDate: new Date(
-                    (paymentDateAd || getTodayLocalDate()) + "T12:00:00"
+                paymentDate: nepalNoonFromAdDay(
+                    paymentDateAd || getTodayLocalDate()
                 ).toISOString(),
             });
             toast.success("Payment recorded successfully");
