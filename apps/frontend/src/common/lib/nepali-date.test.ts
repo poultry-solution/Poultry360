@@ -8,6 +8,7 @@ import {
   getNepalTodayAd,
   nepalBatchAge,
   nepalInclusiveRangeToIsoParams,
+  nepalNoonFromAdDay,
   toNepalDayAd,
 } from "./nepali-date";
 
@@ -62,5 +63,37 @@ describe("frontend Nepal date helpers", () => {
     const start = "2026-10-12T17:00:00.000Z";
     expect(nepalBatchAge(start, "2026-10-12T18:14:59.999Z")).toBe(1);
     expect(nepalBatchAge(start, "2026-10-12T18:15:00.000Z")).toBe(2);
+  });
+
+  it("anchors a picked AD day to Nepal noon regardless of browser TZ", () => {
+    // Nepal noon of 2026-11-18 is 06:15Z. `+05:45` is literal in the string,
+    // so the parsed instant is the same in every device TZ.
+    expect(nepalNoonFromAdDay("2026-11-18").toISOString()).toBe(
+      "2026-11-18T06:15:00.000Z"
+    );
+  });
+
+  it("tolerates both day-only and full-ISO inputs from different pickers", () => {
+    // NepaliDatePicker-backed call sites pass "YYYY-MM-DD".
+    // <DateInput>-backed call sites pass the full `.toISOString()` string.
+    // Both must produce the same Nepal-noon instant.
+    expect(nepalNoonFromAdDay("2026-11-18").toISOString()).toBe(
+      "2026-11-18T06:15:00.000Z"
+    );
+    expect(nepalNoonFromAdDay("2026-11-18T00:00:00.000Z").toISOString()).toBe(
+      "2026-11-18T06:15:00.000Z"
+    );
+  });
+
+  it("round-trips the picked day through Nepal day / BS without drift", () => {
+    const picked = "2026-11-18";
+    expect(toNepalDayAd(nepalNoonFromAdDay(picked))).toBe(picked);
+    expect(convertADtoBS(nepalNoonFromAdDay(picked))).toBe(convertADtoBS(picked));
+  });
+
+  it("throws fast on garbage input instead of returning Invalid Date", () => {
+    expect(() => nepalNoonFromAdDay("not-a-date")).toThrow();
+    expect(() => nepalNoonFromAdDay("")).toThrow();
+    expect(() => nepalNoonFromAdDay("11/18/2026")).toThrow();
   });
 });

@@ -7,7 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 
 interface QuickMortalityModalProps {
   isOpen: boolean;
@@ -76,7 +76,7 @@ export function QuickMortalityModal({
 
     try {
       const mortalityData = {
-        date: new Date(form.date || getNepalTodayAd()),
+        date: nepalNoonFromAdDay(form.date || getNepalTodayAd()),
         count: count,
         reason: form.reason || "Natural Death",
         batchId: form.batchId,

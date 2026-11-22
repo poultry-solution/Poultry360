@@ -42,7 +42,7 @@ import { useAddDealerTransaction } from "@/fetchers/dealers/dealerQueries";
 import { inventoryKeys, useDeleteInventoryItem } from "@/fetchers/inventory/inventoryQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatRatePerUnit, formatRupeesExact, getTodayLocalDate } from "@/common/lib/utils";
-import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, nepalNoonFromAdDay, toNepalDayAd } from "@/common/lib/nepali-date";
 import {
   Select,
   SelectContent,
@@ -274,7 +274,7 @@ export default function InventoryPage() {
           purchaseCategory: reorderRow.purchaseCategory || reorderRow.itemType,
           unitPrice: reorderRow.rate,
           unit: reorderRow.unit,
-          date: new Date(reorderDate).toISOString(),
+          date: nepalNoonFromAdDay(reorderDate).toISOString(),
         },
       });
 

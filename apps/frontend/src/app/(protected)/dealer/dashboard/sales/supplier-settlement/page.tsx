@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { useSearchableDealerProductSelect } from "@/hooks/useSearchableDealerProductSelect";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { useGetManualCompanies } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useCreateSupplierSettlementSale } from "@/fetchers/dealer/dealerSaleQueries";
@@ -112,7 +113,7 @@ export default function SupplierSettlementSalePage() {
           unitPrice: item.unitPrice,
           unit: item.unit,
         })),
-        date: new Date(`${date || getTodayLocalDate()}T12:00:00`),
+        date: nepalNoonFromAdDay(date || getTodayLocalDate()),
         notes: notes.trim() || undefined,
       });
       toast.success("Supplier balance settled with inventory sale");

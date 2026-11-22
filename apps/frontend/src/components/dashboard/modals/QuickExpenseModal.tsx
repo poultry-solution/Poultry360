@@ -7,7 +7,7 @@ import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
-import { getNepalTodayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 
 interface QuickExpenseModalProps {
   isOpen: boolean;
@@ -136,7 +136,7 @@ export function QuickExpenseModal({
 
       // Create basic expense data
       const expenseData = {
-        date: new Date(form.date).toISOString(),
+        date: nepalNoonFromAdDay(form.date).toISOString(),
         amount: Number(form.amount),
         description: `${form.category} expense${form.notes ? ` • Notes: ${form.notes}` : ""}`,
         quantity: 1,

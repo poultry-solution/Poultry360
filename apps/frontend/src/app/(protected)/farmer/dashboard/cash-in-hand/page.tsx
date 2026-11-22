@@ -23,6 +23,22 @@ const farmerCashApi: CashInHandApi = {
 };
 
 export default function FarmerCashInHandPage() {
+  return (
+    <Card className="mx-auto mt-10 max-w-lg">
+      <CardContent className="py-10 text-center">
+        <h1 className="text-lg font-semibold">Cash in Hand is under maintenance</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          We&apos;re upgrading cash tracking across all modules. Please check back soon to use the new Cash in Hand.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Preserved during Cash in Hand redesign. Swap this back into the default export
+// (and delete the maintenance stub above) when the new behaviour ships.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function FarmerCashInHandPageOriginal() {
   const user = useAuthStore((state) => state.user);
   if (user?.isStaff && !user.permissions?.includes("FARMER_VIEW_CASH_HISTORY")) {
     return (

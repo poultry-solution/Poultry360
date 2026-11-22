@@ -6,6 +6,7 @@ import { Button } from "@/common/components/ui/button";
 import { Plus, Wallet, Skull, Egg, Loader2 } from "lucide-react";
 import { useI18n } from "@/i18n/useI18n";
 import { getTodayLocalDate } from "@/common/lib/utils";
+import { nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 import { Modal, ModalContent, ModalFooter } from "@/common/components/ui/modal";
 import { Input } from "@/common/components/ui/input";
 import { Label } from "@/common/components/ui/label";
@@ -452,7 +453,7 @@ export function QuickActionBtnsFarmer() {
     }
     try {
       await createMortalityMutation.mutateAsync({
-        date: new Date(mortalityForm.date || getTodayLocalDate()),
+        date: nepalNoonFromAdDay(mortalityForm.date || getTodayLocalDate()),
         count: Number(mortalityForm.count),
         reason: mortalityForm.reason || "Natural Death",
         batchId: mortalityForm.batchId,
