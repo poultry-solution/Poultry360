@@ -60,6 +60,7 @@ function toCashAccount(row: {
   openingBalance: Prisma.Decimal;
   openingBsDate: string;
   archivedAt: Date | null;
+  openingBalanceSetAt: Date | null;
 }): CashAccount {
   return {
     id: row.id,
@@ -69,6 +70,7 @@ function toCashAccount(row: {
     openingBalance: Number(row.openingBalance),
     openingBsDate: row.openingBsDate,
     archivedAt: row.archivedAt,
+    openingBalanceSetAt: row.openingBalanceSetAt,
   };
 }
 
@@ -88,10 +90,10 @@ function normalizeName(raw: string): string {
 /**
  * System-anchor opening date for the auto-created CASH account.
  * Using the lowest supported BS year (nepali-date-converter supports BS 2000+)
- * means every historical movement — including Phase 2 backfill of past sales /
- * receipts / expenses — falls on or after this date and is counted in the
- * balance. If we used today's date instead, the backfill would be silently
- * filtered out of reports (balance fn ignores movements before openingBsDate).
+ * means every back-dated manual entry a farmer records falls on or after this
+ * date and is counted in the balance. If we used today's date instead, any
+ * movement with an earlier bsDate would be silently filtered out of reports
+ * (balance fn ignores movements before openingBsDate).
  */
 const CASH_SYSTEM_OPENING_BS_DATE = "2000-01-01";
 
@@ -375,19 +377,37 @@ export async function editOpeningBalance(
   const account = await findOwnAccount(userId, accountId);
   assertAccountActive(account);
 
-  const movementCount = await prisma.cashMovement.count({
-    where: { accountId },
-  });
-  if (movementCount > 0) {
-    throw new CashflowError(
-      "Account already has movements. Record an opening adjustment instead of editing the opening balance.",
-      409,
-    );
+  // BANK accounts are created with a user-picked openingBsDate, so retroactively
+  // changing the opening after real transfers have landed would silently
+  // rewrite history — refuse and point them at a corrective Cash in / Cash out.
+  if (account.type === "BANK") {
+    const movementCount = await prisma.cashMovement.count({
+      where: { accountId },
+    });
+    if (movementCount > 0) {
+      throw new CashflowError(
+        "Account already has movements. Record a Cash in or Cash out instead of editing the opening balance.",
+        409,
+      );
+    }
   }
 
+  // For CASH: the amount the farmer types ("I have 25,000 in my drawer right
+  // now") already includes everything they've recorded up to this moment.
+  // Movements dated BEFORE today must therefore be excluded from the balance
+  // or we double-count — e.g. a back-dated sale from 3 days ago that was
+  // already in the drawer count. The balance fn already drops movements before
+  // openingBsDate, so we just roll the CASH anchor forward to today. Entries
+  // on or after today add to the balance as normal; earlier entries stay
+  // visible in the ledgers + reports but don't touch the Cash balance.
+  const today = getNepalBsTodayString();
   const updated = await prisma.cashAccount.update({
     where: { id: accountId },
-    data: { openingBalance: new Prisma.Decimal(nextOpening) },
+    data: {
+      openingBalance: new Prisma.Decimal(nextOpening),
+      openingBalanceSetAt: new Date(),
+      ...(account.type === "CASH" ? { openingBsDate: today } : {}),
+    },
   });
   return toCashAccount(updated);
 }
@@ -449,9 +469,9 @@ export function validatePositiveAmount(value: unknown, label = "amount"): number
 
 /**
  * Categories the UI can post directly from the "Cash in / Cash out" entry.
- * Auto-posted categories (SALE_RECEIPT, EXPENSE, TRANSFER, OPENING_ADJUSTMENT)
- * only come in through their dedicated service methods, so they're refused
- * here as a belt-and-braces guard.
+ * Auto-posted categories (SALE_RECEIPT, EXPENSE, TRANSFER) only come in through
+ * their dedicated service methods, so they're refused here as a belt-and-braces
+ * guard.
  */
 const MANUAL_CATEGORIES: ReadonlyMap<CashCategory, CashMovementDirection> = new Map([
   ["CASH_IN", "IN"],
@@ -689,8 +709,6 @@ export async function getReport(
   range: ReportRange;
   totals: {
     openingBalance: number;
-    /** Opening amounts of accounts whose opening date falls inside the range. */
-    accountOpeningBalance: number;
     closingBalance: number;
     inflow: number;
     outflow: number;
@@ -713,7 +731,6 @@ export async function getReport(
       range,
       totals: {
         openingBalance: 0,
-        accountOpeningBalance: 0,
         closingBalance: 0,
         inflow: 0,
         outflow: 0,
@@ -739,7 +756,7 @@ export async function getReport(
   // every account's balance on the day before the anchor is 0 by construction
   // (no movement is permitted before its account's openingBsDate, and every
   // account's openingBsDate is >= the anchor).
-  const openingBalance =
+  const priorOpeningBalance =
     range.fromBsDate <= CASH_SYSTEM_OPENING_BS_DATE
       ? 0
       : accounts.reduce(
@@ -749,11 +766,15 @@ export async function getReport(
           0,
         );
 
-  // An account can start during the selected period. Its opening amount is
-  // part of the closing balance even though it is not a cash movement. Keep
-  // it separate from the balance at the start of the period so the statement
-  // remains truthful and still adds up to the account balances shown above.
-  const accountOpeningBalance = accounts.reduce(
+  // An account can be declared during the selected period — e.g. the farmer
+  // sets their Cash opening today, which rolls the Cash openingBsDate to
+  // today and puts the declared amount inside the period. From the farmer's
+  // POV that declared amount IS part of the period's starting money, so fold
+  // it into the opening balance. Technically a bit of a shorthand when the
+  // declaration lands mid-period (the drawer wasn't literally at X on day 1),
+  // but the simpler story matches how farmers reason about their cashbook and
+  // the closing balance arithmetic still holds: closing = opening + net.
+  const periodOpenings = accounts.reduce(
     (sum, account) =>
       account.openingBsDate >= range.fromBsDate &&
       account.openingBsDate <= range.toBsDate
@@ -761,6 +782,7 @@ export async function getReport(
         : sum,
     0,
   );
+  const openingBalance = priorOpeningBalance + periodOpenings;
 
   const statement = rollupCashflowStatement(movements, range, openingBalance);
 
@@ -775,8 +797,7 @@ export async function getReport(
     range,
     totals: {
       openingBalance: statement.openingBalance,
-      accountOpeningBalance,
-      closingBalance: statement.closingBalance + accountOpeningBalance,
+      closingBalance: statement.closingBalance,
       inflow: statement.totalInflow,
       outflow: statement.totalOutflow,
       netChange: statement.netChange,

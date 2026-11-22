@@ -27,6 +27,7 @@ const cashAccount = (overrides: Partial<CashAccount> = {}): CashAccount => ({
   openingBalance: 0,
   openingBsDate: "2083-01-01",
   archivedAt: null,
+  openingBalanceSetAt: null,
   ...overrides,
 });
 

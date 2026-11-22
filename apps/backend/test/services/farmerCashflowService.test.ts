@@ -92,6 +92,7 @@ const row = (overrides: Partial<Record<string, unknown>> = {}) => ({
   openingBalance: new Prisma.Decimal(0),
   openingBsDate: "2083-04-01",
   archivedAt: null,
+  openingBalanceSetAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -272,7 +273,7 @@ describe("archiveAccount", () => {
 });
 
 describe("editOpeningBalance", () => {
-  it("refuses once the account has movements", async () => {
+  it("refuses once a BANK account has movements", async () => {
     mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
     mocked.cashMovement.count.mockResolvedValueOnce(1);
     await expect(editOpeningBalance("u1", "acc-1", 500)).rejects.toMatchObject({
@@ -285,7 +286,7 @@ describe("editOpeningBalance", () => {
     expect(mocked.cashAccount.findUnique).not.toHaveBeenCalled();
   });
 
-  it("updates the opening when no movements exist", async () => {
+  it("updates a BANK opening when no movements exist", async () => {
     mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
     mocked.cashMovement.count.mockResolvedValueOnce(0);
     mocked.cashAccount.update.mockResolvedValueOnce(
@@ -293,6 +294,58 @@ describe("editOpeningBalance", () => {
     );
     const result = await editOpeningBalance("u1", "acc-1", 1234);
     expect(result.openingBalance).toBe(1234);
+  });
+
+  // Regression: an existing farmer whose Phase 5 auto-posts created a movement
+  // before they ever opened the cashflow page used to be permanently locked
+  // out of setting their starting cash. The CASH anchor sits at 2000-01-01, so
+  // changing the opening after movements exist is semantically fine.
+  it("updates a CASH opening even when movements exist", async () => {
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
+    mocked.cashAccount.update.mockResolvedValueOnce(
+      row({ type: "CASH", openingBalance: new Prisma.Decimal(30000) }),
+    );
+    const result = await editOpeningBalance("u1", "acc-1", 30000);
+    expect(result.openingBalance).toBe(30000);
+    // CASH must not consult the movement count at all.
+    expect(mocked.cashMovement.count).not.toHaveBeenCalled();
+  });
+
+  it("stamps openingBalanceSetAt on every save", async () => {
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
+    mocked.cashAccount.update.mockResolvedValueOnce(
+      row({ type: "CASH", openingBalance: new Prisma.Decimal(500) }),
+    );
+    await editOpeningBalance("u1", "acc-1", 500);
+    const callArg = mocked.cashAccount.update.mock.calls[0][0];
+    expect(callArg.data.openingBalanceSetAt).toBeInstanceOf(Date);
+  });
+
+  // The farmer's counted amount already includes everything up to today, so
+  // entries dated before today must stop contributing to the Cash balance —
+  // otherwise a back-dated sale double-counts. Rolling the anchor forward
+  // lets the existing balance fn drop those earlier movements cleanly.
+  it("rolls openingBsDate to today for CASH", async () => {
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "CASH" }));
+    mocked.cashAccount.update.mockResolvedValueOnce(
+      row({ type: "CASH", openingBsDate: "2083-04-15" }),
+    );
+    await editOpeningBalance("u1", "acc-1", 25000);
+    const callArg = mocked.cashAccount.update.mock.calls[0][0];
+    expect(callArg.data.openingBsDate).toBe("2083-04-15");
+  });
+
+  // BANK opening date is user-picked at creation and tied to real transfers;
+  // editing opening (before any movement) must NOT silently move the date.
+  it("leaves openingBsDate untouched for BANK", async () => {
+    mocked.cashAccount.findUnique.mockResolvedValueOnce(row({ type: "BANK" }));
+    mocked.cashMovement.count.mockResolvedValueOnce(0);
+    mocked.cashAccount.update.mockResolvedValueOnce(
+      row({ type: "BANK", openingBalance: new Prisma.Decimal(1000) }),
+    );
+    await editOpeningBalance("u1", "acc-1", 1000);
+    const callArg = mocked.cashAccount.update.mock.calls[0][0];
+    expect(callArg.data.openingBsDate).toBeUndefined();
   });
 });
 
@@ -442,7 +495,7 @@ describe("deleteMovement", () => {
     });
   });
 
-  it("refuses to delete OPENING_ADJUSTMENT (would break reconciliation audit trail)", async () => {
+  it("refuses to delete auto-posted entries (OPENING_ADJUSTMENT sourceType)", async () => {
     mocked.cashMovement.findUnique.mockResolvedValueOnce({
       id: "m3",
       userId: "u1",
@@ -842,8 +895,10 @@ describe("getReport", () => {
       toBsDate: "2083-04-30",
     });
 
-    expect(r.totals.openingBalance).toBe(0);
-    expect(r.totals.accountOpeningBalance).toBe(50000);
+    // Opening folds in accounts declared inside the period (the bank's
+    // 50,000 opened on 04-10 is treated as money already present at the
+    // start of the period from the farmer's POV). Closing = opening + net.
+    expect(r.totals.openingBalance).toBe(50000);
     expect(r.totals.inflow).toBe(18000);
     expect(r.totals.closingBalance).toBe(68000);
   });

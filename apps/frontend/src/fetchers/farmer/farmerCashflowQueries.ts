@@ -25,8 +25,10 @@ export interface CashAccount {
   openingBsDate: string;
   archivedAt: string | null;
   balance: number;
-  /** True once any movement references the account; locks opening-balance edit UI. */
+  /** True once any movement references the account. Locks opening-balance edit UI for BANK rows only — CASH can be re-set any time. */
   hasMovements: boolean;
+  /** ISO timestamp of the first time the farmer confirmed their opening balance; null until they do. Drives the first-run banner for CASH. */
+  openingBalanceSetAt: string | null;
 }
 
 export type CashCategory =
@@ -72,8 +74,6 @@ export interface CashflowReport {
   range: { fromBsDate: string; toBsDate: string };
   totals: {
     openingBalance: number;
-    /** Opening amounts from accounts added during the selected period. */
-    accountOpeningBalance: number;
     closingBalance: number;
     inflow: number;
     outflow: number;

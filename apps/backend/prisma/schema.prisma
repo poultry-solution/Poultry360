@@ -2686,6 +2686,13 @@ model CashAccount {
   name           String
   openingBalance Decimal     @default(0) @db.Decimal(14, 2)
   openingBsDate  String // YYYY-MM-DD BS; account balance ignores movements before this date
+  // Stamped the first (and every subsequent) time the farmer confirms their
+  // opening balance via the UI. The first-run banner on the cashflow page
+  // keys off `openingBalanceSetAt === null` for the CASH account — using
+  // openingBalance == 0 would be ambiguous (brand-new vs. legitimately empty),
+  // and hasMovements would hide the banner the moment Phase 5 auto-posts
+  // the first sale, which is exactly the broken path we're fixing.
+  openingBalanceSetAt DateTime?
   archivedAt     DateTime?
 
   createdAt DateTime @default(now())

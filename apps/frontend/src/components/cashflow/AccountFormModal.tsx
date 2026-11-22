@@ -140,11 +140,11 @@ export function AccountFormModal({
             {isEditing ? (
               <>
                 <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                  {bsDate}
+                  {isCashAccount ? todayBs() : bsDate}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {isCashAccount
-                    ? "The Cash account uses a fixed anchor date so every past and future movement counts."
+                    ? "Starts today. Entries on or after today add to this balance; earlier ones stay in your ledgers but don't change it."
                     : "Opening date is set once when the account is created and can't be changed later."}
                 </p>
               </>

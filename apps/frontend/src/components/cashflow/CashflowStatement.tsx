@@ -33,6 +33,17 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
     .filter(([cat, v]) => v > 0 && cat !== "TRANSFER")
     .sort((a, b) => b[1] - a[1]);
 
+  // Accounts whose opening date falls inside this period — their openingBalance
+  // is folded into the Opening balance total. Showing the per-account breakdown
+  // underneath makes the aggregate legible ("why is my 5k showing as 10k?" —
+  // because another account also opened in-period).
+  const periodOpeningAccounts = report.balances.filter(
+    (a) =>
+      a.openingBsDate >= report.range.fromBsDate &&
+      a.openingBsDate <= report.range.toBsDate &&
+      a.openingBalance > 0,
+  );
+
   const transfersShown =
     report.transfers.in > 0 || report.transfers.out > 0;
 
@@ -44,11 +55,17 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
         </h2>
 
         <Row label="Opening balance" value={report.totals.openingBalance} />
-        {report.totals.accountOpeningBalance > 0 && (
-          <Row
-            label="Account opening balance added in this period"
-            value={report.totals.accountOpeningBalance}
-          />
+        {periodOpeningAccounts.length > 0 && (
+          <div className="ml-4 border-l-2 border-gray-100 pl-3">
+            {periodOpeningAccounts.map((a) => (
+              <Row
+                key={a.id}
+                label={`${a.name} started this period`}
+                value={a.openingBalance}
+                muted
+              />
+            ))}
+          </div>
         )}
 
         <Section title="Inflow">

@@ -15,6 +15,13 @@ export interface CashAccount {
   openingBalance: number;
   openingBsDate: string;
   archivedAt: Date | null;
+  /**
+   * Null until the farmer confirms their opening balance for the first time.
+   * Drives the "Set your starting Cash balance" banner on the cashflow page.
+   * Only meaningful for CASH accounts; BANK rows are created with explicit
+   * opening values and leave this null.
+   */
+  openingBalanceSetAt: Date | null;
 }
 
 export interface CashMovement {

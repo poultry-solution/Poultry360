@@ -155,12 +155,13 @@ export default function FarmerCashflowAccountsPage() {
                   <span className="tabular-nums">
                     {formatCashAmount(a.balance)}
                   </span>
-                  {a.type === "CASH" && !a.hasMovements && (
+                  {a.type === "CASH" && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setModal({ mode: "edit", account: a })}
                       title="Set opening Cash balance"
+                      aria-label="Set opening Cash balance"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -260,11 +261,13 @@ export default function FarmerCashflowAccountsPage() {
             : undefined
         }
         allowOpeningEdit={
-          // Server enforces the same rule: no edit once any movement
-          // references the account. `balance === opening` is NOT a safe proxy
+          // CASH can be re-set any time (anchor date is a system constant, so
+          // the delta flows through the balance cleanly). BANK still locks
+          // once movements exist — `balance === opening` is NOT a safe proxy
           // because a deposit+withdrawal round-trip leaves the balance
-          // unchanged while movements exist.
-          modal?.mode === "edit" && !modal.account.hasMovements
+          // unchanged while movements exist, so we consult hasMovements.
+          modal?.mode === "edit" &&
+          (modal.account.type === "CASH" || !modal.account.hasMovements)
         }
         isCashAccount={
           modal?.mode === "edit" && modal.account.type === "CASH"

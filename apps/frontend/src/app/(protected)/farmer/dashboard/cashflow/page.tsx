@@ -110,12 +110,16 @@ export default function FarmerCashflowPage() {
   const cashId = cashAccount?.id ?? "";
 
   const [bannerDismissed, dismissBanner] = useOpeningBalanceBannerDismissed();
+  // Banner trigger: the farmer has not confirmed their starting Cash balance
+  // yet, as recorded by the server. Deliberately NOT keyed on openingBalance
+  // or hasMovements — otherwise Phase 5 auto-posting a sale/expense (which
+  // happens the first time a farmer uses the app at all) would hide this
+  // banner before the farmer ever saw it.
   const showOpeningBanner =
     accountsQ.isSuccess &&
     !bannerDismissed &&
     cashAccount !== undefined &&
-    cashAccount.openingBalance === 0 &&
-    cashAccount.hasMovements === false;
+    cashAccount.openingBalanceSetAt === null;
 
   const addMovement = usePostManualMovement();
   const transfer = usePostTransfer();
