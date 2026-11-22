@@ -386,6 +386,10 @@ exports.CreateExpenseSchema = zod_1.z.object({
     farmId: zod_1.z.string().optional(),
     batchId: zod_1.z.string().optional(),
     categoryId: zod_1.z.string(),
+    // Cashflow auto-post: which FarmerCashAccount the expense paid from.
+    // Optional during the migration window — backend defaults to the Cash
+    // account via ensureCashAccountId when the UI hasn't shipped the picker yet.
+    accountId: zod_1.z.string().optional(),
     inventoryItems: zod_1.z.array(zod_1.z.object({
         itemId: zod_1.z.string(),
         quantity: zod_1.z.number().positive(),
@@ -402,6 +406,7 @@ exports.UpdateExpenseSchema = zod_1.z.object({
     farmId: zod_1.z.string().optional(),
     batchId: zod_1.z.string().nullable().optional(),
     categoryId: zod_1.z.string().optional(),
+    accountId: zod_1.z.string().optional(),
 });
 // ==================== SALE SCHEMAS ====================
 exports.SalesItemTypeSchema = zod_1.z.enum([
@@ -469,6 +474,10 @@ exports.CreateSaleSchema = zod_1.z
         category: zod_1.z.string().optional(),
         address: zod_1.z.string().optional(),
     }).optional(),
+    // Cashflow auto-post: which FarmerCashAccount the paid portion landed in.
+    // Only used when paidAmount > 0. Optional during the migration window —
+    // backend falls back to the system Cash account.
+    accountId: zod_1.z.string().optional(),
 })
     .refine((data) => {
     if (data.itemType === "EGGS") {

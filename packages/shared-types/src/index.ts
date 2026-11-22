@@ -512,6 +512,10 @@ export const CreateExpenseSchema = z.object({
   farmId: z.string().optional(),
   batchId: z.string().optional(),
   categoryId: z.string(),
+  // Cashflow auto-post: which FarmerCashAccount the expense paid from.
+  // Optional during the migration window — backend defaults to the Cash
+  // account via ensureCashAccountId when the UI hasn't shipped the picker yet.
+  accountId: z.string().optional(),
   inventoryItems: z.array(z.object({
     itemId: z.string(),
     quantity: z.number().positive(),
@@ -531,6 +535,7 @@ export const UpdateExpenseSchema = z.object({
   farmId: z.string().optional(),
   batchId: z.string().nullable().optional(),
   categoryId: z.string().optional(),
+  accountId: z.string().optional(),
 });
 
 export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
@@ -612,6 +617,10 @@ export const CreateSaleSchema = z
       category: z.string().optional(),
       address: z.string().optional(),
     }).optional(),
+    // Cashflow auto-post: which FarmerCashAccount the paid portion landed in.
+    // Only used when paidAmount > 0. Optional during the migration window —
+    // backend falls back to the system Cash account.
+    accountId: z.string().optional(),
   })
   .refine(
     (data) => {

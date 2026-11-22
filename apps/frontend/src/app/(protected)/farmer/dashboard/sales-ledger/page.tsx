@@ -73,6 +73,8 @@ import {
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { FarmerSaleBill, farmerBillPrintHref } from "./_components/FarmerSaleBill";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
@@ -190,6 +192,7 @@ export default function SalesLedgerPage() {
     contact: string;
     customerCategory: string;
     balance: string;
+    accountId: string;
   }>({
     farmId: "",
     batchId: "",
@@ -210,6 +213,7 @@ export default function SalesLedgerPage() {
     contact: "",
     customerCategory: "Chicken",
     balance: "",
+    accountId: "",
   });
 
   // Bill before the bill discount (after any weight discount), then the discount preview.
@@ -254,7 +258,20 @@ export default function SalesLedgerPage() {
     description: "",
     reference: "",
     receiptUrl: "",
+    accountId: "",
   });
+
+  // Farmer cashflow accounts — needed by the "Received into" picker.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashflowHasBanks = (cashflowAccounts ?? []).some(
+    (a) => a.type === "BANK" && !a.archivedAt,
+  );
+  // Explicit Cash default so every mutation ships an accountId even when the
+  // user doesn't touch the picker — avoids relying on the server fallback.
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
+  const effectiveSaleAccountId = saleForm.accountId || cashAccountId;
+  const effectivePaymentAccountId = paymentForm.accountId || cashAccountId;
 
   const [paymentErrors, setPaymentErrors] = useState<Record<string, string>>(
     {}
@@ -909,6 +926,10 @@ export default function SalesLedgerPage() {
         farmId: saleForm.farmId,
         batchId: saleForm.batchId,
         itemType: saleForm.itemType,
+        // Only matters when paidAmount > 0. We always ship an explicit
+        // accountId — the UI defaults the picker to Cash — so the server
+        // never has to fall back silently.
+        ...(paidAmount > 0 && effectiveSaleAccountId ? { accountId: effectiveSaleAccountId } : {}),
         ...(invoiceNumber.trim() ? { invoiceNumber: invoiceNumber.trim() } : {}),
       };
       if (saleForm.itemType === "EGGS") {
@@ -1031,6 +1052,7 @@ export default function SalesLedgerPage() {
           description: paymentForm.description,
           reference: paymentForm.reference || undefined,
           receiptUrl: paymentForm.receiptUrl || undefined,
+          ...(effectivePaymentAccountId ? { accountId: effectivePaymentAccountId } : {}),
         },
       });
 
@@ -1042,6 +1064,7 @@ export default function SalesLedgerPage() {
         description: "",
         reference: "",
         receiptUrl: "",
+        accountId: "",
       });
       setSelectedParty(null);
       setPaymentErrors({});
@@ -1132,6 +1155,7 @@ export default function SalesLedgerPage() {
       contact: "",
       customerCategory: "Chicken",
       balance: "",
+      accountId: "",
     }));
     setCustomerSearch("");
     setUseCustomInvoice(false);
@@ -1383,6 +1407,7 @@ export default function SalesLedgerPage() {
                 description: t("farmer.salesLedger.paymentFrom", { name: row.name }),
                 reference: "",
                 receiptUrl: "",
+                accountId: "",
               });
               setPaymentErrors({});
               setIsPaymentModalOpen(true);
@@ -2454,6 +2479,38 @@ export default function SalesLedgerPage() {
                       </p>
                     )}
                   </div>
+                  {Number(saleForm.balance || 0) > 0 && cashflowHasBanks && (
+                    <div>
+                      <Label>Received into</Label>
+                      <AccountPicker
+                        accounts={cashflowAccounts ?? []}
+                        value={effectiveSaleAccountId}
+                        onChange={(id) =>
+                          setSaleForm((p) => ({ ...p, accountId: id }))
+                        }
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Leave blank to post the cash-in on your Cash account.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Cash sale (non-credit): the full bill is the paid amount, so the
+                  picker lands outside the credit block. */}
+              {!saleForm.remaining && cashflowHasBanks && (
+                <div>
+                  <Label>Received into</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts ?? []}
+                    value={saleForm.accountId}
+                    onChange={(id) =>
+                      setSaleForm((p) => ({ ...p, accountId: id }))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave blank to post the cash-in on your Cash account.
+                  </p>
                 </div>
               )}
               {/* More options: weight discount (chicken) and custom invoice number.
@@ -2896,6 +2953,7 @@ export default function SalesLedgerPage() {
             description: "",
             reference: "",
             receiptUrl: "",
+            accountId: "",
           });
           setPaymentErrors({});
         }}
@@ -2936,6 +2994,22 @@ export default function SalesLedgerPage() {
                   </p>
                 )}
               </div>
+
+              {cashflowHasBanks && (
+                <div>
+                  <Label>Received into</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts ?? []}
+                    value={effectivePaymentAccountId}
+                    onChange={(id) =>
+                      setPaymentForm((p) => ({ ...p, accountId: id }))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave blank to post the receipt on your Cash account.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <DateInput
@@ -3003,6 +3077,7 @@ export default function SalesLedgerPage() {
                   description: "",
                   reference: "",
                   receiptUrl: "",
+                  accountId: "",
                 });
                 setPaymentErrors({});
               }}

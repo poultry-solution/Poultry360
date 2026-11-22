@@ -17,6 +17,12 @@ import {
   isSupportedFarmerFeedUnit,
   resolveNewFarmerFeedUnit,
 } from "../utils/farmerFeedUnits";
+import {
+  deleteSupplierPaymentMovement,
+  ensureCashAccountId,
+  postSupplierPaymentMovement,
+} from "../services/farmerCashflowAutoPost";
+import { CashflowError } from "../common/cashflow/errors";
 
 // ==================== GET ALL DEALERS ====================
 export const getAllDealers = async (
@@ -699,6 +705,8 @@ export const addDealerTransaction = async (
       paymentDescription,
       // link standalone PAYMENT to a purchase (optional for khata-style)
       paymentToPurchaseId,
+      // cashflow mirror: which FarmerCashAccount the money came out of
+      accountId: pickedAccountId,
     } = req.body;
 
     // Validate required fields
@@ -849,20 +857,48 @@ export const addDealerTransaction = async (
         if (numericPaymentAmount > numericAmount) {
           return res.status(400).json({ message: "Initial payment cannot exceed purchase amount" });
         }
-        const paymentTransaction = await prisma.entityTransaction.create({
-          data: {
-            type: TransactionType.PAYMENT,
-            amount: Number(numericPaymentAmount),
-            quantity: null,
-            itemName: null,
-            date: new Date(date),
-            description: paymentDescription || `Initial payment for ${itemName}`,
-            reference: null,
-            dealerId: id,
-            entityType: "DEALER",
-            entityId: id,
-            paymentToPurchaseId: result.purchaseTransactionId,
-          },
+        // Wrap in a tx so the farmer-cashbook OUT mirror is atomic with the
+        // entity-transaction write. Without this, a mirror failure would
+        // leave a supplier payment with no matching cash-out.
+        const paymentTransaction = await prisma.$transaction(async (tx) => {
+          const created = await tx.entityTransaction.create({
+            data: {
+              type: TransactionType.PAYMENT,
+              amount: Number(numericPaymentAmount),
+              quantity: null,
+              itemName: null,
+              date: new Date(date),
+              description: paymentDescription || `Initial payment for ${itemName}`,
+              reference: null,
+              dealerId: id,
+              entityType: "DEALER",
+              entityId: id,
+              paymentToPurchaseId: result.purchaseTransactionId,
+            },
+          });
+          // Mirror into the farmer cashbook only when the caller is a farmer
+          // owner. Company owners share this endpoint but their own cashbook
+          // isn't built yet; writing a FarmerCashAccount on their id would
+          // leak farmer-only state into a Company tenant.
+          if (req.role === UserRole.OWNER) {
+            const accountIdForCashbook =
+              (pickedAccountId as string | undefined) ??
+              (await ensureCashAccountId(tx, currentUserId));
+            await postSupplierPaymentMovement({
+              tx,
+              userId: currentUserId,
+              entityTransactionId: created.id,
+              accountId: accountIdForCashbook,
+              amount: Number(numericPaymentAmount),
+              date: new Date(date),
+              supplierName: dealer.name,
+              recordedById:
+                req.actorType === "STAFF"
+                  ? req.staffUserId ?? currentUserId
+                  : currentUserId,
+            });
+          }
+          return created;
         });
         transactions.push(paymentTransaction);
       }
@@ -893,21 +929,47 @@ export const addDealerTransaction = async (
         } // end if (paymentToPurchaseId)
       }
 
-      const transaction = await prisma.entityTransaction.create({
-        data: {
-          type,
-          amount: Number(numericAmount),
-          quantity: numericQuantity ? Number(numericQuantity) : null,
-          itemName: itemName || null,
-          date: new Date(date),
-          description: description || null,
-          reference: reference || null,
-          imageUrl: imageUrl || null,
-          dealerId: id,
-          entityType: "DEALER",
-          entityId: id,
-          paymentToPurchaseId: type === TransactionType.PAYMENT ? paymentToPurchaseId || null : null,
-        },
+      // Wrap in a tx so the farmer-cashbook mirror (when type === PAYMENT)
+      // is atomic with the entity-transaction write. Other types don't mirror
+      // today and the tx is a no-op for them — cost is negligible.
+      const transaction = await prisma.$transaction(async (tx) => {
+        const created = await tx.entityTransaction.create({
+          data: {
+            type,
+            amount: Number(numericAmount),
+            quantity: numericQuantity ? Number(numericQuantity) : null,
+            itemName: itemName || null,
+            date: new Date(date),
+            description: description || null,
+            reference: reference || null,
+            imageUrl: imageUrl || null,
+            dealerId: id,
+            entityType: "DEALER",
+            entityId: id,
+            paymentToPurchaseId: type === TransactionType.PAYMENT ? paymentToPurchaseId || null : null,
+          },
+        });
+        // See the inline-payment branch above for the OWNER-only rationale.
+        if (type === TransactionType.PAYMENT && req.role === UserRole.OWNER) {
+          const accountIdForCashbook =
+            (pickedAccountId as string | undefined) ??
+            (await ensureCashAccountId(tx, currentUserId));
+          await postSupplierPaymentMovement({
+            tx,
+            userId: currentUserId,
+            entityTransactionId: created.id,
+            accountId: accountIdForCashbook,
+            amount: Number(numericAmount),
+            date: new Date(date),
+            supplierName: dealer.name,
+            recordedById:
+              req.actorType === "STAFF"
+                ? req.staffUserId ?? currentUserId
+                : currentUserId,
+            notes: description || null,
+          });
+        }
+        return created;
       });
       transactions.push(transaction);
     }
@@ -948,6 +1010,9 @@ export const addDealerTransaction = async (
       message: transactions.length === 1 ? "Transaction added successfully" : `${transactions.length} transactions added successfully`,
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Add dealer transaction error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -1179,10 +1244,15 @@ export const deleteDealerTransaction = async (
 
         console.log("🔍 Found related payment transactions:", relatedPaymentTxns);
 
-        // Delete related payment transactions
+        // Delete related payment transactions (and their cashbook mirrors).
+        // Mirror cleanup is OWNER-only — Company callers never wrote a mirror,
+        // so the deleteMany would be a wasteful no-op for them.
         for (const paymentTxn of relatedPaymentTxns) {
           console.log("🗑️ Deleting related payment transaction:", paymentTxn.id);
           purgedImageUrls.push(paymentTxn.imageUrl);
+          if (req.role === UserRole.OWNER) {
+            await deleteSupplierPaymentMovement(tx, currentUserId as string, paymentTxn.id);
+          }
           await tx.entityTransaction.delete({ where: { id: paymentTxn.id } });
         }
 
@@ -1255,6 +1325,11 @@ export const deleteDealerTransaction = async (
       // Non-purchase: no inventory side effects, but still wrap in transaction for consistency
       console.log("🔍 Deleting non-purchase transaction:", transactionId);
       await prisma.$transaction(async (tx) => {
+        // Drop the cashbook mirror first so the pair stays consistent.
+        // OWNER-only: Company callers never wrote a mirror.
+        if (txn.type === TransactionType.PAYMENT && req.role === UserRole.OWNER) {
+          await deleteSupplierPaymentMovement(tx, currentUserId as string, transactionId);
+        }
         const deletedTxn = await tx.entityTransaction.delete({ where: { id: transactionId } });
         console.log("✅ Successfully deleted transaction:", deletedTxn);
       });
@@ -1338,6 +1413,9 @@ export const deleteDealerTransaction = async (
 
     return res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Delete dealer transaction error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

@@ -31,12 +31,25 @@ import {
   usePostTransfer,
   type CashMovement,
 } from "@/fetchers/farmer/farmerCashflowQueries";
-import { convertADtoBS, toNepalDayAd } from "@/common/lib/nepali-date";
+import {
+  convertADtoBS,
+  getLastDayOfBSMonth,
+  toNepalDayAd,
+} from "@/common/lib/nepali-date";
 
 function currentBsMonthRange() {
   const todayBs = convertADtoBS(toNepalDayAd(new Date()));
-  const [y, m] = todayBs.split("-");
-  return { from: `${y}-${m}-01`, to: todayBs };
+  const [yStr, mStr] = todayBs.split("-");
+  const y = Number(yStr);
+  const m = Number(mStr);
+  // End the default view at the last day of the current BS month, not today.
+  // Picking tomorrow (or any later day this month) on a Sale / Expense /
+  // supplier-payment form otherwise creates a mirror row that would be
+  // filtered out of the default view.
+  return {
+    from: `${yStr}-${mStr}-01`,
+    to: getLastDayOfBSMonth(y, m),
+  };
 }
 
 export default function FarmerCashflowPage() {

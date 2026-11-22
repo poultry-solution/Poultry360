@@ -2,7 +2,13 @@ import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { cleanupUploadedImage, cleanupUploadedImages } from "../utils/cloudinary";
-import { Prisma, StaffAttendanceStatus, StaffPayType, StaffStatus } from "@prisma/client";
+import { Prisma, StaffAttendanceStatus, StaffPayType, StaffStatus, UserRole } from "@prisma/client";
+import {
+  deleteStaffSalaryMovement,
+  ensureCashAccountId,
+  postStaffSalaryMovement,
+} from "../services/farmerCashflowAutoPost";
+import { CashflowError } from "../common/cashflow/errors";
 import {
   listStaffForOwner,
   getStaffSummaryForOwner,
@@ -504,18 +510,43 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       });
       return;
     }
-    const payment = await prisma.staffPayment.create({
-      data: {
-        staffId: id,
-        amount: amt,
-        paidAt: paid,
-        note: typeof note === "string" ? note.trim() || null : null,
-        receiptImageUrl: typeof receiptImageUrl === "string" && receiptImageUrl.trim() ? receiptImageUrl.trim() : null,
-      },
+    // Wrap in a tx so the farmer-cashbook mirror is atomic with the staff
+    // payment write. Non-farmer roles (dealer / hatchery / company) skip the
+    // mirror — their cashbooks aren't built yet.
+    const payment = await prisma.$transaction(async (tx) => {
+      const created = await tx.staffPayment.create({
+        data: {
+          staffId: id,
+          amount: amt,
+          paidAt: paid,
+          note: typeof note === "string" ? note.trim() || null : null,
+          receiptImageUrl: typeof receiptImageUrl === "string" && receiptImageUrl.trim() ? receiptImageUrl.trim() : null,
+        },
+      });
+      if (req.role === UserRole.OWNER) {
+        const accountIdForCashbook = await ensureCashAccountId(tx, ownerId);
+        await postStaffSalaryMovement({
+          tx,
+          userId: ownerId,
+          staffPaymentId: created.id,
+          accountId: accountIdForCashbook,
+          amount: Number(amt),
+          date: paid,
+          staffName: staff.name,
+          recordedById:
+            req.actorType === "STAFF" ? req.staffUserId ?? ownerId : ownerId,
+          notes: typeof note === "string" && note.trim() ? note.trim() : null,
+        });
+      }
+      return created;
     });
     const updated = await getStaffByIdService(id, ownerId);
     res.status(201).json({ success: true, data: updated, payment });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      res.status(error.status).json({ success: false, message: error.message });
+      return;
+    }
     console.error("Add staff payment error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
@@ -548,7 +579,14 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    await prisma.staffPayment.delete({ where: { id: payment.id } });
+    // Drop the cashbook mirror in the same tx so the pair stays consistent.
+    // Non-farmer roles are a no-op (deleteMany with no match is cheap).
+    await prisma.$transaction(async (tx) => {
+      if (req.role === UserRole.OWNER) {
+        await deleteStaffSalaryMovement(tx, ownerId, payment.id);
+      }
+      await tx.staffPayment.delete({ where: { id: payment.id } });
+    });
     cleanupUploadedImage(payment.receiptImageUrl, ownerId);
     res.json({
       success: true,
@@ -556,6 +594,10 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
       message: "Payment deleted",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      res.status(error.status).json({ success: false, message: error.message });
+      return;
+    }
     console.error("Delete staff payment error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }

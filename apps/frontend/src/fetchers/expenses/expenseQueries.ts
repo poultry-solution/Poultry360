@@ -5,6 +5,7 @@ import {
   UpdateExpense,
   CategoryType,
 } from "@myapp/shared-types";
+import { farmerCashflowKeys } from "@/fetchers/farmer/farmerCashflowQueries";
 
 // ==================== EXPENSE QUERY HOOKS ====================
 
@@ -110,6 +111,8 @@ export const useCreateExpense = () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["batches"] });
       queryClient.invalidateQueries({ queryKey: ["farms"] });
+      // Cash-only expenses mirror into the farmer cashbook as an OUT movement.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -131,6 +134,8 @@ export const useUpdateExpense = () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["batches"] });
       queryClient.invalidateQueries({ queryKey: ["farms"] });
+      // Cash-only expenses mirror into the farmer cashbook as an OUT movement.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -151,6 +156,8 @@ export const useDeleteExpense = () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       queryClient.invalidateQueries({ queryKey: ["batches"] });
       queryClient.invalidateQueries({ queryKey: ["farms"] });
+      // Cash-only expenses mirror into the farmer cashbook as an OUT movement.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };

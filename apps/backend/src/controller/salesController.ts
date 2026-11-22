@@ -19,6 +19,14 @@ import {
   userOwnsBatch,
   userOwnsFarm,
 } from "../services/ownershipService";
+import {
+  deleteCustomerReceiptMovement,
+  deleteSalePaymentMovement,
+  ensureCashAccountId,
+  postCustomerReceiptMovement,
+  postSalePaymentMovement,
+} from "../services/farmerCashflowAutoPost";
+import { CashflowError } from "../common/cashflow/errors";
 
 /**
  * A farmer can only open, pay or delete their own sales. Every sale has the
@@ -1026,13 +1034,41 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
 
       // 3. Create initial payment record if paidAmount > 0
       if (numericPaidAmount > 0) {
-        await tx.salePayment.create({
+        const salePayment = await tx.salePayment.create({
           data: {
             amount: numericPaidAmount,
             date: new Date(date),
             description: "Initial payment",
             saleId: sale.id,
           },
+        });
+
+        // 3a. Mirror the paid portion into the farmer cashbook. Only the
+        // paid amount — the credit remainder lives on Customer.balance and
+        // becomes cashflow only when a CustomerTransaction(RECEIPT) lands.
+        const pickedAccountId = (data as any).accountId as string | undefined;
+        const accountIdForCashbook =
+          pickedAccountId ?? (await ensureCashAccountId(tx, currentUserId!));
+        let customerLabel = "Walk-in customer";
+        if (finalCustomerId) {
+          const cust = await tx.customer.findUnique({
+            where: { id: finalCustomerId },
+            select: { name: true },
+          });
+          if (cust?.name) customerLabel = cust.name;
+        }
+        await postSalePaymentMovement({
+          tx,
+          userId: currentUserId!,
+          salePaymentId: salePayment.id,
+          accountId: accountIdForCashbook,
+          amount: numericPaidAmount,
+          date: new Date(date),
+          partyName: customerLabel,
+          recordedById:
+            req.actorType === "STAFF"
+              ? req.staffUserId ?? currentUserId!
+              : currentUserId!,
         });
       }
 
@@ -1138,6 +1174,9 @@ export const createSale = async (req: Request, res: Response): Promise<any> => {
       message: "Sale created successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Create sale error:", error);
     if (error instanceof EggStockError) {
       return res.status(400).json({ message: error.message });
@@ -1245,6 +1284,19 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
         });
       }
 
+      // Remove the cashbook mirror for every SalePayment on this sale. The
+      // SalePayment rows themselves vanish via Prisma cascade on the sale
+      // delete below, but there's no FK from FarmerCashMovement to
+      // SalePayment, so orphan mirror rows would otherwise stay in the
+      // cashbook pointing at missing ids.
+      const payments = await tx.salePayment.findMany({
+        where: { saleId: id },
+        select: { id: true },
+      });
+      for (const p of payments) {
+        await deleteSalePaymentMovement(tx, currentUserId!, p.id);
+      }
+
       // Delete the sale (payments and eggLines will be deleted automatically due to cascade)
       await tx.sale.delete({
         where: { id },
@@ -1279,6 +1331,9 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
       message: "Sale deleted successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Delete sale error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -1288,7 +1343,7 @@ export const deleteSale = async (req: Request, res: Response): Promise<any> => {
 export const addCustomerPayment = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id: customerId } = req.params;
-    const { amount, date, description, reference, receiptUrl } = req.body;
+    const { amount, date, description, reference, receiptUrl, accountId: pickedAccountId } = req.body;
     const currentUserId = req.userId;
 
     const numericAmount = Number(amount);
@@ -1298,7 +1353,7 @@ export const addCustomerPayment = async (req: Request, res: Response): Promise<a
 
     const customer = await prisma.customer.findFirst({
       where: { id: customerId, userId: currentUserId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });
@@ -1316,7 +1371,7 @@ export const addCustomerPayment = async (req: Request, res: Response): Promise<a
       });
 
       // Keep a transaction record for ledger/history
-      return await tx.customerTransaction.create({
+      const row = await tx.customerTransaction.create({
         data: {
           type: TransactionType.RECEIPT,
           amount: numericAmount,
@@ -1327,6 +1382,26 @@ export const addCustomerPayment = async (req: Request, res: Response): Promise<a
           customerId,
         },
       });
+
+      // Mirror the receipt into the farmer cashbook as an IN movement.
+      const accountIdForCashbook =
+        (pickedAccountId as string | undefined) ??
+        (await ensureCashAccountId(tx, currentUserId!));
+      await postCustomerReceiptMovement({
+        tx,
+        userId: currentUserId!,
+        customerTransactionId: row.id,
+        accountId: accountIdForCashbook,
+        amount: numericAmount,
+        date: paymentDate,
+        partyName: customer.name || "Customer",
+        recordedById:
+          req.actorType === "STAFF"
+            ? req.staffUserId ?? currentUserId!
+            : currentUserId!,
+      });
+
+      return row;
     });
 
     return res.status(201).json({
@@ -1346,6 +1421,9 @@ export const addCustomerPayment = async (req: Request, res: Response): Promise<a
       message: "Payment recorded successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Add customer payment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -1439,12 +1517,18 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
       if (salePayment && salePayment.sale.customerId === customerId) {
         const newPaid = Math.max(0, Math.round((Number(salePayment.sale.paidAmount) - Number(salePayment.amount)) * 100) / 100);
         const newDue = Math.round((Number(salePayment.sale.amount) - newPaid) * 100) / 100;
+        // Drop the mirrored SalePayment cashbook row first so the mirror pair
+        // stays consistent with the deleted SalePayment.
+        await deleteSalePaymentMovement(tx, currentUserId!, salePayment.id);
         await tx.salePayment.delete({ where: { id: salePayment.id } });
         await tx.sale.update({
           where: { id: salePayment.saleId },
           data: { paidAmount: newPaid, dueAmount: newDue > 0 ? newDue : null },
         });
       }
+
+      // Drop the CustomerTransaction(RECEIPT) cashbook mirror.
+      await deleteCustomerReceiptMovement(tx, currentUserId!, transactionId);
     });
 
     return res.json({
@@ -1452,6 +1536,9 @@ export const softDeleteCustomerPayment = async (req: Request, res: Response): Pr
       message: "Payment deleted successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Soft delete customer payment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

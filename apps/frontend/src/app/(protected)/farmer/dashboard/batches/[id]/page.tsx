@@ -54,6 +54,8 @@ import {
   useGetBatchSalesPage,
 } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   useGetBatchMortalities,
   useCreateMortality,
@@ -985,6 +987,7 @@ export default function BatchDetailPage() {
     customerCategory: string;
     balance: string;
     date: string;
+    accountId: string;
   }>({
     farmId: "",
     batchId: "",
@@ -1005,6 +1008,7 @@ export default function BatchDetailPage() {
     customerCategory: "Chicken",
     balance: "",
     date: getTodayLocalDate(),
+    accountId: "",
   });
 
   // Bill before the bill discount (after any weight discount), and the discount preview.
@@ -1028,6 +1032,17 @@ export default function BatchDetailPage() {
   const billPreview = previewBillDiscount(saleSubtotal, saleForm.discountType, saleForm.discountValue);
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
+
+  // Cashbook accounts — needed by the "Received into" picker on the Sale
+  // modal. Picker defaults to the user's Cash account so an untouched form
+  // still ships an explicit accountId to the server.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashflowHasBanks = (cashflowAccounts ?? []).some(
+    (a) => a.type === "BANK" && !a.archivedAt,
+  );
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
+  const effectiveSaleAccountId = saleForm.accountId || cashAccountId;
   const { data: eggInventoryResponse } = useGetEggInventory({
     batchId: batchId ?? null,
     enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
@@ -1068,6 +1083,7 @@ export default function BatchDetailPage() {
       customerCategory: "Chicken",
       balance: "",
       date: getTodayLocalDate(),
+      accountId: "",
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -1213,6 +1229,11 @@ export default function BatchDetailPage() {
         farmId: saleForm.farmId || batch?.farmId,
         batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
+        // Only matters when paidAmount > 0 — the picker defaults to the
+        // Cash account so an untouched form still ships an explicit id.
+        ...(paidAmount > 0 && effectiveSaleAccountId
+          ? { accountId: effectiveSaleAccountId }
+          : {}),
       };
       if (saleForm.itemType === "EGGS") {
         const validLines = saleForm.eggLineItems.filter(
@@ -2356,6 +2377,36 @@ export default function BatchDetailPage() {
                       <p className="text-xs text-red-600 mt-1">{saleErrors.balance}</p>
                     )}
                   </div>
+                  {Number(saleForm.balance || 0) > 0 && cashflowHasBanks && (
+                    <div>
+                      <Label>Received into</Label>
+                      <AccountPicker
+                        accounts={cashflowAccounts ?? []}
+                        value={effectiveSaleAccountId}
+                        onChange={(id) =>
+                          setSaleForm((p) => ({ ...p, accountId: id }))
+                        }
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Default: Cash. Pick a bank if the money went there.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!saleForm.remaining && cashflowHasBanks && (
+                <div>
+                  <Label>Received into</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts ?? []}
+                    value={effectiveSaleAccountId}
+                    onChange={(id) =>
+                      setSaleForm((p) => ({ ...p, accountId: id }))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Default: Cash. Pick a bank if the money went there.
+                  </p>
                 </div>
               )}
             </div>

@@ -575,3 +575,41 @@ After stabilising prod, immediately `git revert <bad-sha>` on `main` so the next
 - Do not delete `siddjuugi/poultry360-backend:<old-sha>` images from Docker Hub. They are the only way to roll the image back cheaply. Space is free until you hit the Docker Hub tag limit.
 - Do not force-push over `main` to "revert" a bad deploy. Use `git revert`; it preserves history and makes the next deploy's audit trail honest.
 - Do not run `prisma migrate resolve` or any schema-touching command on a live prod DB without a fresh snapshot taken immediately before.
+
+---
+
+## 14. Deleting a farmer staff member leaves salary-payment cashbook rows
+
+**Status:** deferred (identified 2026-11-22). This is a cashflow data-integrity follow-up, not a reason to block the current Phase 5 rollout.
+
+### What happens
+
+Farmer staff payments now create a `FarmerCashMovement` with
+`sourceType = STAFF_PAYMENT`. Deleting one payment removes its matching
+cashbook row correctly.
+
+However, `deleteStaff` deletes the whole `Staff` row. Prisma then cascades to
+all of its `StaffPayment` rows, but `FarmerCashMovement` has no foreign key to
+`StaffPayment`. The matching cashbook rows remain and show salary payments
+whose source records no longer exist.
+
+### Required fix
+
+For Farmer owners only:
+
+1. Read the staff member's payment ids before deletion.
+2. In one database transaction, delete each matching `STAFF_PAYMENT`
+   cashbook movement using `(userId, sourceType, sourceId)`.
+3. Delete the `Staff` row in that same transaction, allowing the normal
+   cascade to remove its payments.
+4. Add a test for deleting a stopped farmer staff member who has two payments;
+   it must remove both cashbook rows and the staff record together.
+
+**Location:** `src/controller/staffController.ts`, `deleteStaff`.
+
+### Do NOT
+
+- Do not delete every cashbook row for the farmer; scope strictly to the
+  payment ids owned by the staff member being deleted.
+- Do not apply the farmer-cashbook cleanup to dealer, hatchery, or company
+  staff. Their cashbooks are not part of this feature.

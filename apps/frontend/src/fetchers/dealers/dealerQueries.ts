@@ -6,6 +6,7 @@ import {
 } from "@myapp/shared-types";
 import axiosInstance from "@/common/lib/axios";
 import { inventoryKeys } from "@/fetchers/inventory/inventoryQueries";
+import { farmerCashflowKeys } from "@/fetchers/farmer/farmerCashflowQueries";
 
 // ==================== QUERY KEYS ====================
 export const dealerKeys = {
@@ -205,6 +206,9 @@ export const useAddDealerTransaction = () => {
         paymentAmount?: number;
         paymentDescription?: string;
         paymentToPurchaseId?: string;
+        /** Which FarmerCashAccount the PAYMENT (or inline purchase payment)
+         *  was drawn from. Optional — backend defaults to Cash. */
+        accountId?: string;
       };
     }) => {
       const response = await axiosInstance.post(
@@ -224,6 +228,10 @@ export const useAddDealerTransaction = () => {
       queryClient.invalidateQueries({ queryKey: dealerKeys.lists() });
       queryClient.invalidateQueries({ queryKey: dealerKeys.statistics() });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
+      // PAYMENT txns mirror into the farmer cashbook as an OUT; cover all
+      // types (PURCHASE/ADJUSTMENT etc.) with one blanket invalidate since
+      // they're cheap and the cashflow list may be filtered by date range.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -252,6 +260,8 @@ export const useDeleteDealerTransaction = () => {
       queryClient.invalidateQueries({ queryKey: dealerKeys.detail(dealerId) });
       queryClient.invalidateQueries({ queryKey: dealerKeys.transactions(dealerId) });
       queryClient.invalidateQueries({ queryKey: dealerKeys.statistics() });
+      // PAYMENT delete removes its cashbook mirror.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
