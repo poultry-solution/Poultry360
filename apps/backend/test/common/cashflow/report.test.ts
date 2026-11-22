@@ -14,6 +14,9 @@ const mk = (
   sourceType: overrides.sourceType ?? "MANUAL",
   sourceId: overrides.sourceId ?? null,
   transferId: overrides.transferId ?? null,
+  partyName: overrides.partyName ?? "test",
+  notes: overrides.notes ?? null,
+  createdAt: overrides.createdAt ?? new Date(0),
 });
 
 describe("rollupCashflowStatement", () => {

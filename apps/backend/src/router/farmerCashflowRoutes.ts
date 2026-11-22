@@ -3,9 +3,13 @@ import { authMiddleware, requireStaffPermission } from "../middelware/middelware
 import { StaffPermission } from "@prisma/client";
 import {
   createAccount,
+  createMovement,
+  createTransfer,
   deleteAccount,
   deleteMovement,
   getAccounts,
+  getMovements,
+  getReportHandler,
   patchAccount,
 } from "../controller/farmerCashflowController";
 
@@ -24,6 +28,13 @@ router.get("/accounts", getAccounts);
 router.post("/accounts", createAccount);
 router.patch("/accounts/:id", patchAccount);
 router.delete("/accounts/:id", deleteAccount);
+
+router.get("/movements", getMovements);
+router.post("/movements", createMovement);
 router.delete("/movements/:id", deleteMovement);
+
+router.post("/transfers", createTransfer);
+
+router.get("/report", getReportHandler);
 
 export default router;

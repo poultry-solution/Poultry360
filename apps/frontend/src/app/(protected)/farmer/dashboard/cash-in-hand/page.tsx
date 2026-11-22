@@ -1,54 +1,7 @@
-"use client";
+import { permanentRedirect } from "next/navigation";
 
-import { Card, CardContent } from "@/common/components/ui/card";
-import { useAuthStore } from "@/common/store/store";
-import { CashInHandView, type CashInHandApi } from "@/components/cash-in-hand/CashInHandView";
-import {
-  useAddFarmerCashMovement,
-  useCloseFarmerCashDay,
-  useDeleteFarmerCashMovement,
-  useGetFarmerCashHistory,
-  useGetFarmerCashToday,
-  useSetupFarmerCashBook,
-} from "@/fetchers/farmer/farmerCashInHandQueries";
-
-const farmerCashApi: CashInHandApi = {
-  apiBase: "/farmer/cash-in-hand",
-  useToday: () => useGetFarmerCashToday(),
-  useHistory: () => useGetFarmerCashHistory(),
-  useSetup: useSetupFarmerCashBook,
-  useAddMovement: useAddFarmerCashMovement,
-  useDeleteMovement: useDeleteFarmerCashMovement,
-  useCloseDay: useCloseFarmerCashDay,
-};
-
-export default function FarmerCashInHandPage() {
-  return (
-    <Card className="mx-auto mt-10 max-w-lg">
-      <CardContent className="py-10 text-center">
-        <h1 className="text-lg font-semibold">Cash in Hand is under maintenance</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          We&apos;re upgrading cash tracking across all modules. Please check back soon to use the new Cash in Hand.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Preserved during Cash in Hand redesign. Swap this back into the default export
-// (and delete the maintenance stub above) when the new behaviour ships.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function FarmerCashInHandPageOriginal() {
-  const user = useAuthStore((state) => state.user);
-  if (user?.isStaff && !user.permissions?.includes("FARMER_VIEW_CASH_HISTORY")) {
-    return (
-      <Card className="mx-auto mt-10 max-w-lg">
-        <CardContent className="py-10 text-center">
-          <h1 className="text-lg font-semibold">Cash access restricted</h1>
-          <p className="mt-2 text-sm text-gray-500">Your owner has not enabled cash-in-hand access for this staff account.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-  return <CashInHandView api={farmerCashApi} />;
+// The Farmer Cash in Hand flow is permanently retired — 308 so browsers,
+// bookmarks, and search caches update the URL instead of re-querying.
+export default function FarmerCashInHandRedirect() {
+  permanentRedirect("/farmer/dashboard/cashflow");
 }

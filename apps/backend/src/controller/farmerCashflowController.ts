@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import type { CashCategory } from "@prisma/client";
 import {
   CashflowError,
   archiveAccount,
@@ -8,7 +9,11 @@ import {
   editOpeningBalance,
   ensureCashAccount,
   getAccountBalances,
+  getReport,
   listAccounts,
+  listMovements,
+  postManualMovement,
+  postTransfer,
   renameAccount,
   unarchiveAccount,
 } from "../services/farmerCashflowService";
@@ -192,5 +197,129 @@ export const deleteMovement = async (
     return res.status(204).end();
   } catch (err) {
     return handle(err, res, "farmerCashflow.deleteMovement");
+  }
+};
+
+export const getMovements = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const fromBsDate =
+      typeof req.query.from === "string" ? req.query.from : undefined;
+    const toBsDate =
+      typeof req.query.to === "string" ? req.query.to : undefined;
+    const accountId =
+      typeof req.query.accountId === "string" && req.query.accountId.length > 0
+        ? req.query.accountId
+        : undefined;
+    const limit =
+      typeof req.query.limit === "string"
+        ? Math.min(Math.max(Number(req.query.limit) || 100, 1), 1000)
+        : undefined;
+    const movements = await listMovements(userId, {
+      fromBsDate,
+      toBsDate,
+      accountId,
+      limit,
+    });
+    return res.status(200).json({ success: true, data: { movements } });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.getMovements");
+  }
+};
+
+export const createMovement = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const recordedById = req.actorType === "STAFF"
+      ? req.staffUserId ?? userId
+      : userId;
+    const body = req.body ?? {};
+    const movement = await postManualMovement(userId, recordedById, {
+      accountId: String(body.accountId ?? ""),
+      category: String(body.category ?? "") as CashCategory,
+      amount: Number(body.amount),
+      bsDate: String(body.bsDate ?? ""),
+      partyName: body.partyName,
+      notes: body.notes,
+    });
+    await writeBusinessAudit(req, {
+      action: "cashflow.movement.manual_added",
+      targetType: "FarmerCashMovement",
+      targetId: movement.id,
+      description: `Manual ${movement.direction} ${movement.amount} on ${movement.bsDate} (${movement.category})`,
+      metadata: {
+        accountId: movement.accountId,
+        category: movement.category,
+        amount: movement.amount,
+        bsDate: movement.bsDate,
+      },
+    });
+    return res.status(201).json({ success: true, data: movement });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.createMovement");
+  }
+};
+
+export const createTransfer = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const recordedById = req.actorType === "STAFF"
+      ? req.staffUserId ?? userId
+      : userId;
+    const body = req.body ?? {};
+    const result = await postTransfer(userId, recordedById, {
+      fromAccountId: String(body.fromAccountId ?? ""),
+      toAccountId: String(body.toAccountId ?? ""),
+      amount: Number(body.amount),
+      bsDate: String(body.bsDate ?? ""),
+      note: body.note,
+    });
+    await writeBusinessAudit(req, {
+      action: "cashflow.transfer.posted",
+      targetType: "FarmerCashMovement",
+      targetId: result.transferId,
+      description: `Transfer ${result.legs[0].amount} on ${result.legs[0].bsDate}`,
+      metadata: {
+        transferId: result.transferId,
+        fromAccountId: result.legs[0].accountId,
+        toAccountId: result.legs[1].accountId,
+        amount: result.legs[0].amount,
+        bsDate: result.legs[0].bsDate,
+      },
+    });
+    return res.status(201).json({ success: true, data: result });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.createTransfer");
+  }
+};
+
+export const getReportHandler = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    const fromBsDate =
+      typeof req.query.from === "string" ? req.query.from : "";
+    const toBsDate =
+      typeof req.query.to === "string" ? req.query.to : "";
+    if (!fromBsDate || !toBsDate) {
+      return res.status(400).json({
+        message: "from and to BS date query params are required",
+      });
+    }
+    const report = await getReport(userId, { fromBsDate, toBsDate });
+    return res.status(200).json({ success: true, data: report });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.getReport");
   }
 };

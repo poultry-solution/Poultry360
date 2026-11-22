@@ -19,6 +19,7 @@ jest.mock("../../src/utils/prisma", () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       count: jest.fn(),
+      create: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -26,6 +27,24 @@ jest.mock("../../src/utils/prisma", () => {
   };
   return { __esModule: true, default: m };
 });
+
+const defaultPrevBsDate = (bs: string): string => {
+  const [y, m, d] = bs.split("-").map(Number);
+  if (d > 1) {
+    return `${y}-${String(m).padStart(2, "0")}-${String(d - 1).padStart(2, "0")}`;
+  }
+  const pm = m === 1 ? 12 : m - 1;
+  const py = m === 1 ? y - 1 : y;
+  return `${py}-${String(pm).padStart(2, "0")}-30`;
+};
+
+jest.mock("../../src/utils/nepalBsDate", () => ({
+  getNepalBsTodayString: jest.fn(() => "2083-04-15"),
+  // Simplified prev-day — good enough for lexicographic-sort tests. Assumes
+  // a 30-day BS month, which is fine for the controller-level assertions here
+  // (unit tests don't need the real Nepali calendar).
+  prevBsDate: jest.fn(),
+}));
 
 import { Prisma } from "@prisma/client";
 import prisma from "../../src/utils/prisma";
@@ -38,6 +57,10 @@ import {
   editOpeningBalance,
   ensureCashAccount,
   getAccountBalances,
+  getReport,
+  listMovements,
+  postManualMovement,
+  postTransfer,
   renameAccount,
 } from "../../src/services/farmerCashflowService";
 
@@ -54,6 +77,7 @@ const mocked = prisma as unknown as {
     findMany: jest.Mock;
     findUnique: jest.Mock;
     count: jest.Mock;
+    create: jest.Mock;
     delete: jest.Mock;
     deleteMany: jest.Mock;
   };
@@ -75,6 +99,14 @@ const row = (overrides: Partial<Record<string, unknown>> = {}) => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Reset prevBsDate to its default BEFORE every test — mockImplementationOnce
+  // queues from a previous test would otherwise leak into the next test's
+  // first call.
+  const { prevBsDate } = jest.requireMock("../../src/utils/nepalBsDate") as {
+    prevBsDate: jest.Mock;
+  };
+  prevBsDate.mockReset();
+  prevBsDate.mockImplementation(defaultPrevBsDate);
 });
 
 describe("ensureCashAccount", () => {
@@ -435,6 +467,340 @@ describe("deleteMovement", () => {
     await expect(deleteMovement("u1", "missing")).rejects.toMatchObject({
       status: 404,
     });
+  });
+});
+
+describe("listMovements", () => {
+  it("filters by range + account + limit", async () => {
+    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([]);
+    await listMovements("u1", {
+      fromBsDate: "2083-04-01",
+      toBsDate: "2083-04-30",
+      accountId: "cash-1",
+      limit: 50,
+    });
+    expect(mocked.farmerCashMovement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "u1",
+          accountId: "cash-1",
+          bsDate: { gte: "2083-04-01", lte: "2083-04-30" },
+        }),
+        take: 50,
+        orderBy: [{ bsDate: "desc" }, { createdAt: "desc" }],
+      }),
+    );
+  });
+
+  it("rejects malformed BS date query params", async () => {
+    await expect(
+      listMovements("u1", { fromBsDate: "nope" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+function fakeTx(
+  farmerCashAccount: Record<string, jest.Mock>,
+  farmerCashMovement: Record<string, jest.Mock>,
+) {
+  return { farmerCashAccount, farmerCashMovement };
+}
+
+describe("postManualMovement", () => {
+  const baseInput = {
+    accountId: "cash-1",
+    category: "CASH_IN" as const,
+    amount: 500,
+    bsDate: "2083-04-10",
+    partyName: "Ram",
+  };
+
+  it("refuses future BS dates (mocked today = 2083-04-15)", async () => {
+    await expect(
+      postManualMovement("u1", "u1", { ...baseInput, bsDate: "2083-04-20" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("refuses an auto-post category (SALE_RECEIPT) on the manual endpoint", async () => {
+    await expect(
+      postManualMovement("u1", "u1", {
+        ...baseInput,
+        category: "SALE_RECEIPT" as any,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("refuses an empty partyName", async () => {
+    await expect(
+      postManualMovement("u1", "u1", { ...baseInput, partyName: "   " }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("refuses a non-positive amount", async () => {
+    await expect(
+      postManualMovement("u1", "u1", { ...baseInput, amount: 0 }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("creates a MANUAL row, derives direction from category", async () => {
+    const tx = fakeTx(
+      {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(row({ id: "cash-1", type: "CASH", openingBsDate: "2083-04-01" })),
+      },
+      {
+        create: jest.fn().mockResolvedValue({
+          id: "m-1",
+          userId: "u1",
+          accountId: "cash-1",
+          bsDate: "2083-04-10",
+          direction: "IN",
+          amount: new Prisma.Decimal(500),
+          category: "OWNER_INVEST",
+          sourceType: "MANUAL",
+          sourceId: null,
+          transferId: null,
+        }),
+      },
+    );
+    mocked.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    const result = await postManualMovement("u1", "u1", {
+      ...baseInput,
+      category: "OWNER_INVEST",
+    });
+
+    expect(result.direction).toBe("IN");
+    expect(tx.farmerCashMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          direction: "IN",
+          category: "OWNER_INVEST",
+          sourceType: "MANUAL",
+          partyName: "Ram",
+        }),
+      }),
+    );
+  });
+
+  it("refuses when the account belongs to another user (403)", async () => {
+    const tx = fakeTx(
+      {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(row({ id: "cash-1", userId: "other-user", type: "CASH" })),
+      },
+      { create: jest.fn() },
+    );
+    mocked.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+    await expect(
+      postManualMovement("u1", "u1", baseInput),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(tx.farmerCashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses dates before the account's openingBsDate", async () => {
+    const tx = fakeTx(
+      {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(row({ id: "cash-1", type: "CASH", openingBsDate: "2083-04-15" })),
+      },
+      { create: jest.fn() },
+    );
+    mocked.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+    await expect(
+      postManualMovement("u1", "u1", { ...baseInput, bsDate: "2083-04-01" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe("postTransfer", () => {
+  const baseInput = {
+    fromAccountId: "cash-1",
+    toAccountId: "bank-1",
+    amount: 300,
+    bsDate: "2083-04-10",
+  };
+
+  it("refuses same-account transfer", async () => {
+    await expect(
+      postTransfer("u1", "u1", { ...baseInput, toAccountId: "cash-1" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("refuses future date", async () => {
+    await expect(
+      postTransfer("u1", "u1", { ...baseInput, bsDate: "2083-04-20" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("creates both legs with a shared transferId", async () => {
+    const tx = fakeTx(
+      {
+        findUnique: jest
+          .fn()
+          .mockImplementation(({ where }) =>
+            Promise.resolve(
+              row({
+                id: where.id,
+                type: where.id === "cash-1" ? "CASH" : "BANK",
+                name: where.id === "cash-1" ? "Cash" : "NIC",
+                openingBsDate: "2083-04-01",
+              }),
+            ),
+          ),
+      },
+      {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: "m-out",
+            userId: "u1",
+            accountId: "cash-1",
+            bsDate: "2083-04-10",
+            direction: "OUT",
+            amount: new Prisma.Decimal(300),
+            category: "TRANSFER",
+            sourceType: "TRANSFER",
+            sourceId: "t-42",
+            transferId: "t-42",
+          })
+          .mockResolvedValueOnce({
+            id: "m-in",
+            userId: "u1",
+            accountId: "bank-1",
+            bsDate: "2083-04-10",
+            direction: "IN",
+            amount: new Prisma.Decimal(300),
+            category: "TRANSFER",
+            sourceType: "TRANSFER",
+            sourceId: "t-42",
+            transferId: "t-42",
+          }),
+      },
+    );
+    mocked.$transaction.mockImplementationOnce(async (fn: any) => fn(tx));
+
+    const result = await postTransfer("u1", "u1", baseInput);
+
+    expect(tx.farmerCashMovement.create).toHaveBeenCalledTimes(2);
+    expect(result.legs[0].transferId).toBe(result.legs[1].transferId);
+    expect(result.legs.map((l) => l.direction).sort()).toEqual(["IN", "OUT"]);
+  });
+});
+
+describe("getReport", () => {
+  it("returns zeroed totals and empty balances when the user has no accounts", async () => {
+    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([]);
+    const r = await getReport("u1", {
+      fromBsDate: "2083-04-01",
+      toBsDate: "2083-04-30",
+    });
+    expect(r.balances).toEqual([]);
+    expect(r.totals.openingBalance).toBe(0);
+    expect(r.totals.closingBalance).toBe(0);
+  });
+
+  it("refuses toBsDate < fromBsDate", async () => {
+    await expect(
+      getReport("u1", { fromBsDate: "2083-04-30", toBsDate: "2083-04-01" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("does not call prevBsDate when fromBsDate is at the system anchor (2000-01-01)", async () => {
+    // Guard: if we regress and call prevBsDate("2000-01-01"), the mock below
+    // throws and the test fails.
+    const { prevBsDate } = jest.requireMock("../../src/utils/nepalBsDate") as {
+      prevBsDate: jest.Mock;
+    };
+    prevBsDate.mockImplementationOnce(() => {
+      throw new Error("Date lib: cannot go before BS 2000");
+    });
+
+    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([
+      row({
+        id: "cash-1",
+        type: "CASH",
+        openingBalance: new Prisma.Decimal(0),
+        openingBsDate: "2000-01-01",
+      }),
+    ]);
+    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([
+      {
+        id: "m-a",
+        userId: "u1",
+        accountId: "cash-1",
+        bsDate: "2083-04-10",
+        direction: "IN",
+        amount: new Prisma.Decimal(200),
+        category: "SALE_RECEIPT",
+        sourceType: "SALE_PAYMENT",
+        sourceId: "sp-1",
+        transferId: null,
+        partyName: "Ram",
+        notes: null,
+        createdAt: new Date(0),
+      },
+    ]);
+
+    const r = await getReport("u1", {
+      fromBsDate: "2000-01-01",
+      toBsDate: "2083-04-30",
+    });
+
+    expect(r.totals.openingBalance).toBe(0);
+    expect(r.totals.inflow).toBe(200);
+    expect(r.totals.closingBalance).toBe(200);
+    expect(prevBsDate).not.toHaveBeenCalled();
+  });
+
+  it("totals opening + closing balances from movements", async () => {
+    mocked.farmerCashAccount.findMany.mockResolvedValueOnce([
+      row({ id: "cash-1", type: "CASH", openingBalance: new Prisma.Decimal(100), openingBsDate: "2083-03-01" }),
+    ]);
+    mocked.farmerCashMovement.findMany.mockResolvedValueOnce([
+      {
+        id: "m-a",
+        userId: "u1",
+        accountId: "cash-1",
+        bsDate: "2083-03-15",
+        direction: "IN",
+        amount: new Prisma.Decimal(50),
+        category: "CASH_IN",
+        sourceType: "MANUAL",
+        sourceId: null,
+        transferId: null,
+      },
+      {
+        id: "m-b",
+        userId: "u1",
+        accountId: "cash-1",
+        bsDate: "2083-04-10",
+        direction: "IN",
+        amount: new Prisma.Decimal(200),
+        category: "SALE_RECEIPT",
+        sourceType: "SALE_PAYMENT",
+        sourceId: "sp-1",
+        transferId: null,
+      },
+    ]);
+
+    const r = await getReport("u1", {
+      fromBsDate: "2083-04-01",
+      toBsDate: "2083-04-30",
+    });
+
+    // Opening at start of range: 100 opening + 50 from 03-15 = 150.
+    expect(r.totals.openingBalance).toBe(150);
+    // Inflow in range: 200 (SALE_RECEIPT), outflow 0, net +200, closing 350.
+    expect(r.totals.inflow).toBe(200);
+    expect(r.totals.outflow).toBe(0);
+    expect(r.totals.closingBalance).toBe(350);
+    expect(r.byCategory.inflow.SALE_RECEIPT).toBe(200);
+    expect(r.balances).toHaveLength(1);
+    expect(r.balances[0].balance).toBe(350);
   });
 });
 

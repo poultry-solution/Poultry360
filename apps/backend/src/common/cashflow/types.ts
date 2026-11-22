@@ -28,6 +28,9 @@ export interface CashMovement {
   sourceType: CashSourceType;
   sourceId: string | null;
   transferId: string | null;
+  partyName: string;
+  notes: string | null;
+  createdAt: Date;
 }
 
 export interface BsDateRange {
