@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, BarChart3, Filter, Settings } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowDownLeft,
+  ArrowRightLeft,
+  ArrowUpRight,
+  BarChart3,
+  Filter,
+  Settings,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -21,18 +30,15 @@ import { CashflowStatement } from "@/components/cashflow/CashflowStatement";
 import { MovementsTable } from "@/components/cashflow/MovementsTable";
 import { ManualMovementModal } from "@/components/cashflow/ManualMovementModal";
 import { TransferModal } from "@/components/cashflow/TransferModal";
-import { ReconcileWizard } from "@/components/cashflow/ReconcileWizard";
 import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
 
 import {
   useDeleteCashflowMovement,
   useGetCashflowAccounts,
   useGetCashflowMovements,
-  useGetCashflowReconciliationStatus,
   useGetCashflowReport,
   usePostManualMovement,
   usePostTransfer,
-  useReconcileCashflow,
   type CashMovement,
 } from "@/fetchers/farmer/farmerCashflowQueries";
 import {
@@ -44,6 +50,37 @@ function todayBsRange() {
   const todayBs = convertADtoBS(toNepalDayAd(new Date()));
   // Default view is "today only". Any wider range is a user-driven filter.
   return { from: todayBs, to: todayBs };
+}
+
+/**
+ * Dismissal is per-browser (localStorage). An existing farmer who already
+ * set their opening balance via the account edit UI auto-clears the banner
+ * because the showing condition (openingBalance === 0 && no movements) goes
+ * false; we only need manual dismissal for the "I genuinely start at 0" user.
+ */
+const OPENING_BANNER_DISMISSED_KEY =
+  "farmer-cashflow:opening-balance-banner-dismissed";
+
+function useOpeningBalanceBannerDismissed(): [boolean, () => void] {
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    try {
+      setDismissed(
+        window.localStorage.getItem(OPENING_BANNER_DISMISSED_KEY) === "true",
+      );
+    } catch {
+      // Private mode or quota error — leave default (not dismissed).
+    }
+  }, []);
+  function dismiss() {
+    try {
+      window.localStorage.setItem(OPENING_BANNER_DISMISSED_KEY, "true");
+    } catch {
+      /* ignore */
+    }
+    setDismissed(true);
+  }
+  return [dismissed, dismiss];
 }
 
 export default function FarmerCashflowPage() {
@@ -63,19 +100,26 @@ export default function FarmerCashflowPage() {
     from: range.from,
     to: range.to,
   });
-  const reconciliationQ = useGetCashflowReconciliationStatus();
 
   const accounts = accountsQ.data ?? [];
   const movements = movementsQ.data ?? [];
-  const cashId = useMemo(
-    () => accounts.find((a) => a.type === "CASH")?.id ?? "",
+  const cashAccount = useMemo(
+    () => accounts.find((a) => a.type === "CASH"),
     [accounts],
   );
+  const cashId = cashAccount?.id ?? "";
+
+  const [bannerDismissed, dismissBanner] = useOpeningBalanceBannerDismissed();
+  const showOpeningBanner =
+    accountsQ.isSuccess &&
+    !bannerDismissed &&
+    cashAccount !== undefined &&
+    cashAccount.openingBalance === 0 &&
+    cashAccount.hasMovements === false;
 
   const addMovement = usePostManualMovement();
   const transfer = usePostTransfer();
   const del = useDeleteCashflowMovement();
-  const reconcile = useReconcileCashflow();
 
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CashMovement | null>(null);
@@ -110,6 +154,38 @@ export default function FarmerCashflowPage() {
           Accounts
         </Link>
       </header>
+
+      {showOpeningBanner && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start">
+            <Wallet className="h-5 w-5 shrink-0 text-primary" />
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium">
+                Set your starting Cash balance
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Enter whatever cash you had before you started using
+                Poultry360. Every sale, expense and payment you record from
+                now on builds on this.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Button type="button" size="sm" asChild>
+                <Link href="/farmer/dashboard/cashflow/accounts">Set it</Link>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={dismissBanner}
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <AccountBalancesCard accounts={accounts} />
 
@@ -285,30 +361,6 @@ export default function FarmerCashflowPage() {
         submitting={del.isPending}
         onConfirm={confirmDelete}
       />
-
-      {reconciliationQ.data?.needsReconciliation === true && (
-        <ReconcileWizard
-          computedCash={reconciliationQ.data.computedCash}
-          submitting={reconcile.isPending}
-          onSubmit={async (drawer) => {
-            try {
-              const result = await reconcile.mutateAsync({ drawer });
-              if (result.adjustmentMovementId) {
-                toast.success(
-                  `Cash reconciled. Posted adjustment of ${Math.abs(result.diff).toFixed(2)}.`,
-                );
-              } else {
-                toast.success("Cash balance confirmed");
-              }
-            } catch (e: unknown) {
-              toast.error(
-                (e as { response?: { data?: { message?: string } } })?.response
-                  ?.data?.message ?? "Could not confirm reconciliation",
-              );
-            }
-          }}
-        />
-      )}
     </div>
   );
 }

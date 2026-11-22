@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Type,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/common/components/ui/card";
@@ -148,13 +155,24 @@ export default function FarmerCashflowAccountsPage() {
                   <span className="tabular-nums">
                     {formatCashAmount(a.balance)}
                   </span>
+                  {a.type === "CASH" && !a.hasMovements && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setModal({ mode: "edit", account: a })}
+                      title="Set opening Cash balance"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
                   {a.type === "BANK" && (
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setModal({ mode: "edit", account: a })}
-                        title="Edit opening (only allowed before first movement)"
+                        title="Edit opening balance"
+                        aria-label="Edit opening balance"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -162,20 +180,30 @@ export default function FarmerCashflowAccountsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRename(a)}
+                        title="Rename"
+                        aria-label="Rename"
                       >
-                        Rename
+                        <Type className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleArchiveToggle(a)}
+                        title={a.archivedAt ? "Unarchive" : "Archive"}
+                        aria-label={a.archivedAt ? "Unarchive" : "Archive"}
                       >
-                        {a.archivedAt ? "Unarchive" : "Archive"}
+                        {a.archivedAt ? (
+                          <ArchiveRestore className="h-4 w-4" />
+                        ) : (
+                          <Archive className="h-4 w-4" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setDeleteTarget(a)}
+                        title="Delete"
+                        aria-label="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -237,6 +265,9 @@ export default function FarmerCashflowAccountsPage() {
           // because a deposit+withdrawal round-trip leaves the balance
           // unchanged while movements exist.
           modal?.mode === "edit" && !modal.account.hasMovements
+        }
+        isCashAccount={
+          modal?.mode === "edit" && modal.account.type === "CASH"
         }
         onSubmit={async (input) => {
           if (modal?.mode !== "edit") return;

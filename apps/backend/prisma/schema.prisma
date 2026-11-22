@@ -2581,12 +2581,11 @@ model BillSettings {
 }
 
 model FarmerCashSettings {
-  id             String    @id @default(cuid())
-  userId         String    @unique
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  initialOpening Decimal   @db.Decimal(10, 2)
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initialOpening Decimal  @db.Decimal(10, 2)
   startBsDate    String
-  reconciledAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2606,30 +2605,28 @@ model FarmerFcrSettings {
 }
 
 model CashMovement {
-  id            String                @id @default(cuid())
-  userId        String
-  user          User                  @relation("CashBook", fields: [userId], references: [id], onDelete: Cascade)
-  accountId     String
-  account       CashAccount     @relation(fields: [accountId], references: [id])
-  bsDate        String
-  direction     CashMovementDirection
-  amount        Decimal               @db.Decimal(10, 2)
-  category      CashCategory
-  sourceType    CashSourceType
-  sourceId      String?
-  transferId    String?
-  backfillRunId String?
-  partyName     String
-  notes         String?
-  recordedById  String?
-  recordedBy    User?                 @relation("CashMovementRecorder", fields: [recordedById], references: [id])
+  id           String                @id @default(cuid())
+  userId       String
+  user         User                  @relation("CashBook", fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      CashAccount           @relation(fields: [accountId], references: [id])
+  bsDate       String
+  direction    CashMovementDirection
+  amount       Decimal               @db.Decimal(10, 2)
+  category     CashCategory
+  sourceType   CashSourceType
+  sourceId     String?
+  transferId   String?
+  partyName    String
+  notes        String?
+  recordedById String?
+  recordedBy   User?                 @relation("CashMovementRecorder", fields: [recordedById], references: [id])
 
   createdAt DateTime @default(now())
 
   @@index([userId, bsDate])
   @@index([accountId, bsDate])
   @@index([transferId])
-  @@index([backfillRunId])
 }
 
 model FarmerCashDayClose {

@@ -316,9 +316,9 @@ export async function deleteAccount(
 /**
  * Delete a movement. Manual entries delete straight. Transfer legs are deleted
  * as a pair in one transaction (shared `transferId`). Auto-posted entries
- * (SALE_PAYMENT, CUSTOMER_RECEIPT, EXPENSE, OPENING_ADJUSTMENT) must be removed
- * by deleting the source event instead — removing the mirror row would silently
- * desync the cashbook from the business ledger.
+ * (SALE_PAYMENT, CUSTOMER_RECEIPT, EXPENSE, SUPPLIER_PAYMENT, STAFF_PAYMENT)
+ * must be removed by deleting the source event instead — removing the mirror
+ * row would silently desync the cashbook from the business ledger.
  */
 export async function deleteMovement(
   userId: string,
@@ -359,7 +359,7 @@ export async function deleteMovement(
   }
 
   throw new CashflowError(
-    "Auto-posted entries can only be removed by deleting the source transaction (sale, receipt, expense, or reconciliation).",
+    "Auto-posted entries can only be removed by deleting the source transaction (sale, receipt, expense, supplier payment, or staff payment).",
     409,
   );
 }
@@ -801,171 +801,3 @@ function decrementBsDay(bsDate: string): string {
   return prevBsDate(bsDate);
 }
 
-// ──────────────────────────── RECONCILIATION WIZARD ────────────────────────────
-
-/**
- * Returns the current reconciliation status for a farmer.
- *
- * Decision matrix:
- *   - no movements, no/any settings     → needsReconciliation = false
- *     (truly new or wiped-clean user; nothing to anchor against)
- *   - has movements, no settings row    → needsReconciliation = true
- *     (either Phase 2 backfill or Phase 5 auto-posts ran; user hasn't confirmed)
- *   - has movements, reconciledAt null  → needsReconciliation = true
- *   - has movements, reconciledAt set   → needsReconciliation = false
- *
- * For the "zero movements" case we also idempotently stamp the settings row
- * as reconciled so a farmer who later adds their first movement won't suddenly
- * get a surprise wizard — the anchor was already implicitly ₹0.
- */
-export async function getReconciliationStatus(
-  userId: string,
-): Promise<{ needsReconciliation: boolean; computedCash: number }> {
-  const [settings, cash] = await Promise.all([
-    prisma.farmerCashSettings.findUnique({ where: { userId } }),
-    ensureCashAccount(userId),
-  ]);
-
-  const movementsRaw = await prisma.cashMovement.findMany({
-    where: { userId, accountId: cash.id },
-    select: MOVEMENT_SELECT,
-  });
-  const hasMovements = movementsRaw.length > 0;
-  const computedCash = computeAccountBalance(cash, movementsRaw.map(toCashMovement));
-
-  if (!hasMovements) {
-    // Idempotently seed settings as reconciled for brand-new users. Guards
-    // against future surprise prompts after their first auto-posted sale.
-    if (!settings) {
-      const todayBs = getNepalBsTodayString();
-      try {
-        await prisma.farmerCashSettings.create({
-          data: {
-            userId,
-            initialOpening: new Prisma.Decimal(0),
-            startBsDate: todayBs,
-            reconciledAt: new Date(),
-          },
-        });
-      } catch (err) {
-        if (
-          !(err instanceof Prisma.PrismaClientKnownRequestError) ||
-          err.code !== "P2002"
-        ) {
-          throw err;
-        }
-      }
-    } else if (settings.reconciledAt === null) {
-      await prisma.farmerCashSettings.update({
-        where: { id: settings.id },
-        data: { reconciledAt: new Date() },
-      });
-    }
-    return { needsReconciliation: false, computedCash };
-  }
-
-  return {
-    needsReconciliation: settings === null || settings.reconciledAt === null,
-    computedCash,
-  };
-}
-
-export interface ReconcileResult {
-  computed: number;
-  drawer: number;
-  diff: number;
-  adjustmentMovementId: string | null;
-  settingsId: string;
-}
-
-/**
- * Stamps the one-shot reconciliation anchor. If the drawer amount differs from
- * the computed Cash balance, inserts a single `OPENING_ADJUSTMENT` movement so
- * the balance exactly matches the physical drawer going forward. Refuses once
- * `reconciledAt` is already set — further corrections go through normal manual
- * Cash_in / Cash_out movements with a full audit trail.
- */
-export async function reconcile(
-  userId: string,
-  recordedById: string,
-  drawerAmount: number,
-): Promise<ReconcileResult> {
-  if (!Number.isFinite(drawerAmount) || drawerAmount < 0) {
-    throw new CashflowError("drawer must be a non-negative number", 400);
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const cash = await ensureCashAccount(userId, tx);
-    const settingsRow = await tx.farmerCashSettings.findUnique({
-      where: { userId },
-    });
-
-    let settingsId: string;
-    if (!settingsRow) {
-      const todayBs = getNepalBsTodayString();
-      const created = await tx.farmerCashSettings.create({
-        data: {
-          userId,
-          initialOpening: new Prisma.Decimal(0),
-          startBsDate: todayBs,
-          reconciledAt: null,
-        },
-      });
-      settingsId = created.id;
-    } else {
-      if (settingsRow.reconciledAt !== null) {
-        throw new CashflowError(
-          "Cash has already been reconciled. Record a manual Cash in / Cash out to correct the balance.",
-          409,
-        );
-      }
-      settingsId = settingsRow.id;
-    }
-
-    const movementsRaw = await tx.cashMovement.findMany({
-      where: { userId, accountId: cash.id },
-      select: MOVEMENT_SELECT,
-    });
-    const computed = computeAccountBalance(cash, movementsRaw.map(toCashMovement));
-    const diff = Math.round((drawerAmount - computed) * 100) / 100;
-
-    let adjustmentMovementId: string | null = null;
-
-    if (Math.abs(diff) >= 0.01) {
-      const todayBs = getNepalBsTodayString();
-      const created = await tx.cashMovement.create({
-        data: {
-          userId,
-          accountId: cash.id,
-          bsDate: todayBs,
-          direction:
-            diff > 0
-              ? CashMovementDirection.IN
-              : CashMovementDirection.OUT,
-          amount: new Prisma.Decimal(Math.abs(diff)),
-          category: CashCategory.OPENING_ADJUSTMENT,
-          sourceType: CashSourceType.OPENING_ADJUSTMENT,
-          sourceId: settingsId,
-          partyName: `Reconciliation on ${todayBs}`,
-          notes: null,
-          recordedById,
-        },
-        select: { id: true },
-      });
-      adjustmentMovementId = created.id;
-    }
-
-    await tx.farmerCashSettings.update({
-      where: { id: settingsId },
-      data: { reconciledAt: new Date() },
-    });
-
-    return {
-      computed,
-      drawer: drawerAmount,
-      diff,
-      adjustmentMovementId,
-      settingsId,
-    };
-  });
-}

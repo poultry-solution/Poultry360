@@ -26,6 +26,13 @@ interface AccountFormModalProps {
   /** When editing an existing account, opening balance field becomes read-only unless hasMovements=false (handled by caller). */
   editingAccountId?: string;
   allowOpeningEdit?: boolean;
+  /**
+   * Editing the system Cash account. Locks the name + date fields (server
+   * refuses to rename CASH or change its openingBsDate anchor) and relabels
+   * the dialog so only the opening balance is actionable. The banner on the
+   * cashflow page is the primary entry point.
+   */
+  isCashAccount?: boolean;
   onSubmit: (input: {
     name: string;
     openingBalance: number;
@@ -40,6 +47,7 @@ export function AccountFormModal({
   initial,
   editingAccountId,
   allowOpeningEdit = true,
+  isCashAccount = false,
   onSubmit,
 }: AccountFormModalProps) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -61,7 +69,10 @@ export function AccountFormModal({
     const trimmed = name.trim();
     const opening = Number(openingStr);
     if (!trimmed) return toast.error("Account name is required");
-    if (trimmed.toLowerCase() === "cash")
+    // "Cash" is reserved for the system account on BANK add/edit paths. When
+    // we're editing THE system Cash account itself, the name is pre-filled
+    // and locked so the reserve check doesn't apply.
+    if (!isCashAccount && trimmed.toLowerCase() === "cash")
       return toast.error(`"Cash" is reserved for the system account`);
     if (!Number.isFinite(opening) || opening < 0)
       return toast.error("Opening balance must be 0 or more");
@@ -81,18 +92,28 @@ export function AccountFormModal({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Edit bank account" : "Add bank account"}
+            {isCashAccount
+              ? "Set starting Cash balance"
+              : isEditing
+                ? "Edit bank account"
+                : "Add bank account"}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. NIC Asia Main"
-            />
+            {isCashAccount ? (
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                {name}
+              </div>
+            ) : (
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. NIC Asia Main"
+              />
+            )}
           </div>
 
           <div>
@@ -108,8 +129,8 @@ export function AccountFormModal({
             />
             {isEditing && !allowOpeningEdit && (
               <p className="mt-1 text-xs text-muted-foreground">
-                This account already has movements. Record an opening
-                adjustment on the main page instead.
+                This account already has movements. Record a Cash in or Cash
+                out on the main page instead.
               </p>
             )}
           </div>
@@ -122,8 +143,9 @@ export function AccountFormModal({
                   {bsDate}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Opening date is set once when the account is created and
-                  can&apos;t be changed later.
+                  {isCashAccount
+                    ? "The Cash account uses a fixed anchor date so every past and future movement counts."
+                    : "Opening date is set once when the account is created and can't be changed later."}
                 </p>
               </>
             ) : (

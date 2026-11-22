@@ -11,13 +11,11 @@ import {
   editOpeningBalance,
   ensureCashAccount,
   getAccountBalances,
-  getReconciliationStatus,
   getReport,
   listAccounts,
   listMovements,
   postManualMovement,
   postTransfer,
-  reconcile as reconcileService,
   renameAccount,
   unarchiveAccount,
 } from "../services/farmerCashflowService";
@@ -68,56 +66,13 @@ export const getAccounts = async (req: Request, res: Response): Promise<any> => 
     // card and the cashflow statement (which respects the selected range)
     // disagree whenever a user books a future-dated sale or expense.
     const asOfBsDate = getNepalBsTodayString();
-    const [accounts, reconciliation] = await Promise.all([
-      getAccountBalances(userId, { includeArchived, asOfBsDate }),
-      getReconciliationStatus(userId),
-    ]);
-    return res.status(200).json({
-      success: true,
-      data: {
-        accounts,
-        needsReconciliation: reconciliation.needsReconciliation,
-        computedCash: reconciliation.computedCash,
-      },
+    const accounts = await getAccountBalances(userId, {
+      includeArchived,
+      asOfBsDate,
     });
+    return res.status(200).json({ success: true, data: { accounts } });
   } catch (err) {
     return handle(err, res, "farmerCashflow.getAccounts");
-  }
-};
-
-export const reconcileHandler = async (
-  req: Request,
-  res: Response,
-): Promise<any> => {
-  try {
-    const userId = req.userId!;
-    const recordedById = req.actorType === "STAFF"
-      ? req.staffUserId ?? userId
-      : userId;
-    const drawerRaw = req.body?.drawer;
-    const drawer = Number(drawerRaw);
-    if (!Number.isFinite(drawer) || drawer < 0) {
-      return res.status(400).json({ message: "drawer must be a non-negative number" });
-    }
-    const result = await reconcileService(userId, recordedById, drawer);
-    await writeBusinessAudit(req, {
-      action: "cashflow.reconciled",
-      targetType: "FarmerCashSettings",
-      targetId: result.settingsId,
-      description:
-        result.adjustmentMovementId !== null
-          ? `Cash reconciled: drawer ${result.drawer} vs computed ${result.computed} (diff ${result.diff})`
-          : `Cash reconciled: drawer matches computed (${result.drawer})`,
-      metadata: {
-        drawer: result.drawer,
-        computed: result.computed,
-        diff: result.diff,
-        adjustmentMovementId: result.adjustmentMovementId,
-      },
-    });
-    return res.status(200).json({ success: true, data: result });
-  } catch (err) {
-    return handle(err, res, "farmerCashflow.reconcile");
   }
 };
 

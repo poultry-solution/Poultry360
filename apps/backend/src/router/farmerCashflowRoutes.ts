@@ -11,7 +11,6 @@ import {
   getMovements,
   getReportHandler,
   patchAccount,
-  reconcileHandler,
 } from "../controller/farmerCashflowController";
 
 const router = express.Router();
@@ -37,7 +36,5 @@ router.delete("/movements/:id", deleteMovement);
 router.post("/transfers", createTransfer);
 
 router.get("/report", getReportHandler);
-
-router.post("/reconcile", reconcileHandler);
 
 export default router;
