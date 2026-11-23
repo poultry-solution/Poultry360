@@ -55,7 +55,7 @@ export function createExpenseColumns({
         }
         if (row.quantity) details.push(`Qty: ${row.quantity}`);
         if (row.unitPrice)
-          details.push(`Rate: ₹${Number(row.unitPrice).toLocaleString()}`);
+          details.push(`Rate: रू ${Number(row.unitPrice).toLocaleString()}`);
         if (row.inventoryUsages && row.inventoryUsages.length > 0) {
           const items = row.inventoryUsages
             .map(
@@ -72,7 +72,7 @@ export function createExpenseColumns({
       type: "currency",
       align: "right",
       width: "120px",
-      render: (value) => `₹${Number(value).toLocaleString()}`,
+      render: (value) => `रू ${Number(value).toLocaleString()}`,
     }),
     createColumn("date", "Date", {
       type: "date",

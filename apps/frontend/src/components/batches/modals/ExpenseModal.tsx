@@ -14,6 +14,8 @@ import {
 } from "@/common/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
+import type { CashAccount } from "@/fetchers/farmer/farmerCashflowQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
@@ -39,6 +41,8 @@ interface ExpenseFormState {
   extraAmount?: string;
   farmId?: string;
   batchId?: string;
+  /** Used only for a cash-only Other expense. */
+  accountId?: string;
 }
 
 interface ExpenseModalProps {
@@ -72,6 +76,10 @@ interface ExpenseModalProps {
   onMedicineSelection: (id: string) => void;
   onOtherSelection?: (id: string) => void;
   onOtherCategorySelection?: (id: string) => void;
+  /** Optional so dashboard quick actions can continue to use this shared form. */
+  cashflowAccounts?: CashAccount[];
+  defaultCashAccountId?: string;
+  onCashAccountChange?: (id: string) => void;
   
   // Loading
   isPending: boolean;
@@ -98,6 +106,9 @@ export function ExpenseModal({
   onMedicineSelection,
   onOtherSelection,
   onOtherCategorySelection,
+  cashflowAccounts,
+  defaultCashAccountId,
+  onCashAccountChange,
   isPending,
 }: ExpenseModalProps) {
   const { t } = useI18n();
@@ -114,6 +125,14 @@ export function ExpenseModal({
       category.type === "EXPENSE" &&
       category.description === "Saved Other expense name"
   );
+  const activeCashflowAccounts = (cashflowAccounts ?? []).filter(
+    (account) => account.archivedAt === null,
+  );
+  const showCashAccountPicker =
+    expenseForm.category === "Other" &&
+    !expenseForm.selectedOtherId &&
+    activeCashflowAccounts.length > 1 &&
+    onCashAccountChange !== undefined;
 
   return (
     <Modal
@@ -245,7 +264,7 @@ export function ExpenseModal({
                       {(feedInventory ?? []).map((feed: any) => (
                         <SelectItem key={feed.id} value={feed.id}>
                           {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
-                          {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
+                          {feed.rate != null ? ` - रू ${feed.rate}/unit` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -338,7 +357,7 @@ export function ExpenseModal({
                       {(medicineInventory ?? []).map((medicine: any) => (
                         <SelectItem key={medicine.id} value={medicine.id}>
                           {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
-                          {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
+                          {medicine.rate != null ? ` - रू ${medicine.rate}/unit` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -412,7 +431,7 @@ export function ExpenseModal({
                         {(otherInventory ?? []).map((item: any) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
-                            {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
+                            {item.rate != null ? ` - रू ${item.rate}/unit` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -509,6 +528,19 @@ export function ExpenseModal({
                     </p>
                   )}
                 </div>
+                {showCashAccountPicker && (
+                  <div className="space-y-2">
+                    <Label>Paid from</Label>
+                    <AccountPicker
+                      accounts={activeCashflowAccounts}
+                      value={expenseForm.accountId || defaultCashAccountId || ""}
+                      onChange={onCashAccountChange!}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Default: Cash. Pick a bank if the expense was paid from there.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -135,7 +135,7 @@ export function ExpensesTab({
                     {categoryFilter === "All" ? "Total Expenses" : `Total (${categoryFilter})`}
                   </span>
                   <span className="font-bold text-lg text-gray-900">
-                    ₹{totalAmount.toLocaleString()}
+                    रू {totalAmount.toLocaleString()}
                   </span>
                 </div>
               }

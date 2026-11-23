@@ -89,7 +89,7 @@ export function createSalesColumns({
             .map((l) => {
               const name = l.eggType?.name ?? "—";
               const rate = Number(l.unitPrice ?? 0);
-              return `${name} ₹${rate.toLocaleString()}`;
+              return `${name} रू ${rate.toLocaleString()}`;
             })
             .join(", ");
           return (
@@ -98,7 +98,7 @@ export function createSalesColumns({
             </div>
           );
         }
-        return value != null ? `₹${Number(value).toLocaleString()}` : "—";
+        return value != null ? `रू ${Number(value).toLocaleString()}` : "—";
       },
     }),
     createColumn("amount", "Total", {
@@ -107,13 +107,13 @@ export function createSalesColumns({
       width: "120px",
       render: (value, row: any) => (
         <div>
-          <div>₹{Number(value || 0).toLocaleString()}</div>
+          <div>रू {Number(value || 0).toLocaleString()}</div>
           {row?.discount && row?.subtotalAmount != null && (
             <div className="text-xs text-amber-700">
-              was ₹{Number(row.subtotalAmount).toLocaleString()} · −
+              was रू {Number(row.subtotalAmount).toLocaleString()} · −
               {row.discount.type === "PERCENT"
                 ? `${Number(row.discount.value)}%`
-                : `₹${Number(row.discount.value).toLocaleString()}`}
+                : `रू ${Number(row.discount.value).toLocaleString()}`}
             </div>
           )}
         </div>

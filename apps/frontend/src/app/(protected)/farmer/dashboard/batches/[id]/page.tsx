@@ -54,6 +54,8 @@ import {
   useGetBatchSalesPage,
 } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   useGetBatchMortalities,
   useCreateMortality,
@@ -514,7 +516,7 @@ export default function BatchDetailPage() {
       const summary = result.summary;
       flash(
         "success",
-        `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: ₹${summary.profit.toLocaleString()}`
+        `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: रू ${summary.profit.toLocaleString()}`
       );
 
       setIsCloseModalOpen(false);
@@ -560,7 +562,7 @@ export default function BatchDetailPage() {
   const [expenseToDelete, setExpenseToDelete] = useState<any | null>(null);
   const [expenseForm, setExpenseForm] = useState({
     category: "Feed" as ExpenseCategory,
-    date: "",
+    date: getTodayLocalDate(),
     notes: "",
     feedBrand: "",
     feedQuantity: "",
@@ -578,16 +580,29 @@ export default function BatchDetailPage() {
     otherQuantity: "",
     extraName: "",
     extraAmount: "",
+    accountId: "",
   });
   function updateExpenseField(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement> | { target: { name: string; value: string } }
   ) {
     const { name, value } = e.target;
     setExpenseForm((p) => ({ ...p, [name]: value }));
+    clearExpenseErrors(name);
+  }
+
+  // Clear field errors as soon as the farmer changes those fields.
+  function clearExpenseErrors(...names: string[]) {
+    setExpenseErrors((errs) => {
+      if (!names.some((n) => errs[n])) return errs;
+      const next = { ...errs };
+      for (const n of names) delete next[n];
+      return next;
+    });
   }
 
   // Handle feed selection (from for-expense list – id is InventoryItem.id)
   function handleFeedSelection(feedId: string) {
+    clearExpenseErrors("feedBrand", "feedRate", "feedKgPerUnit");
     const selectedFeed = feedInventoryForExpense.find((f: any) => f.id === feedId);
     if (selectedFeed) {
       setExpenseForm((prev) => ({
@@ -603,6 +618,7 @@ export default function BatchDetailPage() {
 
   // Handle medicine selection (from for-expense list – id is InventoryItem.id)
   function handleMedicineSelection(medicineId: string) {
+    clearExpenseErrors("medicineName", "medicineRate");
     const selectedMedicine = medicineInventoryForExpense.find((m: any) => m.id === medicineId);
     if (selectedMedicine) {
       setExpenseForm((prev) => ({
@@ -616,6 +632,7 @@ export default function BatchDetailPage() {
 
   // Handle other (from inventory) selection – id is InventoryItem.id
   function handleOtherSelection(otherId: string) {
+    clearExpenseErrors("otherRate");
     if (!otherId) {
       setExpenseForm((prev) => ({
         ...prev,
@@ -662,9 +679,10 @@ export default function BatchDetailPage() {
 
   function openNewExpense() {
     setEditingExpenseId(null);
+    setExpenseErrors({});
     setExpenseForm({
       category: "Feed" as ExpenseCategory,
-      date: "",
+      date: getTodayLocalDate(),
       notes: "",
       feedBrand: "",
       feedQuantity: "",
@@ -682,6 +700,7 @@ export default function BatchDetailPage() {
       otherQuantity: "",
       extraName: "",
       extraAmount: "",
+      accountId: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -717,6 +736,7 @@ export default function BatchDetailPage() {
       otherQuantity: row.quantity?.toString() || "",
       extraName: "",
       extraAmount: "",
+      accountId: "",
     });
     setIsExpenseModalOpen(true);
   }
@@ -924,9 +944,16 @@ export default function BatchDetailPage() {
         return;
       }
 
+      // Cash-only expenses mirror into the cashbook; inventory-backed ones
+      // already have their cash out at supplier-payment time and the server
+      // skips the mirror. On edit, omit an untouched account so the server
+      // keeps the account already on the existing mirror.
+      const accountIdForCashOnlyExpense =
+        expenseForm.accountId ||
+        (editingExpenseId === null ? cashAccountId : "");
       const expenseData = {
         date: expenseForm.date
-          ? new Date(expenseForm.date).toISOString()
+          ? nepalNoonFromAdDay(expenseForm.date).toISOString()
           : `${getTodayLocalDate()}T00:00:00.000Z`,
         amount,
         description:
@@ -937,6 +964,9 @@ export default function BatchDetailPage() {
         batchId: batchId,
         categoryId: category.id,
         inventoryItems: inventoryItems.length > 0 ? inventoryItems : undefined,
+        ...(inventoryItems.length === 0 && accountIdForCashOnlyExpense
+          ? { accountId: accountIdForCashOnlyExpense }
+          : {}),
       };
 
       if (editingExpenseId) {
@@ -985,6 +1015,7 @@ export default function BatchDetailPage() {
     customerCategory: string;
     balance: string;
     date: string;
+    accountId: string;
   }>({
     farmId: "",
     batchId: "",
@@ -1005,6 +1036,7 @@ export default function BatchDetailPage() {
     customerCategory: "Chicken",
     balance: "",
     date: getTodayLocalDate(),
+    accountId: "",
   });
 
   // Bill before the bill discount (after any weight discount), and the discount preview.
@@ -1028,6 +1060,18 @@ export default function BatchDetailPage() {
   const billPreview = previewBillDiscount(saleSubtotal, saleForm.discountType, saleForm.discountValue);
   const { data: eggTypesData } = useGetEggTypes({ enabled: true });
   const eggTypes = eggTypesData?.data ?? [];
+
+  // Cashbook accounts — needed by the "Received into" picker on the Sale
+  // modal. Picker defaults to the user's Cash account so an untouched form
+  // still ships an explicit accountId to the server.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashflowHasBanks = (cashflowAccounts ?? []).some(
+    (a) => a.type === "BANK" && !a.archivedAt,
+  );
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
+  const effectiveExpenseAccountId = expenseForm.accountId || cashAccountId;
+  const effectiveSaleAccountId = saleForm.accountId || cashAccountId;
   const { data: eggInventoryResponse } = useGetEggInventory({
     batchId: batchId ?? null,
     enabled: isSaleModalOpen && saleForm.itemType === "EGGS",
@@ -1068,6 +1112,7 @@ export default function BatchDetailPage() {
       customerCategory: "Chicken",
       balance: "",
       date: getTodayLocalDate(),
+      accountId: "",
     });
     setCustomerSearch("");
     setIsSaleModalOpen(true);
@@ -1128,7 +1173,7 @@ export default function BatchDetailPage() {
       const totalAmount = billPreview.amount;
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
-        errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
+        errs.balance = `Paid amount cannot exceed total amount of रू ${totalAmount.toLocaleString()}`;
       }
     }
     if (billPreview.error) {
@@ -1213,6 +1258,11 @@ export default function BatchDetailPage() {
         farmId: saleForm.farmId || batch?.farmId,
         batchId: saleForm.batchId || batchId,
         itemType: saleForm.itemType,
+        // Only matters when paidAmount > 0 — the picker defaults to the
+        // Cash account so an untouched form still ships an explicit id.
+        ...(paidAmount > 0 && effectiveSaleAccountId
+          ? { accountId: effectiveSaleAccountId }
+          : {}),
       };
       if (saleForm.itemType === "EGGS") {
         const validLines = saleForm.eggLineItems.filter(
@@ -1831,6 +1881,11 @@ export default function BatchDetailPage() {
         onMedicineSelection={handleMedicineSelection}
         onOtherSelection={handleOtherSelection}
         onOtherCategorySelection={handleOtherCategorySelection}
+        cashflowAccounts={cashflowAccounts ?? []}
+        defaultCashAccountId={effectiveExpenseAccountId}
+        onCashAccountChange={(accountId) =>
+          setExpenseForm((form) => ({ ...form, accountId }))
+        }
         isPending={
           createExpenseMutation.isPending ||
           updateExpenseMutation.isPending ||
@@ -2007,7 +2062,7 @@ export default function BatchDetailPage() {
                         />
                       </div>
                       <div className="w-28">
-                        <Label className="text-xs">Rate (₹)</Label>
+                        <Label className="text-xs">Rate (रू)</Label>
                         <Input
                           type="number"
                           min={0}
@@ -2064,7 +2119,7 @@ export default function BatchDetailPage() {
               {saleForm.itemType !== "EGGS" && (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="rate">Rate (₹)</Label>
+                    <Label htmlFor="rate">Rate (रू)</Label>
                     <Input
                       id="rate"
                       name="rate"
@@ -2185,20 +2240,20 @@ export default function BatchDetailPage() {
                   <div className="mb-1.5 space-y-0.5 border-b border-gray-200 pb-1.5 text-sm text-gray-600">
                     <div className="flex items-center justify-between">
                       <span>Subtotal</span>
-                      <span>₹{billPreview.subtotal.toLocaleString()}</span>
+                      <span>रू {billPreview.subtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>
                         Discount{billPreview.discount.type === "PERCENT" ? ` (${billPreview.discount.value}%)` : ""}
                       </span>
-                      <span className="text-red-600">−₹{billPreview.discountAmount.toLocaleString()}</span>
+                      <span className="text-red-600">−रू {billPreview.discountAmount.toLocaleString()}</span>
                     </div>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Total Amount</span>
                   <span className="text-lg font-bold text-green-700">
-                    ₹
+                    रू{" "}
                     {billPreview.discount
                       ? billPreview.amount.toLocaleString()
                       : saleForm.itemType === "EGGS"
@@ -2356,6 +2411,36 @@ export default function BatchDetailPage() {
                       <p className="text-xs text-red-600 mt-1">{saleErrors.balance}</p>
                     )}
                   </div>
+                  {Number(saleForm.balance || 0) > 0 && cashflowHasBanks && (
+                    <div>
+                      <Label>Received into</Label>
+                      <AccountPicker
+                        accounts={cashflowAccounts ?? []}
+                        value={effectiveSaleAccountId}
+                        onChange={(id) =>
+                          setSaleForm((p) => ({ ...p, accountId: id }))
+                        }
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Default: Cash. Pick a bank if the money went there.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!saleForm.remaining && cashflowHasBanks && (
+                <div>
+                  <Label>Received into</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts ?? []}
+                    value={effectiveSaleAccountId}
+                    onChange={(id) =>
+                      setSaleForm((p) => ({ ...p, accountId: id }))
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Default: Cash. Pick a bank if the money went there.
+                  </p>
                 </div>
               )}
             </div>

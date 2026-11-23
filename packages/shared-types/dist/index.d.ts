@@ -563,6 +563,7 @@ export declare const CreateExpenseSchema: z.ZodObject<{
     farmId: z.ZodOptional<z.ZodString>;
     batchId: z.ZodOptional<z.ZodString>;
     categoryId: z.ZodString;
+    accountId: z.ZodOptional<z.ZodString>;
     inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
         itemId: z.ZodString;
         quantity: z.ZodNumber;
@@ -580,6 +581,7 @@ export declare const UpdateExpenseSchema: z.ZodObject<{
     farmId: z.ZodOptional<z.ZodString>;
     batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     categoryId: z.ZodOptional<z.ZodString>;
+    accountId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type UpdateExpense = z.infer<typeof UpdateExpenseSchema>;
 export declare const SalesItemTypeSchema: z.ZodEnum<{
@@ -679,6 +681,7 @@ export declare const CreateSaleSchema: z.ZodObject<{
         category: z.ZodOptional<z.ZodString>;
         address: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>;
+    accountId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CreateSale = z.infer<typeof CreateSaleSchema>;
 export declare const SalePaymentSchema: z.ZodObject<{
@@ -2688,6 +2691,7 @@ export declare const schemas: {
         farmId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodString>;
         categoryId: z.ZodString;
+        accountId: z.ZodOptional<z.ZodString>;
         inventoryItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
             itemId: z.ZodString;
             quantity: z.ZodNumber;
@@ -2704,6 +2708,7 @@ export declare const schemas: {
         farmId: z.ZodOptional<z.ZodString>;
         batchId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         categoryId: z.ZodOptional<z.ZodString>;
+        accountId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly Sale: z.ZodObject<{
         id: z.ZodString;
@@ -2783,6 +2788,7 @@ export declare const schemas: {
             category: z.ZodOptional<z.ZodString>;
             address: z.ZodOptional<z.ZodString>;
         }, z.core.$strip>>;
+        accountId: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
     readonly SalePayment: z.ZodObject<{
         id: z.ZodString;

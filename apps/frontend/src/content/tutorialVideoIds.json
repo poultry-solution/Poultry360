@@ -32,7 +32,6 @@
   "farmer-broiler/16-share-batch-report": "pszlonwtlm",
   "farmer-broiler/17-reminders": "bpdx2gmjw3",
   "farmer-broiler/18-make-your-own-feed": "xproz74w9k",
-  "farmer-broiler/19-cash-in-hand": "9t1jsq2q38",
   "farmer-broiler/20-staff-payroll-and-staff-login": "quazzt2sfc",
   "farmer-broiler/21-analytics": "8bfox1oboi",
   "farmer-broiler/22-activity-and-settings": "yu56ps9ehj",
@@ -57,7 +56,6 @@
   "farmer-layers/19-sell-old-hens": "hxp9wpajlo",
   "farmer-layers/20-close-a-layer-batch": "xvyui7hi8d",
   "farmer-layers/21-make-your-own-feed": "p4ahyikh7r",
-  "farmer-layers/22-cash-in-hand": "4sekcvscnt",
   "farmer-layers/23-staff-payroll-and-staff-login": "b4hmn43pxq",
   "farmer-layers/24-layer-analytics": "xphbinsjuu",
   "farmer-layers/25-activity-and-settings": "t40okgenef",
@@ -78,5 +76,7 @@
   "hatchery/15-suppliers-and-inventory": "qjh82r4o6f",
   "hatchery/16-reminders-and-notes": "btqp2b23jd",
   "hatchery/17-analytics": "jr459w8sn3",
-  "hatchery/18-staff-activity-and-settings": "xzaaodb185"
+  "hatchery/18-staff-activity-and-settings": "xzaaodb185",
+  "farmer-broiler/19-cash-and-bank": "vtm9tqsze9",
+  "farmer-layers/22-cash-and-bank": "47ofn3m471"
 }

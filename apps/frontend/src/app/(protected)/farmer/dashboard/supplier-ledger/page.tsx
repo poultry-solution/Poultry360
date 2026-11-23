@@ -53,6 +53,8 @@ import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   Select,
   SelectContent,
@@ -155,7 +157,20 @@ export default function SupplierLedgerPage() {
     date: "",
     note: "",
     receiptImageUrl: "",
+    accountId: "",
   });
+
+  // Cashbook accounts — picker on the supplier payment modal uses them so
+  // the farmer can split which account the money went out of. We ship an
+  // explicit Cash id even when the user doesn't touch the picker; the server
+  // never has to fall back silently.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashflowHasBanks = (cashflowAccounts ?? []).some(
+    (a) => a.type === "BANK" && !a.archivedAt,
+  );
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
+  const effectivePaymentAccountId = paymentForm.accountId || cashAccountId;
   const [isPurchaseBillUploading, setIsPurchaseBillUploading] = useState(false);
 
   useEffect(() => {
@@ -657,12 +672,13 @@ export default function SupplierLedgerPage() {
           date: paymentDate,
           description: paymentForm.note || "Payment",
           imageUrl: paymentForm.receiptImageUrl || undefined,
+          ...(effectivePaymentAccountId ? { accountId: effectivePaymentAccountId } : {}),
         },
       });
 
       toast.success(t("farmer.supplierLedger.toast.paymentRecorded"));
       setIsPaymentModalOpen(false);
-      setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
+      setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "", accountId: "" });
     } catch (error) {
       console.error("Failed to record payment:", error);
     }
@@ -1369,7 +1385,7 @@ export default function SupplierLedgerPage() {
         isOpen={isPaymentModalOpen}
         onClose={() => {
           setIsPaymentModalOpen(false);
-          setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
+          setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "", accountId: "" });
         }}
         title={t("farmer.supplierLedger.recordPayment.title")}
       >
@@ -1409,6 +1425,21 @@ export default function SupplierLedgerPage() {
                   }
                 />
               </div>
+              {cashflowHasBanks && (
+                <div>
+                  <Label>Paid from</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts ?? []}
+                    value={effectivePaymentAccountId}
+                    onChange={(id) =>
+                      setPaymentForm({ ...paymentForm, accountId: id })
+                    }
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Leave empty to take it from Cash.
+                  </p>
+                </div>
+              )}
               <div>
                 <Label htmlFor="paymentNote">{t("farmer.supplierLedger.recordPayment.noteLabel")}</Label>
                 <Input
@@ -1439,7 +1470,7 @@ export default function SupplierLedgerPage() {
               variant="outline"
               onClick={() => {
                 setIsPaymentModalOpen(false);
-                setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "" });
+                setPaymentForm({ amount: "", date: "", note: "", receiptImageUrl: "", accountId: "" });
               }}
             >
               {t("farmer.supplierLedger.recordPayment.cancel")}

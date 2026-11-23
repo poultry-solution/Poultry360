@@ -22,6 +22,12 @@ import {
   userOwnsBatch,
   userOwnsFarm,
 } from "../services/ownershipService";
+import {
+  deleteExpenseMovement,
+  ensureCashAccountId,
+  upsertExpenseMovement,
+} from "../services/farmerCashflowAutoPost";
+import { CashflowError } from "../common/cashflow/errors";
 
 // ==================== GET ALL EXPENSES ====================
 export const getAllExpenses = async (
@@ -417,9 +423,12 @@ export const createExpense = async (
       farmId,
       batchId,
       categoryId,
+      accountId: pickedAccountId,
       inventoryItems, // NEW: Array of inventory items to deduct
     } = data as any; // Type assertion for now
     let inventoryOwnerId = currentUserId!;
+    const recordedById =
+      req.actorType === "STAFF" ? req.staffUserId ?? currentUserId! : currentUserId!;
 
     // Check if farm exists and user has access
     if (farmId) {
@@ -551,7 +560,32 @@ export const createExpense = async (
             batchId: batchId || null,
             categoryId,
           },
+          include: { category: { select: { name: true } } },
         });
+
+        // 1a. Mirror into the farmer cashbook as an OUT movement — but ONLY
+        // for cash-only expenses. Inventory-backed expenses (feed / vaccine /
+        // medicine drawn from stock) already produced a cash-out at the time
+        // the supplier was paid; recording another one here would double-count
+        // the money. See the auto-post for addDealerTransaction PAYMENT.
+        const drawsFromInventory = inventoryItemsData.length > 0;
+        if (!drawsFromInventory) {
+          const accountIdForCashbook =
+            pickedAccountId ?? (await ensureCashAccountId(tx, currentUserId!));
+          await upsertExpenseMovement({
+            tx,
+            userId: currentUserId!,
+            expenseId: expense.id,
+            accountId: accountIdForCashbook,
+            amount: Number(amount),
+            date: new Date(date),
+            label:
+              description?.trim() ||
+              expense.category?.name ||
+              "Expense",
+            recordedById,
+          });
+        }
 
         // 2. Process inventory usage if inventory items are provided
         const inventoryUsages = [];
@@ -731,6 +765,9 @@ export const createExpense = async (
       message: "Expense created successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Create expense error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -804,15 +841,23 @@ export const updateExpense = async (
       });
     }
 
+    // accountId is a cashflow-only field (chosen via the AccountPicker) and
+    // not a column on Expense. Pull it out before spreading `data` into the
+    // Prisma update or Prisma will throw "Unknown argument `accountId`".
+    const { accountId: pickedUpdateAccountId, ...expenseUpdateData } = data as typeof data & { accountId?: string };
+
     const updatedExpense = await prisma.$transaction(async (tx) => {
       const updated = await tx.expense.update({
         where: { id },
         data: {
-          ...data,
-          date: data.date ? new Date(data.date) : undefined,
-          amount: data.amount !== undefined ? Number(data.amount) : undefined,
-          quantity: data.quantity !== undefined ? Number(data.quantity) : undefined,
-          unitPrice: data.unitPrice !== undefined ? Number(data.unitPrice) : undefined,
+          ...expenseUpdateData,
+          date: expenseUpdateData.date ? new Date(expenseUpdateData.date) : undefined,
+          amount:
+            expenseUpdateData.amount !== undefined ? Number(expenseUpdateData.amount) : undefined,
+          quantity:
+            expenseUpdateData.quantity !== undefined ? Number(expenseUpdateData.quantity) : undefined,
+          unitPrice:
+            expenseUpdateData.unitPrice !== undefined ? Number(expenseUpdateData.unitPrice) : undefined,
         },
         include: {
           farm: { select: { id: true, name: true } },
@@ -881,6 +926,47 @@ export const updateExpense = async (
         });
       }
 
+      // Mirror the change into the farmer cashbook — but only when the
+      // expense is cash-only. Inventory-backed expenses already registered
+      // their cash-out at supplier-payment time; re-mirroring would
+      // double-count. Inventory linkage is fixed at creation (updateExpense
+      // doesn't accept inventoryItems), so the existing usage array is the
+      // authoritative signal.
+      const drawsFromInventory = existingExpense.inventoryUsages.length > 0;
+      if (drawsFromInventory) {
+        return updated;
+      }
+
+      let accountIdForCashbook: string;
+      if (pickedUpdateAccountId) {
+        accountIdForCashbook = pickedUpdateAccountId;
+      } else {
+        const existingMirror = await tx.cashMovement.findFirst({
+          where: {
+            userId: currentUserId!,
+            sourceType: "EXPENSE",
+            sourceId: id,
+          },
+          select: { accountId: true },
+        });
+        accountIdForCashbook =
+          existingMirror?.accountId ?? (await ensureCashAccountId(tx, currentUserId!));
+      }
+      await upsertExpenseMovement({
+        tx,
+        userId: currentUserId!,
+        expenseId: id,
+        accountId: accountIdForCashbook,
+        amount: Number(updated.amount),
+        date: updated.date,
+        label:
+          (data.description?.trim?.() || existingExpense.description?.trim?.() || "") ||
+          updated.category?.name ||
+          "Expense",
+        recordedById:
+          req.actorType === "STAFF" ? req.staffUserId ?? currentUserId! : currentUserId!,
+      });
+
       return updated;
     });
 
@@ -898,6 +984,9 @@ export const updateExpense = async (
       message: "Expense updated successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Update expense error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
@@ -988,6 +1077,10 @@ export const deleteExpense = async (
       // 2. Delete only the feed row owned by this expense.
       await tx.feedConsumption.deleteMany({ where: { expenseId: id } });
 
+      // 2b. Remove the mirrored farmer cashbook row before the expense is
+      // deleted so the pair stays consistent.
+      await deleteExpenseMovement(tx, currentUserId!, id);
+
       // 3. Delete the expense
       await tx.expense.delete({
         where: { id },
@@ -1004,6 +1097,9 @@ export const deleteExpense = async (
       message: "Expense deleted successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Delete expense error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }

@@ -110,6 +110,24 @@ export function getFirstDayOfBSMonthAD(bsYear: number, bsMonth: number): string 
 }
 
 /**
+ * Last BS day of a BS month as "YYYY-MM-DD".
+ *
+ * Computed as (day 1 of next BS month) − 1 day via the AD round-trip so it
+ * stays correct across the uneven BS month lengths.
+ */
+export function getLastDayOfBSMonth(bsYear: number, bsMonth: number): string {
+  const nextMonth = bsMonth === 12 ? 1 : bsMonth + 1;
+  const nextYear = bsMonth === 12 ? bsYear + 1 : bsYear;
+  const nextMonthFirstAd = new NepaliDate(nextYear, nextMonth - 1, 1).toJsDate();
+  nextMonthFirstAd.setUTCDate(nextMonthFirstAd.getUTCDate() - 1);
+  const bs = new NepaliDate(nextMonthFirstAd);
+  const y = bs.getYear();
+  const m = String(bs.getMonth() + 1).padStart(2, "0");
+  const d = String(bs.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Format AD Date to YYYY-MM-DD using local date (avoids toISOString UTC edge cases).
  */
 export function formatADShort(date: Date | string): string {

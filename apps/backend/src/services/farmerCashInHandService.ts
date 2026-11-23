@@ -14,7 +14,7 @@ export async function computeDayNet(
   userId: string,
   bsDate: string
 ): Promise<number> {
-  const movements = await prisma.farmerCashMovement.findMany({
+  const movements = await prisma.cashMovement.findMany({
     where: { userId, bsDate },
     select: { direction: true, amount: true },
   });
@@ -102,7 +102,7 @@ export async function getTodayData(userId: string) {
   await ensureSystemCloseYesterday(userId, todayBs, settings);
 
   const opening = await computeOpeningForBsDate(userId, todayBs, settings);
-  const movements = await prisma.farmerCashMovement.findMany({
+  const movements = await prisma.cashMovement.findMany({
     where: { userId, bsDate: todayBs },
     orderBy: { createdAt: "asc" },
   });
@@ -155,40 +155,20 @@ export async function setupCashBook(
 }
 
 export async function addMovement(
-  userId: string,
-  recordedById: string,
-  direction: "IN" | "OUT",
-  amount: number,
-  partyName: string,
-  notes?: string
+  _userId: string,
+  _recordedById: string,
+  _direction: "IN" | "OUT",
+  _amount: number,
+  _partyName: string,
+  _notes?: string
 ): Promise<void> {
-  const settings = await getSettings(userId);
-  if (!settings) throw new Error("Cash book not set up yet");
-
-  const todayBs = getNepalBsTodayString();
-
-  await ensureSystemCloseYesterday(userId, todayBs, settings);
-
-  const todayClose = await prisma.farmerCashDayClose.findUnique({
-    where: { userId_bsDate: { userId, bsDate: todayBs } },
-  });
-  if (todayClose) {
-    throw new Error("Today is already closed. New entries will be added to tomorrow.");
-  }
-
-  if (amount <= 0) throw new Error("Amount must be greater than 0");
-
-  await prisma.farmerCashMovement.create({
-    data: {
-      userId,
-      bsDate: todayBs,
-      direction,
-      amount: new Prisma.Decimal(amount),
-      partyName: partyName.trim(),
-      notes: notes?.trim() || null,
-      recordedById,
-    },
-  });
+  // Deprecated in favour of /farmer/cashflow. CashMovement now requires
+  // accountId / category / sourceType, which the old single-account flow
+  // doesn't provide. Route layer 410s this endpoint; service-level throw is
+  // a belt-and-braces guard in case something else calls it directly.
+  throw new Error(
+    "Deprecated: /farmer/cash-in-hand has been replaced by /farmer/cashflow",
+  );
 }
 
 export async function deleteMovement(userId: string, movementId: string): Promise<void> {
@@ -205,7 +185,7 @@ export async function deleteMovement(userId: string, movementId: string): Promis
     throw new Error("Today is already closed. Movements cannot be deleted.");
   }
 
-  const movement = await prisma.farmerCashMovement.findFirst({
+  const movement = await prisma.cashMovement.findFirst({
     where: { id: movementId, userId },
   });
   if (!movement) {
@@ -215,7 +195,7 @@ export async function deleteMovement(userId: string, movementId: string): Promis
     throw new Error("Only today's movements can be deleted");
   }
 
-  await prisma.farmerCashMovement.delete({ where: { id: movementId } });
+  await prisma.cashMovement.delete({ where: { id: movementId } });
 }
 
 export async function closeToday(userId: string): Promise<{
@@ -282,7 +262,7 @@ export async function getHistory(
 
   const result = await Promise.all(
     closes.map(async (c) => {
-      const count = await prisma.farmerCashMovement.count({
+      const count = await prisma.cashMovement.count({
         where: { userId, bsDate: c.bsDate },
       });
       return {
@@ -313,7 +293,7 @@ export async function getClosedDayDetail(userId: string, bsDate: string) {
     throw new Error("Day not found or not closed");
   }
 
-  const movements = await prisma.farmerCashMovement.findMany({
+  const movements = await prisma.cashMovement.findMany({
     where: { userId, bsDate },
     orderBy: { createdAt: "asc" },
   });

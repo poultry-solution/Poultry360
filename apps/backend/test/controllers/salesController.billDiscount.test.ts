@@ -2,7 +2,7 @@ jest.mock("../../src/utils/prisma", () => {
   const client: any = {
     batch: { findUnique: jest.fn(), update: jest.fn() },
     category: { findFirst: jest.fn() },
-    customer: { findFirst: jest.fn(), update: jest.fn() },
+    customer: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     customerTransaction: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
     sale: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     salePayment: {
@@ -16,6 +16,20 @@ jest.mock("../../src/utils/prisma", () => {
     farm: { findMany: jest.fn() },
     mortality: { create: jest.fn() },
     birdWeight: { create: jest.fn() },
+    // Phase 5 auto-post runs inside createSale's $transaction whenever
+    // paidAmount > 0. These stubs resolve the cashbook branch so the
+    // controller doesn't 500 silently and give a false green.
+    cashAccount: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    cashMovement: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
+    },
   };
   client.$transaction = jest.fn((fn: (tx: any) => unknown) => fn(client));
   return { __esModule: true, default: client };
@@ -32,6 +46,12 @@ jest.mock("../../src/utils/invoiceNumber", () => ({
 
 jest.mock("../../src/services/farmerFcrService", () => ({
   refreshFarmerFcrHistorySafely: jest.fn(),
+}));
+
+jest.mock("../../src/utils/nepalBsDate", () => ({
+  toNepalBsDayString: jest.fn(() => "2083-06-26"),
+  getNepalBsTodayString: jest.fn(() => "2083-06-26"),
+  prevBsDate: jest.fn((bs: string) => bs),
 }));
 
 import prisma from "../../src/utils/prisma";
@@ -78,6 +98,21 @@ beforeEach(() => {
   db.sale.create.mockImplementation(({ data }: any) => Promise.resolve({ id: "sale-1", ...data }));
   db.sale.findUnique.mockResolvedValue({ id: "sale-1" });
   db.salePayment.findMany.mockResolvedValue([]);
+  // Defaults for the mirror path. `findFirst → { id: "cash-1" }` short-
+  // circuits ensureCashAccountId; findUnique returns an active owned account
+  // so assertAccountOwnedActive passes; salePayment.create echoes back an id
+  // so the mirror's upsert path has something to key on.
+  db.cashAccount.findFirst.mockResolvedValue({ id: "cash-1" });
+  db.cashAccount.findUnique.mockResolvedValue({
+    id: "cash-1",
+    userId: "farmer-1",
+    archivedAt: null,
+  });
+  db.cashMovement.findFirst.mockResolvedValue(null);
+  db.cashMovement.create.mockResolvedValue({ id: "mov-1" });
+  db.salePayment.create.mockImplementation(({ data }: any) =>
+    Promise.resolve({ id: "pay-new", ...data }),
+  );
 });
 
 describe("applyBillDiscount", () => {

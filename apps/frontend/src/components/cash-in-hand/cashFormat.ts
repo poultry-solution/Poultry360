@@ -2,9 +2,8 @@
 
 import { NEPAL_TIME_ZONE } from "@/common/lib/nepali-date";
 
-const amountFormat = new Intl.NumberFormat("en-NP", {
-  style: "currency",
-  currency: "NPR",
+// Lakh commas ("1,13,100.00"); the रू sign is added in formatCashAmount.
+const amountFormat = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
@@ -17,7 +16,8 @@ const nepalTime = new Intl.DateTimeFormat("en-GB", {
 });
 
 export function formatCashAmount(value: number | string | null | undefined) {
-  return amountFormat.format(Number(value || 0));
+  const n = Number(value || 0);
+  return `${n < 0 ? "-" : ""}रू ${amountFormat.format(Math.abs(n))}`;
 }
 
 /** Time in Nepal, whatever the device time zone is. */

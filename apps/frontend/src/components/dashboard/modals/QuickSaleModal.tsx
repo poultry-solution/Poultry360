@@ -10,6 +10,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useCreateSale, useGetCustomersForSales } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
+import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
 
 interface QuickSaleModalProps {
   isOpen: boolean;
@@ -75,6 +76,13 @@ export function QuickSaleModal({
 
   // Create sale mutation
   const createSaleMutation = useCreateSale();
+
+  // Quick action: no picker, deterministic default of the user's Cash
+  // account. We still ship the explicit accountId so the server never has
+  // to fall back silently.
+  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const cashAccountId =
+    (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
 
   // Computed totals
   const { computedSaleAmount, paidAmount, dueAmount } = useMemo(() => {
@@ -237,6 +245,9 @@ export function QuickSaleModal({
         farmId: quickSaleForm.farmId,
         batchId: quickSaleForm.batchId,
         itemType: quickSaleForm.itemType,
+        // Quick actions always land on Cash; shipping the id explicitly keeps
+        // the server from relying on its ensureCashAccountId fallback.
+        ...(paidAmount > 0 && cashAccountId ? { accountId: cashAccountId } : {}),
       };
 
       if (quickSaleForm.itemType === "Chicken_Meat" && quickSaleForm.weight) {

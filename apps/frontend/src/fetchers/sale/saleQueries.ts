@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { CreateSale, CategoryType } from "@myapp/shared-types";
 import { weightKeys } from "@/fetchers/weight/weightQueries";
+import { farmerCashflowKeys } from "@/fetchers/farmer/farmerCashflowQueries";
 
 // ==================== QUERY KEYS ====================
 
@@ -212,6 +213,9 @@ export const useCreateSale = () => {
           queryKey: ["farms", "detail", variables.farmId],
         });
       }
+
+      // Paid portion of a sale mirrors into the farmer cashbook as an IN.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -247,6 +251,9 @@ export const useDeleteSale = () => {
           queryKey: ["batches", "detail", batchId],
         });
       }
+
+      // Removing a sale drops its SalePayment mirror from the cashbook.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -282,6 +289,10 @@ export const useSoftDeleteCustomerPayment = () => {
       queryClient.invalidateQueries({
         queryKey: ["customers", "detail", variables.customerId],
       });
+
+      // Receipt soft-delete removes its cashbook mirror (and the linked
+      // SalePayment mirror too when the receipt came from a sale payment).
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };
@@ -301,6 +312,7 @@ export const useAddCustomerPayment = () => {
         description?: string;
         reference?: string;
         receiptUrl?: string;
+        accountId?: string;
       };
     }) => {
       const response = await axiosInstance.post(
@@ -321,6 +333,9 @@ export const useAddCustomerPayment = () => {
       queryClient.invalidateQueries({
         queryKey: ["customers", "detail", variables.customerId],
       });
+
+      // Customer receipts mirror into the farmer cashbook as an IN.
+      queryClient.invalidateQueries({ queryKey: farmerCashflowKeys.all });
     },
   });
 };

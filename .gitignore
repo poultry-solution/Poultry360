@@ -27,3 +27,6 @@ output/
 backup.sql
 .firecrawl
 HATCHERY_PLAN.md
+
+cashflow*.md
+bug-dealer-sales-date-shift.md

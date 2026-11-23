@@ -253,12 +253,13 @@ model User {
   // Business details printed on sale bills (per business account)
   billSettings BillSettings? @relation("UserBillSettings")
 
-  // Farmer cash in hand (per user account)
+  // Cash accounts and movements (currently used by Farmer cashflow)
   farmerCashSettings          FarmerCashSettings?
   farmerFcrSettings           FarmerFcrSettings?
-  farmerCashBookMovements     FarmerCashMovement[] @relation("FarmerCashBook")
+  cashBookMovements           CashMovement[] @relation("CashBook")
   farmerCashDayCloses         FarmerCashDayClose[] @relation("FarmerCashDayCloseOwner")
-  farmerCashMovementsRecorded FarmerCashMovement[] @relation("FarmerCashMovementRecorder")
+  cashMovementsRecorded       CashMovement[] @relation("CashMovementRecorder")
+  cashAccounts                CashAccount[]  @relation("CashAccountOwner")
 
   // List for sale (farmer marketplace listings)
   listForSaleListings ListForSale[] @relation("ListForSaleOwner")
@@ -420,20 +421,20 @@ enum BatchType {
 }
 
 model Batch {
-  id                        String      @id @default(cuid())
-  batchNumber               String
-  startDate                 DateTime
-  endDate                   DateTime?
-  status                    BatchStatus @default(ACTIVE)
-  batchType                 BatchType   @default(BROILER)
-  initialChicks             Int
+  id                       String      @id @default(cuid())
+  batchNumber              String
+  startDate                DateTime
+  endDate                  DateTime?
+  status                   BatchStatus @default(ACTIVE)
+  batchType                BatchType   @default(BROILER)
+  initialChicks            Int
   // Old batches keep this null and use the legacy 0.05 kg estimate.
-  initialChickWeightKg      Decimal?    @db.Decimal(6, 3)
+  initialChickWeightKg     Decimal?    @db.Decimal(6, 3)
   // Weight snapshot for birds still present when this batch was closed.
-  closureBirdCount          Int?
-  closureAverageWeightKg    Decimal?    @db.Decimal(6, 3)
-  closureWeightSampleCount  Int?
-  notes                     String?
+  closureBirdCount         Int?
+  closureAverageWeightKg   Decimal?    @db.Decimal(6, 3)
+  closureWeightSampleCount Int?
+  notes                    String?
 
   // Removed currentChicks - will be computed from mortalities
   // Removed initialChickWeight - replaced with currentWeight
@@ -2580,10 +2581,10 @@ model BillSettings {
 }
 
 model FarmerCashSettings {
-  id             String  @id @default(cuid())
-  userId         String  @unique
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  initialOpening Decimal @db.Decimal(10, 2)
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initialOpening Decimal  @db.Decimal(10, 2)
   startBsDate    String
 
   createdAt DateTime @default(now())
@@ -2603,21 +2604,29 @@ model FarmerFcrSettings {
   updatedAt DateTime @updatedAt
 }
 
-model FarmerCashMovement {
+model CashMovement {
   id           String                @id @default(cuid())
   userId       String
-  user         User                  @relation("FarmerCashBook", fields: [userId], references: [id], onDelete: Cascade)
+  user         User                  @relation("CashBook", fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      CashAccount           @relation(fields: [accountId], references: [id])
   bsDate       String
   direction    CashMovementDirection
   amount       Decimal               @db.Decimal(10, 2)
+  category     CashCategory
+  sourceType   CashSourceType
+  sourceId     String?
+  transferId   String?
   partyName    String
   notes        String?
   recordedById String?
-  recordedBy   User?                 @relation("FarmerCashMovementRecorder", fields: [recordedById], references: [id])
+  recordedBy   User?                 @relation("CashMovementRecorder", fields: [recordedById], references: [id])
 
   createdAt DateTime @default(now())
 
   @@index([userId, bsDate])
+  @@index([accountId, bsDate])
+  @@index([transferId])
 }
 
 model FarmerCashDayClose {
@@ -2632,6 +2641,67 @@ model FarmerCashDayClose {
 
   @@unique([userId, bsDate])
   @@index([userId, bsDate])
+}
+
+// ==================== FARMER CASHFLOW (CASH BOOK v2, approach A) ====================
+
+enum AccountType {
+  CASH
+  BANK
+}
+
+enum CashCategory {
+  CASH_IN
+  CASH_OUT
+  SALE_RECEIPT
+  EXPENSE
+  PAYMENT_TO_DEALER
+  OWNER_INVEST
+  OWNER_DRAW
+  LOAN_RECEIVED
+  LOAN_REPAYMENT
+  TRANSFER
+  OPENING_ADJUSTMENT
+}
+
+enum CashSourceType {
+  MANUAL
+  SALE_PAYMENT
+  CUSTOMER_RECEIPT
+  EXPENSE
+  SUPPLIER_PAYMENT
+  STAFF_PAYMENT
+  TRANSFER
+  OPENING_ADJUSTMENT
+}
+
+// One CASH account per farmer (enforced by raw-SQL partial unique index in the
+// farmer_cashflow_v1 migration) + 0..N BANK accounts. Every CashMovement
+// row points at exactly one of these.
+model CashAccount {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation("CashAccountOwner", fields: [userId], references: [id], onDelete: Cascade)
+  type           AccountType
+  name           String
+  openingBalance Decimal     @default(0) @db.Decimal(14, 2)
+  openingBsDate  String // YYYY-MM-DD BS; account balance ignores movements before this date
+  // Stamped the first (and every subsequent) time the farmer confirms their
+  // opening balance via the UI. The first-run banner on the cashflow page
+  // keys off `openingBalanceSetAt === null` for the CASH account — using
+  // openingBalance == 0 would be ambiguous (brand-new vs. legitimately empty),
+  // and hasMovements would hide the banner the moment Phase 5 auto-posts
+  // the first sale, which is exactly the broken path we're fixing.
+  openingBalanceSetAt DateTime?
+  archivedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements CashMovement[]
+
+  @@unique([userId, name])
+  @@index([userId, archivedAt])
 }
 
 // ==================== UNIT CONVERSION MODELS ====================

@@ -5,6 +5,7 @@ import {
   formatADShort,
   formatBSLong,
   getFirstDayOfBSMonthAD,
+  getLastDayOfBSMonth,
   getNepalTodayAd,
   nepalBatchAge,
   nepalInclusiveRangeToIsoParams,
@@ -40,6 +41,21 @@ describe("frontend Nepal date helpers", () => {
   it("converts a BS picked day to UTC midnight of its AD day", () => {
     expect(convertBSToAD("2083-06-27").toISOString()).toBe("2026-10-13T00:00:00.000Z");
     expect(getFirstDayOfBSMonthAD(2083, 6)).toBe("2026-09-17");
+  });
+
+  it("gives the last BS day of a month via AD round-trip", () => {
+    // BS month lengths vary 29–32 — assert shape and a sane bound, and round-
+    // trip: first-of-next-month converted back should be exactly the returned
+    // day + 1 (or rolls the month).
+    const last = getLastDayOfBSMonth(2083, 8);
+    expect(last.startsWith("2083-08-")).toBe(true);
+    const day = Number(last.split("-")[2]);
+    expect(day).toBeGreaterThanOrEqual(29);
+    expect(day).toBeLessThanOrEqual(32);
+
+    // Year rollover: Chaitra (month 12) of 2083 → previous day of 2084-01-01.
+    const chaitraLast = getLastDayOfBSMonth(2083, 12);
+    expect(chaitraLast.startsWith("2083-12-")).toBe(true);
   });
 
   it("counts relative labels by Nepal calendar day", () => {

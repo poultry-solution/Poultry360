@@ -113,7 +113,7 @@ export function SalesTab({
                 totalWeight > 0 ? `${totalWeight.toFixed(2)} kg` : "",
                 null,
                 <span key="amount" className="font-bold text-green-600">
-                  ₹{totalAmount.toLocaleString()}
+                  रू {totalAmount.toLocaleString()}
                 </span>,
                 null,
                 null,
