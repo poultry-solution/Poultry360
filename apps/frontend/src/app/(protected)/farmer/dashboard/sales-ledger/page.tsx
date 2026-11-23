@@ -2490,7 +2490,7 @@ export default function SalesLedgerPage() {
                         }
                       />
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Leave blank to post the cash-in on your Cash account.
+                        Leave empty to put it in Cash.
                       </p>
                     </div>
                   )}
@@ -2509,7 +2509,7 @@ export default function SalesLedgerPage() {
                     }
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave blank to post the cash-in on your Cash account.
+                    Leave empty to put it in Cash.
                   </p>
                 </div>
               )}
@@ -3006,7 +3006,7 @@ export default function SalesLedgerPage() {
                     }
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave blank to post the receipt on your Cash account.
+                    Leave empty to put it in Cash.
                   </p>
                 </div>
               )}

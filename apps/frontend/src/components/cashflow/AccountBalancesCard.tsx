@@ -5,6 +5,7 @@ import { Landmark, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/common/components/ui/card";
 import type { CashAccount } from "@/fetchers/farmer/farmerCashflowQueries";
 import { formatCashAmount } from "@/components/cash-in-hand/cashFormat";
+import { accountNote } from "@/components/cashflow/cashflowText";
 
 interface AccountBalancesCardProps {
   accounts: CashAccount[];
@@ -48,7 +49,7 @@ export function AccountBalancesCard({
             >
               <div className="flex min-w-0 items-center gap-3">
                 <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  className={`hidden h-10 w-10 shrink-0 sm:flex items-center justify-center rounded-full ${
                     a.type === "CASH"
                       ? "bg-emerald-100 text-emerald-700"
                       : "bg-primary/10 text-primary"
@@ -65,13 +66,13 @@ export function AccountBalancesCard({
                     {a.name}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {a.type === "CASH" ? "System cash" : "Bank account"}
+                    {accountNote(a)}
                     {a.archivedAt && " · archived"}
                   </div>
                 </div>
               </div>
               <span
-                className={`text-lg font-semibold tabular-nums ${balanceTone(a.balance)}`}
+                className={`shrink-0 whitespace-nowrap text-base font-semibold tabular-nums sm:text-lg ${balanceTone(a.balance)}`}
               >
                 {formatCashAmount(a.balance)}
               </span>
@@ -84,7 +85,7 @@ export function AccountBalancesCard({
               Total balance
             </span>
             <span
-              className={`text-2xl font-bold tabular-nums ${balanceTone(total)}`}
+              className={`whitespace-nowrap text-xl font-bold tabular-nums sm:text-2xl ${balanceTone(total)}`}
             >
               {formatCashAmount(total)}
             </span>

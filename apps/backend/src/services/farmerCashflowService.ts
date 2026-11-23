@@ -8,7 +8,7 @@
 
 import { CashCategory, CashMovementDirection, CashSourceType, Prisma } from "@prisma/client";
 import prisma from "../utils/prisma";
-import { computeAccountBalance } from "../common/cashflow/balance";
+import { computeAccountBalance, countsInBalance } from "../common/cashflow/balance";
 import { CashflowError } from "../common/cashflow/errors";
 import {
   assertAccountActive,
@@ -392,14 +392,12 @@ export async function editOpeningBalance(
     }
   }
 
-  // For CASH: the amount the farmer types ("I have 25,000 in my drawer right
-  // now") already includes everything they've recorded up to this moment.
-  // Movements dated BEFORE today must therefore be excluded from the balance
-  // or we double-count — e.g. a back-dated sale from 3 days ago that was
-  // already in the drawer count. The balance fn already drops movements before
-  // openingBsDate, so we just roll the CASH anchor forward to today. Entries
-  // on or after today add to the balance as normal; earlier entries stay
-  // visible in the ledgers + reports but don't touch the Cash balance.
+  // For CASH: the amount the farmer types is "cash I have right now", so it
+  // already includes every entry saved up to this moment. We move the Cash
+  // start to today and stamp openingBalanceSetAt = now; `countsInBalance`
+  // then leaves out entries dated before today and today's entries saved
+  // before this moment. Entries saved after the count add as normal. Older
+  // entries stay in the ledgers but don't touch the Cash balance.
   const today = getNepalBsTodayString();
   const updated = await prisma.cashAccount.update({
     where: { id: accountId },
@@ -473,6 +471,22 @@ export function validatePositiveAmount(value: unknown, label = "amount"): number
  * their dedicated service methods, so they're refused here as a belt-and-braces
  * guard.
  */
+const BS_MONTHS = [
+  "Baisakh", "Jestha", "Ashadh", "Shrawan", "Bhadra", "Ashwin",
+  "Kartik", "Mangsir", "Poush", "Magh", "Falgun", "Chaitra",
+];
+
+/** "Mangsir 7, 2083" from a BS "2083-08-07" string. */
+function formatBsLong(bsDate: string): string {
+  const [y, m, d] = bsDate.split("-").map(Number);
+  return `${BS_MONTHS[m - 1] ?? ""} ${d}, ${y}`;
+}
+
+function startsOnMessage(account: { type: string; name: string; openingBsDate: string }): string {
+  const who = account.type === "CASH" ? "Your cash book" : account.name;
+  return `${who} starts on ${formatBsLong(account.openingBsDate)}. Pick that day or a later day.`;
+}
+
 const MANUAL_CATEGORIES: ReadonlyMap<CashCategory, CashMovementDirection> = new Map([
   ["CASH_IN", "IN"],
   ["CASH_OUT", "OUT"],
@@ -560,7 +574,16 @@ export async function listMovements(
     take: limit,
     select: MOVEMENT_SELECT,
   });
-  return rows.map(toCashMovement);
+  const accounts = await listAccounts(userId, { includeArchived: true });
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  return rows.map((row) => {
+    const movement = toCashMovement(row);
+    const account = accountById.get(movement.accountId);
+    return {
+      ...movement,
+      countedInBalance: account ? countsInBalance(account, movement) : true,
+    };
+  });
 }
 
 export interface PostManualMovementInput {
@@ -596,7 +619,7 @@ export async function postManualMovement(
     const account = await loadOwnedActiveAccount(userId, input.accountId, tx);
     if (input.bsDate < account.openingBsDate) {
       throw new CashflowError(
-        `bsDate ${input.bsDate} is before the account's opening date ${account.openingBsDate}`,
+        startsOnMessage(account),
         400,
       );
     }
@@ -646,11 +669,9 @@ export async function postTransfer(
       loadOwnedActiveAccount(userId, input.fromAccountId, tx),
       loadOwnedActiveAccount(userId, input.toAccountId, tx),
     ]);
-    if (input.bsDate < from.openingBsDate || input.bsDate < to.openingBsDate) {
-      throw new CashflowError(
-        `bsDate ${input.bsDate} is before at least one account's opening date`,
-        400,
-      );
+    const notStarted = [from, to].find((a) => input.bsDate < a.openingBsDate);
+    if (notStarted) {
+      throw new CashflowError(startsOnMessage(notStarted), 400);
     }
 
     const [outLeg, inLeg] = buildTransferLegs({
@@ -784,7 +805,33 @@ export async function getReport(
   );
   const openingBalance = priorOpeningBalance + periodOpenings;
 
-  const statement = rollupCashflowStatement(movements, range, openingBalance);
+  // Only movements that change a balance belong in the statement: entries
+  // dated before an account's start, or saved before the farmer counted their
+  // cash on the start day, are already inside the opening amount.
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const counted = movements.filter((m) => {
+    const account = accountById.get(m.accountId);
+    return account ? countsInBalance(account, m) : false;
+  });
+  // A transfer normally nets to zero. If only one leg counts (e.g. bank → cash
+  // saved before the cash count), that leg really changes the total, so show
+  // it as plain money in / out instead of hiding it in the transfer section.
+  const countedIds = new Set(counted.map((m) => m.id));
+  const legsByTransfer = new Map<string, CashMovement[]>();
+  for (const m of movements) {
+    if (!m.transferId) continue;
+    legsByTransfer.set(m.transferId, [...(legsByTransfer.get(m.transferId) ?? []), m]);
+  }
+  const statementMovements = counted.map((m) => {
+    if (m.category !== "TRANSFER" || !m.transferId) return m;
+    const partnerCounted = (legsByTransfer.get(m.transferId) ?? []).some(
+      (leg) => leg.id !== m.id && countedIds.has(leg.id),
+    );
+    if (partnerCounted) return m;
+    return { ...m, category: (m.direction === "IN" ? "CASH_IN" : "CASH_OUT") as CashCategory };
+  });
+
+  const statement = rollupCashflowStatement(statementMovements, range, openingBalance);
 
   const touched = new Set(movements.map((m) => m.accountId));
   const balances = accounts.map((a) => ({

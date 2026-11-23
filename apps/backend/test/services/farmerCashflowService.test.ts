@@ -526,6 +526,7 @@ describe("deleteMovement", () => {
 describe("listMovements", () => {
   it("filters by range + account + limit", async () => {
     mocked.cashMovement.findMany.mockResolvedValueOnce([]);
+    mocked.cashAccount.findMany.mockResolvedValueOnce([]);
     await listMovements("u1", {
       fromBsDate: "2083-04-01",
       toBsDate: "2083-04-30",
@@ -549,6 +550,45 @@ describe("listMovements", () => {
     await expect(
       listMovements("u1", { fromBsDate: "nope" }),
     ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("flags entries already inside the cash count", async () => {
+    const countedAt = new Date("2026-11-23T10:00:00Z");
+    const mv = (id: string, bsDate: string, createdAt: Date) => ({
+      id,
+      userId: "u1",
+      accountId: "cash-1",
+      bsDate,
+      direction: "OUT",
+      amount: new Prisma.Decimal(100),
+      category: "EXPENSE",
+      sourceType: "EXPENSE",
+      sourceId: id,
+      transferId: null,
+      partyName: "x",
+      notes: null,
+      createdAt,
+    });
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
+      mv("old-day", "2083-08-06", new Date("2026-11-23T12:00:00Z")),
+      mv("before-count", "2083-08-07", new Date("2026-11-23T04:00:00Z")),
+      mv("after-count", "2083-08-07", new Date("2026-11-23T12:00:00Z")),
+    ]);
+    mocked.cashAccount.findMany.mockResolvedValueOnce([
+      row({
+        id: "cash-1",
+        type: "CASH",
+        openingBalance: new Prisma.Decimal(25000),
+        openingBsDate: "2083-08-07",
+        openingBalanceSetAt: countedAt,
+      }),
+    ]);
+    const list = await listMovements("u1");
+    expect(list.map((m) => [m.id, m.countedInBalance])).toEqual([
+      ["old-day", false],
+      ["before-count", false],
+      ["after-count", true],
+    ]);
   });
 });
 
@@ -909,5 +949,57 @@ describe("CashflowError", () => {
     const e = new CashflowError("x", 409);
     expect(e.status).toBe(409);
     expect(e.name).toBe("CashflowError");
+  });
+});
+
+describe("getReport with a cash count", () => {
+  it("leaves out entries inside the count, so closing equals the balances", async () => {
+    const countedAt = new Date("2026-11-23T10:00:00Z");
+    const mv = (id: string, accountId: string, bsDate: string, direction: string, amount: number, createdAt: Date) => ({
+      id,
+      userId: "u1",
+      accountId,
+      bsDate,
+      direction,
+      amount: new Prisma.Decimal(amount),
+      category: direction === "IN" ? "SALE_RECEIPT" : "EXPENSE",
+      sourceType: direction === "IN" ? "CUSTOMER_RECEIPT" : "EXPENSE",
+      sourceId: id,
+      transferId: null,
+      partyName: "x",
+      notes: null,
+      createdAt,
+    });
+    mocked.cashAccount.findMany.mockResolvedValueOnce([
+      row({
+        id: "cash-1",
+        type: "CASH",
+        openingBalance: new Prisma.Decimal(20000),
+        openingBsDate: "2083-08-07",
+        openingBalanceSetAt: countedAt,
+      }),
+      row({
+        id: "bank-1",
+        type: "BANK",
+        name: "NIC",
+        openingBalance: new Prisma.Decimal(10000),
+        openingBsDate: "2083-08-07",
+      }),
+    ]);
+    mocked.cashMovement.findMany.mockResolvedValueOnce([
+      mv("y", "cash-1", "2083-08-06", "IN", 3000, new Date("2026-11-23T03:00:00Z")),
+      mv("t1", "cash-1", "2083-08-07", "OUT", 2500, new Date("2026-11-23T04:00:00Z")),
+      mv("b1", "bank-1", "2083-08-07", "IN", 2000, new Date("2026-11-23T12:00:00Z")),
+      mv("b0", "bank-1", "2083-08-06", "IN", 1500, new Date("2026-11-23T12:00:00Z")),
+    ]);
+
+    const r = await getReport("u1", { fromBsDate: "2083-08-01", toBsDate: "2083-08-07" });
+
+    expect(r.totals.openingBalance).toBe(30000);
+    expect(r.totals.inflow).toBe(2000);
+    expect(r.totals.outflow).toBe(0);
+    expect(r.totals.closingBalance).toBe(32000);
+    const sum = r.balances.reduce((s, a) => s + a.balance, 0);
+    expect(sum).toBe(32000);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +90,13 @@ export function ManualMovementModal({
     setNotes("");
   }
 
+  // Start fresh each time the box opens: the right type list for this
+  // direction and the Cash account picked (accounts load after first render).
+  useEffect(() => {
+    if (open) reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, direction, defaultAccountId]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amount = Number(amountStr);
@@ -155,7 +162,7 @@ export function ManualMovementModal({
           </div>
 
           <div>
-            <Label>Amount (NPR)</Label>
+            <Label>Amount (रू)</Label>
             <Input
               type="number"
               inputMode="decimal"

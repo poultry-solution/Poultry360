@@ -55,9 +55,6 @@ export function AccountPicker({
           >
             <span className="flex items-center gap-2">
               <span>{a.name}</span>
-              {a.type === "CASH" && (
-                <span className="text-xs text-muted-foreground">(system)</span>
-              )}
               {a.archivedAt && (
                 <span className="text-xs text-muted-foreground">
                   (archived)

@@ -30,6 +30,7 @@ import { CashflowStatement } from "@/components/cashflow/CashflowStatement";
 import { MovementsTable } from "@/components/cashflow/MovementsTable";
 import { ManualMovementModal } from "@/components/cashflow/ManualMovementModal";
 import { TransferModal } from "@/components/cashflow/TransferModal";
+import { AccountFormModal } from "@/components/cashflow/AccountFormModal";
 import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
 
 import {
@@ -39,6 +40,7 @@ import {
   useGetCashflowReport,
   usePostManualMovement,
   usePostTransfer,
+  usePatchAccount,
   type CashMovement,
 } from "@/fetchers/farmer/farmerCashflowQueries";
 import {
@@ -46,17 +48,15 @@ import {
   toNepalDayAd,
 } from "@/common/lib/nepali-date";
 
-function todayBsRange() {
+function thisMonthBsRange() {
   const todayBs = convertADtoBS(toNepalDayAd(new Date()));
-  // Default view is "today only". Any wider range is a user-driven filter.
-  return { from: todayBs, to: todayBs };
+  // Default view is this Nepali month so far (1st → today).
+  return { from: `${todayBs.slice(0, 8)}01`, to: todayBs };
 }
 
 /**
- * Dismissal is per-browser (localStorage). An existing farmer who already
- * set their opening balance via the account edit UI auto-clears the banner
- * because the showing condition (openingBalance === 0 && no movements) goes
- * false; we only need manual dismissal for the "I genuinely start at 0" user.
+ * Dismissal is per-browser (localStorage). The banner also goes away for good
+ * once the farmer saves their cash count (openingBalanceSetAt is set).
  */
 const OPENING_BANNER_DISMISSED_KEY =
   "farmer-cashflow:opening-balance-banner-dismissed";
@@ -84,13 +84,14 @@ function useOpeningBalanceBannerDismissed(): [boolean, () => void] {
 }
 
 export default function FarmerCashflowPage() {
-  const [range, setRange] = useState(todayBsRange);
+  const [range, setRange] = useState(thisMonthBsRange);
+  const [cashCountOpen, setCashCountOpen] = useState(false);
   const [dir, setDir] = useState<"IN" | "OUT" | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const defaultRange = useMemo(todayBsRange, []);
+  const defaultRange = useMemo(thisMonthBsRange, []);
   const isFiltered =
     range.from !== defaultRange.from || range.to !== defaultRange.to;
 
@@ -122,6 +123,7 @@ export default function FarmerCashflowPage() {
     cashAccount.openingBalanceSetAt === null;
 
   const addMovement = usePostManualMovement();
+  const patchAccount = usePatchAccount();
   const transfer = usePostTransfer();
   const del = useDeleteCashflowMovement();
 
@@ -133,7 +135,7 @@ export default function FarmerCashflowPage() {
     setPendingDelete(deleteTarget.id);
     try {
       await del.mutateAsync({ id: deleteTarget.id, password });
-      toast.success("Movement deleted");
+      toast.success("Entry deleted");
       setDeleteTarget(null);
     } catch (e: unknown) {
       toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Delete failed");
@@ -164,18 +166,22 @@ export default function FarmerCashflowPage() {
           <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start">
             <Wallet className="h-5 w-5 shrink-0 text-primary" />
             <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium">
-                Set your starting Cash balance
-              </p>
+              <p className="text-sm font-medium">Set your cash in hand</p>
               <p className="text-xs text-muted-foreground">
-                Enter whatever cash you had before you started using
-                Poultry360. Every sale, expense and payment you record from
-                now on builds on this.
+                How much cash do you have right now? Enter today&apos;s sales
+                and payments first, then count your cash. From then on, your
+                sales, payments, expenses and salary are added here
+                automatically.
               </p>
             </div>
             <div className="flex items-center gap-2 self-end sm:self-auto">
-              <Button type="button" size="sm" asChild>
-                <Link href="/farmer/dashboard/cashflow/accounts">Set it</Link>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCashCountOpen(true)}
+                disabled={!cashAccount}
+              >
+                Set cash
               </Button>
               <Button
                 type="button"
@@ -283,7 +289,7 @@ export default function FarmerCashflowPage() {
                   size="sm"
                   onClick={() => setRange(defaultRange)}
                 >
-                  Reset to today
+                  Reset to this month
                 </Button>
               )}
             </div>
@@ -293,7 +299,7 @@ export default function FarmerCashflowPage() {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-muted-foreground">
-          Movements
+          Entries
         </h2>
         <MovementsTable
           movements={movements}
@@ -313,11 +319,11 @@ export default function FarmerCashflowPage() {
         onSubmit={async (input) => {
           try {
             await addMovement.mutateAsync(input);
-            toast.success("Movement recorded");
+            toast.success("Entry saved");
           } catch (e: unknown) {
             toast.error(
               (e as { response?: { data?: { message?: string } } })?.response?.data
-                ?.message ?? "Could not record movement",
+                ?.message ?? "Could not save entry",
             );
             throw e;
           }
@@ -332,7 +338,7 @@ export default function FarmerCashflowPage() {
         onSubmit={async (input) => {
           try {
             await transfer.mutateAsync(input);
-            toast.success("Transfer posted");
+            toast.success("Transfer saved");
           } catch (e: unknown) {
             toast.error(
               (e as { response?: { data?: { message?: string } } })?.response?.data
@@ -352,16 +358,50 @@ export default function FarmerCashflowPage() {
         </DialogContent>
       </Dialog>
 
+      <AccountFormModal
+        open={cashCountOpen}
+        onOpenChange={setCashCountOpen}
+        submitting={patchAccount.isPending}
+        editingAccountId={cashAccount?.id}
+        isCashAccount
+        allowOpeningEdit
+        initial={
+          cashAccount
+            ? {
+                name: cashAccount.name,
+                openingBalance: cashAccount.openingBalanceSetAt ? cashAccount.balance : 0,
+                openingBsDate: cashAccount.openingBsDate,
+              }
+            : undefined
+        }
+        onSubmit={async (input) => {
+          if (!cashAccount) return;
+          try {
+            await patchAccount.mutateAsync({
+              id: cashAccount.id,
+              payload: { openingBalance: input.openingBalance },
+            });
+            toast.success("Cash saved");
+          } catch (e: unknown) {
+            toast.error(
+              (e as { response?: { data?: { message?: string } } })?.response?.data
+                ?.message ?? "Could not save cash",
+            );
+            throw e;
+          }
+        }}
+      />
+
       <CashflowDeleteConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={deleteTarget?.transferId ? "Delete transfer?" : "Delete movement?"}
+        title={deleteTarget?.transferId ? "Delete transfer?" : "Delete entry?"}
         description={
           deleteTarget?.transferId
             ? "This will permanently delete both sides of this transfer."
-            : "This will permanently delete this movement."
+            : "This will permanently delete this entry."
         }
-        confirmLabel={deleteTarget?.transferId ? "Delete transfer" : "Delete movement"}
+        confirmLabel={deleteTarget?.transferId ? "Delete transfer" : "Delete entry"}
         submitting={del.isPending}
         onConfirm={confirmDelete}
       />

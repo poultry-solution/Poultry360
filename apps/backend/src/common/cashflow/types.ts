@@ -38,6 +38,12 @@ export interface CashMovement {
   partyName: string;
   notes: string | null;
   createdAt: Date;
+  /**
+   * Set on list responses only. False when the money is already inside the
+   * account's opening amount (dated before the start day, or saved before the
+   * farmer counted their cash), so it does not change the balance.
+   */
+  countedInBalance?: boolean;
 }
 
 export interface BsDateRange {

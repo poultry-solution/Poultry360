@@ -1436,7 +1436,7 @@ export default function SupplierLedgerPage() {
                     }
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Leave blank to post the cash-out on your Cash account.
+                    Leave empty to take it from Cash.
                   </p>
                 </div>
               )}

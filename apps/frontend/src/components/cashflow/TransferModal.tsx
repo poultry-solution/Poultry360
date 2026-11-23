@@ -111,7 +111,7 @@ export function TransferModal({
           </div>
 
           <div>
-            <Label>Amount (NPR)</Label>
+            <Label>Amount (रू)</Label>
             <Input
               type="number"
               inputMode="decimal"

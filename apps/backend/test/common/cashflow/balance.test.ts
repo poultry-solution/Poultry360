@@ -1,4 +1,4 @@
-import { computeAccountBalance } from "../../../src/common/cashflow/balance";
+import { computeAccountBalance, countsInBalance } from "../../../src/common/cashflow/balance";
 import type { CashAccount, CashMovement } from "../../../src/common/cashflow/types";
 
 const mk = (
@@ -85,5 +85,54 @@ describe("computeAccountBalance", () => {
     expect(computeAccountBalance(bank, ms, "2083-08-01")).toBe(9_000);
     // After opening date → opening - 1000 + 500.
     expect(computeAccountBalance(bank, ms, "2083-08-05")).toBe(9_500);
+  });
+});
+
+describe("cash count (openingBalanceSetAt)", () => {
+  const countedAt = new Date("2026-11-23T10:00:00Z");
+  const counted = cashAccount({
+    openingBalance: 25000,
+    openingBsDate: "2083-08-07",
+    openingBalanceSetAt: countedAt,
+  });
+  const before = new Date("2026-11-23T04:00:00Z");
+  const after = new Date("2026-11-23T12:00:00Z");
+
+  it("leaves out entries dated before the count day", () => {
+    expect(countsInBalance(counted, { bsDate: "2083-08-06", createdAt: after })).toBe(false);
+  });
+
+  it("leaves out same-day entries saved before the count", () => {
+    expect(countsInBalance(counted, { bsDate: "2083-08-07", createdAt: before })).toBe(false);
+  });
+
+  it("counts same-day entries saved after the count, and later days", () => {
+    expect(countsInBalance(counted, { bsDate: "2083-08-07", createdAt: after })).toBe(true);
+    expect(countsInBalance(counted, { bsDate: "2083-08-08", createdAt: before })).toBe(true);
+  });
+
+  it("balance equals the typed count when today's entries were saved before it", () => {
+    const movements = [
+      mk({ id: "a", accountId: "cash-1", bsDate: "2083-08-07", direction: "OUT", amount: 2500, createdAt: before }),
+      mk({ id: "b", accountId: "cash-1", bsDate: "2083-08-07", direction: "IN", amount: 3000, createdAt: before }),
+      mk({ id: "c", accountId: "cash-1", bsDate: "2083-08-06", direction: "IN", amount: 1000, createdAt: after }),
+    ];
+    expect(computeAccountBalance(counted, movements)).toBe(25000);
+  });
+
+  it("adds entries saved after the count", () => {
+    const movements = [
+      mk({ id: "a", accountId: "cash-1", bsDate: "2083-08-07", direction: "OUT", amount: 300, createdAt: after }),
+    ];
+    expect(computeAccountBalance(counted, movements)).toBe(24700);
+  });
+
+  it("uses only the date rule when the count was never set (banks)", () => {
+    const bank = cashAccount({ id: "bank-1", type: "BANK", openingBalance: 10000, openingBsDate: "2083-08-07" });
+    const movements = [
+      mk({ id: "a", accountId: "bank-1", bsDate: "2083-08-07", direction: "IN", amount: 2000, createdAt: before }),
+      mk({ id: "b", accountId: "bank-1", bsDate: "2083-08-06", direction: "IN", amount: 1500, createdAt: after }),
+    ];
+    expect(computeAccountBalance(bank, movements)).toBe(12000);
   });
 });

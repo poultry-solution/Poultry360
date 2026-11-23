@@ -27,10 +27,8 @@ interface AccountFormModalProps {
   editingAccountId?: string;
   allowOpeningEdit?: boolean;
   /**
-   * Editing the system Cash account. Locks the name + date fields (server
-   * refuses to rename CASH or change its openingBsDate anchor) and relabels
-   * the dialog so only the opening balance is actionable. The banner on the
-   * cashflow page is the primary entry point.
+   * Editing the Cash account: only "cash you have right now" is shown. The
+   * server moves the Cash start to today when it is saved.
    */
   isCashAccount?: boolean;
   onSubmit: (input: {
@@ -75,7 +73,9 @@ export function AccountFormModal({
     if (!isCashAccount && trimmed.toLowerCase() === "cash")
       return toast.error(`"Cash" is reserved for the system account`);
     if (!Number.isFinite(opening) || opening < 0)
-      return toast.error("Opening balance must be 0 or more");
+      return toast.error(
+        isCashAccount ? "Cash must be 0 or more" : "Opening balance must be 0 or more",
+      );
 
     await onSubmit({
       name: trimmed,
@@ -93,7 +93,7 @@ export function AccountFormModal({
         <DialogHeader>
           <DialogTitle>
             {isCashAccount
-              ? "Set starting Cash balance"
+              ? "Cash in hand right now"
               : isEditing
                 ? "Edit bank account"
                 : "Add bank account"}
@@ -101,23 +101,21 @@ export function AccountFormModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label>Name</Label>
-            {isCashAccount ? (
-              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                {name}
-              </div>
-            ) : (
+          {!isCashAccount && (
+            <div>
+              <Label>Name</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. NIC Asia Main"
               />
-            )}
-          </div>
+            </div>
+          )}
 
           <div>
-            <Label>Opening balance (NPR)</Label>
+            <Label>
+              {isCashAccount ? "Cash you have right now (रू)" : "Opening balance (रू)"}
+            </Label>
             <Input
               type="number"
               inputMode="decimal"
@@ -127,6 +125,12 @@ export function AccountFormModal({
               onChange={(e) => setOpeningStr(e.target.value)}
               disabled={isEditing && !allowOpeningEdit}
             />
+            {isCashAccount && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Count the cash you have now. Today&apos;s entries already saved
+                are included in this count, so they won&apos;t be added again.
+              </p>
+            )}
             {isEditing && !allowOpeningEdit && (
               <p className="mt-1 text-xs text-muted-foreground">
                 This account already has movements. Record a Cash in or Cash
@@ -135,17 +139,17 @@ export function AccountFormModal({
             )}
           </div>
 
+          {!isCashAccount && (
           <div>
             <Label>Opening date (BS)</Label>
             {isEditing ? (
               <>
                 <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                  {isCashAccount ? todayBs() : bsDate}
+                  {bsDate}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {isCashAccount
-                    ? "Starts today. Entries on or after today add to this balance; earlier ones stay in your ledgers but don't change it."
-                    : "Opening date is set once when the account is created and can't be changed later."}
+                  Opening date is set once when the account is created and
+                  can&apos;t be changed later.
                 </p>
               </>
             ) : (
@@ -161,6 +165,7 @@ export function AccountFormModal({
               </>
             )}
           </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button

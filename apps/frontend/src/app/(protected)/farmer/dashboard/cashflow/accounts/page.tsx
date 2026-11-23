@@ -26,13 +26,7 @@ import {
   type CashAccount,
 } from "@/fetchers/farmer/farmerCashflowQueries";
 import { formatCashAmount } from "@/components/cash-in-hand/cashFormat";
-import { BS_MONTH_NAMES } from "@/common/lib/nepali-date";
-
-function formatBs(bsDate: string): string {
-  const [y, m, d] = bsDate.split("-").map(Number);
-  if (!y || !m || !d || m < 1 || m > 12) return bsDate;
-  return `${BS_MONTH_NAMES[m - 1]} ${d}, ${y}`;
-}
+import { accountNote } from "@/components/cashflow/cashflowText";
 
 type EditState =
   | { mode: "add" }
@@ -135,11 +129,6 @@ export default function FarmerCashflowAccountsPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{a.name}</span>
-                    {a.type === "CASH" && (
-                      <span className="text-xs text-muted-foreground">
-                        (system)
-                      </span>
-                    )}
                     {a.archivedAt && (
                       <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-muted-foreground">
                         archived
@@ -147,8 +136,7 @@ export default function FarmerCashflowAccountsPage() {
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Opened {formatBs(a.openingBsDate)} · opening{" "}
-                    {formatCashAmount(a.openingBalance)}
+                    {accountNote(a)}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -160,10 +148,11 @@ export default function FarmerCashflowAccountsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setModal({ mode: "edit", account: a })}
-                      title="Set opening Cash balance"
-                      aria-label="Set opening Cash balance"
+                      title="Count your cash"
+                      aria-label="Count your cash"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="mr-1 h-4 w-4" />
+                      {a.openingBalanceSetAt ? "Recount cash" : "Set cash"}
                     </Button>
                   )}
                   {a.type === "BANK" && (
@@ -238,7 +227,7 @@ export default function FarmerCashflowAccountsPage() {
         title="Delete account?"
         description={
           deleteTarget
-            ? `Delete "${deleteTarget.name}"? This cannot be undone. If it has movements, delete those first or archive it instead.`
+            ? `Delete "${deleteTarget.name}"? This cannot be undone. If it has entries, delete those first or archive it instead.`
             : ""
         }
         confirmLabel="Delete account"
@@ -255,17 +244,22 @@ export default function FarmerCashflowAccountsPage() {
           modal?.mode === "edit"
             ? {
                 name: modal.account.name,
-                openingBalance: modal.account.openingBalance,
+                // Cash recount starts from what the app shows now.
+                openingBalance:
+                  modal.account.type === "CASH"
+                    ? modal.account.openingBalanceSetAt
+                      ? modal.account.balance
+                      : 0
+                    : modal.account.openingBalance,
                 openingBsDate: modal.account.openingBsDate,
               }
             : undefined
         }
         allowOpeningEdit={
-          // CASH can be re-set any time (anchor date is a system constant, so
-          // the delta flows through the balance cleanly). BANK still locks
-          // once movements exist — `balance === opening` is NOT a safe proxy
-          // because a deposit+withdrawal round-trip leaves the balance
-          // unchanged while movements exist, so we consult hasMovements.
+          // CASH can be recounted any time (the server moves its start to
+          // today). BANK locks once movements exist — `balance === opening` is
+          // NOT a safe proxy because a deposit+withdrawal round-trip leaves the
+          // balance unchanged while movements exist, so we use hasMovements.
           modal?.mode === "edit" &&
           (modal.account.type === "CASH" || !modal.account.hasMovements)
         }
@@ -285,7 +279,10 @@ export default function FarmerCashflowAccountsPage() {
                 }),
               );
             }
-            if (input.openingBalance !== acc.openingBalance) {
+            // Cash: always save, even the same number — a recount re-stamps
+            // the count time so today's entries saved before it aren't added
+            // again.
+            if (acc.type === "CASH" || input.openingBalance !== acc.openingBalance) {
               tasks.push(
                 patch.mutateAsync({
                   id: acc.id,
@@ -298,7 +295,7 @@ export default function FarmerCashflowAccountsPage() {
               return;
             }
             await Promise.all(tasks);
-            toast.success("Account updated");
+            toast.success(acc.type === "CASH" ? "Cash saved" : "Account updated");
           } catch (e: unknown) {
             toast.error(message(e, "Could not update account"));
             throw e;

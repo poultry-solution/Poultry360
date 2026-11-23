@@ -68,6 +68,8 @@ export interface CashMovement {
   partyName: string;
   notes: string | null;
   createdAt: string;
+  /** False when the money is already inside the counted cash / bank start amount. */
+  countedInBalance?: boolean;
 }
 
 export interface CashflowReport {
