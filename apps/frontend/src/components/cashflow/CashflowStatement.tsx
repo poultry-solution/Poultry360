@@ -60,7 +60,7 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
     <Card>
       <CardContent className="py-5">
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-          Cashflow statement
+          Money in and out
         </h2>
         {cashStartsLater && cashAccount && (
           <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">

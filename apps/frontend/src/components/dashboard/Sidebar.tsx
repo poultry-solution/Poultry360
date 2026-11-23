@@ -112,7 +112,7 @@ export const farmerNavigation: NavigationItem[] = [
     requiredFeature: ACCOUNT_FEATURE_KEYS.FARMER_STAFF_OPERATIONS,
   },
   {
-    nameKey: "sidebar.nav.cashInHand",
+    nameKey: "sidebar.nav.cashAndBank",
     href: "/farmer/dashboard/cashflow",
     icon: Wallet,
     requiredStaffPermission: "FARMER_VIEW_CASH_HISTORY",

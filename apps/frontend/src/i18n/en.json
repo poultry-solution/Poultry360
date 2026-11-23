@@ -98,6 +98,7 @@
       "production": "Production",
       "purchaseRequests": "Purchase Requests",
       "cashInHand": "Cash In Hand",
+      "cashAndBank": "Cash & Bank",
       "hatcheryOverview": "Overview",
       "hatcherySupplierLedger": "Supplier Ledger",
       "hatcheryInventory": "Inventory",

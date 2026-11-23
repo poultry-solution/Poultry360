@@ -151,7 +151,7 @@ export default function FarmerCashflowPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-5 p-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Cashflow</h1>
+        <h1 className="text-xl font-semibold">Cash &amp; Bank</h1>
         <Link
           href="/farmer/dashboard/cashflow/accounts"
           className="inline-flex items-center gap-1 text-sm text-primary underline-offset-2 hover:underline"
@@ -352,7 +352,7 @@ export default function FarmerCashflowPage() {
       <Dialog open={summaryOpen} onOpenChange={setSummaryOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Cashflow summary</DialogTitle>
+            <DialogTitle>Cash &amp; Bank summary</DialogTitle>
           </DialogHeader>
           {reportQ.data && <CashflowStatement report={reportQ.data} />}
         </DialogContent>
