@@ -168,10 +168,9 @@ export default function FarmerCashflowPage() {
             <div className="flex-1 space-y-1">
               <p className="text-sm font-medium">Set your cash in hand</p>
               <p className="text-xs text-muted-foreground">
-                How much cash do you have right now? Enter today&apos;s sales
-                and payments first, then count your cash. From then on, your
-                sales, payments, expenses and salary are added here
-                automatically.
+                Count the cash you have right now and enter it. After that,
+                your sales, payments, expenses and salary are added here by
+                themselves.
               </p>
             </div>
             <div className="flex items-center gap-2 self-end sm:self-auto">

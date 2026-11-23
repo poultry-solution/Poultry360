@@ -127,8 +127,8 @@ export function AccountFormModal({
             />
             {isCashAccount && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Count the cash you have now. Today&apos;s entries already saved
-                are included in this count, so they won&apos;t be added again.
+                Count the cash you have now. Tip: if you got or paid money
+                earlier today and haven&apos;t entered it yet, enter it first.
               </p>
             )}
             {isEditing && !allowOpeningEdit && (
