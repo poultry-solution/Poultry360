@@ -264,7 +264,7 @@ export function ExpenseModal({
                       {(feedInventory ?? []).map((feed: any) => (
                         <SelectItem key={feed.id} value={feed.id}>
                           {feed.name} ({(feed.quantity ?? feed.currentStock ?? 0)} {feed.unit} available)
-                          {feed.rate != null ? ` - ₹${feed.rate}/unit` : ""}
+                          {feed.rate != null ? ` - रू ${feed.rate}/unit` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -357,7 +357,7 @@ export function ExpenseModal({
                       {(medicineInventory ?? []).map((medicine: any) => (
                         <SelectItem key={medicine.id} value={medicine.id}>
                           {medicine.name} ({(medicine.quantity ?? medicine.currentStock ?? 0)} {medicine.unit} available)
-                          {medicine.rate != null ? ` - ₹${medicine.rate}/unit` : ""}
+                          {medicine.rate != null ? ` - रू ${medicine.rate}/unit` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -431,7 +431,7 @@ export function ExpenseModal({
                         {(otherInventory ?? []).map((item: any) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.name} ({(item.quantity ?? item.currentStock ?? 0)} {item.unit} available)
-                            {item.rate != null ? ` - ₹${item.rate}/unit` : ""}
+                            {item.rate != null ? ` - रू ${item.rate}/unit` : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>

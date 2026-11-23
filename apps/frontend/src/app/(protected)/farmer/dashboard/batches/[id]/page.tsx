@@ -516,7 +516,7 @@ export default function BatchDetailPage() {
       const summary = result.summary;
       flash(
         "success",
-        `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: ₹${summary.profit.toLocaleString()}`
+        `Batch closed successfully! Sold: ${summary.soldChicks}, Natural Deaths: ${summary.naturalMortality}, Remaining at Closure: ${summary.remainingAtClosure}, Total profit: रू ${summary.profit.toLocaleString()}`
       );
 
       setIsCloseModalOpen(false);
@@ -562,7 +562,7 @@ export default function BatchDetailPage() {
   const [expenseToDelete, setExpenseToDelete] = useState<any | null>(null);
   const [expenseForm, setExpenseForm] = useState({
     category: "Feed" as ExpenseCategory,
-    date: "",
+    date: getTodayLocalDate(),
     notes: "",
     feedBrand: "",
     feedQuantity: "",
@@ -587,10 +587,22 @@ export default function BatchDetailPage() {
   ) {
     const { name, value } = e.target;
     setExpenseForm((p) => ({ ...p, [name]: value }));
+    clearExpenseErrors(name);
+  }
+
+  // Clear field errors as soon as the farmer changes those fields.
+  function clearExpenseErrors(...names: string[]) {
+    setExpenseErrors((errs) => {
+      if (!names.some((n) => errs[n])) return errs;
+      const next = { ...errs };
+      for (const n of names) delete next[n];
+      return next;
+    });
   }
 
   // Handle feed selection (from for-expense list – id is InventoryItem.id)
   function handleFeedSelection(feedId: string) {
+    clearExpenseErrors("feedBrand", "feedRate", "feedKgPerUnit");
     const selectedFeed = feedInventoryForExpense.find((f: any) => f.id === feedId);
     if (selectedFeed) {
       setExpenseForm((prev) => ({
@@ -606,6 +618,7 @@ export default function BatchDetailPage() {
 
   // Handle medicine selection (from for-expense list – id is InventoryItem.id)
   function handleMedicineSelection(medicineId: string) {
+    clearExpenseErrors("medicineName", "medicineRate");
     const selectedMedicine = medicineInventoryForExpense.find((m: any) => m.id === medicineId);
     if (selectedMedicine) {
       setExpenseForm((prev) => ({
@@ -619,6 +632,7 @@ export default function BatchDetailPage() {
 
   // Handle other (from inventory) selection – id is InventoryItem.id
   function handleOtherSelection(otherId: string) {
+    clearExpenseErrors("otherRate");
     if (!otherId) {
       setExpenseForm((prev) => ({
         ...prev,
@@ -665,9 +679,10 @@ export default function BatchDetailPage() {
 
   function openNewExpense() {
     setEditingExpenseId(null);
+    setExpenseErrors({});
     setExpenseForm({
       category: "Feed" as ExpenseCategory,
-      date: "",
+      date: getTodayLocalDate(),
       notes: "",
       feedBrand: "",
       feedQuantity: "",
@@ -938,7 +953,7 @@ export default function BatchDetailPage() {
         (editingExpenseId === null ? cashAccountId : "");
       const expenseData = {
         date: expenseForm.date
-          ? new Date(expenseForm.date).toISOString()
+          ? nepalNoonFromAdDay(expenseForm.date).toISOString()
           : `${getTodayLocalDate()}T00:00:00.000Z`,
         amount,
         description:
@@ -1158,7 +1173,7 @@ export default function BatchDetailPage() {
       const totalAmount = billPreview.amount;
       const paidAmount = Number(saleForm.balance || 0);
       if (paidAmount > totalAmount) {
-        errs.balance = `Paid amount cannot exceed total amount of ₹${totalAmount.toLocaleString()}`;
+        errs.balance = `Paid amount cannot exceed total amount of रू ${totalAmount.toLocaleString()}`;
       }
     }
     if (billPreview.error) {
@@ -2047,7 +2062,7 @@ export default function BatchDetailPage() {
                         />
                       </div>
                       <div className="w-28">
-                        <Label className="text-xs">Rate (₹)</Label>
+                        <Label className="text-xs">Rate (रू)</Label>
                         <Input
                           type="number"
                           min={0}
@@ -2104,7 +2119,7 @@ export default function BatchDetailPage() {
               {saleForm.itemType !== "EGGS" && (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="rate">Rate (₹)</Label>
+                    <Label htmlFor="rate">Rate (रू)</Label>
                     <Input
                       id="rate"
                       name="rate"
@@ -2225,20 +2240,20 @@ export default function BatchDetailPage() {
                   <div className="mb-1.5 space-y-0.5 border-b border-gray-200 pb-1.5 text-sm text-gray-600">
                     <div className="flex items-center justify-between">
                       <span>Subtotal</span>
-                      <span>₹{billPreview.subtotal.toLocaleString()}</span>
+                      <span>रू {billPreview.subtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>
                         Discount{billPreview.discount.type === "PERCENT" ? ` (${billPreview.discount.value}%)` : ""}
                       </span>
-                      <span className="text-red-600">−₹{billPreview.discountAmount.toLocaleString()}</span>
+                      <span className="text-red-600">−रू {billPreview.discountAmount.toLocaleString()}</span>
                     </div>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Total Amount</span>
                   <span className="text-lg font-bold text-green-700">
-                    ₹
+                    रू{" "}
                     {billPreview.discount
                       ? billPreview.amount.toLocaleString()
                       : saleForm.itemType === "EGGS"
