@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { dealerSaleKeys } from "@/fetchers/dealer/dealerSaleQueries";
+import { dealerCashflowKeys } from "@/fetchers/dealer/dealerCashflowQueries";
 
 // Query keys
 export const dealerLedgerKeys = {
@@ -209,6 +210,8 @@ export const useDeleteDealerManualGeneralPayment = (customerId: string) => {
       queryClient.invalidateQueries({ queryKey: ["dealer-customer", customerId] });
       queryClient.invalidateQueries({ queryKey: dealerLedgerKeys.party(customerId) });
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      // Delete removes the ledger payment's cashbook mirror.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };
@@ -241,6 +244,8 @@ export const useAddDealerPayment = () => {
       queryClient.invalidateQueries({ queryKey: [...dealerLedgerKeys.all, "parties"] });
       // Home "Sales vs collected" graph lives under the statistics key.
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.statistics() });
+      // Ledger payments auto-post a receipt or payment cash leg.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };

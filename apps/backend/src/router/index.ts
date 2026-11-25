@@ -9,7 +9,6 @@ import dealerProductRoutes from "./dealerProductRoutes";
 import dealerSaleRoutes from "./dealerSaleRoutes";
 import companyDealerAccountRoutes from "./companyDealerAccountRoutes";
 import dealerLedgerRoutes from "./dealerLedgerRoutes";
-import dealerCashInHandRoutes from "./dealerCashInHandRoutes";
 import dealerCashflowRoutes from "./dealerCashflowRoutes";
 import farmerCashInHandRoutes from "./farmerCashInHandRoutes";
 import farmerCashflowRoutes from "./farmerCashflowRoutes";
@@ -103,7 +102,6 @@ router.use("/dealer/products", dealerProductRoutes);
 router.use("/dealer/sales", dealerSaleRoutes);
 router.use("/", companyDealerAccountRoutes); // Account routes for both company and dealer
 router.use("/dealer/ledger", dealerLedgerRoutes);
-router.use("/dealer/cash-in-hand", dealerCashInHandRoutes);
 router.use("/dealer/cashflow", dealerCashflowRoutes);
 router.use("/dealer/activity", dealerBusinessAuditRoutes);
 router.use("/business-activity", accountBusinessAuditRoutes);

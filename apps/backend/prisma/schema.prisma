@@ -248,7 +248,6 @@ model User {
   farmerAccounts               DealerFarmerAccount[] @relation("FarmerAccounts")
   farmerPaymentsRecorded       DealerFarmerPayment[] @relation("DealerFarmerPaymentRecorder")
   dealerFarmerBalanceLimitsSet DealerFarmerAccount[] @relation("DealerFarmerBalanceLimitSetter")
-  dealerCashMovementsRecorded  DealerCashMovement[]  @relation("DealerCashMovementRecorder")
 
   // Business details printed on sale bills (per business account)
   billSettings BillSettings? @relation("UserBillSettings")
@@ -1247,9 +1246,6 @@ model Dealer {
   companyAccounts        CompanyDealerAccount[]
   farmerAccounts         DealerFarmerAccount[]
   manualCompanies        DealerManualCompany[]
-  cashSettings           DealerCashSettings?
-  cashMovements          DealerCashMovement[]
-  cashDayCloses          DealerCashDayClose[]
   broilerSaleSettlements BroilerSaleSettlement[]
   broilerPurchases       DealerBroilerPurchase[]
 
@@ -2522,8 +2518,11 @@ model DealerManualCompanyPayment {
   @@index([manualCompanyId, paymentDate])
 }
 
-// ==================== DEALER CASH IN HAND ====================
+// ==================== SHARED CASH ENUMS ====================
 
+// Still used by CashMovement (v2, cross-tenant) and FarmerCashDayClose (farmer
+// v1, kept for historical reads). The dealer-side v1 tables have been dropped;
+// see migration 20261125_drop_dealer_cash_in_hand_v1.
 enum CashMovementDirection {
   IN
   OUT
@@ -2532,48 +2531,6 @@ enum CashMovementDirection {
 enum CashDayCloseSource {
   USER
   SYSTEM
-}
-
-model DealerCashSettings {
-  id             String  @id @default(cuid())
-  dealerId       String  @unique
-  dealer         Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  initialOpening Decimal @db.Decimal(10, 2)
-  startBsDate    String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model DealerCashMovement {
-  id           String                @id @default(cuid())
-  dealerId     String
-  dealer       Dealer                @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  bsDate       String
-  direction    CashMovementDirection
-  amount       Decimal               @db.Decimal(10, 2)
-  partyName    String
-  notes        String?
-  recordedById String?
-  recordedBy   User?                 @relation("DealerCashMovementRecorder", fields: [recordedById], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@index([dealerId, bsDate])
-}
-
-model DealerCashDayClose {
-  id              String             @id @default(cuid())
-  dealerId        String
-  dealer          Dealer             @relation(fields: [dealerId], references: [id], onDelete: Cascade)
-  bsDate          String
-  openingSnapshot Decimal            @db.Decimal(10, 2)
-  closingSnapshot Decimal            @db.Decimal(10, 2)
-  source          CashDayCloseSource
-  closedAt        DateTime
-
-  @@unique([dealerId, bsDate])
-  @@index([dealerId, bsDate])
 }
 
 // ==================== FARMER CASH IN HAND ====================

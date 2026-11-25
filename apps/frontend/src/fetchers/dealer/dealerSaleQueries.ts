@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { dealerCashflowKeys } from "@/fetchers/dealer/dealerCashflowQueries";
 
 // Query keys
 export const dealerSaleKeys = {
@@ -390,6 +391,8 @@ export const useCreateBroilerSettlement = () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
+      // Settlement auto-posts a farmerPayout OUT leg into the dealer cashbook.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };
@@ -408,6 +411,8 @@ export const useReverseBroilerSettlement = () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.all });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customer"] });
+      // Reversal deletes the cashbook mirror — keep the UI in sync.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };
@@ -445,6 +450,8 @@ export const useCreateDealerSale = () => {
       queryClient.invalidateQueries({ queryKey: ["dealer-products"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-profit-summary"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
+      // Cash sales auto-post a SALE_RECEIPT IN leg into the dealer cashbook.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };
@@ -548,6 +555,8 @@ export const useCreateBulkBroilerSales = () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.broilerSettlementsAll() });
       queryClient.invalidateQueries({ queryKey: ["dealer-ledger"] });
       queryClient.invalidateQueries({ queryKey: ["dealer-customers"] });
+      // Each broiler sale with paidAmount>0 auto-posts a SALE_RECEIPT IN leg.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };

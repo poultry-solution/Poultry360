@@ -522,15 +522,9 @@ async function hardDeleteUserData(userId: string) {
       },
     });
 
-    await tx.dealerCashMovement.updateMany({
-      where: {
-        recordedById: userId,
-      },
-      data: {
-        recordedById: null,
-      },
-    });
-
+    // v1 DealerCashMovement tables dropped 2026-11-25 (see
+    // 20261125200000_drop_dealer_cash_in_hand_v1); v2 CashMovement below is
+    // the only cash table that needs recordedById cleanup now.
     await tx.cashMovement.updateMany({
       where: {
         recordedById: userId,

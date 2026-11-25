@@ -23,6 +23,7 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
+import { getNepalBsTodayString } from "../utils/nepalBsDate";
 import { DEFAULT_DEMO_PASSWORD, DEMO_ACCOUNTS, isLocalDatabase, upsertDemoUser } from "./demoSeedUtils";
 
 const account = DEMO_ACCOUNTS.dealer;
@@ -371,7 +372,21 @@ async function seedStaff(password: string) {
 }
 
 async function seedCashToday() {
-  await api("POST", "/dealer/cash-in-hand/setup", { initialOpening: 45000 });
+  // Fetches auto-create the dealer's Cash account on first hit.
+  const res = await api<{ data: { accounts: Array<{ id: string; type: "CASH" | "BANK" }> } }>(
+    "GET",
+    "/dealer/cashflow/accounts",
+  );
+  const cashAccount = res.data.accounts.find((a) => a.type === "CASH");
+  if (!cashAccount) throw new Error("demo seed: dealer Cash account missing after /accounts fetch");
+
+  // Set the opening balance (also rolls Cash.openingBsDate to today under the
+  // hood — see dealerCashflowService.editOpeningBalance).
+  await api("PATCH", `/dealer/cashflow/accounts/${cashAccount.id}`, {
+    openingBalance: 45000,
+  });
+
+  const todayBs = getNepalBsTodayString();
   const moves: Array<["IN" | "OUT", number, string, string]> = [
     ["IN", 38500, "Ram Bahadur Thapa", "Feed sale cash"],
     ["IN", 12000, "Sita Gurung", "Old due"],
@@ -380,7 +395,14 @@ async function seedCashToday() {
     ["IN", 9600, "Walk-in customer", "Medicine and feeders"],
   ];
   for (const [direction, amount, partyName, notes] of moves) {
-    await api("POST", "/dealer/cash-in-hand/movements", { direction, amount, partyName, notes });
+    await api("POST", "/dealer/cashflow/movements", {
+      accountId: cashAccount.id,
+      category: direction === "IN" ? "CASH_IN" : "CASH_OUT",
+      amount,
+      bsDate: todayBs,
+      partyName,
+      notes,
+    });
   }
 }
 

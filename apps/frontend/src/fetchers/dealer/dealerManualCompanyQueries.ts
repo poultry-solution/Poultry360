@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { dealerCashflowKeys } from "@/fetchers/dealer/dealerCashflowQueries";
 
 // Query keys
 export const manualCompanyKeys = {
@@ -275,6 +276,8 @@ export const useVoidManualPayment = () => {
         onSuccess: (_data, vars) => {
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.lists() });
+            // Void removes the supplier payment's cashbook mirror — keep UI in sync.
+            queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
         },
     });
 };
@@ -334,6 +337,8 @@ export const useRecordManualCompanyPayment = () => {
                 queryKey: manualCompanyKeys.lists(),
             });
             queryClient.invalidateQueries({ queryKey: manualCompanyKeys.statementBase(vars.companyId) });
+            // Supplier payment auto-posts an OUT (or IN on refund) cash leg.
+            queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
         },
     });
 };
