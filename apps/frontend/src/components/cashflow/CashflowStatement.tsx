@@ -13,7 +13,7 @@ const CATEGORY_LABEL: Record<CashCategory, string> = {
   CASH_OUT: "Cash out",
   SALE_RECEIPT: "Money received",
   EXPENSE: "Expenses",
-  PAYMENT_TO_DEALER: "Payments to dealer",
+  PAYMENT_TO_DEALER: "Payments to suppliers",
   OWNER_INVEST: "Owner invest",
   OWNER_DRAW: "Owner draw",
   LOAN_RECEIVED: "Loans received",

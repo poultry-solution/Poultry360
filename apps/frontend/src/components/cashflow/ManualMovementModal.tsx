@@ -39,7 +39,7 @@ const CATEGORY_OPTIONS: Record<Direction, { value: CashCategory; label: string }
     { value: "CASH_OUT", label: "General cash out" },
     { value: "OWNER_DRAW", label: "Owner draw" },
     { value: "LOAN_REPAYMENT", label: "Loan repayment" },
-    { value: "PAYMENT_TO_DEALER", label: "Payment to dealer" },
+    { value: "PAYMENT_TO_DEALER", label: "Payment to supplier" },
   ],
 };
 

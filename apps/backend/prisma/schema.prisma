@@ -2666,18 +2666,31 @@ enum CashCategory {
 
 enum CashSourceType {
   MANUAL
-  SALE_PAYMENT
-  CUSTOMER_RECEIPT
-  EXPENSE
-  SUPPLIER_PAYMENT
-  STAFF_PAYMENT
+  SALE_PAYMENT               // farmer SalePayment
+  CUSTOMER_RECEIPT           // farmer CustomerTransaction RECEIPT
+  EXPENSE                    // farmer Expense
+  SUPPLIER_PAYMENT           // farmer EntityTransaction PAYMENT
+  STAFF_PAYMENT              // StaffPayment — routes to cashbook of staff.owner (farmer OR dealer)
   TRANSFER
   OPENING_ADJUSTMENT
+  DEALER_SALE_PAYMENT          // dealer DealerSalePayment
+  DEALER_LEDGER_RECEIPT        // dealer DealerLedgerEntry direction RECEIVED
+  DEALER_LEDGER_PAYMENT        // dealer DealerLedgerEntry direction MADE
+  DEALER_SUPPLIER_PAYMENT      // dealer DealerManualCompanyPayment MADE
+  BROILER_SETTLEMENT_PROCEEDS  // BroilerSaleSettlement totalProceeds leg (IN)
+  BROILER_SETTLEMENT_PAYOUT    // BroilerSaleSettlement farmerPayout leg (OUT)
 }
 
-// One CASH account per farmer (enforced by raw-SQL partial unique index in the
-// farmer_cashflow_v1 migration) + 0..N BANK accounts. Every CashMovement
-// row points at exactly one of these.
+// One CASH account per owner user + 0..N BANK accounts. Every CashMovement
+// row points at exactly one of these. Shared across farmer (role OWNER) and
+// dealer (role DEALER) tenants, keyed by `userId` of the owner — a User has
+// exactly one role, so no cross-tenant ambiguity. Route-level role guards
+// ([OWNER] on /farmer/cashflow, [DEALER] on /dealer/cashflow) prevent one
+// tenant from reading the other's accounts; the dealerCashflowService also
+// asserts `user.role === DEALER` at every service entry as belt-and-braces.
+// Singleton CASH per userId is enforced by a raw-SQL partial unique index
+// introduced in the farmer_cashflow_v1 migration — same index applies to
+// dealer users.
 model CashAccount {
   id             String      @id @default(cuid())
   userId         String

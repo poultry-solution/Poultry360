@@ -44,6 +44,12 @@ export type CashCategory =
   | "TRANSFER"
   | "OPENING_ADJUSTMENT";
 
+/**
+ * Mirrors the DB `CashSourceType` enum. Includes dealer-side values so the
+ * shared `MovementsTable` component typechecks for both tenants — farmer
+ * rows will never actually carry a DEALER_* or BROILER_* sourceType at
+ * runtime, but the union is accurate to the shared table schema.
+ */
 export type CashSourceType =
   | "MANUAL"
   | "SALE_PAYMENT"
@@ -52,7 +58,13 @@ export type CashSourceType =
   | "SUPPLIER_PAYMENT"
   | "STAFF_PAYMENT"
   | "TRANSFER"
-  | "OPENING_ADJUSTMENT";
+  | "OPENING_ADJUSTMENT"
+  | "DEALER_SALE_PAYMENT"
+  | "DEALER_LEDGER_RECEIPT"
+  | "DEALER_LEDGER_PAYMENT"
+  | "DEALER_SUPPLIER_PAYMENT"
+  | "BROILER_SETTLEMENT_PROCEEDS"
+  | "BROILER_SETTLEMENT_PAYOUT";
 
 export interface CashMovement {
   id: string;

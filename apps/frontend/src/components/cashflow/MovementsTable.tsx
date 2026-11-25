@@ -28,6 +28,12 @@ const CATEGORY_LABEL: Record<CashCategory, string> = {
 function labelFor(m: CashMovement): string {
   if (m.sourceType === "STAFF_PAYMENT") return "Salary";
   if (m.sourceType === "SUPPLIER_PAYMENT") return "Supplier payment";
+  if (m.sourceType === "DEALER_SALE_PAYMENT") return "Sale payment";
+  if (m.sourceType === "DEALER_LEDGER_RECEIPT") return "Customer payment";
+  if (m.sourceType === "DEALER_LEDGER_PAYMENT") return "Customer refund / advance";
+  if (m.sourceType === "DEALER_SUPPLIER_PAYMENT") return "Supplier payment";
+  if (m.sourceType === "BROILER_SETTLEMENT_PROCEEDS") return "Broiler settlement — proceeds";
+  if (m.sourceType === "BROILER_SETTLEMENT_PAYOUT") return "Broiler settlement — farmer payout";
   return CATEGORY_LABEL[m.category];
 }
 

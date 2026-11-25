@@ -180,8 +180,8 @@ export const dealerNavigation: NavigationItem[] = [
     requiredStaffPermission: "DEALER_VIEW_STAFF_MANAGEMENT",
   },
   {
-    nameKey: "sidebar.nav.cashInHand",
-    href: "/dealer/dashboard/cash-in-hand",
+    nameKey: "sidebar.nav.cashAndBank",
+    href: "/dealer/dashboard/cashflow",
     icon: Wallet,
     // Cash details are private by default for staff. Dealer owners always see it.
     requiredStaffPermission: "DEALER_VIEW_CASH_HISTORY",
