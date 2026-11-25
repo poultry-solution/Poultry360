@@ -662,16 +662,28 @@ export const deleteStaff = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Grab payment receipts before the cascade: deleting Staff removes every
-    // StaffPayment via onDelete: Cascade, so there is no second chance to
-    // read their Cloudinary URLs after the delete lands.
-    const paymentReceipts = await prisma.staffPayment.findMany({
+    // Grab payment IDs + receipts before the cascade: deleting Staff removes
+    // every StaffPayment via onDelete: Cascade, so there is no second chance
+    // to read their Cloudinary URLs or clean up their cashbook mirrors after
+    // the delete lands.
+    const payments = await prisma.staffPayment.findMany({
       where: { staffId: staff.id },
-      select: { receiptImageUrl: true },
+      select: { id: true, receiptImageUrl: true },
     });
 
-    await prisma.staff.delete({ where: { id: staff.id } });
-    cleanupUploadedImages(paymentReceipts.map((p) => p.receiptImageUrl), ownerId);
+    // Cashflow v2: the StaffPayment cascade removes the source rows, but the
+    // CashMovement mirrors are keyed only by (userId, sourceType, sourceId) —
+    // no FK — so they would orphan unless explicitly deleted. Only OWNER +
+    // DEALER roles ever posted mirrors; other roles are a cheap no-op.
+    await prisma.$transaction(async (tx) => {
+      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER) {
+        for (const p of payments) {
+          await deleteStaffSalaryMovement(tx, ownerId, p.id);
+        }
+      }
+      await tx.staff.delete({ where: { id: staff.id } });
+    });
+    cleanupUploadedImages(payments.map((p) => p.receiptImageUrl), ownerId);
     res.json({ success: true, data: { staffId: staff.id }, message: "Staff deleted" });
   } catch (error) {
     console.error("Delete staff error:", error);
