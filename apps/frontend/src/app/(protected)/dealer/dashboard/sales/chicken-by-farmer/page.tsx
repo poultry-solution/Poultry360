@@ -60,7 +60,7 @@ function ChickenSalesByFarmerContent() {
   const [sourceFarmerId, setSourceFarmerId] = useState("");
   const [settlementTarget, setSettlementTarget] = useState<ChickenSalesByFarmerRow | null>(null);
   const [marginAmount, setMarginAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  // paymentMethod state removed — backend derives it from the AccountPicker.
   const [accountId, setAccountId] = useState("");
   const accountsQ = useGetCashflowAccounts(false);
   const cashflowAccounts = accountsQ.data ?? [];
@@ -133,7 +133,6 @@ function ChickenSalesByFarmerContent() {
   const openSettlement = (row: ChickenSalesByFarmerRow) => {
     setSettlementTarget(row);
     setMarginAmount("");
-    setPaymentMethod("CASH");
     setSettlementDate(getNepalTodayAd());
     setNotes("");
     setReference("");
@@ -164,7 +163,6 @@ function ChickenSalesByFarmerContent() {
       await createSettlement.mutateAsync({
         sourceFarmerId: settlementTarget.sourceFarmerId,
         marginAmount: settlementAmounts.margin,
-        paymentMethod,
         accountId: accountId || undefined,
         date: settlementDate,
         notes: notes.trim() || undefined,
@@ -396,30 +394,17 @@ function ChickenSalesByFarmerContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Settlement date</Label>
-                  <NepaliDatePicker
-                    defaultDate={convertADtoBS(settlementDate)}
-                    onChange={({ adDate }) => setSettlementDate(adDate.split("T")[0])}
-                    className="w-full rounded-md border border-input"
-                    theme="light"
-                    language="en"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Payment method</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CASH">Cash</SelectItem>
-                      <SelectItem value="BANK_TRANSFER">Bank transfer</SelectItem>
-                      <SelectItem value="CHEQUE">Cheque</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Settlement date</Label>
+                <NepaliDatePicker
+                  defaultDate={convertADtoBS(settlementDate)}
+                  onChange={({ adDate }) => setSettlementDate(adDate.split("T")[0])}
+                  className="w-full rounded-md border border-input"
+                  theme="light"
+                  language="en"
+                />
               </div>
+              {/* Payment method dropdown removed — derived from the AccountPicker. */}
               {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
                 <div className="space-y-2">
                   <Label>Payout from (farmer paid out of)</Label>

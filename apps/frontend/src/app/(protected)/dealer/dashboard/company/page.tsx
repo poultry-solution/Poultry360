@@ -96,7 +96,8 @@ export default function DealerCompanyPage() {
     const [paymentDateAd, setPaymentDateAd] = useState(getTodayLocalDate());
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentDirection, setPaymentDirection] = useState<"RECEIVED" | "MADE">("MADE");
-    const [paymentMethod, setPaymentMethod] = useState("CASH");
+    // paymentMethod state removed — the backend derives it from the picked
+    // CashAccount via the AccountPicker below.
     const [paymentAccountId, setPaymentAccountId] = useState("");
     const [paymentNotes, setPaymentNotes] = useState("");
     const [deleteManualConfirm, setDeleteManualConfirm] = useState<ManualCompany | null>(null);
@@ -307,7 +308,8 @@ export default function DealerCompanyPage() {
                 companyId: paymentCompany.id,
                 amount: Number(paymentAmount),
                 direction: effectivePaymentDirection,
-                paymentMethod: paymentMethod,
+                // paymentMethod is now derived from the picked CashAccount on
+                // the backend — the UI no longer asks for it separately.
                 accountId: paymentAccountId || undefined,
                 notes: paymentNotes || undefined,
                 paymentDate: nepalNoonFromAdDay(
@@ -319,7 +321,6 @@ export default function DealerCompanyPage() {
             setPaymentDateAd(getTodayLocalDate());
             setPaymentAmount("");
             setPaymentDirection("MADE");
-            setPaymentMethod("CASH");
             setPaymentNotes("");
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to record payment");
@@ -974,21 +975,6 @@ export default function DealerCompanyPage() {
                                 min="0"
                                 step="0.01"
                             />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Payment Method</label>
-                            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                <SelectTrigger className="bg-white">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-white">
-                                    <SelectItem value="CASH">Cash</SelectItem>
-                                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                                    <SelectItem value="MOBILE_PAYMENT">Mobile Payment</SelectItem>
-                                    <SelectItem value="OTHER">Other</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                         {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
                             <div className="space-y-2">

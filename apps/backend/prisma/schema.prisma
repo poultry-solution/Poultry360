@@ -1914,6 +1914,9 @@ model DealerBroilerPurchase {
   totalCost    Decimal  @db.Decimal(12, 2)
   date         DateTime
   notes        String?
+  // Cashflow v2: account the upfront payment to the source farmer left from
+  // (null = fall back to the dealer's system Cash). Validated at write time.
+  accountId    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2650,6 +2653,7 @@ enum CashSourceType {
   DEALER_SUPPLIER_PAYMENT      // dealer DealerManualCompanyPayment MADE
   BROILER_SETTLEMENT_PROCEEDS  // BroilerSaleSettlement totalProceeds leg (IN)
   BROILER_SETTLEMENT_PAYOUT    // BroilerSaleSettlement farmerPayout leg (OUT)
+  DEALER_BROILER_PURCHASE      // DealerBroilerPurchase cash paid upfront to source farmer (OUT)
 }
 
 // One CASH account per owner user + 0..N BANK accounts. Every CashMovement

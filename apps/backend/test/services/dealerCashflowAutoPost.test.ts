@@ -17,11 +17,13 @@ jest.mock("../../src/utils/nepalBsDate", () => ({
 import { CashflowError } from "../../src/common/cashflow/errors";
 import {
   deleteBroilerSettlementMovements,
+  deleteDealerBroilerPurchaseMovement,
   deleteDealerLedgerPaymentMovement,
   deleteDealerLedgerReceiptMovement,
   deleteDealerSalePaymentMovement,
   deleteDealerSupplierPaymentMovement,
   postBroilerSettlementPayoutMovement,
+  postDealerBroilerPurchaseMovement,
   postDealerLedgerPaymentMovement,
   postDealerLedgerReceiptMovement,
   postDealerSalePaymentMovement,
@@ -370,3 +372,78 @@ describe("deleteBroilerSettlementMovements", () => {
     });
   });
 });
+
+// ─── Broiler purchase (upfront cash paid to source farmer) ──────────────────
+
+describe("postDealerBroilerPurchaseMovement", () => {
+  it("creates an OUT / CASH_OUT / DEALER_BROILER_PURCHASE movement", async () => {
+    const t = tx();
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce(null);
+
+    await postDealerBroilerPurchaseMovement({
+      tx: t as unknown as Prisma.TransactionClient,
+      userId: "dealer-user-1",
+      dealerBroilerPurchaseId: "dbp-1",
+      accountId: "cash-1",
+      amount: 15000,
+      date: baseDate,
+      sourceFarmerName: "Ram Prasad",
+      recordedById: "dealer-user-1",
+    });
+
+    expect(t.cashMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        direction: "OUT",
+        category: "CASH_OUT",
+        sourceType: "DEALER_BROILER_PURCHASE",
+        sourceId: "dbp-1",
+        partyName: "Broiler purchase from Ram Prasad",
+      }),
+    });
+  });
+
+  it("is idempotent — second call updates instead of inserting", async () => {
+    const t = tx();
+    t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValueOnce({ id: "cm-1" });
+
+    await postDealerBroilerPurchaseMovement({
+      tx: t as unknown as Prisma.TransactionClient,
+      userId: "dealer-user-1",
+      dealerBroilerPurchaseId: "dbp-1",
+      accountId: "cash-1",
+      amount: 15500,
+      date: baseDate,
+      sourceFarmerName: "Ram Prasad",
+      recordedById: "dealer-user-1",
+    });
+
+    expect(t.cashMovement.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "cm-1" },
+        data: expect.objectContaining({ amount: new Prisma.Decimal(15500) }),
+      }),
+    );
+    expect(t.cashMovement.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteDealerBroilerPurchaseMovement", () => {
+  it("scopes by DEALER_BROILER_PURCHASE sourceType", async () => {
+    const t = tx();
+    await deleteDealerBroilerPurchaseMovement(
+      t as unknown as Prisma.TransactionClient,
+      "dealer-user-1",
+      "dbp-1",
+    );
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: "dealer-user-1",
+        sourceType: "DEALER_BROILER_PURCHASE",
+        sourceId: "dbp-1",
+      },
+    });
+  });
+});
+

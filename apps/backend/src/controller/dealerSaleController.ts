@@ -14,9 +14,12 @@ import {
 } from "../services/accountFeatureService";
 import {
   deleteBroilerSettlementMovements,
+  deleteDealerBroilerPurchaseMovement,
   ensureCashAccountId,
   postBroilerSettlementPayoutMovement,
+  postDealerBroilerPurchaseMovement,
 } from "../services/dealerCashflowAutoPost";
+import { derivePaymentMethodFromAccountType } from "../common/cashflow/paymentMethod";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -624,13 +627,20 @@ export const createStandaloneBroilerPurchase = async (
     const userId = req.userId;
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId },
-      select: { id: true },
+      select: { id: true, ownerId: true },
     });
-    if (!dealer) {
+    if (!dealer || !dealer.ownerId) {
       return res.status(404).json({ success: false, message: "Dealer not found" });
     }
+    const dealerOwnerId = dealer.ownerId;
 
     const body = (req.body || {}) as any;
+    const cashbookAccountId =
+      typeof body.accountId === "string" && body.accountId.trim()
+        ? body.accountId.trim()
+        : undefined;
+    const recordedById =
+      req.actorType === "STAFF" ? req.staffUserId ?? (userId as string) : (userId as string);
     const sourceFarmerId = typeof body.sourceFarmerId === "string" ? body.sourceFarmerId : "";
     if (!sourceFarmerId) {
       return res.status(400).json({
@@ -699,7 +709,23 @@ export const createStandaloneBroilerPurchase = async (
           broilerCount,
           notes,
           date,
+          accountId: cashbookAccountId ?? null,
         },
+      });
+      // Cashflow v2: standalone purchases always represent an upfront cash
+      // payment to the source farmer (Scenario A). Mirror as OUT.
+      const resolvedAccountId =
+        cashbookAccountId ?? (await ensureCashAccountId(tx, dealerOwnerId));
+      await postDealerBroilerPurchaseMovement({
+        tx,
+        userId: dealerOwnerId,
+        dealerBroilerPurchaseId: row.id,
+        accountId: resolvedAccountId,
+        amount: totalCost,
+        date,
+        sourceFarmerName: sourceFarmer.name,
+        recordedById,
+        notes,
       });
       await writeBusinessAudit(
         req,
@@ -840,11 +866,12 @@ export const deleteBroilerPurchase = async (
 
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId },
-      select: { id: true },
+      select: { id: true, ownerId: true },
     });
-    if (!dealer) {
+    if (!dealer || !dealer.ownerId) {
       return res.status(404).json({ success: false, message: "Dealer not found" });
     }
+    const dealerOwnerId = dealer.ownerId;
 
     const purchase = await prisma.dealerBroilerPurchase.findFirst({
       where: { id, dealerId: dealer.id },
@@ -887,6 +914,10 @@ export const deleteBroilerPurchase = async (
         // row we were about to remove is now part of a historical lot.
         return "RACE_SETTLED" as const;
       }
+      // Cashflow v2: remove the mirror so the cashbook reflects the reversed
+      // purchase. Only fires for v2-era rows; older rows that never had a
+      // mirror return 0 deleted (cheap deleteMany).
+      await deleteDealerBroilerPurchaseMovement(tx, dealerOwnerId, id);
       await writeBusinessAudit(
         req,
         {
@@ -2212,6 +2243,17 @@ export const settleBroilerSales = async (
         throw new Error("Settlement date is invalid");
       }
 
+      // Payment Method dropdown was removed from the UI; derive from the
+      // picked account so the settlement row keeps a sensible method label.
+      let settlementMethod = paymentMethod;
+      if (cashbookAccountId) {
+        const pickedAccount = await tx.cashAccount.findUnique({
+          where: { id: cashbookAccountId },
+          select: { type: true },
+        });
+        settlementMethod = derivePaymentMethodFromAccountType(pickedAccount?.type);
+      }
+
       const created = await tx.broilerSaleSettlement.create({
         data: {
           dealerId: dealer.id,
@@ -2220,7 +2262,7 @@ export const settleBroilerSales = async (
           marginAmount: new Prisma.Decimal(margin),
           creditRecovered: new Prisma.Decimal(creditRecovered),
           farmerPayout: new Prisma.Decimal(farmerPayout),
-          paymentMethod,
+          paymentMethod: settlementMethod,
           date: settlementDate,
           notes: notes?.trim() || null,
           reference: reference?.trim() || null,

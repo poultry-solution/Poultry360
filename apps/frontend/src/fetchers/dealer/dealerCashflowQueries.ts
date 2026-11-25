@@ -58,7 +58,8 @@ export type CashSourceType =
   | "DEALER_LEDGER_PAYMENT"
   | "DEALER_SUPPLIER_PAYMENT"
   | "BROILER_SETTLEMENT_PROCEEDS"
-  | "BROILER_SETTLEMENT_PAYOUT";
+  | "BROILER_SETTLEMENT_PAYOUT"
+  | "DEALER_BROILER_PURCHASE";
 
 export interface CashMovement {
   id: string;

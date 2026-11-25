@@ -466,6 +466,8 @@ export interface CreateStandaloneBroilerPurchaseInput {
   notes?: string;
   /** AD YYYY-MM-DD; omit to default to today on the server. */
   date?: string;
+  /** Cashflow v2: CashAccount the upfront payment leaves from. Optional; backend defaults to Cash. */
+  accountId?: string;
 }
 
 /** Record a broiler purchase lot standalone (not tied to a bulk-sale batch).
@@ -487,6 +489,9 @@ export const useCreateStandaloneBroilerPurchase = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
+      // Upfront broiler purchase auto-posts a cash OUT leg; keep the
+      // cashbook in sync.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };
@@ -529,6 +534,8 @@ export const useDeleteBroilerPurchase = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dealerSaleKeys.chickenByFarmerAll() });
+      // Delete removes the cash OUT mirror.
+      queryClient.invalidateQueries({ queryKey: dealerCashflowKeys.all });
     },
   });
 };

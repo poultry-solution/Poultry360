@@ -11,10 +11,12 @@ import { cleanupUploadedImages } from "../utils/cloudinary";
 import {
   deleteDealerSalePaymentMovement,
   ensureCashAccountId,
+  postDealerBroilerPurchaseMovement,
   postDealerLedgerPaymentMovement,
   postDealerLedgerReceiptMovement,
   postDealerSalePaymentMovement,
 } from "./dealerCashflowAutoPost";
+import { derivePaymentMethodFromAccountType } from "../common/cashflow/paymentMethod";
 
 export class DealerService {
   /**
@@ -264,15 +266,28 @@ export class DealerService {
         Promise.all(productTransactionsData.map((data) => tx.dealerProductTransaction.create({ data }))),
       ]);
 
-      // 5. Create payment record if paidAmount > 0
+      // 5. Create payment record if paidAmount > 0. Payment Method dropdown
+      //    was removed from the UI; derive from the picked account so the
+      //    column stays populated. If the caller hasn't shipped the picker
+      //    yet (old tests), fall back to the legacy string.
       let initialSalePaymentId: string | null = null;
+      let derivedSaleMethod: string | undefined = paymentMethod;
       if (paidAmount > 0) {
+        if (cashbookAccountId) {
+          const pickedAccount = await tx.cashAccount.findUnique({
+            where: { id: cashbookAccountId },
+            select: { type: true },
+          });
+          derivedSaleMethod = derivePaymentMethodFromAccountType(pickedAccount?.type);
+        } else if (!paymentMethod) {
+          derivedSaleMethod = "CASH";
+        }
         const payment = await tx.dealerSalePayment.create({
           data: {
             amount: new Prisma.Decimal(paidAmount),
             date,
             description: "Initial payment",
-            paymentMethod,
+            paymentMethod: derivedSaleMethod,
             saleId: sale.id,
             accountId: cashbookAccountId ?? null,
           },
@@ -460,6 +475,18 @@ export class DealerService {
     const created = await prisma.$transaction(async (tx) => {
       const result: CreatedSale[] = [];
 
+      // All rows in a batch share the same cashbookAccountId; look the account
+      // type up once and reuse the derived method. Payment Method dropdown
+      // was removed from the UI.
+      let batchDerivedMethod: string | null = null;
+      if (cashbookAccountId) {
+        const pickedAccount = await tx.cashAccount.findUnique({
+          where: { id: cashbookAccountId },
+          select: { type: true },
+        });
+        batchDerivedMethod = derivePaymentMethodFromAccountType(pickedAccount?.type);
+      }
+
       // Running ledger balance tracked in-memory. Reading `lastLedgerEntry` on
       // every iteration would be stale within the same transaction because
       // our own writes haven't materialised to subsequent reads of
@@ -536,7 +563,7 @@ export class DealerService {
               amount: new Prisma.Decimal(row.paidAmount),
               date: row.date,
               description: "Initial payment",
-              paymentMethod: row.paymentMethod,
+              paymentMethod: batchDerivedMethod ?? row.paymentMethod,
               saleId: sale.id,
               accountId: cashbookAccountId ?? null,
             },
@@ -630,6 +657,13 @@ export class DealerService {
       // so the all-or-nothing contract still holds (if any sale fails, the
       // purchase is also rolled back). Purchase date defaults to the first
       // row's date because that's the dealer's "today" for this entry.
+      //
+      // Cashflow v2: when the dealer fills this block they're saying they
+      // actually paid the source farmer upfront ("Purchase mode" / Scenario A).
+      // Mirror as a cash OUT so the cashbook reflects the real outflow. In
+      // "Mediator mode" (Scenario B) the block stays empty and the OUT
+      // instead flows at settlement time via farmerPayout — the two modes
+      // don't overlap.
       let createdPurchase: CreatedPurchase | null = null;
       if (purchase) {
         const purchaseDate = rows[0]?.date ?? new Date();
@@ -643,6 +677,7 @@ export class DealerService {
             broilerCount: purchase.broilerCount ?? null,
             notes: purchase.notes ?? null,
             date: purchaseDate,
+            accountId: cashbookAccountId ?? null,
           },
         });
         createdPurchase = {
@@ -653,6 +688,33 @@ export class DealerService {
           broilerCount: row.broilerCount,
           date: row.date,
         };
+
+        if (cashbookRecordedById) {
+          const dealerRow = await tx.dealer.findUnique({
+            where: { id: dealerId },
+            select: { ownerId: true },
+          });
+          if (dealerRow?.ownerId) {
+            const accountId =
+              cashbookAccountId ?? (await ensureCashAccountId(tx, dealerRow.ownerId));
+            // Fetch the source farmer's name for the mirror's partyName.
+            const farmerRow = await tx.customer.findUnique({
+              where: { id: sourceFarmerId },
+              select: { name: true },
+            });
+            await postDealerBroilerPurchaseMovement({
+              tx,
+              userId: dealerRow.ownerId,
+              dealerBroilerPurchaseId: row.id,
+              accountId,
+              amount: Number(purchase.totalCost),
+              date: purchaseDate,
+              sourceFarmerName: farmerRow?.name ?? "Source farmer",
+              recordedById: cashbookRecordedById,
+              notes: purchase.notes ?? null,
+            });
+          }
+        }
       }
 
       return { sales: result, purchase: createdPurchase };

@@ -82,7 +82,7 @@ export function DealerAddPaymentDialog({
   const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [amount, setAmount] = useState<number>(0);
   const [direction, setDirection] = useState<"RECEIVED" | "MADE">("RECEIVED");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  // paymentMethod state removed — backend derives it from the AccountPicker.
   const [accountId, setAccountId] = useState("");
   // Today in Nepal; toISOString() showed yesterday before 5:45 AM.
   const [date, setDate] = useState(() => getNepalTodayAd());
@@ -118,7 +118,6 @@ export function DealerAddPaymentDialog({
     setCustomerPopoverOpen(false);
     setAmount(0);
     setDirection("RECEIVED");
-    setPaymentMethod("CASH");
     setDate(getNepalTodayAd());
     setNotes("");
     setReference("");
@@ -145,7 +144,6 @@ export function DealerAddPaymentDialog({
         customerId: effectiveCustomerId,
         amount,
         direction: effectiveDirection,
-        paymentMethod,
         accountId: accountId || undefined,
         date,
         notes: notes || undefined,
@@ -300,24 +298,7 @@ export function DealerAddPaymentDialog({
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment-method">{t("dealer.addPaymentDialog.method")}</Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={setPaymentMethod}
-                >
-                  <SelectTrigger id="payment-method" className="bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="CASH">{t("dealer.addPaymentDialog.methods.cash")}</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">{t("dealer.addPaymentDialog.methods.bank_transfer")}</SelectItem>
-                    <SelectItem value="CHEQUE">{t("dealer.addPaymentDialog.methods.cheque")}</SelectItem>
-                    <SelectItem value="UPI">{t("dealer.addPaymentDialog.methods.upi")}</SelectItem>
-                    <SelectItem value="OTHER">{t("dealer.addPaymentDialog.methods.other")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Payment method dropdown removed — derived from the AccountPicker. */}
             </div>
 
             {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (

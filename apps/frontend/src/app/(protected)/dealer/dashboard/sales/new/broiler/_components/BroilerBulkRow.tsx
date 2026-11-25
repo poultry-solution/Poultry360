@@ -309,20 +309,8 @@ export function BroilerBulkRow({
             prefix="रू"
           />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Payment</Label>
-          <Select
-            value={row.paymentMethod}
-            onValueChange={(v: BulkBroilerRow["paymentMethod"]) => onChange({ paymentMethod: v })}
-          >
-            <SelectTrigger className="h-10 bg-white"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-white">
-              {PAYMENT_METHODS.map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Per-row payment method removed — backend derives from the one
+            AccountPicker that applies to the whole batch (see parent page). */}
       </div>
 
       {/* Totals */}

@@ -15,6 +15,7 @@ jest.mock("../../src/utils/nepalBsDate", () => ({
 
 import {
   postBroilerSettlementPayoutMovement,
+  postDealerBroilerPurchaseMovement,
   postDealerLedgerPaymentMovement,
   postDealerLedgerReceiptMovement,
   postDealerSalePaymentMovement,
@@ -206,10 +207,35 @@ describe("dealer cashflow invariants", () => {
       expect(data.sourceType).toBe("BROILER_SETTLEMENT_PAYOUT");
     });
 
-    // Margin is derived (sum of broiler sale inflows − payout), not a third
-    // cash row. If a future refactor adds a BROILER_SETTLEMENT_PROCEEDS leg,
-    // this suite must be updated to reflect that; otherwise the sum of
-    // inflows will double-count against the sales already mirrored.
+    // Margin is derived (sum of broiler sale inflows − payout − any purchase
+    // cost), not a cash row. If a future refactor adds a
+    // BROILER_SETTLEMENT_PROCEEDS leg, this suite must be updated to reflect
+    // that; otherwise the sum of inflows will double-count against the sales
+    // already mirrored.
+
+    it("Broiler purchase (dealer bought upfront) → mirrors one OUT leg", async () => {
+      // Scenario A: dealer paid the source farmer upfront. The Purchase block
+      // represents real cash leaving the dealer's account. In Scenario B
+      // (mediator/consignment) the Purchase block stays empty and this
+      // helper is never called — so the two modes never double-count.
+      const t = tx();
+      t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
+      t.cashMovement.findFirst.mockResolvedValueOnce(null);
+      await postDealerBroilerPurchaseMovement({
+        tx: t as unknown as Prisma.TransactionClient,
+        userId: "dealer-user-1",
+        dealerBroilerPurchaseId: "dbp-1",
+        accountId: "cash-1",
+        amount: 15000,
+        date: new Date(),
+        sourceFarmerName: "Ram Prasad",
+        recordedById: "dealer-user-1",
+      });
+      expect(t.cashMovement.create).toHaveBeenCalledTimes(1);
+      const data = t.cashMovement.create.mock.calls[0][0].data;
+      expect(data.direction).toBe("OUT");
+      expect(data.sourceType).toBe("DEALER_BROILER_PURCHASE");
+    });
   });
 
   describe("source types that must never mirror", () => {

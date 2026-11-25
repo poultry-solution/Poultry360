@@ -94,7 +94,7 @@ export default function NewSalePage() {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [notes, setNotes] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+  // paymentMethod state removed — backend derives it from the AccountPicker.
   const [accountId, setAccountId] = useState("");
   const [paidAmount, setPaidAmount] = useState(0);
   const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
@@ -295,7 +295,6 @@ export default function NewSalePage() {
           unit: item.unit || undefined,
         })),
         paidAmount,
-        paymentMethod,
         accountId: accountId || undefined,
         notes: notes || undefined,
         date: nepalNoonFromAdDay(saleDateAd || getTodayLocalDate()),
@@ -678,39 +677,24 @@ export default function NewSalePage() {
                 <CardDescription>{t("dealer.newSale.payment.description")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">{t("dealer.newSale.payment.method")}</Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        <SelectItem value="CASH">{t("dealer.newSale.payment.methods.cash")}</SelectItem>
-                        <SelectItem value="BANK_TRANSFER">{t("dealer.newSale.payment.methods.bank")}</SelectItem>
-                        <SelectItem value="CHEQUE">{t("dealer.newSale.payment.methods.cheque")}</SelectItem>
-                        <SelectItem value="OTHER">{t("dealer.newSale.payment.methods.other")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="paidAmount">{t("dealer.newSale.payment.paid")}</Label>
-                    <Input
-                      id="paidAmount"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      max={finalTotal}
-                      value={paidAmount || ""}
-                      onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="h-9"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t("dealer.newSale.payment.creditHint")}
-                    </p>
-                  </div>
+                {/* Payment Method dropdown removed — the backend derives it
+                    from the picked CashAccount in the AccountPicker below. */}
+                <div className="space-y-2">
+                  <Label htmlFor="paidAmount">{t("dealer.newSale.payment.paid")}</Label>
+                  <Input
+                    id="paidAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    max={finalTotal}
+                    value={paidAmount || ""}
+                    onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="h-9"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("dealer.newSale.payment.creditHint")}
+                  </p>
                 </div>
 
                 {paidAmount > 0 && cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (

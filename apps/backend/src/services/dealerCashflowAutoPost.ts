@@ -293,3 +293,61 @@ export async function deleteBroilerSettlementMovements(
     },
   });
 }
+
+// ─── Broiler purchase (dealer paid source farmer upfront for a lot) ─────────
+
+export interface DealerBroilerPurchasePostInput {
+  tx: Tx;
+  userId: string;
+  dealerBroilerPurchaseId: string;
+  accountId: string;
+  /** `DealerBroilerPurchase.totalCost` — the cash that left the dealer's account to pay the source farmer. */
+  amount: number;
+  date: Date;
+  sourceFarmerName: string;
+  recordedById: string;
+  notes?: string | null;
+}
+
+/**
+ * Posts a cash OUT for an upfront purchase from the source farmer. This is
+ * the "Purchase mode" (Scenario A) from the broiler flow — the dealer actually
+ * hands cash to the source farmer when buying the broilers. In the
+ * "Mediator mode" (Scenario B) the Purchase block is empty and the OUT
+ * instead flows at settlement time via `postBroilerSettlementPayoutMovement`.
+ *
+ * The two modes don't overlap: if the dealer paid upfront, the eventual
+ * settlement is expected to leave `farmerPayout = 0`, so there's no double-
+ * count against the sales inflow mirrors.
+ */
+export async function postDealerBroilerPurchaseMovement(
+  input: DealerBroilerPurchasePostInput,
+): Promise<void> {
+  await upsertSourceMovement({
+    tx: input.tx,
+    userId: input.userId,
+    accountId: input.accountId,
+    sourceType: CashSourceType.DEALER_BROILER_PURCHASE,
+    sourceId: input.dealerBroilerPurchaseId,
+    direction: CashMovementDirection.OUT,
+    category: CashCategory.CASH_OUT,
+    amount: input.amount,
+    date: input.date,
+    partyName: `Broiler purchase from ${input.sourceFarmerName}`,
+    notes: input.notes,
+    recordedById: input.recordedById,
+  });
+}
+
+export async function deleteDealerBroilerPurchaseMovement(
+  tx: Tx,
+  userId: string,
+  dealerBroilerPurchaseId: string,
+): Promise<void> {
+  await deleteSourceMovement(
+    tx,
+    userId,
+    CashSourceType.DEALER_BROILER_PURCHASE,
+    dealerBroilerPurchaseId,
+  );
+}

@@ -10,6 +10,7 @@ import {
   ensureCashAccountId,
   postDealerSupplierPaymentMovement,
 } from "../services/dealerCashflowAutoPost";
+import { derivePaymentMethodFromAccountType } from "../common/cashflow/paymentMethod";
 
 type ManualCompanyPaymentDirection = "RECEIVED" | "MADE";
 
@@ -778,6 +779,18 @@ export const recordManualCompanyPayment = async (
             // event — recordManualPurchase (above) and adjustments never mirror.
             const accountId =
                 cashbookAccountId ?? (await ensureCashAccountId(tx, dealerOwnerId));
+            // Payment Method dropdown was removed from the UI — derive it from
+            // the picked account so the statement's "Method" column stays
+            // sensible without the dealer having to answer the same question twice.
+            const resolvedAccount = await tx.cashAccount.findUnique({
+                where: { id: accountId },
+                select: { type: true },
+            });
+            const derivedMethod = derivePaymentMethodFromAccountType(resolvedAccount?.type);
+            await tx.dealerManualCompanyPayment.update({
+                where: { id: payment.id },
+                data: { paymentMethod: derivedMethod },
+            });
             await postDealerSupplierPaymentMovement({
                 tx,
                 userId: dealerOwnerId,

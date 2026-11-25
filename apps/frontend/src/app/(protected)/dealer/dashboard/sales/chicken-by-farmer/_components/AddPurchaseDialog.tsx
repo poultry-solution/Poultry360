@@ -10,6 +10,8 @@ import { Textarea } from "@/common/components/ui/textarea";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useCreateStandaloneBroilerPurchase } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 
 /** Compact dialog for entering a broiler-purchase lot retroactively. Mirrors
  * the inline purchase card on the bulk-sale page: weight + rate auto-compute
@@ -36,10 +38,13 @@ export function AddPurchaseDialog({
   const [broilerCount, setBroilerCount] = useState("");
   const [notes, setNotes] = useState("");
   const [date, setDate] = useState(() => getNepalTodayAd());
+  const [accountId, setAccountId] = useState("");
   const mutation = useCreateStandaloneBroilerPurchase();
+  const accountsQ = useGetCashflowAccounts(false);
+  const cashflowAccounts = accountsQ.data ?? [];
 
   // Reset form each time the dialog opens so stale values from a previous
-  // farmer don't bleed in.
+  // farmer don't bleed in. Default the account to Cash once accounts load.
   useEffect(() => {
     if (open) {
       setWeightKg("");
@@ -49,8 +54,10 @@ export function AddPurchaseDialog({
       setBroilerCount("");
       setNotes("");
       setDate(getNepalTodayAd());
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      setAccountId(cash?.id ?? "");
     }
-  }, [open]);
+  }, [open, cashflowAccounts]);
 
   // Auto-compute total cost from weight × rate when the user hasn't
   // explicitly typed into the total-cost field.
@@ -99,6 +106,7 @@ export function AddPurchaseDialog({
         broilerCount: broilerCount.trim() === "" ? null : Number(broilerCount),
         notes: notes.trim() || undefined,
         date,
+        accountId: accountId || undefined,
       });
       toast.success("Purchase recorded");
       onOpenChange(false);
@@ -119,7 +127,8 @@ export function AddPurchaseDialog({
             {hasExistingPurchase ? "Add another purchase lot" : "Add purchase cost"}
           </DialogTitle>
           <DialogDescription>
-            What you paid {farmerName} for broilers. Informational only — not used in settlement math.
+            What you paid {farmerName} for broilers. Posts a cash OUT entry on
+            your cashbook. Not used in settlement math.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -194,6 +203,17 @@ export function AddPurchaseDialog({
               />
             </div>
           </div>
+          {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Paid from</Label>
+              <AccountPicker
+                accounts={cashflowAccounts}
+                value={accountId}
+                onChange={setAccountId}
+                autoHideSingleCash
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="pur-notes" className="text-xs">Notes (optional)</Label>
             <Textarea
