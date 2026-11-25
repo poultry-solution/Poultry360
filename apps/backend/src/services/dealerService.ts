@@ -8,6 +8,13 @@ import {
 import { generateNextInvoiceNumber } from "../utils/invoiceNumber";
 import { computeLineCost, getNetUnitCosts } from "./dealerCostService";
 import { cleanupUploadedImages } from "../utils/cloudinary";
+import {
+  deleteDealerSalePaymentMovement,
+  ensureCashAccountId,
+  postDealerLedgerPaymentMovement,
+  postDealerLedgerReceiptMovement,
+  postDealerSalePaymentMovement,
+} from "./dealerCashflowAutoPost";
 
 export class DealerService {
   /**
@@ -31,6 +38,11 @@ export class DealerService {
     invoiceNumber?: string;
     isChickenSale?: boolean;
     sourceFarmerId?: string;
+    // Cashflow v2 wiring (optional; falls back to the dealer's system Cash
+    // account when not provided). The controller resolves these from req.
+    cashbookAccountId?: string;
+    cashbookRecordedById?: string;
+    cashbookCustomerName?: string;
   }) {
     const {
       dealerId,
@@ -44,6 +56,9 @@ export class DealerService {
       invoiceNumber: customInvoiceNumber,
       isChickenSale = false,
       sourceFarmerId,
+      cashbookAccountId,
+      cashbookRecordedById,
+      cashbookCustomerName,
     } = data;
 
     // Validate that customerId is provided
@@ -250,16 +265,46 @@ export class DealerService {
       ]);
 
       // 5. Create payment record if paidAmount > 0
+      let initialSalePaymentId: string | null = null;
       if (paidAmount > 0) {
-        await tx.dealerSalePayment.create({
+        const payment = await tx.dealerSalePayment.create({
           data: {
             amount: new Prisma.Decimal(paidAmount),
             date,
             description: "Initial payment",
             paymentMethod,
             saleId: sale.id,
+            accountId: cashbookAccountId ?? null,
           },
         });
+        initialSalePaymentId = payment.id;
+      }
+
+      // 5b. Cashflow v2 mirror. Invariant: only mirror when cash actually
+      // changed hands at sale time. Full credit (paidAmount === 0) creates
+      // zero cash rows; partial payments mirror the paid portion only. The
+      // controller is expected to pass cashbookRecordedById + customerName;
+      // older callers that haven't been updated skip the mirror safely.
+      if (initialSalePaymentId !== null && cashbookRecordedById) {
+        const dealerRow = await tx.dealer.findUnique({
+          where: { id: dealerId },
+          select: { ownerId: true },
+        });
+        if (dealerRow?.ownerId) {
+          const accountId =
+            cashbookAccountId ?? (await ensureCashAccountId(tx, dealerRow.ownerId));
+          await postDealerSalePaymentMovement({
+            tx,
+            userId: dealerRow.ownerId,
+            dealerSalePaymentId: initialSalePaymentId,
+            accountId,
+            amount: paidAmount,
+            date,
+            partyName: cashbookCustomerName ?? "Customer",
+            recordedById: cashbookRecordedById,
+            notes: null,
+          });
+        }
       }
 
       // 6. Get current ledger balance (single query)
@@ -364,6 +409,7 @@ export class DealerService {
     sourceFarmerId: string;
     rows: Array<{
       buyerId: string;
+      buyerName?: string;
       weightKg: number;
       broilerCount: number | null;
       ratePerKg: number;
@@ -384,8 +430,11 @@ export class DealerService {
       broilerCount: number | null;
       notes: string | null;
     } | null;
+    // Cashflow v2 wiring (optional).
+    cashbookAccountId?: string;
+    cashbookRecordedById?: string;
   }) {
-    const { dealerId, sourceFarmerId, rows, purchase } = data;
+    const { dealerId, sourceFarmerId, rows, purchase, cashbookAccountId, cashbookRecordedById } = data;
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -480,16 +529,42 @@ export class DealerService {
           },
         });
 
+        let bulkInitialSalePaymentId: string | null = null;
         if (row.paidAmount > 0) {
-          await tx.dealerSalePayment.create({
+          const payment = await tx.dealerSalePayment.create({
             data: {
               amount: new Prisma.Decimal(row.paidAmount),
               date: row.date,
               description: "Initial payment",
               paymentMethod: row.paymentMethod,
               saleId: sale.id,
+              accountId: cashbookAccountId ?? null,
             },
           });
+          bulkInitialSalePaymentId = payment.id;
+        }
+
+        // Cashflow v2 mirror per row. Full-credit rows (paidAmount=0) skip.
+        if (bulkInitialSalePaymentId !== null && cashbookRecordedById) {
+          const dealerRow = await tx.dealer.findUnique({
+            where: { id: dealerId },
+            select: { ownerId: true },
+          });
+          if (dealerRow?.ownerId) {
+            const accountId =
+              cashbookAccountId ?? (await ensureCashAccountId(tx, dealerRow.ownerId));
+            await postDealerSalePaymentMovement({
+              tx,
+              userId: dealerRow.ownerId,
+              dealerSalePaymentId: bulkInitialSalePaymentId,
+              accountId,
+              amount: row.paidAmount,
+              date: row.date,
+              partyName: row.buyerName ?? "Buyer",
+              recordedById: cashbookRecordedById,
+              notes: null,
+            });
+          }
         }
 
         // Ledger: sale proceeds first, then (optional) payment-received.
@@ -971,9 +1046,59 @@ export class DealerService {
     reference?: string;
     direction?: "RECEIVED" | "MADE";
     affectsCustomerBalance?: boolean;
+    // Cashflow v2 wiring. Only present on user-initiated payments (controller
+    // path); settlement bookkeeping still calls `recordAccountPayment` directly
+    // without these, so it won't trigger a mirror.
+    cashbookAccountId?: string;
+    cashbookRecordedById?: string;
+    cashbookPartyName?: string;
   }) {
     return await prisma.$transaction(
-      (tx) => this.recordAccountPayment(tx, data),
+      async (tx) => {
+        const result = await this.recordAccountPayment(tx, data);
+        // Mirror only when the caller passed cashbook params. Settlement's
+        // internal calls omit them, so the bookkeeping entries (credit
+        // recovery RECEIVED, farmer payout MADE without affectsCustomerBalance)
+        // don't double-count the inflow/outflow that happened elsewhere.
+        if (data.cashbookRecordedById && result.ledgerEntryId) {
+          const dealerRow = await tx.dealer.findUnique({
+            where: { id: data.dealerId },
+            select: { ownerId: true },
+          });
+          if (dealerRow?.ownerId) {
+            const accountId =
+              data.cashbookAccountId ??
+              (await ensureCashAccountId(tx, dealerRow.ownerId));
+            const partyName = data.cashbookPartyName ?? "Customer";
+            if (data.direction !== "MADE") {
+              await postDealerLedgerReceiptMovement({
+                tx,
+                userId: dealerRow.ownerId,
+                dealerLedgerEntryId: result.ledgerEntryId,
+                accountId,
+                amount: data.amount,
+                date: data.date,
+                partyName,
+                recordedById: data.cashbookRecordedById,
+                notes: data.description ?? null,
+              });
+            } else {
+              await postDealerLedgerPaymentMovement({
+                tx,
+                userId: dealerRow.ownerId,
+                dealerLedgerEntryId: result.ledgerEntryId,
+                accountId,
+                amount: data.amount,
+                date: data.date,
+                partyName,
+                recordedById: data.cashbookRecordedById,
+                notes: data.description ?? null,
+              });
+            }
+          }
+        }
+        return result;
+      },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
   }
@@ -996,6 +1121,10 @@ export class DealerService {
       reference?: string;
       direction?: "RECEIVED" | "MADE";
       affectsCustomerBalance?: boolean;
+      // Cashflow v2. Only stamped on the row; mirror is posted in
+      // addAccountPayment (controller-initiated) or at the settlement
+      // controller (settlement-initiated), not here.
+      cashbookAccountId?: string;
     }
   ) {
     const {
@@ -1058,7 +1187,7 @@ export class DealerService {
     );
     const newLedgerBalance = currentLedgerBalance.plus(ledgerBalanceEffect);
 
-    await tx.dealerLedgerEntry.create({
+    const ledgerEntry = await tx.dealerLedgerEntry.create({
       data: {
         type: isReceived ? "PAYMENT_RECEIVED" : "PAYMENT_MADE",
         amount: new Prisma.Decimal(amount),
@@ -1071,6 +1200,7 @@ export class DealerService {
         partyType: "CUSTOMER",
         imageUrl: receiptUrl,
         affectsCustomerBalance: changesCustomerBalance,
+        accountId: data.cashbookAccountId ?? null,
       },
     });
 
@@ -1079,6 +1209,7 @@ export class DealerService {
       totalAmount: amount,
       direction,
       newCustomerBalance: newBalance,
+      ledgerEntryId: ledgerEntry.id,
     };
   }
 
@@ -1205,6 +1336,23 @@ export class DealerService {
       await tx.dealerProductTransaction.deleteMany({
         where: { dealerSaleId: data.saleId },
       });
+
+      // 5b. Cashflow v2 mirror cleanup. Child DealerSalePayments cascade when
+      // the sale is deleted below; their CashMovement mirrors would leak if we
+      // didn't remove them first.
+      const dealerRow = await tx.dealer.findUnique({
+        where: { id: data.dealerId },
+        select: { ownerId: true },
+      });
+      if (dealerRow?.ownerId) {
+        const payments = await tx.dealerSalePayment.findMany({
+          where: { saleId: data.saleId },
+          select: { id: true },
+        });
+        for (const p of payments) {
+          await deleteDealerSalePaymentMovement(tx, dealerRow.ownerId, p.id);
+        }
+      }
 
       // 6. Delete the sale (cascades: DealerSaleItem, DealerSalePayment, SaleDiscount)
       await tx.dealerSale.delete({ where: { id: data.saleId } });

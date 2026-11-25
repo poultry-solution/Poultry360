@@ -228,6 +228,8 @@ export const useAddDealerPayment = () => {
       notes?: string;
       receiptImageUrl?: string;
       reference?: string;
+      /** Cashflow v2: CashAccount this payment moves cash in/out of. Optional; backend defaults to Cash. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post("/dealer/ledger/payments", input);
       return data;

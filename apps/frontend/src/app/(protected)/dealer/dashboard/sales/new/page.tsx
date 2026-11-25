@@ -47,6 +47,8 @@ import {
   useCreateDealerSale,
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useI18n } from "@/i18n/useI18n";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
@@ -93,6 +95,7 @@ export default function NewSalePage() {
   const [notes, setNotes] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [accountId, setAccountId] = useState("");
   const [paidAmount, setPaidAmount] = useState(0);
   const [discountType, setDiscountType] = useState<"PERCENT" | "FLAT">("PERCENT");
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -113,6 +116,18 @@ export default function NewSalePage() {
   const productSelect = useSearchableDealerProductSelect();
 
   const createSaleMutation = useCreateDealerSale();
+  const accountsQ = useGetCashflowAccounts(false);
+  const cashflowAccounts = accountsQ.data ?? [];
+  // Pre-select the dealer's Cash account on first load so the picker has a
+  // sensible default. The backend also falls back to Cash when accountId is
+  // empty, so this is cosmetic; it just saves a click when a dealer has
+  // added bank accounts and expects the picker to be pre-set.
+  useEffect(() => {
+    if (!accountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setAccountId(cash.id);
+    }
+  }, [accountId, cashflowAccounts]);
   const createCustomerMutation = useCreateCustomer();
 
   // Legacy URL: "?type=broiler" used to switch this page into broiler mode.
@@ -281,6 +296,7 @@ export default function NewSalePage() {
         })),
         paidAmount,
         paymentMethod,
+        accountId: accountId || undefined,
         notes: notes || undefined,
         date: nepalNoonFromAdDay(saleDateAd || getTodayLocalDate()),
         discount:
@@ -696,6 +712,18 @@ export default function NewSalePage() {
                     </p>
                   </div>
                 </div>
+
+                {paidAmount > 0 && cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+                  <div className="space-y-2">
+                    <Label>Received into</Label>
+                    <AccountPicker
+                      accounts={cashflowAccounts}
+                      value={accountId}
+                      onChange={setAccountId}
+                      autoHideSingleCash
+                    />
+                  </div>
+                )}
 
                 {dueAmount > 0 && (
                   <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">

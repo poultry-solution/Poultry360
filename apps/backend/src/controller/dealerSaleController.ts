@@ -12,6 +12,11 @@ import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
 } from "../services/accountFeatureService";
+import {
+  deleteBroilerSettlementMovements,
+  ensureCashAccountId,
+  postBroilerSettlementPayoutMovement,
+} from "../services/dealerCashflowAutoPost";
 
 // ==================== CREATE DEALER SALE ====================
 export const createDealerSale = async (
@@ -104,7 +109,7 @@ export const createDealerSale = async (
         userId: userId as string,
         farmerId: null,
       },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (!customer) {
@@ -141,6 +146,13 @@ export const createDealerSale = async (
       invoiceNumber: invoiceNumber?.trim() || undefined,
       isChickenSale,
       sourceFarmerId: isChickenSale ? sourceFarmerId : undefined,
+      cashbookAccountId:
+        typeof req.body?.accountId === "string" && req.body.accountId.trim()
+          ? req.body.accountId.trim()
+          : undefined,
+      cashbookRecordedById:
+        req.actorType === "STAFF" ? req.staffUserId ?? userId! : userId!,
+      cashbookCustomerName: customer.name,
     });
     if (!sale) throw new Error("Sale was not created");
 
@@ -310,10 +322,11 @@ export const createBulkBroilerSales = async (
     const existingBuyers = buyerIds.length
       ? await prisma.customer.findMany({
           where: { id: { in: buyerIds }, userId: userId as string, farmerId: null },
-          select: { id: true },
+          select: { id: true, name: true },
         })
       : [];
     const buyerIdSet = new Set(existingBuyers.map((c) => c.id));
+    const buyerNameById = new Map(existingBuyers.map((c) => [c.id, c.name]));
 
     // Collect per-row validation errors; also run the custom-invoice-in-batch
     // uniqueness check before touching the DB.
@@ -418,6 +431,7 @@ export const createBulkBroilerSales = async (
 
       normalisedRows.push({
         buyerId,
+        buyerName: buyerNameById.get(buyerId) ?? undefined,
         weightKg,
         broilerCount,
         ratePerKg,
@@ -518,6 +532,12 @@ export const createBulkBroilerSales = async (
         sourceFarmerId,
         rows: normalisedRows,
         purchase: purchaseInput,
+        cashbookAccountId:
+          typeof req.body?.accountId === "string" && req.body.accountId.trim()
+            ? req.body.accountId.trim()
+            : undefined,
+        cashbookRecordedById:
+          req.actorType === "STAFF" ? req.staffUserId ?? userId! : userId!,
       });
 
     // Audit for the whole batch. The sales + optional purchase are already
@@ -2140,11 +2160,18 @@ export const settleBroilerSales = async (
 
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId },
-      select: { id: true },
+      select: { id: true, ownerId: true },
     });
-    if (!dealer) {
+    if (!dealer || !dealer.ownerId) {
       return res.status(404).json({ message: "Dealer not found" });
     }
+    const dealerOwnerId = dealer.ownerId;
+    const cashbookAccountId =
+      typeof req.body?.accountId === "string" && req.body.accountId.trim()
+        ? req.body.accountId.trim()
+        : undefined;
+    const recordedById =
+      req.actorType === "STAFF" ? req.staffUserId ?? userId : userId;
 
     const settlement = await prisma.$transaction(async (tx) => {
       const farmer = await tx.customer.findFirst({
@@ -2198,6 +2225,7 @@ export const settleBroilerSales = async (
           notes: notes?.trim() || null,
           reference: reference?.trim() || null,
           receiptUrl: receiptImageUrl || null,
+          accountId: cashbookAccountId ?? null,
         },
       });
 
@@ -2277,6 +2305,27 @@ export const settleBroilerSales = async (
         });
       }
 
+      // Cashflow v2 mirror. Only the farmerPayout leg moves cash — the
+      // totalProceeds already came in via each broiler sale's
+      // DealerSalePayment mirror, and margin is derived. The internal
+      // recordAccountPayment calls above omit cashbook params so they don't
+      // trigger the ledger mirror.
+      if (farmerPayout > 0) {
+        const accountId =
+          cashbookAccountId ?? (await ensureCashAccountId(tx, dealerOwnerId));
+        await postBroilerSettlementPayoutMovement({
+          tx,
+          userId: dealerOwnerId,
+          broilerSaleSettlementId: created.id,
+          accountId,
+          amount: farmerPayout,
+          date: settlementDate,
+          farmerName: farmer.name,
+          recordedById: recordedById as string,
+          notes: notes?.trim() || null,
+        });
+      }
+
       await writeBusinessAudit(req, {
         action: "dealer.broiler_settlement.completed",
         targetType: "BroilerSaleSettlement",
@@ -2311,9 +2360,10 @@ export const reverseSettlement = async (
 
     const dealer = await prisma.dealer.findUnique({
       where: { ownerId: userId },
-      select: { id: true },
+      select: { id: true, ownerId: true },
     });
-    if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+    if (!dealer || !dealer.ownerId) return res.status(404).json({ message: "Dealer not found" });
+    const dealerOwnerId = dealer.ownerId;
 
     const purgedImageUrls: Array<string | null> = [];
     await prisma.$transaction(async (tx) => {
@@ -2453,6 +2503,11 @@ export const reverseSettlement = async (
           data: { balance: { decrement: new Prisma.Decimal(netLedgerEffect) } },
         });
       }
+
+      // Cashflow v2: remove the farmerPayout mirror so the cashbook matches
+      // the reversed state. Belt-and-braces also covers any proceeds leg a
+      // future change might add.
+      await deleteBroilerSettlementMovements(tx, dealerOwnerId, settlement.id);
 
       // 4. Delete the settlement record (sales are already unlinked above so Restrict constraint allows this).
       await tx.broilerSaleSettlement.delete({ where: { id: settlement.id } });

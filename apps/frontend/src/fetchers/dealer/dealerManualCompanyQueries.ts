@@ -59,6 +59,8 @@ export interface RecordManualPaymentInput {
     paymentDate?: string;
     notes?: string;
     reference?: string;
+    /** Cashflow v2: CashAccount the supplier payment moves in/out of. Optional; backend defaults to Cash. */
+    accountId?: string;
 }
 
 export interface ManualCompanyAdjustmentTxn {

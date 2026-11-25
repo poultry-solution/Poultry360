@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
 import { farmerCashflowKeys } from "@/fetchers/farmer/farmerCashflowQueries";
+import { dealerCashflowKeys } from "@/fetchers/dealer/dealerCashflowQueries";
 
 // ==================== TYPES ====================
 
@@ -260,7 +261,7 @@ export interface AddPaymentBody {
   paidAt: string;
   note?: string;
   receiptImageUrl?: string;
-  /** Farmer only: account the salary was paid from. */
+  /** Farmer or Dealer: CashAccount the salary was paid from. Optional; backend defaults to Cash. */
   accountId?: string;
 }
 
@@ -279,10 +280,12 @@ export function useAddStaffPayment(owner: StaffOwner) {
       qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, staffId) });
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, staffId) });
-      // Farmer-side salary payments are auto-posted to the cashbook; drop the
-      // cashflow cache so the new OUT shows up without a page refresh.
+      // Farmer + Dealer salary payments are auto-posted to their cashbook;
+      // drop the right cache so the new OUT shows up without a page refresh.
       if (owner === "farmer") {
         qc.invalidateQueries({ queryKey: farmerCashflowKeys.all });
+      } else if (owner === "dealer") {
+        qc.invalidateQueries({ queryKey: dealerCashflowKeys.all });
       }
       toast.success("Payment recorded");
     },

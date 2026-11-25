@@ -91,6 +91,8 @@ export interface CreateDealerSaleInput {
   invoiceNumber?: string;
   isChickenSale?: boolean;
   sourceFarmerId?: string;
+  /** Cashflow v2: which CashAccount the paid amount lands in. Optional; backend defaults to Cash. */
+  accountId?: string;
 }
 
 export interface BulkBroilerRowInput {
@@ -118,6 +120,8 @@ export interface CreateBulkBroilerSalesInput {
   sourceFarmerId: string;
   rows: BulkBroilerRowInput[];
   purchase?: BulkBroilerPurchaseInput;
+  /** Cashflow v2: one CashAccount for the whole batch. Optional; backend defaults to Cash. */
+  accountId?: string;
 }
 
 export interface BulkBroilerSaleResult {
@@ -199,6 +203,8 @@ export interface CreateBroilerSettlementInput {
   notes?: string;
   reference?: string;
   receiptImageUrl?: string;
+  /** Cashflow v2: CashAccount the farmer payout leaves from. Optional; backend defaults to Cash. */
+  accountId?: string;
 }
 
 export interface BroilerSettlement {

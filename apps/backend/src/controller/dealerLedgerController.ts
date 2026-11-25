@@ -602,7 +602,7 @@ export const addDealerPayment = async (
     // Verify customer belongs to this dealer user
     const customer = await prisma.customer.findUnique({
       where: { id: resolvedCustomerId },
-      select: { userId: true, farmerId: true },
+      select: { userId: true, farmerId: true, name: true },
     });
 
     if (!customer || customer.userId !== userId) {
@@ -628,6 +628,16 @@ export const addDealerPayment = async (
       reference,
       direction,
       affectsCustomerBalance: true,
+      // Cashflow v2: user-initiated ledger payments mirror into the dealer
+      // cashbook. Settlement bookkeeping (recordAccountPayment direct calls)
+      // omits these params and stays invisible to the cashbook.
+      cashbookAccountId:
+        typeof req.body?.accountId === "string" && req.body.accountId.trim()
+          ? req.body.accountId.trim()
+          : undefined,
+      cashbookRecordedById:
+        req.actorType === "STAFF" ? req.staffUserId ?? (userId as string) : (userId as string),
+      cashbookPartyName: customer.name,
     });
 
     await writeBusinessAudit(req, {
@@ -760,6 +770,14 @@ export const deleteDealerManualGeneralPayment = async (
       });
 
       if (legacySplits.length > 0) {
+        // Resolve the dealer owner once — needed to scope mirror cleanup for
+        // the legacy sale-payment rows we're about to hard-delete. All
+        // legacy rows share the same dealer (same ledger entry).
+        const legacyDealer = await tx.dealer.findUnique({
+          where: { id: dealer.id },
+          select: { ownerId: true },
+        });
+
         // Revert each affected sale's paidAmount/dueAmount
         for (const sp of legacySplits) {
           const sale = sp.sale;
@@ -778,6 +796,20 @@ export const deleteDealerManualGeneralPayment = async (
               dueAmount: newDueAmount > 0 ? new Prisma.Decimal(newDueAmount) : null,
             },
           });
+
+          // Cashflow v2 belt-and-braces: legacy FIFO DealerSalePayment rows
+          // predate Phase 2 and should not carry a DEALER_SALE_PAYMENT mirror,
+          // but a deleteMany with no match is cheap and prevents any
+          // theoretical orphan if a legacy row was somehow mirrored later.
+          if (legacyDealer?.ownerId) {
+            await tx.cashMovement.deleteMany({
+              where: {
+                userId: legacyDealer.ownerId,
+                sourceType: "DEALER_SALE_PAYMENT",
+                sourceId: sp.id,
+              },
+            });
+          }
 
           // DealerSalePayment does not carry an image URL (payment receipt
           // images live on the ledger entry's imageUrl, already collected).
@@ -805,6 +837,23 @@ export const deleteDealerManualGeneralPayment = async (
             : {}),
         },
       });
+
+      // Cashflow v2 mirror cleanup. Only one of the two sourceTypes (receipt
+      // or payment) will have a row keyed by this ledger entry; deleteMany is
+      // a safe superset.
+      const dealerRow = await tx.dealer.findUnique({
+        where: { id: dealer.id },
+        select: { ownerId: true },
+      });
+      if (dealerRow?.ownerId) {
+        await tx.cashMovement.deleteMany({
+          where: {
+            userId: dealerRow.ownerId,
+            sourceType: { in: ["DEALER_LEDGER_RECEIPT", "DEALER_LEDGER_PAYMENT"] },
+            sourceId: ledgerEntryId,
+          },
+        });
+      }
 
       // Delete the ledger entry
       await tx.dealerLedgerEntry.delete({

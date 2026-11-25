@@ -31,6 +31,7 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import { StaffAttendanceCalendar } from "@/components/staff/StaffAttendanceCalendar";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccounts as useGetDealerCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
 import {
   useDeleteStaff,
   useCreateStaff,
@@ -714,6 +715,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 onChange={(v) => setPayForm((f) => ({ ...f, paidAt: v?.split("T")[0] ?? getTodayLocalDate() }))}
               />
             </div>
+            {owner === "dealer" && (
+              <DealerSalaryAccountPicker
+                value={payForm.accountId}
+                onChange={(accountId) =>
+                  setPayForm((form) => ({ ...form, accountId }))
+                }
+              />
+            )}
             {owner === "farmer" && (
               <FarmerSalaryAccountPicker
                 value={payForm.accountId}
@@ -1237,6 +1246,36 @@ function FarmerSalaryAccountPicker({
   onChange: (accountId: string) => void;
 }) {
   const { data: accounts } = useGetCashflowAccounts(false);
+  const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
+  const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
+
+  if (activeAccounts.length <= 1) return null;
+
+  return (
+    <div>
+      <Label>Paid from</Label>
+      <AccountPicker
+        accounts={activeAccounts}
+        value={value || cashId}
+        onChange={onChange}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        Default: Cash. Pick a bank if the salary was paid from there.
+      </p>
+    </div>
+  );
+}
+
+/** Dealer twin — same UX, reads the dealer's accounts. Mounted only for Dealer
+ *  so the farmer side never fetches the dealer cashflow API. */
+function DealerSalaryAccountPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (accountId: string) => void;
+}) {
+  const { data: accounts } = useGetDealerCashflowAccounts(false);
   const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
   const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
 

@@ -5,6 +5,11 @@ import { writeBusinessAudit } from "../services/businessAuditService";
 import { parseDealerExpiryDate } from "../utils/dealerExpiryDate";
 import { parseDealerDateRange } from "../utils/dealerSaleDateRange";
 import { cleanupUploadedImages } from "../utils/cloudinary";
+import {
+  deleteDealerSupplierPaymentMovement,
+  ensureCashAccountId,
+  postDealerSupplierPaymentMovement,
+} from "../services/dealerCashflowAutoPost";
 
 type ManualCompanyPaymentDirection = "RECEIVED" | "MADE";
 
@@ -703,20 +708,30 @@ export const recordManualCompanyPayment = async (
 
         const dealer = await prisma.dealer.findUnique({
             where: { ownerId: userId },
-            select: { id: true },
+            select: { id: true, ownerId: true },
         });
 
-        if (!dealer) {
+        if (!dealer || !dealer.ownerId) {
             return res.status(404).json({ message: "Dealer not found" });
         }
+        const dealerOwnerId = dealer.ownerId;
 
         const company = await prisma.dealerManualCompany.findUnique({
             where: { id },
+            select: { id: true, dealerId: true, name: true },
         });
 
         if (!company || company.dealerId !== dealer.id) {
             return res.status(404).json({ message: "Manual company not found" });
         }
+
+        const cashbookAccountId =
+            typeof req.body?.accountId === "string" && req.body.accountId.trim()
+                ? req.body.accountId.trim()
+                : undefined;
+        const recordedById =
+            req.actorType === "STAFF" ? req.staffUserId ?? (userId as string) : (userId as string);
+        const paymentInstant = paymentDate ? new Date(paymentDate) : new Date();
 
         const result = await prisma.$transaction(async (tx) => {
             const currentCompany = await tx.dealerManualCompany.findUnique({
@@ -749,13 +764,31 @@ export const recordManualCompanyPayment = async (
                     amount: paymentAmount,
                     direction,
                     paymentMethod: paymentMethod || "CASH",
-                    paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+                    paymentDate: paymentInstant,
                     notes: notes || null,
                     reference: reference || null,
                     receiptUrl: receiptUrl || null,
                     balanceAfter: newBalance,
                     manualCompanyId: id,
+                    accountId: cashbookAccountId ?? null,
                 },
+            });
+
+            // Cashflow v2 mirror. Invariant: only the payment event is a cash
+            // event — recordManualPurchase (above) and adjustments never mirror.
+            const accountId =
+                cashbookAccountId ?? (await ensureCashAccountId(tx, dealerOwnerId));
+            await postDealerSupplierPaymentMovement({
+                tx,
+                userId: dealerOwnerId,
+                dealerManualCompanyPaymentId: payment.id,
+                accountId,
+                amount: Number(paymentAmount),
+                date: paymentInstant,
+                supplierName: company.name,
+                direction,
+                recordedById,
+                notes: notes || null,
             });
 
             return payment;
@@ -932,9 +965,10 @@ export const voidManualCompanyPayment = async (req: Request, res: Response): Pro
 
         const dealer = await prisma.dealer.findUnique({
             where: { ownerId: userId },
-            select: { id: true },
+            select: { id: true, ownerId: true },
         });
-        if (!dealer) return res.status(404).json({ message: "Dealer not found" });
+        if (!dealer || !dealer.ownerId) return res.status(404).json({ message: "Dealer not found" });
+        const dealerOwnerId = dealer.ownerId;
 
         const company = await prisma.dealerManualCompany.findUnique({ where: { id: companyId } });
         if (!company || company.dealerId !== dealer.id) {
@@ -974,6 +1008,10 @@ export const voidManualCompanyPayment = async (req: Request, res: Response): Pro
                     ...(isMade ? { totalPayments: { decrement: currentPayment.amount } } : {}),
                 },
             });
+
+            // Cashflow v2: remove the mirror. Voiding is an undo of the
+            // payment, so the cashbook must match.
+            await deleteDealerSupplierPaymentMovement(tx, dealerOwnerId, paymentId);
 
             return tx.dealerManualCompanyPayment.update({
                 where: { id: paymentId },

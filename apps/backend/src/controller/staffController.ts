@@ -510,9 +510,10 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       });
       return;
     }
-    // Wrap in a tx so the farmer-cashbook mirror is atomic with the staff
-    // payment write. Non-farmer roles (dealer / hatchery / company) skip the
-    // mirror — their cashbooks aren't built yet.
+    // Wrap in a tx so the cashbook mirror is atomic with the staff payment
+    // write. Hatchery / company roles still skip the mirror — their cashbooks
+    // aren't built yet. OWNER (farmer) and DEALER both use the shared
+    // CashAccount/CashMovement tables, keyed by the owner's userId.
     const payment = await prisma.$transaction(async (tx) => {
       const created = await tx.staffPayment.create({
         data: {
@@ -523,7 +524,7 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
           receiptImageUrl: typeof receiptImageUrl === "string" && receiptImageUrl.trim() ? receiptImageUrl.trim() : null,
         },
       });
-      if (req.role === UserRole.OWNER) {
+      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER) {
         const accountIdForCashbook =
           typeof accountId === "string" && accountId.trim()
             ? accountId.trim()
@@ -583,9 +584,9 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
     }
 
     // Drop the cashbook mirror in the same tx so the pair stays consistent.
-    // Non-farmer roles are a no-op (deleteMany with no match is cheap).
+    // Hatchery / company roles are a no-op (deleteMany with no match is cheap).
     await prisma.$transaction(async (tx) => {
-      if (req.role === UserRole.OWNER) {
+      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER) {
         await deleteStaffSalaryMovement(tx, ownerId, payment.id);
       }
       await tx.staffPayment.delete({ where: { id: payment.id } });

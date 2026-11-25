@@ -27,6 +27,8 @@ import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { toast } from "sonner";
 import { BroilerSettlement, ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer, useReverseBroilerSettlement } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
 import { FarmerSalesPanel } from "./_components/FarmerSalesPanel";
@@ -59,6 +61,15 @@ function ChickenSalesByFarmerContent() {
   const [settlementTarget, setSettlementTarget] = useState<ChickenSalesByFarmerRow | null>(null);
   const [marginAmount, setMarginAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [accountId, setAccountId] = useState("");
+  const accountsQ = useGetCashflowAccounts(false);
+  const cashflowAccounts = accountsQ.data ?? [];
+  useEffect(() => {
+    if (!accountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setAccountId(cash.id);
+    }
+  }, [accountId, cashflowAccounts]);
   // Today in Nepal (toISOString gave yesterday before 5:45 AM).
   const [settlementDate, setSettlementDate] = useState(() => getNepalTodayAd());
   const [notes, setNotes] = useState("");
@@ -154,6 +165,7 @@ function ChickenSalesByFarmerContent() {
         sourceFarmerId: settlementTarget.sourceFarmerId,
         marginAmount: settlementAmounts.margin,
         paymentMethod,
+        accountId: accountId || undefined,
         date: settlementDate,
         notes: notes.trim() || undefined,
         reference: reference.trim() || undefined,
@@ -408,6 +420,17 @@ function ChickenSalesByFarmerContent() {
                   </Select>
                 </div>
               </div>
+              {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+                <div className="space-y-2">
+                  <Label>Payout from (farmer paid out of)</Label>
+                  <AccountPicker
+                    accounts={cashflowAccounts}
+                    value={accountId}
+                    onChange={setAccountId}
+                    autoHideSingleCash
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="settlementReference">Reference (optional)</Label>
                 <Input id="settlementReference" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Receipt or bank reference" />

@@ -20,6 +20,8 @@ import {
   BulkBroilerSaleResult,
   useCreateBulkBroilerSales,
 } from "@/fetchers/dealer/dealerSaleQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { BroilerBulkTable } from "./_components/BroilerBulkTable";
 import { BroilerBulkSummary } from "./_components/BroilerBulkSummary";
 import { BroilerPurchaseCard } from "./_components/BroilerPurchaseCard";
@@ -128,6 +130,18 @@ function NewBroilerBulkSaleContent() {
   );
 
   const [attemptedSave, setAttemptedSave] = useState(false);
+  // One cashflow account for the whole batch — matches backend wiring. Picker
+  // only appears when the dealer has bank accounts; otherwise everything
+  // defaults to Cash on the backend.
+  const [accountId, setAccountId] = useState("");
+  const accountsQ = useGetCashflowAccounts(false);
+  const cashflowAccounts = accountsQ.data ?? [];
+  useEffect(() => {
+    if (!accountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setAccountId(cash.id);
+    }
+  }, [accountId, cashflowAccounts]);
   // Keyed by rowId so the mapping survives row reorderings / removals.
   const [serverRowErrors, setServerRowErrors] = useState<Record<string, string[]>>({});
   const [serverPurchaseErrors, setServerPurchaseErrors] = useState<string[]>([]);
@@ -246,6 +260,7 @@ function NewBroilerBulkSaleContent() {
       const result = await bulkCreate.mutateAsync({
         sourceFarmerId,
         rows: buildPayload(),
+        accountId: accountId || undefined,
         // Only include the purchase block when the dealer actually entered
         // something — keeps the audit cleaner and the backend skips validation.
         ...(hasPurchaseData(purchase)
@@ -418,6 +433,27 @@ function NewBroilerBulkSaleContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Cash & Bank: one account for the whole batch. Picker only shows
+              when the dealer has added at least one bank account. */}
+          {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Money received into</CardTitle>
+                <CardDescription>
+                  All sales in this batch will post their paid portion to this account.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AccountPicker
+                  accounts={cashflowAccounts}
+                  value={accountId}
+                  onChange={setAccountId}
+                  autoHideSingleCash
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Optional: what you paid the source farmer */}
           <BroilerPurchaseCard

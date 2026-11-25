@@ -22,7 +22,8 @@ import { toNepalBsDayString } from "../utils/nepalBsDate";
 
 type Tx = Prisma.TransactionClient;
 
-async function assertAccountOwnedActive(
+// Exported for dealerCashflowAutoPost — same shape, same tenant-agnostic semantics.
+export async function assertAccountOwnedActive(
   tx: Tx,
   userId: string,
   accountId: string,
@@ -55,7 +56,8 @@ interface UpsertParams {
   recordedById: string;
 }
 
-async function upsertSourceMovement(params: UpsertParams): Promise<void> {
+// Exported for dealerCashflowAutoPost.
+export async function upsertSourceMovement(params: UpsertParams): Promise<void> {
   const {
     tx,
     userId,
@@ -117,7 +119,8 @@ async function upsertSourceMovement(params: UpsertParams): Promise<void> {
   });
 }
 
-async function deleteSourceMovement(
+// Exported for dealerCashflowAutoPost.
+export async function deleteSourceMovement(
   tx: Tx,
   userId: string,
   sourceType: CashSourceType,

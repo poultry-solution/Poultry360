@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NepaliDatePicker } from "@/common/components/ui/nepali-date-picker";
 import {
@@ -54,6 +54,8 @@ import {
     type PurchaseItem,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
     ACCOUNT_FEATURE_KEYS,
     useAccountFeature,
@@ -95,6 +97,7 @@ export default function DealerCompanyPage() {
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paymentDirection, setPaymentDirection] = useState<"RECEIVED" | "MADE">("MADE");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
+    const [paymentAccountId, setPaymentAccountId] = useState("");
     const [paymentNotes, setPaymentNotes] = useState("");
     const [deleteManualConfirm, setDeleteManualConfirm] = useState<ManualCompany | null>(null);
     const [manualTab, setManualTab] = useState<"active" | "archived">("active");
@@ -108,6 +111,14 @@ export default function DealerCompanyPage() {
     const deleteManualMutation = useDeleteManualCompany();
     const recordPurchaseMutation = useRecordManualPurchase();
     const recordPaymentMutation = useRecordManualCompanyPayment();
+    const cashflowAccountsQ = useGetCashflowAccounts(false);
+    const cashflowAccounts = cashflowAccountsQ.data ?? [];
+    useEffect(() => {
+        if (!paymentAccountId && cashflowAccounts.length > 0) {
+            const cash = cashflowAccounts.find((a) => a.type === "CASH");
+            if (cash) setPaymentAccountId(cash.id);
+        }
+    }, [paymentAccountId, cashflowAccounts]);
     const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
     const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
         ACCOUNT_FEATURE_KEYS.DEALER_PURCHASE_BILL_UPLOAD
@@ -297,6 +308,7 @@ export default function DealerCompanyPage() {
                 amount: Number(paymentAmount),
                 direction: effectivePaymentDirection,
                 paymentMethod: paymentMethod,
+                accountId: paymentAccountId || undefined,
                 notes: paymentNotes || undefined,
                 paymentDate: nepalNoonFromAdDay(
                     paymentDateAd || getTodayLocalDate()
@@ -978,6 +990,19 @@ export default function DealerCompanyPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                        {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    {effectivePaymentDirection === "MADE" ? "Paid from" : "Received into"}
+                                </label>
+                                <AccountPicker
+                                    accounts={cashflowAccounts}
+                                    value={paymentAccountId}
+                                    onChange={setPaymentAccountId}
+                                    autoHideSingleCash
+                                />
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Notes</label>
                             <Input

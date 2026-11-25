@@ -38,6 +38,8 @@ import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
+import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useI18n } from "@/i18n/useI18n";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/common/lib/utils";
@@ -81,6 +83,7 @@ export function DealerAddPaymentDialog({
   const [amount, setAmount] = useState<number>(0);
   const [direction, setDirection] = useState<"RECEIVED" | "MADE">("RECEIVED");
   const [paymentMethod, setPaymentMethod] = useState("CASH");
+  const [accountId, setAccountId] = useState("");
   // Today in Nepal; toISOString() showed yesterday before 5:45 AM.
   const [date, setDate] = useState(() => getNepalTodayAd());
   const [notes, setNotes] = useState("");
@@ -88,6 +91,14 @@ export function DealerAddPaymentDialog({
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
 
   const addDealerPayment = useAddDealerPayment();
+  const cashflowAccountsQ = useGetCashflowAccounts(false);
+  const cashflowAccounts = cashflowAccountsQ.data ?? [];
+  useEffect(() => {
+    if (!accountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setAccountId(cash.id);
+    }
+  }, [accountId, cashflowAccounts]);
   const { data: dealerSettingsData } = useGetDealerPaymentDirectionSetting();
   // Fail safe: keep the normal received-payment flow if the setting is not loaded.
   const paymentDirectionEnabled =
@@ -135,6 +146,7 @@ export function DealerAddPaymentDialog({
         amount,
         direction: effectiveDirection,
         paymentMethod,
+        accountId: accountId || undefined,
         date,
         notes: notes || undefined,
         receiptImageUrl: receiptImageUrl || undefined,
@@ -307,6 +319,20 @@ export function DealerAddPaymentDialog({
                 </Select>
               </div>
             </div>
+
+            {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+              <div className="space-y-2">
+                <Label>
+                  {effectiveDirection === "RECEIVED" ? "Received into" : "Paid from"}
+                </Label>
+                <AccountPicker
+                  accounts={cashflowAccounts}
+                  value={accountId}
+                  onChange={setAccountId}
+                  autoHideSingleCash
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

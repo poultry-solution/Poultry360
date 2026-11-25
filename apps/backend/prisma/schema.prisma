@@ -1874,6 +1874,10 @@ model BroilerSaleSettlement {
   reference       String?
   receiptUrl      String?
   settledAt       DateTime @default(now())
+  // Cashflow v2: account where the farmerPayout leaves from (null = fall back
+  // to the dealer's system Cash account). Validated at write time against
+  // CashAccount.userId; no FK so cashflow schema changes don't cascade here.
+  accountId       String?
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
@@ -1954,6 +1958,9 @@ model DealerSalePayment {
   date          DateTime @default(now())
   description   String?
   paymentMethod String?
+  // Cashflow v2: account where the cash was received (null = fall back to
+  // the dealer's system Cash account). Validated at write time; no FK.
+  accountId     String?
 
   saleId String
   sale   DealerSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -1980,6 +1987,10 @@ model DealerLedgerEntry {
   // Payment rows only. Null keeps old rows compatible; old PAYMENT_MADE rows
   // are treated as history-only unless explicitly marked as an account advance.
   affectsCustomerBalance Boolean?
+  // Cashflow v2: account the payment cash moved in/out of (null = fall back
+  // to the dealer's system Cash). Only PAYMENT_RECEIVED / PAYMENT_MADE rows
+  // with affectsCustomerBalance=true read this. Validated at write time; no FK.
+  accountId              String?
 
   dealerId String
   dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
@@ -2492,6 +2503,9 @@ model DealerManualCompanyPayment {
   notes         String?
   reference     String?
   receiptUrl    String?
+  // Cashflow v2: account where the supplier payment cash moved in/out of
+  // (null = fall back to the dealer's system Cash). Validated at write time; no FK.
+  accountId     String?
 
   // Void instead of hard delete (audit-safe)
   voidedAt     DateTime?
