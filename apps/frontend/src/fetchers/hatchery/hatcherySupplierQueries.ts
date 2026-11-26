@@ -283,6 +283,7 @@ export const useAddHatcherySupplierPayment = () => {
       note,
       reference,
       receiptImageUrl,
+      accountId,
     }: {
       supplierId: string;
       amount: number;
@@ -290,10 +291,12 @@ export const useAddHatcherySupplierPayment = () => {
       note?: string;
       reference?: string;
       receiptImageUrl?: string;
+      /** Cashflow v2: CashAccount the money left from. Omit to use system Cash. */
+      accountId?: string;
     }) => {
       const res = await axiosInstance.post(
         `/hatchery/suppliers/${supplierId}/transactions`,
-        { type: "PAYMENT", amount, date, note, reference, receiptImageUrl }
+        { type: "PAYMENT", amount, date, note, reference, receiptImageUrl, accountId }
       );
       return res.data;
     },
@@ -302,6 +305,7 @@ export const useAddHatcherySupplierPayment = () => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.transactions(supplierId) });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 };

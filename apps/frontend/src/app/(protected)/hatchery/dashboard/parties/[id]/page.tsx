@@ -1,7 +1,7 @@
 "use client";
 
 import { RemindMeButton } from "@/components/reminders/RemindMeButton";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, FileText, Plus, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -26,12 +26,14 @@ import {
   type HatcheryPartyTxn,
   type HatcheryPartyPayment,
 } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
 import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
 import { formatRupeesExact } from "@/common/lib/utils";
-import { toNepalDayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { DateInput } from "@/common/components/ui/date-input";
 import {
   AlertDialog,
@@ -61,7 +63,10 @@ export default function HatcheryPartyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<"ledger" | "payments">("ledger");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ date: "", amount: "", method: "", note: "" });
+  const [paymentForm, setPaymentForm] = useState({ date: "", amount: "", note: "" });
+  // Cashflow v2: picked CashAccount for the payment. Defaults to Cash once
+  // accounts load. method is derived server-side from the account's type.
+  const [paymentAccountId, setPaymentAccountId] = useState("");
   const [billSale, setBillSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
   const [pendingDeletePayment, setPendingDeletePayment] = useState<string | null>(null);
 
@@ -70,6 +75,26 @@ export default function HatcheryPartyDetailPage() {
   const { data: paymentsData, isLoading: paymentsLoading } = useHatcheryPartyPayments(id);
   const addPayment = useAddHatcheryPartyPayment(id);
   const deletePayment = useDeleteHatcheryPartyPayment(id);
+  const cashflowAccountsQ = useGetCashflowAccountOptions();
+  const cashflowAccounts = cashflowAccountsQ.data ?? [];
+  // Default-select Cash once the options load so the form is usable without
+  // the user having to open the picker first.
+  useEffect(() => {
+    if (!paymentAccountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setPaymentAccountId(cash.id);
+    }
+  }, [paymentAccountId, cashflowAccounts]);
+
+  // Prefill today's Nepal date when the modal opens. Without this the
+  // DateInput shows today visually but `paymentForm.date` stays "", and the
+  // submit guard refuses because `!paymentForm.date` is true — "Save" looks
+  // broken until the user actually clicks the date field.
+  useEffect(() => {
+    if (showPaymentModal && !paymentForm.date) {
+      setPaymentForm((f) => ({ ...f, date: getNepalTodayAd() }));
+    }
+  }, [showPaymentModal, paymentForm.date]);
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,10 +102,10 @@ export default function HatcheryPartyDetailPage() {
     await addPayment.mutateAsync({
       date: paymentForm.date,
       amount: parseFloat(paymentForm.amount),
-      method: paymentForm.method || undefined,
       note: paymentForm.note || undefined,
+      accountId: paymentAccountId || undefined,
     });
-    setPaymentForm({ date: "", amount: "", method: "", note: "" });
+    setPaymentForm({ date: "", amount: "", note: "" });
     setShowPaymentModal(false);
   };
 
@@ -358,14 +383,17 @@ export default function HatcheryPartyDetailPage() {
                 required
               />
             </div>
-            <div>
-              <label className="text-sm font-medium">Method</label>
-              <Input
-                value={paymentForm.method}
-                onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}
-                placeholder="Cash, Bank, etc."
-              />
-            </div>
+            {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+              <div>
+                <label className="text-sm font-medium">Paid into</label>
+                <AccountPicker
+                  accounts={cashflowAccounts}
+                  value={paymentAccountId}
+                  onChange={setPaymentAccountId}
+                  autoHideSingleCash
+                />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Note</label>
               <Input

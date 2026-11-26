@@ -135,8 +135,9 @@ export function useAddHatcheryPartyPayment(partyId: string) {
     mutationFn: async (payload: {
       date: string;
       amount: number;
-      method?: string;
       note?: string;
+      /** Cashflow v2: CashAccount the money landed in. Omit to use system Cash. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post(
         `/hatchery/parties/${partyId}/payments`,
@@ -149,6 +150,7 @@ export function useAddHatcheryPartyPayment(partyId: string) {
       qc.invalidateQueries({ queryKey: ["hatchery-party-payments", partyId] });
       qc.invalidateQueries({ queryKey: ["hatchery-party-txns", partyId] });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }

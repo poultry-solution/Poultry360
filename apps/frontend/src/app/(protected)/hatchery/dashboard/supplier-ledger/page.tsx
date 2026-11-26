@@ -63,6 +63,8 @@ import {
   type HatcheryPurchaseCategory,
   type AddPurchaseItem,
 } from "@/fetchers/hatchery/hatcherySupplierQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
@@ -214,6 +216,18 @@ export default function HatcherySupplierLedgerPage() {
     reference: "",
     receiptImageUrl: "",
   });
+  // Cashflow v2: picked CashAccount for the supplier payment. Defaults to
+  // Cash once the options load; the picker only appears if the hatchery has
+  // at least one BANK account.
+  const [paymentAccountId, setPaymentAccountId] = useState("");
+  const cashflowAccountsQ = useGetCashflowAccountOptions();
+  const cashflowAccounts = cashflowAccountsQ.data ?? [];
+  useEffect(() => {
+    if (!paymentAccountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setPaymentAccountId(cash.id);
+    }
+  }, [paymentAccountId, cashflowAccounts]);
   const [deleteTxnPassword, setDeleteTxnPassword] = useState("");
   const [deleteSupplierPassword, setDeleteSupplierPassword] = useState("");
 
@@ -356,17 +370,15 @@ export default function HatcherySupplierLedgerPage() {
     }
   };
 
-  // Auto-select first supplier on initial load. We only reset when there is
-  // nothing selected yet — not when the current `activeSupplierId` just
-  // happens to be missing from the current page. The previous "not on this
-  // page" check clobbered a fresh `selectSupplier(newId)` call whenever the
-  // new supplier landed on a later page (list is sorted oldest-first, so a
-  // just-created one is at the end). The downstream queries for the active
-  // supplier fetch by id and work regardless of pagination.
+  // Auto-select first supplier on initial load. Don't clobber the current
+  // selection when the search filter shrinks the list to zero (that bug let
+  // browser password-autofill drop a stray value into the search box, empty
+  // the list, null out `activeSupplierId`, and then the delete-txn request
+  // fired at `/suppliers//transactions/{id}` → 404). A legitimate "last
+  // supplier deleted" case is handled directly in the supplier-delete
+  // handler, which nulls `activeSupplierId` itself.
   useEffect(() => {
-    if (suppliers.length === 0) {
-      setActiveSupplierId("");
-    } else if (!activeSupplierId) {
+    if (!activeSupplierId && suppliers.length > 0) {
       setActiveSupplierId(suppliers[0].id);
     }
   }, [suppliers, activeSupplierId]);
@@ -693,6 +705,7 @@ export default function HatcherySupplierLedgerPage() {
         note: paymentForm.note || undefined,
         reference: paymentForm.reference || undefined,
         receiptImageUrl: paymentForm.receiptImageUrl || undefined,
+        accountId: paymentAccountId || undefined,
       });
       toast.success("Payment recorded");
       setIsAddPaymentOpen(false);
@@ -705,6 +718,10 @@ export default function HatcherySupplierLedgerPage() {
   const handleDeleteTxn = async () => {
     if (!deleteTxnPassword) { toast.error("Password required"); return; }
     if (!txnToDelete) return;
+    // Belt-and-braces: if `activeSupplierId` was somehow cleared while the
+    // dialog was open (see auto-select useEffect comment above), refuse to
+    // fire a malformed DELETE /suppliers//transactions/<id>.
+    if (!activeSupplierId) { toast.error("Pick a supplier first"); return; }
     try {
       await deleteTxn.mutateAsync({
         supplierId: activeSupplierId,
@@ -890,6 +907,10 @@ export default function HatcherySupplierLedgerPage() {
                 value={supplierSearch}
                 onChange={(e) => setSupplierSearch(e.target.value)}
                 className="pl-9"
+                // Stop browser password managers from dropping stray values
+                // in here when they autofill a nearby password prompt.
+                autoComplete="off"
+                name="hatchery-supplier-search"
               />
             </div>
           </CardHeader>
@@ -1654,6 +1675,17 @@ export default function HatcherySupplierLedgerPage() {
                 }
               />
             </div>
+            {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+              <div>
+                <Label>Paid from</Label>
+                <AccountPicker
+                  accounts={cashflowAccounts}
+                  value={paymentAccountId}
+                  onChange={setPaymentAccountId}
+                  autoHideSingleCash
+                />
+              </div>
+            )}
             <div>
               <Label>Reference / Cheque No.</Label>
               <Input

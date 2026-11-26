@@ -66,6 +66,8 @@ import {
   type HatcheryEggProduction,
   type HatcheryEggStockRow,
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
+import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   useGetHatcheryInventory,
   type HatcheryInventoryItemType,
@@ -930,6 +932,17 @@ function ExpensesTab({ batchId }: { batchId: string }) {
   const [unit, setUnit] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [amount, setAmount] = useState("");
+  // Cashflow v2: picked CashAccount for MANUAL expenses. Not used by INVENTORY
+  // (that's inventory consumption — cash moved earlier at the SupplierTxn.PAYMENT).
+  const [accountId, setAccountId] = useState("");
+  const cashflowAccountsQ = useGetCashflowAccountOptions();
+  const cashflowAccounts = cashflowAccountsQ.data ?? [];
+  useEffect(() => {
+    if (!accountId && cashflowAccounts.length > 0) {
+      const cash = cashflowAccounts.find((a) => a.type === "CASH");
+      if (cash) setAccountId(cash.id);
+    }
+  }, [accountId, cashflowAccounts]);
   // True once the user types Amount themselves; then Qty × Unit price stops overwriting it.
   const [amountTyped, setAmountTyped] = useState(false);
   const [note, setNote] = useState("");
@@ -1057,6 +1070,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
           unitPrice: unitPrice ? Number(unitPrice) : undefined,
           amount: Number(amount),
           note: note || undefined,
+          accountId: accountId || undefined,
         });
       }
       // Reset
@@ -1461,6 +1475,17 @@ function ExpensesTab({ batchId }: { batchId: string }) {
                 )}
               </Button>
             </div>
+            {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
+              <div className="max-w-xs">
+                <FieldLabel>Paid from</FieldLabel>
+                <AccountPicker
+                  accounts={cashflowAccounts}
+                  value={accountId}
+                  onChange={setAccountId}
+                  autoHideSingleCash
+                />
+              </div>
+            )}
             <p className="text-xs text-gray-500">Amount fills itself from Qty × Unit price, or type the total yourself.</p>
           </>
         )}

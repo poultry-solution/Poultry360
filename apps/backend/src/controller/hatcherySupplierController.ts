@@ -394,6 +394,13 @@ export const addHatcherySupplierTransaction = async (
       if (!amount || Number(amount) <= 0)
         return res.status(400).json({ message: "amount must be > 0 for payment" });
 
+      // Cashflow v2: optional account from the AccountPicker + staff attribution.
+      const rawAccountId = (req.body as any)?.accountId;
+      const recordedById =
+        (req as any).actorType === "STAFF"
+          ? (req as any).staffUserId ?? userId
+          : userId;
+
       const txn = await HatcherySupplierService.addPaymentTxn({
         supplierId: id,
         hatcheryOwnerId: userId,
@@ -402,6 +409,11 @@ export const addHatcherySupplierTransaction = async (
         note,
         reference,
         receiptImageUrl,
+        accountId:
+          typeof rawAccountId === "string" && rawAccountId.trim()
+            ? rawAccountId.trim()
+            : undefined,
+        recordedById,
       });
 
       return res.status(201).json({ success: true, data: txn });

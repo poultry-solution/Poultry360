@@ -103,17 +103,30 @@ export async function addPartyPayment(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: partyId } = req.params;
-    const { date, amount, method, note } = req.body;
+    const { date, amount, method, note, accountId } = req.body;
 
     if (!date || !amount) {
       return res.status(400).json({ error: "date and amount are required" });
     }
+
+    // Cashflow v2 attribution: owner actions use req.userId; staff actions
+    // pass req.staffUserId through so the audit trail knows which staff
+    // recorded it. Service resolves the final User.id via resolveRecordedById.
+    const recordedById =
+      (req as any).actorType === "STAFF"
+        ? (req as any).staffUserId ?? ownerId
+        : ownerId;
 
     const payment = await HatcheryPartyService.addPayment(ownerId, partyId, {
       date: new Date(date),
       amount: parseFloat(amount),
       method,
       note,
+      accountId:
+        typeof accountId === "string" && accountId.trim()
+          ? accountId.trim()
+          : undefined,
+      recordedById,
     });
     return res.status(201).json(payment);
   } catch (err: any) {

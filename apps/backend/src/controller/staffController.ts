@@ -511,9 +511,8 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     // Wrap in a tx so the cashbook mirror is atomic with the staff payment
-    // write. Hatchery still skips the mirror — its cashbook isn't built yet.
-    // OWNER (farmer), DEALER and COMPANY use the shared CashAccount/
-    // CashMovement tables, keyed by the owner's userId.
+    // write. OWNER (farmer), DEALER, COMPANY, and HATCHERY all use the shared
+    // CashAccount/CashMovement tables, keyed by the owner's userId.
     const payment = await prisma.$transaction(async (tx) => {
       const created = await tx.staffPayment.create({
         data: {
@@ -524,7 +523,12 @@ export const addPayment = async (req: Request, res: Response): Promise<void> => 
           receiptImageUrl: typeof receiptImageUrl === "string" && receiptImageUrl.trim() ? receiptImageUrl.trim() : null,
         },
       });
-      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER || req.role === UserRole.COMPANY) {
+      if (
+        req.role === UserRole.OWNER ||
+        req.role === UserRole.DEALER ||
+        req.role === UserRole.COMPANY ||
+        req.role === UserRole.HATCHERY
+      ) {
         const accountIdForCashbook =
           typeof accountId === "string" && accountId.trim()
             ? accountId.trim()
@@ -584,9 +588,13 @@ export const deletePayment = async (req: Request, res: Response): Promise<void> 
     }
 
     // Drop the cashbook mirror in the same tx so the pair stays consistent.
-    // Hatchery is a no-op (deleteMany with no match is cheap).
     await prisma.$transaction(async (tx) => {
-      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER || req.role === UserRole.COMPANY) {
+      if (
+        req.role === UserRole.OWNER ||
+        req.role === UserRole.DEALER ||
+        req.role === UserRole.COMPANY ||
+        req.role === UserRole.HATCHERY
+      ) {
         await deleteStaffSalaryMovement(tx, ownerId, payment.id);
       }
       await tx.staffPayment.delete({ where: { id: payment.id } });
@@ -673,10 +681,15 @@ export const deleteStaff = async (req: Request, res: Response): Promise<void> =>
 
     // Cashflow v2: the StaffPayment cascade removes the source rows, but the
     // CashMovement mirrors are keyed only by (userId, sourceType, sourceId) —
-    // no FK — so they would orphan unless explicitly deleted. Only OWNER,
-    // DEALER and COMPANY roles post mirrors; hatchery is a cheap no-op.
+    // no FK — so they would orphan unless explicitly deleted. OWNER, DEALER,
+    // COMPANY, and HATCHERY all post mirrors.
     await prisma.$transaction(async (tx) => {
-      if (req.role === UserRole.OWNER || req.role === UserRole.DEALER || req.role === UserRole.COMPANY) {
+      if (
+        req.role === UserRole.OWNER ||
+        req.role === UserRole.DEALER ||
+        req.role === UserRole.COMPANY ||
+        req.role === UserRole.HATCHERY
+      ) {
         for (const p of payments) {
           await deleteStaffSalaryMovement(tx, ownerId, p.id);
         }

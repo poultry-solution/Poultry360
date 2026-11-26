@@ -1,5 +1,11 @@
 import prisma from "../utils/prisma";
 import { HatcheryPartyTxnType, Prisma } from "@prisma/client";
+import {
+  deleteHatcheryPartyPaymentMovement,
+  ensureCashAccountId,
+  postHatcheryPartyPaymentMovement,
+} from "./hatcheryCashflowAutoPost";
+import { derivePaymentMethodFromAccountType } from "../common/cashflow/paymentMethod";
 type PrismaTx = Prisma.TransactionClient;
 
 export class HatcheryPartyService {
@@ -132,9 +138,19 @@ export class HatcheryPartyService {
   static async addPayment(
     hatcheryOwnerId: string,
     partyId: string,
-    data: { date: Date; amount: number; method?: string; note?: string }
+    data: {
+      date: Date;
+      amount: number;
+      method?: string;
+      note?: string;
+      /** Cashflow v2: CashAccount the cash landed in. Omit to use system Cash. */
+      accountId?: string;
+      /** Cashflow v2: who recorded it (owner User.id or staff's StaffUser.id);
+       * resolved to a valid User.id at the sink via resolveRecordedById. */
+      recordedById?: string;
+    }
   ) {
-    const { date, amount, method, note } = data;
+    const { date, amount, note, accountId, recordedById } = data;
 
     const party = await prisma.hatcheryParty.findFirst({
       where: { id: partyId, hatcheryOwnerId },
@@ -144,8 +160,33 @@ export class HatcheryPartyService {
     if (amount <= 0) throw new Error("Payment amount must be positive");
 
     return prisma.$transaction(async (tx: PrismaTx) => {
+      // Cashflow v2: resolve the account up front so we can both store it on
+      // the payment row and derive the method string from its type.
+      const resolvedAccountId =
+        accountId && accountId.trim()
+          ? accountId.trim()
+          : await ensureCashAccountId(tx, hatcheryOwnerId);
+      const resolvedAccount = await tx.cashAccount.findUnique({
+        where: { id: resolvedAccountId },
+        select: { type: true, userId: true, archivedAt: true },
+      });
+      const derivedMethod = derivePaymentMethodFromAccountType(
+        resolvedAccount?.type ?? null,
+      );
+      // Prefer the account-derived method so new writes stay consistent with
+      // the picker. If a caller still passes `data.method`, respect it (lets
+      // historical API clients record custom labels like "CHEQUE").
+      const method = data.method && data.method.trim() ? data.method : derivedMethod;
+
       const payment = await tx.hatcheryPartyPayment.create({
-        data: { partyId, date, amount, method, note },
+        data: {
+          partyId,
+          date,
+          amount,
+          method,
+          note,
+          accountId: resolvedAccountId,
+        },
       });
 
       // Atomic decrement so two concurrent payments cannot both read the
@@ -170,6 +211,21 @@ export class HatcheryPartyService {
         },
       });
 
+      // Cashflow v2 mirror: one CashMovement per payment row. Keyed off
+      // HatcheryPartyPayment.id — never off the sibling PartyTxn.PAYMENT
+      // (would double-count the same cash event).
+      await postHatcheryPartyPaymentMovement({
+        tx,
+        userId: hatcheryOwnerId,
+        hatcheryPartyPaymentId: payment.id,
+        accountId: resolvedAccountId,
+        amount,
+        date,
+        partyName: party.name,
+        recordedById: recordedById ?? hatcheryOwnerId,
+        notes: note ?? null,
+      });
+
       return payment;
     });
   }
@@ -184,6 +240,11 @@ export class HatcheryPartyService {
       throw new Error("Not authorized");
 
     return prisma.$transaction(async (tx: PrismaTx) => {
+      // Remove the cashflow v2 mirror first — the source row still exists at
+      // this point so the find-then-delete has something to key off. Cleanup
+      // is safe even if the mirror was never written (deleteMany returns 0).
+      await deleteHatcheryPartyPaymentMovement(tx, hatcheryOwnerId, paymentId);
+
       await tx.hatcheryPartyTxn.deleteMany({
         where: { sourceType: "payment", sourceId: paymentId },
       });

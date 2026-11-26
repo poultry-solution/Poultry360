@@ -4,6 +4,11 @@ import {
   HatcheryInventoryTxnType,
   HatcheryFeedTarget,
 } from "@prisma/client";
+import {
+  deleteHatcheryBatchExpenseMovement,
+  ensureCashAccountId,
+  postHatcheryBatchExpenseMovement,
+} from "./hatcheryCashflowAutoPost";
 
 // Feed attribution recorded alongside an expense. Validated by the caller;
 // null throughout for non-feed expenses, including the initial CHICKS
@@ -103,12 +108,21 @@ export class HatcheryBatchExpenseService {
   }
 
   /**
-   * Create a manual expense (no inventory linkage).
+   * Create a manual expense (no inventory linkage). MANUAL expenses are real
+   * cash out, so Cashflow v2 mirrors them to the owner's cashbook here. The
+   * caller (controller or batch-create path) is responsible for passing
+   * `hatcheryOwnerId` so the mirror writes into the right tenant's accounts.
+   *
+   * INVENTORY-type expenses live in `createInventoryExpense` and never fire
+   * autoPost — cash moved earlier at the HatcherySupplierTxn.PAYMENT that
+   * bought the inventory.
    */
   static async createManualExpense(
     tx: Prisma.TransactionClient,
     data: {
       batchId: string;
+      /** Owner `User.id`. Required so autoPost + ensureCashAccountId run against the right tenant. */
+      hatcheryOwnerId: string;
       date: Date;
       category: string;
       itemName: string;
@@ -117,9 +131,18 @@ export class HatcheryBatchExpenseService {
       unitPrice?: number;
       amount: number;
       note?: string;
+      /** Cashflow v2: CashAccount the cash left from. Omit to default to system Cash. */
+      accountId?: string;
+      /** Cashflow v2: raw actor id (owner User.id or staff StaffUser.id). */
+      recordedById?: string;
     } & FeedAttribution
   ) {
-    return tx.hatcheryBatchExpense.create({
+    const resolvedAccountId =
+      data.accountId && data.accountId.trim()
+        ? data.accountId.trim()
+        : await ensureCashAccountId(tx, data.hatcheryOwnerId);
+
+    const expense = await tx.hatcheryBatchExpense.create({
       data: {
         batchId: data.batchId,
         date: data.date,
@@ -131,18 +154,43 @@ export class HatcheryBatchExpenseService {
         unitPrice: data.unitPrice,
         amount: data.amount,
         note: data.note,
+        accountId: resolvedAccountId,
         feedTarget: data.feedTarget ?? null,
         maleFeedQuantity: data.maleFeedQuantity ?? null,
         femaleFeedQuantity: data.femaleFeedQuantity ?? null,
       },
     });
+
+    // Cashflow v2 mirror. MANUAL expenses move real cash — this is the sole
+    // mirror call for the batch-expense flow; INVENTORY never fires one.
+    await postHatcheryBatchExpenseMovement({
+      tx,
+      userId: data.hatcheryOwnerId,
+      hatcheryBatchExpenseId: expense.id,
+      accountId: resolvedAccountId,
+      amount: data.amount,
+      date: data.date,
+      partyName:
+        data.itemName?.trim() || `${data.category} expense`,
+      recordedById: data.recordedById ?? data.hatcheryOwnerId,
+      notes: data.note ?? null,
+    });
+
+    return expense;
   }
 
   /**
-   * Delete an expense and reverse inventory if it was inventory-backed.
+   * Delete an expense and reverse inventory if it was inventory-backed. For
+   * MANUAL expenses also removes the Cashflow v2 mirror so the cashbook
+   * re-converges with the ledger.
+   *
+   * `hatcheryOwnerId` is needed to scope the mirror delete to the right
+   * tenant. Callers pass the ownerId they already resolved via the auth
+   * middleware (`req.userId`).
    */
   static async deleteExpense(
     tx: Prisma.TransactionClient,
+    hatcheryOwnerId: string,
     expenseId: string
   ) {
     const expense = await tx.hatcheryBatchExpense.findUniqueOrThrow({
@@ -166,6 +214,12 @@ export class HatcheryBatchExpenseService {
       await tx.hatcheryInventoryTxn.delete({
         where: { id: expense.inventoryTxnId },
       });
+    }
+
+    // Only MANUAL expenses ever had a cash mirror; INVENTORY never did (see
+    // invariant: inventory consumption is not a cash event).
+    if (expense.type === HatcheryBatchExpenseType.MANUAL) {
+      await deleteHatcheryBatchExpenseMovement(tx, hatcheryOwnerId, expenseId);
     }
 
     await tx.hatcheryBatchExpense.delete({ where: { id: expenseId } });

@@ -34,6 +34,7 @@ jest.mock("bcrypt", () => ({
 }));
 
 import bcrypt from "bcrypt";
+import { UserRole } from "@prisma/client";
 import { deletePayment, deleteStaff } from "../../src/controller/staffController";
 
 const mockedPrisma = prisma as unknown as {
@@ -177,6 +178,57 @@ describe("Delete staff payment", () => {
 
       expect(response.status).toHaveBeenCalledWith(404);
       expect(mockedPrisma.staff.delete).not.toHaveBeenCalled();
+    });
+
+    it("cleans up cashbook mirrors for HATCHERY-owned staff payments", async () => {
+      // Hatchery was added to the mirror-eligible role gate in Phase 2 of the
+      // hatchery cashflow plan. Deleting a hatchery staff member must remove
+      // their STAFF_PAYMENT mirrors just like OWNER / DEALER do — otherwise
+      // the mirror rows orphan (no FK to StaffPayment).
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      mockedPrisma.staffPayment.findMany.mockResolvedValue([
+        { id: "payment-1", receiptImageUrl: null },
+        { id: "payment-2", receiptImageUrl: null },
+      ]);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      const mirror = (prisma as any).cashMovement.deleteMany as jest.Mock;
+      mirror.mockClear();
+      const response = makeResponse();
+
+      await deleteStaff(
+        { userId: "owner-1", role: UserRole.HATCHERY, params: { id: "staff-1" }, body: { password: "secret" } } as any,
+        response,
+      );
+
+      expect(mirror).toHaveBeenCalledTimes(2);
+      expect(mirror).toHaveBeenCalledWith({
+        where: { userId: "owner-1", sourceType: "STAFF_PAYMENT", sourceId: "payment-1" },
+      });
+      expect(mirror).toHaveBeenCalledWith({
+        where: { userId: "owner-1", sourceType: "STAFF_PAYMENT", sourceId: "payment-2" },
+      });
+      expect(mockedPrisma.staff.delete).toHaveBeenCalled();
+    });
+
+    it("skips mirror cleanup for COMPANY role (no cashbook yet)", async () => {
+      mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
+      mockedPrisma.staffPayment.findMany.mockResolvedValue([
+        { id: "payment-1", receiptImageUrl: null },
+      ]);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      const mirror = (prisma as any).cashMovement.deleteMany as jest.Mock;
+      mirror.mockClear();
+      const response = makeResponse();
+
+      await deleteStaff(
+        { userId: "owner-1", role: UserRole.COMPANY, params: { id: "staff-1" }, body: { password: "secret" } } as any,
+        response,
+      );
+
+      expect(mirror).not.toHaveBeenCalled();
+      expect(mockedPrisma.staff.delete).toHaveBeenCalled();
     });
   });
 

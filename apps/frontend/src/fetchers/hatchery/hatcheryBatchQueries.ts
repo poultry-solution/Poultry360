@@ -553,6 +553,8 @@ export function useAddHatcheryExpense(batchId: string) {
       // Optional, and only valid when feedTarget is BOTH. Must sum to quantity.
       maleFeedQuantity?: number;
       femaleFeedQuantity?: number;
+      /** Cashflow v2: CashAccount for MANUAL expenses (ignored for INVENTORY). Omit to use system Cash. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/expenses`, payload);
       return data as HatcheryBatchExpense;
@@ -562,6 +564,7 @@ export function useAddHatcheryExpense(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
       qc.invalidateQueries({ queryKey: ["hatcheryProducts"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }
@@ -577,6 +580,7 @@ export function useDeleteHatcheryExpense(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
       qc.invalidateQueries({ queryKey: ["hatcheryProducts"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }

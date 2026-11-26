@@ -1007,8 +1007,15 @@ export async function addHatcheryExpense(req: Request, res: Response) {
             throw new Error("unitPrice cannot be negative");
           }
         }
+        // Cashflow v2: optional AccountPicker payload + staff attribution.
+        const rawAccountId = (req.body as any)?.accountId;
+        const recordedById =
+          (req as any).actorType === "STAFF"
+            ? (req as any).staffUserId ?? ownerId
+            : ownerId;
         expense = await HatcheryBatchExpenseService.createManualExpense(tx, {
           batchId,
+          hatcheryOwnerId: ownerId,
           date: new Date(date),
           category,
           itemName,
@@ -1017,6 +1024,11 @@ export async function addHatcheryExpense(req: Request, res: Response) {
           unitPrice: unitPriceNum,
           amount: amountNum,
           note,
+          accountId:
+            typeof rawAccountId === "string" && rawAccountId.trim()
+              ? rawAccountId.trim()
+              : undefined,
+          recordedById,
           ...feed,
         });
       }
@@ -1051,7 +1063,7 @@ export async function deleteHatcheryExpense(req: Request, res: Response) {
     }
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await HatcheryBatchExpenseService.deleteExpense(tx, expenseId);
+      await HatcheryBatchExpenseService.deleteExpense(tx, ownerId, expenseId);
     });
 
     return res.json({ success: true });

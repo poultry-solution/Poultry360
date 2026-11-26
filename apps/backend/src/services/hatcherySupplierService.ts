@@ -6,6 +6,11 @@ import {
 } from "@prisma/client";
 import { HatcheryInventoryService } from "./hatcheryInventoryService";
 import { cleanupUploadedImage } from "../utils/cloudinary";
+import {
+  deleteHatcherySupplierPaymentMovement,
+  ensureCashAccountId,
+  postHatcherySupplierPaymentMovement,
+} from "./hatcheryCashflowAutoPost";
 
 export class HatcherySupplierService {
   // ==================== BALANCE HELPERS ====================
@@ -201,6 +206,11 @@ export class HatcherySupplierService {
     note?: string;
     reference?: string;
     receiptImageUrl?: string;
+    /** Cashflow v2: CashAccount the money left from. Omit to use system Cash. */
+    accountId?: string;
+    /** Cashflow v2: raw actor id (owner User.id or staff StaffUser.id) —
+     * normalised to a valid User.id at the sink via resolveRecordedById. */
+    recordedById?: string;
   }) {
     const {
       supplierId,
@@ -210,12 +220,14 @@ export class HatcherySupplierService {
       note,
       reference,
       receiptImageUrl,
+      accountId,
+      recordedById,
     } = data;
 
     return prisma.$transaction(async (tx) => {
       const supplier = await tx.hatcherySupplier.findFirst({
         where: { id: supplierId, hatcheryOwnerId },
-        select: { id: true },
+        select: { id: true, name: true },
       });
       if (!supplier) throw new Error("Supplier not found");
 
@@ -225,6 +237,13 @@ export class HatcherySupplierService {
         data: { balance: { decrement: amount } },
         select: { balance: true },
       });
+
+      // Cashflow v2: resolve the account up front so the txn row captures it
+      // alongside the mirror. Empty accountId falls back to system Cash.
+      const resolvedAccountId =
+        accountId && accountId.trim()
+          ? accountId.trim()
+          : await ensureCashAccountId(tx, hatcheryOwnerId);
 
       const txn = await tx.hatcherySupplierTxn.create({
         data: {
@@ -236,7 +255,23 @@ export class HatcherySupplierService {
           note,
           reference,
           receiptImageUrl,
+          accountId: resolvedAccountId,
         },
+      });
+
+      // Cashflow v2 mirror: only PAYMENT-type SupplierTxns move cash.
+      // PURCHASE / ADJUSTMENT / OPENING_BALANCE never fire autoPost — that
+      // branching lives at the entry points above.
+      await postHatcherySupplierPaymentMovement({
+        tx,
+        userId: hatcheryOwnerId,
+        hatcherySupplierTxnId: txn.id,
+        accountId: resolvedAccountId,
+        amount,
+        date,
+        supplierName: supplier.name,
+        recordedById: recordedById ?? hatcheryOwnerId,
+        notes: note ?? null,
       });
 
       return txn;
@@ -272,6 +307,12 @@ export class HatcherySupplierService {
             tx,
             txnId
           );
+        }
+
+        // For PAYMENT: remove the cashflow v2 mirror. PURCHASE / ADJUSTMENT /
+        // OPENING_BALANCE never had a mirror so there's nothing to delete.
+        if (txnToDelete.type === HatcherySupplierTxnType.PAYMENT) {
+          await deleteHatcherySupplierPaymentMovement(tx, hatcheryOwnerId, txnId);
         }
 
         // Atomically reverse the txn's effect. `balanceDelta` is positive

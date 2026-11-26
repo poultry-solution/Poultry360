@@ -1,6 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { useAuthStore } from "@/common/store/store";
 import type { HatcheryBatchType } from "./hatcheryBatchQueries";
+
+/** Owners always see analytics; staff only when granted HATCHERY_VIEW_ANALYTICS.
+ * Gate every analytics hook on this — otherwise a staff user without the
+ * permission hits 403 on page load and the global axios interceptor toasts
+ * "Forbidden" for data they were never supposed to see anyway. */
+function useHasHatcheryAnalyticsAccess(): boolean {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return false;
+  if (user.isStaff !== true) return true;
+  return user.permissions?.includes("HATCHERY_VIEW_ANALYTICS") === true;
+}
 
 export interface HatcheryAnalyticsOverviewParams {
   startDate?: string;
@@ -477,6 +489,7 @@ export interface HatcheryTodaySummary {
  * One request regardless of how many batches or incubations exist.
  */
 export function useHatcheryTodaySummary() {
+  const hasAccess = useHasHatcheryAnalyticsAccess();
   return useQuery({
     queryKey: hatcheryAnalyticsKeys.today(),
     queryFn: async () => {
@@ -486,5 +499,6 @@ export function useHatcheryTodaySummary() {
       }>("/hatchery/analytics/today");
       return data.data;
     },
+    enabled: hasAccess,
   });
 }
