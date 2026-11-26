@@ -10,7 +10,7 @@ import { DateInput } from "@/common/components/ui/date-input";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useCreateSale, useGetCustomersForSales } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 
 interface QuickSaleModalProps {
   isOpen: boolean;
@@ -80,7 +80,7 @@ export function QuickSaleModal({
   // Quick action: no picker, deterministic default of the user's Cash
   // account. We still ship the explicit accountId so the server never has
   // to fall back silently.
-  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const { data: cashflowAccounts } = useGetCashflowAccountOptions();
   const cashAccountId =
     (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
 

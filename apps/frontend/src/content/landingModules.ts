@@ -45,7 +45,7 @@ const farmerTeamAndTools = (listForSale: string): LandingFeatureGroup => ({
   items: [
     "Staff salary",
     "Staff login and activity log",
-    "Cash in hand",
+    "Cash & Bank",
     "Reminders and batch notes",
     "Share a health report with your vet",
     "Analytics and downloads",
@@ -168,7 +168,7 @@ export const landingModules: LandingModule[] = [
         items: [
           "Staff salary",
           "Staff login and activity log",
-          "Cash in hand",
+          "Cash & Bank",
           "Analytics and downloads",
           "Nepali date and Nepali language",
           "Tutorial videos",

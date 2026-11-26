@@ -5,6 +5,7 @@ export const farmerCashflowKeys = {
   all: ["farmer-cashflow"] as const,
   accounts: (includeArchived: boolean = false) =>
     [...farmerCashflowKeys.all, "accounts", { includeArchived }] as const,
+  accountOptions: () => [...farmerCashflowKeys.all, "account-options"] as const,
   movements: (filters: {
     from?: string;
     to?: string;
@@ -103,6 +104,24 @@ export interface CashflowReport {
 }
 
 // ─── Reads ────────────────────────────────────────────────────────────────────
+
+/** Just what the Cash / Bank picker needs. Unlike CashAccount it has no balances. */
+export type CashAccountOption = Pick<CashAccount, "id" | "name" | "type" | "archivedAt">;
+
+/**
+ * Names-only account list for payment forms. Any staff member who can record
+ * payments can load it, even without the Cash & Bank permission.
+ */
+export function useGetCashflowAccountOptions() {
+  return useQuery<CashAccountOption[]>({
+    queryKey: farmerCashflowKeys.accountOptions(),
+    queryFn: async () => {
+      const res = await axiosInstance.get("/farmer/cashflow/account-options");
+      return res.data.data.accounts as CashAccountOption[];
+    },
+    staleTime: 15_000,
+  });
+}
 
 export function useGetCashflowAccounts(includeArchived: boolean = false) {
   return useQuery<CashAccount[]>({

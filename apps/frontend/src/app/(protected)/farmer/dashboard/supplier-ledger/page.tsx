@@ -53,7 +53,7 @@ import { TransactionType } from "@myapp/shared-types";
 import { DateInput } from "@/common/components/ui/date-input";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { ImageUpload } from "@/common/components/ui/image-upload";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   Select,
@@ -164,7 +164,7 @@ export default function SupplierLedgerPage() {
   // the farmer can split which account the money went out of. We ship an
   // explicit Cash id even when the user doesn't touch the picker; the server
   // never has to fall back silently.
-  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const { data: cashflowAccounts } = useGetCashflowAccountOptions();
   const cashflowHasBanks = (cashflowAccounts ?? []).some(
     (a) => a.type === "BANK" && !a.archivedAt,
   );

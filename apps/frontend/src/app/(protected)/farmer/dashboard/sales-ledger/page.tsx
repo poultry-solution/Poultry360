@@ -73,7 +73,7 @@ import {
 
 import { useGetAllBatches } from "@/fetchers/batches/batchQueries";
 import { useGetUserFarms } from "@/fetchers/farms/farmQueries";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { DeleteSaleDialog } from "@/components/sales/DeleteSaleDialog";
 import { FarmerSaleBill, farmerBillPrintHref } from "./_components/FarmerSaleBill";
@@ -262,7 +262,7 @@ export default function SalesLedgerPage() {
   });
 
   // Farmer cashflow accounts — needed by the "Received into" picker.
-  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const { data: cashflowAccounts } = useGetCashflowAccountOptions();
   const cashflowHasBanks = (cashflowAccounts ?? []).some(
     (a) => a.type === "BANK" && !a.archivedAt,
   );

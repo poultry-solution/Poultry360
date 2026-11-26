@@ -38,7 +38,7 @@ import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { toast } from "sonner";
 import { useAddDealerPayment } from "@/fetchers/dealer/dealerLedgerQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
-import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useI18n } from "@/i18n/useI18n";
 import { ChevronsUpDown, Check } from "lucide-react";
@@ -91,7 +91,7 @@ export function DealerAddPaymentDialog({
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
 
   const addDealerPayment = useAddDealerPayment();
-  const cashflowAccountsQ = useGetCashflowAccounts(false);
+  const cashflowAccountsQ = useGetCashflowAccountOptions();
   const cashflowAccounts = cashflowAccountsQ.data ?? [];
   useEffect(() => {
     if (!accountId && cashflowAccounts.length > 0) {

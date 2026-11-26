@@ -76,6 +76,24 @@ export const getAccounts = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+// Names-only list for the Cash / Bank picker on payment forms. Open to every
+// staff member who can record payments, so no balances or entries here — those
+// stay behind the Cash & Bank permission (GET /accounts).
+export const getAccountOptions = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId!;
+    await ensureCashAccount(userId);
+    const accounts = await prisma.cashAccount.findMany({
+      where: { userId, archivedAt: null },
+      select: { id: true, name: true, type: true, archivedAt: true },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+    });
+    return res.status(200).json({ success: true, data: { accounts } });
+  } catch (err) {
+    return handle(err, res, "farmerCashflow.getAccountOptions");
+  }
+};
+
 export const createAccount = async (
   req: Request,
   res: Response,
