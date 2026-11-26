@@ -59,7 +59,6 @@ export const useRoleBasedRouting = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuthStore();
-  const [isCheckingRoute, setIsCheckingRoute] = useState(false);
 
   // Check if current path is allowed for user's role
   const isPathAllowed = (userRole: string, currentPath: string): boolean => {
@@ -140,18 +139,17 @@ export const useRoleBasedRouting = () => {
     }
   };
 
-  // Auto-check routing on mount and when user/pathname changes
+  // Auto-check routing on mount and when user/pathname changes.
+  // checkAndRedirect is effectively synchronous (router.push returns void in
+  // App Router), so we don't gate the UI on it — doing so caused a full-screen
+  // loader flash on every sidebar click.
   useEffect(() => {
     if (isAuthenticated && user) {
-      setIsCheckingRoute(true);
-      checkAndRedirect().finally(() => {
-        setIsCheckingRoute(false);
-      });
+      void checkAndRedirect();
     }
   }, [isAuthenticated, user, pathname]);
 
   return {
-    isCheckingRoute,
     navigateToRoleDashboard,
     isPathAllowed,
     checkAndRedirect,

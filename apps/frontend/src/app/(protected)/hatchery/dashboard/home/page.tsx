@@ -341,96 +341,86 @@ function HatcheryHomeContent() {
           <p className="text-sm text-muted-foreground md:text-base">{todayLabel}</p>
         </div>
         <Link href="/hatchery/dashboard/incubations?new=1">
-          <Button
-            variant="outline"
-            className="w-full gap-2 border-green-200 hover:bg-green-50 hover:text-green-700 md:w-auto"
-          >
+          <Button className="w-full gap-2 bg-green-600 text-white hover:bg-green-700 md:w-auto">
             <Plus className="h-4 w-4" />
             Start incubation
           </Button>
         </Link>
       </div>
 
-      {/* Left: today's work and numbers. Right: reminders, which can get long,
-          so they scroll inside their own card and never leave a gap. */}
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <div className="min-w-0 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <StatGroup title="Today">
-              <HomeStat
-                label="Eggs today"
-                icon={Egg}
-                value={isTodaySummaryLoading ? null : (todaySummary?.eggProduction ?? 0).toLocaleString()}
-                sub="All parent batches"
-                href="/hatchery/dashboard/batches"
-              />
-              <HomeStat
-                label="Chick sales today"
-                icon={Banknote}
-                value={isTodaySummaryLoading ? null : formatRupeesExact(todaySummary?.chickSalesRevenue ?? 0)}
-                sub="Sold today"
-                href="/hatchery/dashboard/produced-chicks"
-                valueClass="text-green-700"
-              />
-            </StatGroup>
+      <div className="grid gap-4 md:grid-cols-2">
+        <StatGroup title="Today">
+          <HomeStat
+            label="Eggs today"
+            icon={Egg}
+            value={isTodaySummaryLoading ? null : (todaySummary?.eggProduction ?? 0).toLocaleString()}
+            sub="All parent batches"
+            href="/hatchery/dashboard/batches"
+          />
+          <HomeStat
+            label="Chick sales today"
+            icon={Banknote}
+            value={isTodaySummaryLoading ? null : formatRupeesExact(todaySummary?.chickSalesRevenue ?? 0)}
+            sub="Sold today"
+            href="/hatchery/dashboard/produced-chicks"
+            valueClass="text-green-700"
+          />
+        </StatGroup>
 
-            <StatGroup title="Money">
-              <HomeStat
-                label={partiesBalance >= 0 ? "Parties owe you" : "You owe parties"}
-                icon={Wallet}
-                value={isPartiesLoading ? null : formatRupeesExact(Math.abs(partiesBalance))}
-                sub="Current unpaid amount"
-                href="/hatchery/dashboard/parties"
-                valueClass={partiesBalance >= 0 ? "text-green-700" : "text-red-600"}
-              />
-              <HomeStat
-                label="Items low in stock"
-                icon={lowStockItems > 0 ? AlertTriangle : Package}
-                value={isInventoryStatsLoading ? null : String(lowStockItems)}
-                sub="Below minimum stock"
-                href="/hatchery/dashboard/inventory"
-                valueClass={lowStockItems > 0 ? "text-orange-600" : "text-gray-500"}
-              />
-            </StatGroup>
-          </div>
-
-          <StatGroup title="Stock now" wide>
-            <HomeStat
-              label="Eggs in stock"
-              icon={Egg}
-              value={isEggStockLoading ? null : totalEggStock.toLocaleString()}
-              sub="All egg types"
-              href="/hatchery/dashboard/egg-inventory"
-            />
-            <HomeStat
-              label="Chicks to sell"
-              icon={Bird}
-              value={isProducedChickLoading ? null : totalProducedChicks.toLocaleString()}
-              sub="Hatched, not sold yet"
-              href="/hatchery/dashboard/produced-chicks"
-            />
-            <HomeStat
-              label="Incubations"
-              icon={FlaskConical}
-              value={isIncubationLoading ? null : String(activeIncubations)}
-              sub="Running now"
-              href="/hatchery/dashboard/incubations"
-            />
-            <HomeStat
-              label="Parent batches"
-              icon={Layers}
-              value={isActiveParentBatchLoading ? null : String(activeParentBatches)}
-              sub="Active parent flocks"
-              href="/hatchery/dashboard/batches"
-            />
-          </StatGroup>
-
-          <TodaysWork incubations={incubations} loading={isIncubationLoading} />
-          {/* Smaller screens: reminders full width, right after today's work. */}
-          <ReminderCard module="hatchery" className="xl:hidden" />
-        </div>
-        <ReminderCard module="hatchery" className="hidden xl:sticky xl:top-4 xl:block" />
+        <StatGroup title="Money">
+          <HomeStat
+            label={partiesBalance >= 0 ? "Parties owe you" : "You owe parties"}
+            icon={Wallet}
+            value={isPartiesLoading ? null : formatRupeesExact(Math.abs(partiesBalance))}
+            sub="Current unpaid amount"
+            href="/hatchery/dashboard/parties"
+            valueClass={partiesBalance >= 0 ? "text-green-700" : "text-red-600"}
+          />
+          <HomeStat
+            label="Items low in stock"
+            icon={lowStockItems > 0 ? AlertTriangle : Package}
+            value={isInventoryStatsLoading ? null : String(lowStockItems)}
+            sub="Below minimum stock"
+            href="/hatchery/dashboard/inventory"
+            valueClass={lowStockItems > 0 ? "text-orange-600" : "text-gray-500"}
+          />
+        </StatGroup>
       </div>
+
+      <StatGroup title="Stock now" wide>
+        <HomeStat
+          label="Eggs in stock"
+          icon={Egg}
+          value={isEggStockLoading ? null : totalEggStock.toLocaleString()}
+          sub="All egg types"
+          href="/hatchery/dashboard/egg-inventory"
+        />
+        <HomeStat
+          label="Chicks to sell"
+          icon={Bird}
+          value={isProducedChickLoading ? null : totalProducedChicks.toLocaleString()}
+          sub="Hatched, not sold yet"
+          href="/hatchery/dashboard/produced-chicks"
+        />
+        <HomeStat
+          label="Incubations"
+          icon={FlaskConical}
+          value={isIncubationLoading ? null : String(activeIncubations)}
+          sub="Running now"
+          href="/hatchery/dashboard/incubations"
+        />
+        <HomeStat
+          label="Parent batches"
+          icon={Layers}
+          value={isActiveParentBatchLoading ? null : String(activeParentBatches)}
+          sub="Active parent flocks"
+          href="/hatchery/dashboard/batches"
+        />
+      </StatGroup>
+
+      <TodaysWork incubations={incubations} loading={isIncubationLoading} />
+
+      <ReminderCard module="hatchery" />
 
       {canViewAnalytics ? (
         <section className="space-y-2">
