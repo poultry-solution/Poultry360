@@ -8,7 +8,7 @@ import { Label } from "@/common/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 import { getNepalTodayAd, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 
 interface QuickExpenseModalProps {
   isOpen: boolean;
@@ -61,7 +61,7 @@ export function QuickExpenseModal({
   // Quick action: no picker, deterministic default of the user's Cash
   // account. We still ship the explicit accountId so the server never has
   // to fall back silently.
-  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const { data: cashflowAccounts } = useGetCashflowAccountOptions();
   const cashAccountId =
     (cashflowAccounts ?? []).find((a) => a.type === "CASH")?.id ?? "";
 

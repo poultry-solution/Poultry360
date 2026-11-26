@@ -18,6 +18,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { CashflowError } from "../common/cashflow/errors";
+import { resolveRecordedById } from "../common/cashflow/recorder";
 import { toNepalBsDayString } from "../utils/nepalBsDate";
 
 type Tx = Prisma.TransactionClient;
@@ -114,7 +115,7 @@ export async function upsertSourceMovement(params: UpsertParams): Promise<void> 
       sourceId,
       partyName,
       notes,
-      recordedById,
+      recordedById: await resolveRecordedById(tx, userId, recordedById),
     },
   });
 }

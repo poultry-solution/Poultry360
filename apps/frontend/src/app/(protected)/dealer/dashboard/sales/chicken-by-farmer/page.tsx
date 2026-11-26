@@ -27,7 +27,7 @@ import { convertADtoBS, getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useSearchableCustomerSelect } from "@/hooks/useSearchableCustomerSelect";
 import { toast } from "sonner";
 import { BroilerSettlement, ChickenSalesByFarmerRow, useCreateBroilerSettlement, useGetBroilerSettlements, useGetChickenSalesByFarmer, useReverseBroilerSettlement } from "@/fetchers/dealer/dealerSaleQueries";
-import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSalesTabs } from "@/components/dealer/sales/DealerSalesTabs";
@@ -62,7 +62,7 @@ function ChickenSalesByFarmerContent() {
   const [marginAmount, setMarginAmount] = useState("");
   // paymentMethod state removed — backend derives it from the AccountPicker.
   const [accountId, setAccountId] = useState("");
-  const accountsQ = useGetCashflowAccounts(false);
+  const accountsQ = useGetCashflowAccountOptions();
   const cashflowAccounts = accountsQ.data ?? [];
   useEffect(() => {
     if (!accountId && cashflowAccounts.length > 0) {

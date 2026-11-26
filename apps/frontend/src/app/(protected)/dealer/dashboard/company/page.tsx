@@ -54,7 +54,7 @@ import {
     type PurchaseItem,
 } from "@/fetchers/dealer/dealerManualCompanyQueries";
 import { useGetDealerPaymentDirectionSetting } from "@/fetchers/dealer/dealerSettingsQueries";
-import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
     ACCOUNT_FEATURE_KEYS,
@@ -112,7 +112,7 @@ export default function DealerCompanyPage() {
     const deleteManualMutation = useDeleteManualCompany();
     const recordPurchaseMutation = useRecordManualPurchase();
     const recordPaymentMutation = useRecordManualCompanyPayment();
-    const cashflowAccountsQ = useGetCashflowAccounts(false);
+    const cashflowAccountsQ = useGetCashflowAccountOptions();
     const cashflowAccounts = cashflowAccountsQ.data ?? [];
     useEffect(() => {
         if (!paymentAccountId && cashflowAccounts.length > 0) {

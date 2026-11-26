@@ -15,7 +15,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { DateInput } from "@/common/components/ui/date-input";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
-import type { CashAccount } from "@/fetchers/farmer/farmerCashflowQueries";
+import type { CashAccountOption } from "@/fetchers/farmer/farmerCashflowQueries";
 
 type ExpenseCategory = "Feed" | "Medicine" | "Other";
 
@@ -77,7 +77,7 @@ interface ExpenseModalProps {
   onOtherSelection?: (id: string) => void;
   onOtherCategorySelection?: (id: string) => void;
   /** Optional so dashboard quick actions can continue to use this shared form. */
-  cashflowAccounts?: CashAccount[];
+  cashflowAccounts?: CashAccountOption[];
   defaultCashAccountId?: string;
   onCashAccountChange?: (id: string) => void;
   

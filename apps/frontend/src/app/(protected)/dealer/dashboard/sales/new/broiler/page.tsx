@@ -20,7 +20,7 @@ import {
   BulkBroilerSaleResult,
   useCreateBulkBroilerSales,
 } from "@/fetchers/dealer/dealerSaleQueries";
-import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { BroilerBulkTable } from "./_components/BroilerBulkTable";
 import { BroilerBulkSummary } from "./_components/BroilerBulkSummary";
@@ -134,7 +134,7 @@ function NewBroilerBulkSaleContent() {
   // only appears when the dealer has bank accounts; otherwise everything
   // defaults to Cash on the backend.
   const [accountId, setAccountId] = useState("");
-  const accountsQ = useGetCashflowAccounts(false);
+  const accountsQ = useGetCashflowAccountOptions();
   const cashflowAccounts = accountsQ.data ?? [];
   useEffect(() => {
     if (!accountId && cashflowAccounts.length > 0) {

@@ -354,10 +354,10 @@ export const modulePageContent: Record<string, ModulePageContent> = {
         icon: KeyRound,
       },
       {
-        title: "Cash in hand",
+        title: "Cash & Bank",
         group: "Team and tools",
         description:
-          "Keep a daily cash book for the farm: cash in, cash out, and the cash you should have now. Close each day when the count matches.",
+          "See how much money you have in cash and in your bank. Sales, payments, expenses and salary are added by themselves.",
         icon: Wallet,
       },
       {
@@ -600,10 +600,10 @@ export const modulePageContent: Record<string, ModulePageContent> = {
         icon: KeyRound,
       },
       {
-        title: "Cash in hand",
+        title: "Cash & Bank",
         group: "Team and tools",
         description:
-          "Keep a daily cash book for the farm: cash in, cash out, and the cash you should have now. Close each day when the count matches.",
+          "See how much money you have in cash and in your bank. Sales, payments, expenses and salary are added by themselves.",
         icon: Wallet,
       },
       {
@@ -813,10 +813,10 @@ export const modulePageContent: Record<string, ModulePageContent> = {
         icon: KeyRound,
       },
       {
-        title: "Cash in hand",
+        title: "Cash & Bank",
         group: "Team and tools",
         description:
-          "Keep a daily cash book for the shop: cash in, cash out, and the cash you should have now.",
+          "See how much money your shop has in cash and in the bank. Sales, payments and salary are added by themselves.",
         icon: Wallet,
       },
       {

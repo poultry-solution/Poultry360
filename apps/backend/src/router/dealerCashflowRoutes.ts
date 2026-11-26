@@ -7,6 +7,7 @@ import {
   createTransfer,
   deleteAccount,
   deleteMovement,
+  getAccountOptions,
   getAccounts,
   getMovements,
   getReportHandler,
@@ -18,6 +19,11 @@ const router = express.Router();
 router.use((req, res, next) => {
   authMiddleware(req, res, next, ["DEALER"]);
 });
+// Any staff member of this business may load the names-only list for the
+// Cash / Bank picker on payment forms (no balances). Everything below needs
+// the Cash & Bank permission.
+router.get("/account-options", getAccountOptions);
+
 router.use(requireStaffPermission(StaffPermission.DEALER_VIEW_CASH_HISTORY));
 
 // Note: no generic audit middleware. Each controller calls writeBusinessAudit

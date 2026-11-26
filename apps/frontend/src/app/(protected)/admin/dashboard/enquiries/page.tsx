@@ -176,7 +176,13 @@ function EnquirySection<T extends { id: string }>({
 }
 
 const messageCell = (message?: string | null) =>
-  message ? <span className="block max-w-[360px] line-clamp-2">{message}</span> : empty;
+  // Table cells don't wrap by default, so the long message was cut off. Wrap it
+  // and show the whole message (keeps the customer's own line breaks).
+  message ? (
+    <span className="block min-w-[240px] max-w-[420px] whitespace-pre-wrap break-words">{message}</span>
+  ) : (
+    empty
+  );
 
 export default function AdminEnquiriesPage() {
   const { t } = useI18n();

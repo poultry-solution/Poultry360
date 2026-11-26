@@ -7,10 +7,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/common/components/ui/select";
-import type { CashAccount } from "@/fetchers/farmer/farmerCashflowQueries";
+import type { CashAccountOption } from "@/fetchers/farmer/farmerCashflowQueries";
 
 interface AccountPickerProps {
-  accounts: CashAccount[];
+  /** Full CashAccount rows work too — the picker only reads id, name, type, archivedAt. */
+  accounts: CashAccountOption[];
   value: string;
   onChange: (id: string) => void;
   /** Hide the picker entirely when there's only one usable account (just Cash). */

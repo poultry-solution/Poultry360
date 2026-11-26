@@ -19,6 +19,7 @@ import {
 import { rollupCashflowStatement } from "../common/cashflow/report";
 import { buildTransferLegs } from "../common/cashflow/transfer";
 import type { CashAccount, CashMovement } from "../common/cashflow/types";
+import { resolveRecordedById } from "../common/cashflow/recorder";
 import { getNepalBsTodayString } from "../utils/nepalBsDate";
 
 export { CashflowError };
@@ -623,6 +624,7 @@ export async function postManualMovement(
         400,
       );
     }
+    const recorder = await resolveRecordedById(tx, userId, recordedById);
     const row = await tx.cashMovement.create({
       data: {
         userId,
@@ -634,7 +636,7 @@ export async function postManualMovement(
         sourceType: CashSourceType.MANUAL,
         partyName,
         notes,
-        recordedById,
+        recordedById: recorder,
       },
       select: MOVEMENT_SELECT,
     });
@@ -683,6 +685,7 @@ export async function postTransfer(
       toName: to.name,
     });
 
+    const recorder = await resolveRecordedById(tx, userId, recordedById);
     const makeLeg = (leg: typeof outLeg) =>
       tx.cashMovement.create({
         data: {
@@ -700,7 +703,7 @@ export async function postTransfer(
           transferId: leg.transferId,
           partyName: leg.partyName,
           notes: note,
-          recordedById,
+          recordedById: recorder,
         },
         select: MOVEMENT_SELECT,
       });

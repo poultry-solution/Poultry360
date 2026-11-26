@@ -30,8 +30,8 @@ import { ImageUpload } from "@/common/components/ui/image-upload";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { StaffAttendanceCalendar } from "@/components/staff/StaffAttendanceCalendar";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
-import { useGetCashflowAccounts as useGetDealerCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions as useGetDealerCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import {
   useDeleteStaff,
   useCreateStaff,
@@ -1245,7 +1245,7 @@ function FarmerSalaryAccountPicker({
   value: string;
   onChange: (accountId: string) => void;
 }) {
-  const { data: accounts } = useGetCashflowAccounts(false);
+  const { data: accounts } = useGetCashflowAccountOptions();
   const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
   const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
 
@@ -1275,7 +1275,7 @@ function DealerSalaryAccountPicker({
   value: string;
   onChange: (accountId: string) => void;
 }) {
-  const { data: accounts } = useGetDealerCashflowAccounts(false);
+  const { data: accounts } = useGetDealerCashflowAccountOptions();
   const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
   const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
 

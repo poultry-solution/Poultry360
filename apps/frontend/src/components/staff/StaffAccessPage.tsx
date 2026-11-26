@@ -38,7 +38,7 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     defaultPermissions: [],
     permissions: [
       { permission: "DEALER_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Dashboard totals and Analytics" },
-      { permission: "DEALER_VIEW_CASH_HISTORY", label: "Cash in hand", description: "Today’s cash and cash history" },
+      { permission: "DEALER_VIEW_CASH_HISTORY", label: "Cash & Bank", description: "See cash and bank balances and all entries" },
       { permission: "DEALER_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
     ],
   },
@@ -59,7 +59,7 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     permissionDescription: "Farm operations access is included with every staff login. Choose any additional areas this staff member needs.",
     permissions: [
       { permission: "FARMER_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private dashboard totals, balances, and financial summaries" },
-      { permission: "FARMER_VIEW_CASH_HISTORY", label: "Cash in hand", description: "Today’s cash book and cash history" },
+      { permission: "FARMER_VIEW_CASH_HISTORY", label: "Cash & Bank", description: "See cash and bank balances and all entries" },
       { permission: "FARMER_VIEW_ANALYTICS", label: "Analytics", description: "Farmer reports and operational analytics" },
       { permission: "FARMER_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
     ],

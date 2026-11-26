@@ -54,7 +54,7 @@ import {
   useGetBatchSalesPage,
 } from "@/fetchers/sale/saleQueries";
 import { useGetEggTypes } from "@/fetchers/eggTypes/eggTypeQueries";
-import { useGetCashflowAccounts } from "@/fetchers/farmer/farmerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import {
   useGetBatchMortalities,
@@ -1064,7 +1064,7 @@ export default function BatchDetailPage() {
   // Cashbook accounts — needed by the "Received into" picker on the Sale
   // modal. Picker defaults to the user's Cash account so an untouched form
   // still ships an explicit accountId to the server.
-  const { data: cashflowAccounts } = useGetCashflowAccounts(false);
+  const { data: cashflowAccounts } = useGetCashflowAccountOptions();
   const cashflowHasBanks = (cashflowAccounts ?? []).some(
     (a) => a.type === "BANK" && !a.archivedAt,
   );

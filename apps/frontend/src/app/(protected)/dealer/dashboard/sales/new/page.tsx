@@ -47,7 +47,7 @@ import {
   useCreateDealerSale,
   useCreateCustomer,
 } from "@/fetchers/dealer/dealerSaleQueries";
-import { useGetCashflowAccounts } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useI18n } from "@/i18n/useI18n";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
@@ -116,7 +116,7 @@ export default function NewSalePage() {
   const productSelect = useSearchableDealerProductSelect();
 
   const createSaleMutation = useCreateDealerSale();
-  const accountsQ = useGetCashflowAccounts(false);
+  const accountsQ = useGetCashflowAccountOptions();
   const cashflowAccounts = accountsQ.data ?? [];
   // Pre-select the dealer's Cash account on first load so the picker has a
   // sensible default. The backend also falls back to Cash when accountId is
