@@ -46,7 +46,7 @@ const dealer: TutorialSection[] = [
       v("dealer", "09-broiler-sales-and-settlement", "Broiler sales and settlement", "Sell a farmer's broilers, keep your margin, and settle with the farmer.", "2:39"),
       v("dealer", "10-sell-to-company", "Sell stock to a company", "Give stock back to a company to lower what you owe.", "1:26"),
       v("dealer", "11-payment-reminders", "Payment reminders", "Set reminders to collect or pay money on time.", "1:08"),
-      v("dealer", "12-cash-in-hand", "Cash in hand", "Keep track of the cash in your shop drawer.", "1:13"),
+      v("dealer", "12-cash-and-bank", "Cash & Bank", "Keep track of your shop money in cash and in the bank.", "2:28"),
       v("dealer", "13-staff-payroll-and-staff-login", "Staff salary and staff login", "Keep staff salary, and give staff their own login.", "1:46"),
       v("dealer", "14-analytics", "Analytics", "Your sales, profit, and money at a glance.", "1:07"),
       v("dealer", "15-activity-and-settings", "Activity and settings", "See who did what, and change your settings.", "1:03"),

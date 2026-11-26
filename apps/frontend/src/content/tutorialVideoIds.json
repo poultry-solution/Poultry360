@@ -10,7 +10,6 @@
   "dealer/09-broiler-sales-and-settlement": "dy8fpal0tb",
   "dealer/10-sell-to-company": "e2dxf9ga6u",
   "dealer/11-payment-reminders": "z4rfd2do4k",
-  "dealer/12-cash-in-hand": "m7hinqh8f1",
   "dealer/13-staff-payroll-and-staff-login": "arkc9cp2q9",
   "dealer/14-analytics": "a7epqmwwcv",
   "dealer/15-activity-and-settings": "k6uffkgu6d",
@@ -78,5 +77,6 @@
   "hatchery/17-analytics": "jr459w8sn3",
   "hatchery/18-staff-activity-and-settings": "xzaaodb185",
   "farmer-broiler/19-cash-and-bank": "vtm9tqsze9",
-  "farmer-layers/22-cash-and-bank": "47ofn3m471"
+  "farmer-layers/22-cash-and-bank": "47ofn3m471",
+  "dealer/12-cash-and-bank": "98e6o1ysu9"
 }
