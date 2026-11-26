@@ -343,6 +343,12 @@ export const hatcheryNavigation: NavigationItem[] = [
     requiredStaffPermission: "HATCHERY_VIEW_STAFF_MANAGEMENT",
   },
   {
+    nameKey: "sidebar.nav.cashAndBank",
+    href: "/hatchery/dashboard/cashflow",
+    icon: Wallet,
+    requiredStaffPermission: "HATCHERY_VIEW_CASH_HISTORY",
+  },
+  {
     nameKey: "sidebar.nav.staffAccess",
     href: "/hatchery/dashboard/staff-access",
     icon: KeyRound,

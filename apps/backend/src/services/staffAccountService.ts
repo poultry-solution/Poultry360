@@ -59,6 +59,7 @@ export const STAFF_ACCOUNT_MODULES = {
       StaffPermission.HATCHERY_MANAGE_OPERATIONS,
       StaffPermission.HATCHERY_VIEW_ANALYTICS,
       StaffPermission.HATCHERY_VIEW_STAFF_MANAGEMENT,
+      StaffPermission.HATCHERY_VIEW_CASH_HISTORY,
     ],
     getBusiness: (ownerId) => prisma.hatcheryBusiness.findUnique({
       where: { ownerId },

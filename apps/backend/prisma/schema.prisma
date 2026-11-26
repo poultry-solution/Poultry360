@@ -2654,8 +2654,12 @@ enum CashSourceType {
   BROILER_SETTLEMENT_PROCEEDS  // BroilerSaleSettlement totalProceeds leg (IN)
   BROILER_SETTLEMENT_PAYOUT    // BroilerSaleSettlement farmerPayout leg (OUT)
   DEALER_BROILER_PURCHASE      // DealerBroilerPurchase cash paid upfront to source farmer (OUT)
+
   COMPANY_DEALER_PAYMENT       // company CompanyDealerPayment (IN)
   COMPANY_SUPPLIER_PAYMENT     // company CompanySupplierPayment (OUT)
+  HATCHERY_PARTY_PAYMENT       // hatchery HatcheryPartyPayment (IN) — party pays hatchery
+  HATCHERY_SUPPLIER_PAYMENT    // hatchery HatcherySupplierTxn type=PAYMENT (OUT)
+  HATCHERY_BATCH_EXPENSE       // hatchery HatcheryBatchExpense type=MANUAL (OUT)
 }
 
 // One CASH account per owner user + 0..N BANK accounts. Every CashMovement
@@ -2665,6 +2669,13 @@ enum CashSourceType {
 // ([OWNER] on /farmer/cashflow, [DEALER] on /dealer/cashflow) prevent one
 // tenant from reading the other's accounts; the dealerCashflowService also
 // asserts `user.role === DEALER` at every service entry as belt-and-braces.
+
+// dealer (role DEALER), and hatchery (role HATCHERY) tenants, keyed by
+// `userId` of the owner — a User has exactly one role, so no cross-tenant
+// ambiguity. Route-level role guards ([OWNER] on /farmer/cashflow, [DEALER]
+// on /dealer/cashflow, [HATCHERY] on /hatchery/cashflow) prevent one tenant
+// from reading the other's accounts; each role's cashflow service also
+// asserts the matching role at every service entry as belt-and-braces.
 // Singleton CASH per userId is enforced by a raw-SQL partial unique index
 // introduced in the farmer_cashflow_v1 migration — same index applies to
 // dealer users.
@@ -2891,6 +2902,7 @@ enum StaffPermission {
   HATCHERY_MANAGE_OPERATIONS
   HATCHERY_VIEW_ANALYTICS
   HATCHERY_VIEW_STAFF_MANAGEMENT
+  HATCHERY_VIEW_CASH_HISTORY
   FARMER_MANAGE_OPERATIONS
   FARMER_VIEW_FINANCIAL_SUMMARIES
   FARMER_VIEW_CASH_HISTORY

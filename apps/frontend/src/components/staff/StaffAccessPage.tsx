@@ -50,6 +50,7 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     permissions: [
       { permission: "HATCHERY_VIEW_ANALYTICS", label: "Analytics", description: "Hatchery dashboard and analytics data" },
       { permission: "HATCHERY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
+      { permission: "HATCHERY_VIEW_CASH_HISTORY", label: "Cash & Bank", description: "See cash and bank balances and all entries" },
     ],
   },
   farmer: {

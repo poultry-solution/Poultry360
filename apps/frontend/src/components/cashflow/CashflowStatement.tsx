@@ -36,7 +36,7 @@ interface CashflowStatementProps {
    * of their parent category (salary out of EXPENSE, broiler payout out of
    * CASH_OUT) so the dealer summary shows what the money actually was. */
   movements?: MovementForSplit[];
-  role?: "OWNER" | "DEALER" | "COMPANY";
+  role?: "OWNER" | "DEALER" | "COMPANY" | "HATCHERY";
 }
 
 export function CashflowStatement({ report, movements, role = "OWNER" }: CashflowStatementProps) {
@@ -52,8 +52,12 @@ export function CashflowStatement({ report, movements, role = "OWNER" }: Cashflo
       )
       .reduce((s, m) => s + Number(m.amount), 0);
 
-  // Dealer and company: salary shows as its own line, not inside Expenses.
-  const salaryTotal = role === "DEALER" || role === "COMPANY" ? sumBySource("STAFF_PAYMENT") : 0;
+  // Dealer, company, and hatchery: salary shows as its own line, not inside Expenses.
+  // Only dealer has a broiler-settlement payout line.
+  const splitSalary =
+    role === "DEALER" || role === "COMPANY" || role === "HATCHERY";
+  const salaryTotal = splitSalary ? sumBySource("STAFF_PAYMENT") : 0;
+
   const broilerPayoutTotal = role === "DEALER" ? sumBySource("BROILER_SETTLEMENT_PAYOUT") : 0;
   const inflowRows = Object.entries(report.byCategory.inflow)
     .filter(([cat, v]) => v > 0 && cat !== "TRANSFER")

@@ -37,6 +37,9 @@ function labelFor(m: CashMovement): string {
   if (m.sourceType === "DEALER_BROILER_PURCHASE") return "Broiler purchase";
   if (m.sourceType === "COMPANY_DEALER_PAYMENT") return "Dealer payment";
   if (m.sourceType === "COMPANY_SUPPLIER_PAYMENT") return "Supplier payment";
+  if (m.sourceType === "HATCHERY_PARTY_PAYMENT") return "Party payment";
+  if (m.sourceType === "HATCHERY_SUPPLIER_PAYMENT") return "Supplier payment";
+  if (m.sourceType === "HATCHERY_BATCH_EXPENSE") return "Batch expense";
   return CATEGORY_LABEL[m.category];
 }
 
