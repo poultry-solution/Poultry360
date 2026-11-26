@@ -11,7 +11,6 @@ import { cleanupUploadedImages } from "../utils/cloudinary";
 import {
   deleteDealerSalePaymentMovement,
   ensureCashAccountId,
-  postDealerBroilerPurchaseMovement,
   postDealerLedgerPaymentMovement,
   postDealerLedgerReceiptMovement,
   postDealerSalePaymentMovement,
@@ -658,12 +657,11 @@ export class DealerService {
       // purchase is also rolled back). Purchase date defaults to the first
       // row's date because that's the dealer's "today" for this entry.
       //
-      // Cashflow v2: when the dealer fills this block they're saying they
-      // actually paid the source farmer upfront ("Purchase mode" / Scenario A).
-      // Mirror as a cash OUT so the cashbook reflects the real outflow. In
-      // "Mediator mode" (Scenario B) the block stays empty and the OUT
-      // instead flows at settlement time via farmerPayout — the two modes
-      // don't overlap.
+      // The purchase block is purely informational: dealer–source-farmer
+      // settlement patterns vary (upfront, partial, deferred, mediator) and
+      // we don't try to infer cash movement from a purchase row. The dealer
+      // drives cash via the settlement payout, where they manually set
+      // margin + credit recovery.
       let createdPurchase: CreatedPurchase | null = null;
       if (purchase) {
         const purchaseDate = rows[0]?.date ?? new Date();
@@ -688,33 +686,6 @@ export class DealerService {
           broilerCount: row.broilerCount,
           date: row.date,
         };
-
-        if (cashbookRecordedById) {
-          const dealerRow = await tx.dealer.findUnique({
-            where: { id: dealerId },
-            select: { ownerId: true },
-          });
-          if (dealerRow?.ownerId) {
-            const accountId =
-              cashbookAccountId ?? (await ensureCashAccountId(tx, dealerRow.ownerId));
-            // Fetch the source farmer's name for the mirror's partyName.
-            const farmerRow = await tx.customer.findUnique({
-              where: { id: sourceFarmerId },
-              select: { name: true },
-            });
-            await postDealerBroilerPurchaseMovement({
-              tx,
-              userId: dealerRow.ownerId,
-              dealerBroilerPurchaseId: row.id,
-              accountId,
-              amount: Number(purchase.totalCost),
-              date: purchaseDate,
-              sourceFarmerName: farmerRow?.name ?? "Source farmer",
-              recordedById: cashbookRecordedById,
-              notes: purchase.notes ?? null,
-            });
-          }
-        }
       }
 
       return { sales: result, purchase: createdPurchase };

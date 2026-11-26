@@ -28,6 +28,7 @@ import { Button } from "@/common/components/ui/button";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { useGetDealerSaleById } from "@/fetchers/dealer/dealerSaleQueries";
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 
 export default function SaleDetailPage() {
   const router = useRouter();
@@ -242,9 +243,10 @@ export default function SaleDetailPage() {
                     {/* DealerSale has no `paymentMethod` column — it lives on
                      * the initial `DealerSalePayment` row. Read that so the
                      * user sees the Cash/Bank choice they made at sale time. */}
-                    {sale.payments?.[0]?.paymentMethod ||
-                      (sale.payments?.[0] as any)?.method ||
-                      "—"}
+                    {formatPaymentMethod(
+                      sale.payments?.[0]?.paymentMethod ||
+                      (sale.payments?.[0] as any)?.method
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -302,7 +304,7 @@ export default function SaleDetailPage() {
                           </div>
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          {payment.method ?? payment.paymentMethod ?? "—"}
+                          {formatPaymentMethod(payment.method ?? payment.paymentMethod)}
                         </Badge>
                       </div>
                       {payment.notes && (

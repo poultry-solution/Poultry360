@@ -5,6 +5,12 @@ import type {
   CashCategory,
   CashflowReport,
 } from "@/fetchers/farmer/farmerCashflowQueries";
+
+type MovementForSplit = {
+  bsDate: string;
+  amount: number;
+  sourceType: string;
+};
 import { formatCashAmount } from "@/components/cash-in-hand/cashFormat";
 import { formatBsLong } from "@/components/cashflow/cashflowText";
 
@@ -24,13 +30,33 @@ const CATEGORY_LABEL: Record<CashCategory, string> = {
 
 interface CashflowStatementProps {
   report: CashflowReport;
+  /** Optional list of in-range movements. Used to split a few sourceTypes out
+   * of their parent category (salary out of EXPENSE, broiler payout out of
+   * CASH_OUT) so the dealer summary shows what the money actually was. */
+  movements?: MovementForSplit[];
+  role?: "OWNER" | "DEALER";
 }
 
-export function CashflowStatement({ report }: CashflowStatementProps) {
+export function CashflowStatement({ report, movements, role = "OWNER" }: CashflowStatementProps) {
+  const { from, to } = { from: report.range.fromBsDate, to: report.range.toBsDate };
+  const sumBySource = (sourceType: string) =>
+    (movements ?? [])
+      .filter((m) => m.bsDate >= from && m.bsDate <= to && m.sourceType === sourceType)
+      .reduce((s, m) => s + Number(m.amount), 0);
+
+  const salaryTotal = role === "DEALER" ? sumBySource("STAFF_PAYMENT") : 0;
+  const broilerPayoutTotal = role === "DEALER" ? sumBySource("BROILER_SETTLEMENT_PAYOUT") : 0;
   const inflowRows = Object.entries(report.byCategory.inflow)
     .filter(([cat, v]) => v > 0 && cat !== "TRANSFER")
     .sort((a, b) => b[1] - a[1]);
   const outflowRows = Object.entries(report.byCategory.outflow)
+    .map(([cat, v]) => {
+      // Dealer-side: carve salary out of EXPENSE and broiler payout out of
+      // CASH_OUT so the summary shows them as the separate things they are.
+      if (cat === "EXPENSE") return [cat, v - salaryTotal] as const;
+      if (cat === "CASH_OUT") return [cat, v - broilerPayoutTotal] as const;
+      return [cat, v] as const;
+    })
     .filter(([cat, v]) => v > 0 && cat !== "TRANSFER")
     .sort((a, b) => b[1] - a[1]);
 
@@ -96,7 +122,7 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
         </Section>
 
         <Section title="Money out">
-          {outflowRows.length === 0 && <Empty />}
+          {outflowRows.length === 0 && salaryTotal === 0 && broilerPayoutTotal === 0 && <Empty />}
           {outflowRows.map(([cat, v]) => (
             <Row
               key={cat}
@@ -104,6 +130,10 @@ export function CashflowStatement({ report }: CashflowStatementProps) {
               value={-v}
             />
           ))}
+          {salaryTotal > 0 && <Row label="Salary" value={-salaryTotal} />}
+          {broilerPayoutTotal > 0 && (
+            <Row label="Paid to broiler farmers" value={-broilerPayoutTotal} />
+          )}
           <Row label="Total money out" value={-report.totals.outflow} muted />
         </Section>
 

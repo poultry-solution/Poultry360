@@ -15,7 +15,6 @@ jest.mock("../../src/utils/nepalBsDate", () => ({
 
 import {
   postBroilerSettlementPayoutMovement,
-  postDealerBroilerPurchaseMovement,
   postDealerLedgerPaymentMovement,
   postDealerLedgerReceiptMovement,
   postDealerSalePaymentMovement,
@@ -213,29 +212,10 @@ describe("dealer cashflow invariants", () => {
     // that; otherwise the sum of inflows will double-count against the sales
     // already mirrored.
 
-    it("Broiler purchase (dealer bought upfront) → mirrors one OUT leg", async () => {
-      // Scenario A: dealer paid the source farmer upfront. The Purchase block
-      // represents real cash leaving the dealer's account. In Scenario B
-      // (mediator/consignment) the Purchase block stays empty and this
-      // helper is never called — so the two modes never double-count.
-      const t = tx();
-      t.cashAccount.findUnique.mockResolvedValueOnce(activeAccount());
-      t.cashMovement.findFirst.mockResolvedValueOnce(null);
-      await postDealerBroilerPurchaseMovement({
-        tx: t as unknown as Prisma.TransactionClient,
-        userId: "dealer-user-1",
-        dealerBroilerPurchaseId: "dbp-1",
-        accountId: "cash-1",
-        amount: 15000,
-        date: new Date(),
-        sourceFarmerName: "Ram Prasad",
-        recordedById: "dealer-user-1",
-      });
-      expect(t.cashMovement.create).toHaveBeenCalledTimes(1);
-      const data = t.cashMovement.create.mock.calls[0][0].data;
-      expect(data.direction).toBe("OUT");
-      expect(data.sourceType).toBe("DEALER_BROILER_PURCHASE");
-    });
+    // DealerBroilerPurchase intentionally has no mirror helper — the
+    // dealer–source-farmer relationship is too varied to infer a cash event
+    // from a purchase row. Cash moves via the settlement payout under the
+    // dealer's manual control (margin + credit recovery + payout amount).
   });
 
   describe("source types that must never mirror", () => {

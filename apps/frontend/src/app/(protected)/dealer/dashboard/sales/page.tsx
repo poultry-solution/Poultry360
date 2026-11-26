@@ -36,6 +36,7 @@ import { useAuthStore } from "@/common/store/store";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 import { convertADtoBS } from "@/common/lib/nepali-date";
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 
 /** BS "YYYY-MM-DD" for the download date column, matching the on-screen BS table. */
 const bsDay = (date: unknown): string => {
@@ -486,9 +487,10 @@ export default function DealerSalesPage() {
                        * it lives per-payment on `DealerSalePayment.paymentMethod`.
                        * Pull it from the initial payment so the user sees
                        * the Cash/Bank/etc. choice they made at sale time. */}
-                      {sale.payments?.[0]?.paymentMethod ||
-                        (sale.payments?.[0] as any)?.method ||
-                        "—"}
+                      {formatPaymentMethod(
+                        sale.payments?.[0]?.paymentMethod ||
+                        (sale.payments?.[0] as any)?.method
+                      )}
                     </span>
                   </div>
                   {paidAmount > 0 && (
@@ -591,7 +593,7 @@ export default function DealerSalesPage() {
                           {payment.notes && <div className="text-xs text-muted-foreground mt-1">{payment.notes}</div>}
                         </div>
                         <Badge variant="secondary" className="text-xs">
-                          {payment.method ?? payment.paymentMethod ?? "—"}
+                          {formatPaymentMethod(payment.method ?? payment.paymentMethod)}
                         </Badge>
                       </div>
                     ))}

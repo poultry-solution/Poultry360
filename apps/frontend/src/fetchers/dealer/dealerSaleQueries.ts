@@ -466,8 +466,6 @@ export interface CreateStandaloneBroilerPurchaseInput {
   notes?: string;
   /** AD YYYY-MM-DD; omit to default to today on the server. */
   date?: string;
-  /** Cashflow v2: CashAccount the upfront payment leaves from. Optional; backend defaults to Cash. */
-  accountId?: string;
 }
 
 /** Record a broiler purchase lot standalone (not tied to a bulk-sale batch).

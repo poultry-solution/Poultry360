@@ -353,7 +353,13 @@ export default function DealerCashflowPage() {
           <DialogHeader>
             <DialogTitle>Cash &amp; Bank summary</DialogTitle>
           </DialogHeader>
-          {reportQ.data && <CashflowStatement report={reportQ.data} />}
+          {reportQ.data && (
+            <CashflowStatement
+              report={reportQ.data}
+              movements={movements}
+              role="DEALER"
+            />
+          )}
         </DialogContent>
       </Dialog>
 

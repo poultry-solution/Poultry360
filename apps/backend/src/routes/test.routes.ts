@@ -126,6 +126,11 @@ router.post('/setup-users', async (req, res) => {
       prisma.dealerSalePayment.deleteMany({}),
       prisma.dealerSaleItem.deleteMany({}),
       prisma.dealerSale.deleteMany({}),
+      // DealerBroilerPurchase.sourceFarmerId -> Customer with onDelete:
+      // Restrict, so purchases must be gone before customers are deleted
+      // below. The settlementId FK is SetNull so order relative to
+      // settlements doesn't matter.
+      prisma.dealerBroilerPurchase.deleteMany({}),
       // BroilerSaleSettlement.farmerId -> Customer with onDelete: Restrict,
       // so settlements must be gone before customers are deleted below.
       // DealerSale.settlementId -> this table (also Restrict), so dealer

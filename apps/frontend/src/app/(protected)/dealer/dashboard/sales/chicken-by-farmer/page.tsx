@@ -301,7 +301,7 @@ function ChickenSalesByFarmerContent() {
       </Card>
 
       <Dialog open={!!settlementTarget} onOpenChange={(open) => !open && setSettlementTarget(null)}>
-        <DialogContent className="max-w-xl bg-white">
+        <DialogContent className="flex max-h-[90vh] max-w-xl flex-col bg-white">
           <DialogHeader>
             <DialogTitle>Settle broiler payment</DialogTitle>
             <DialogDescription>
@@ -309,7 +309,7 @@ function ChickenSalesByFarmerContent() {
             </DialogDescription>
           </DialogHeader>
           {settlementAmounts && settlementTarget && (
-            <div className="space-y-4 py-2">
+            <div className="-mx-1 flex-1 space-y-4 overflow-y-auto px-1 py-2">
               {/* Shared financial breakdown so the numbers match the card. */}
               <FarmerFinancialBreakdown
                 tentativeRevenue={settlementAmounts.proceeds}
@@ -407,7 +407,7 @@ function ChickenSalesByFarmerContent() {
               {/* Payment method dropdown removed — derived from the AccountPicker. */}
               {cashflowAccounts.some((a) => a.type === "BANK" && a.archivedAt === null) && (
                 <div className="space-y-2">
-                  <Label>Payout from (farmer paid out of)</Label>
+                  <Label>Paid from</Label>
                   <AccountPicker
                     accounts={cashflowAccounts}
                     value={accountId}

@@ -71,7 +71,7 @@ interface SummaryCard {
 
 function formatCurrency(amount: number): string {
   // Paisa only appears from half days, so whole rupees stay clean.
-  return `Rs ${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  return `रू ${Math.abs(amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function rateUnit(payType: StaffPayType): string {

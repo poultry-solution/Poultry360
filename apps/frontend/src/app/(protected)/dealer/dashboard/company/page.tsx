@@ -361,6 +361,8 @@ export default function DealerCompanyPage() {
         setPaymentAmount("");
         setPaymentDirection("MADE");
         setPaymentNotes("");
+        const cash = cashflowAccounts.find((a) => a.type === "CASH");
+        setPaymentAccountId(cash?.id ?? "");
     };
 
     const openAccount = (companyId: string) => router.push(`/dealer/dashboard/company/manual/${companyId}`);
