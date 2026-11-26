@@ -10,6 +10,8 @@ type MovementForSplit = {
   bsDate: string;
   amount: number;
   sourceType: string;
+  /** False when the entry is already inside the counted cash / bank start amount. */
+  countedInBalance?: boolean;
 };
 import { formatCashAmount } from "@/components/cash-in-hand/cashFormat";
 import { formatBsLong } from "@/components/cashflow/cashflowText";
@@ -41,7 +43,13 @@ export function CashflowStatement({ report, movements, role = "OWNER" }: Cashflo
   const { from, to } = { from: report.range.fromBsDate, to: report.range.toBsDate };
   const sumBySource = (sourceType: string) =>
     (movements ?? [])
-      .filter((m) => m.bsDate >= from && m.bsDate <= to && m.sourceType === sourceType)
+      .filter(
+        (m) =>
+          m.countedInBalance !== false &&
+          m.bsDate >= from &&
+          m.bsDate <= to &&
+          m.sourceType === sourceType,
+      )
       .reduce((s, m) => s + Number(m.amount), 0);
 
   const salaryTotal = role === "DEALER" ? sumBySource("STAFF_PAYMENT") : 0;
