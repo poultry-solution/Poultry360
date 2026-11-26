@@ -420,17 +420,15 @@ export default function DealerCustomersPage() {
         <div className="flex flex-wrap items-center gap-2">
           <BusinessDownloadDialog title="customers" fileName="dealer-customers" getData={downloadCustomers} hasDateFilter={false} />
           <Button
-            variant="outline"
             onClick={() => setIsAddPaymentOpen(true)}
-            className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="flex-1 sm:flex-none"
           >
             <DollarSign className="mr-2 h-4 w-4" />
             {t("dealer.customers.addPayment")}
           </Button>
           <Button
-            variant="outline"
             onClick={() => handleOpenDialog()}
-            className="flex-1 sm:flex-none hover:bg-green-50 hover:text-green-700 border-green-200"
+            className="flex-1 sm:flex-none"
           >
             <Plus className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">{t("dealer.customers.buttons.add")}</span>
@@ -468,27 +466,14 @@ export default function DealerCustomersPage() {
       {/* Customers Table - Unified DataTable */}
       <Card>
         <CardHeader className="p-3 md:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="text-base md:text-lg">{t("dealer.customers.table.title")}</CardTitle>
-              <CardDescription className="text-xs md:text-sm">
-                {pagination
-                  ? totalCustomers === 0
-                    ? "No customers"
-                    : `Showing ${((currentPage - 1) * pagination.limit) + 1}-${Math.min(currentPage * pagination.limit, totalCustomers)} of ${totalCustomers} customers`
-                  : t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
-              </CardDescription>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddPaymentOpen(true)}
-              className="w-full sm:w-auto hover:bg-green-50 hover:text-green-700 border-green-200"
-            >
-              <DollarSign className="mr-2 h-4 w-4" />
-              {t("dealer.customers.addPayment")}
-            </Button>
-          </div>
+          <CardTitle className="text-base md:text-lg">{t("dealer.customers.table.title")}</CardTitle>
+          <CardDescription className="text-xs md:text-sm">
+            {pagination
+              ? totalCustomers === 0
+                ? "No customers"
+                : `Showing ${((currentPage - 1) * pagination.limit) + 1}-${Math.min(currentPage * pagination.limit, totalCustomers)} of ${totalCustomers} customers`
+              : t(customers.length === 1 ? "dealer.customers.table.description" : "dealer.customers.table.descriptionPlural", { count: customers.length, singular_customer: "customer" })}
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable

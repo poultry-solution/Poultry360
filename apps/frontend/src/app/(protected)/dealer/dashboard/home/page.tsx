@@ -131,7 +131,7 @@ export default function DealerHomePage() {
             className="flex-1 md:flex-none gap-2 border-green-200 hover:bg-green-50 hover:text-green-700"
           />
           <Link href="/dealer/dashboard/sales/new" className="flex-1 md:flex-none">
-            <Button variant="outline" className="w-full md:w-auto gap-2 hover:bg-green-50 hover:text-green-700 border-green-200">
+            <Button className="w-full md:w-auto gap-2">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">{t("dealer.dashboard.buttons.addSale").split(" ")[0]}</span> {t("dealer.dashboard.buttons.addSale").split(" ").slice(1).join(" ")}
             </Button>

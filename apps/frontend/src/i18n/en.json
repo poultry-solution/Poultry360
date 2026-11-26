@@ -2894,7 +2894,7 @@
     "addPaymentDialog": {
       "titleAdd": "Add Payment",
       "titleRecord": "Record Payment",
-      "descriptionAdd": "Record payment for manual customers only. For connected farmers, please use Payment Requests.",
+      "descriptionAdd": "Record a payment for a customer.",
       "descriptionRecord": "Record a payment received from {name}",
       "descriptionMade": "Record a payment made to {name}",
       "customer": "Customer *",

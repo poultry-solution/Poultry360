@@ -52,7 +52,7 @@ import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useI18n } from "@/i18n/useI18n";
 import { ACCOUNT_FEATURE_KEYS, useAccountFeature } from "@/fetchers/accountFeatureQueries";
 import { DealerSaleBill, dealerBillPrintHref } from "@/app/(protected)/dealer/dashboard/sales/_components/DealerSaleBill";
-import { getTodayLocalDate } from "@/common/lib/utils";
+import { formatRupeesExact, getTodayLocalDate } from "@/common/lib/utils";
 import { convertADtoBS, nepalNoonFromAdDay } from "@/common/lib/nepali-date";
 
 interface UnitConversion {
@@ -444,19 +444,46 @@ export default function NewSalePage() {
               </div>
 
               {/* Customer Info Display */}
-              {selectedCustomer && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <p className="font-medium">{selectedCustomer.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedCustomer.phone || "—"}
-                    </p>
-                    {selectedCustomer.address && (
-                      <p className="text-sm text-muted-foreground">{selectedCustomer.address}</p>
-                    )}
+              {selectedCustomer && (() => {
+                // Normalise balance once. Prisma Decimal serializes to a
+                // string over JSON; coerce and defend against missing /
+                // malformed values. Treat sub-paisa as zero so float noise
+                // doesn't mislabel the row as "Owes you" or "Advance paid".
+                const raw = Number(selectedCustomer.balance ?? 0);
+                const bal = Number.isFinite(raw) ? raw : 0;
+                const rounded = Math.round(bal * 100) / 100;
+                const owes = rounded > 0;
+                const advance = rounded < 0;
+                return (
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{selectedCustomer.name}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {selectedCustomer.phone || "—"}
+                        </p>
+                        {selectedCustomer.address && (
+                          <p className="truncate text-sm text-muted-foreground">
+                            {selectedCustomer.address}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {owes ? "Owes you" : advance ? "Advance paid" : "Balance"}
+                        </p>
+                        <p
+                          className={`tabular-nums font-semibold ${
+                            owes ? "text-red-600" : advance ? "text-green-600" : ""
+                          }`}
+                        >
+                          {formatRupeesExact(Math.abs(rounded))}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Create New Customer Button */}
               <Button
