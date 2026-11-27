@@ -820,6 +820,15 @@ export default function HatcherySupplierLedgerPage() {
       render: (value) => <span className="font-semibold text-green-700">{fmtNPR(value)}</span>,
     },
     {
+      key: "accountId",
+      label: "From",
+      width: "110px",
+      render: (value) => {
+        const name = cashflowAccounts.find((a) => a.id === value)?.name ?? "Cash";
+        return <span className="text-sm">{name}</span>;
+      },
+    },
+    {
       key: "reference",
       label: "Reference",
       render: (value) => (value ? value : <span className="text-muted-foreground">—</span>),

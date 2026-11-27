@@ -14,6 +14,7 @@ import { HatcheryBatchExpenseService } from "../services/hatcheryBatchExpenseSer
 import { HatcheryEggService } from "../services/hatcheryEggService";
 import { HatcheryLayRateService } from "../services/hatcheryLayRateService";
 import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
+import { CashflowError } from "../common/cashflow/errors";
 
 // Categories whose consumption can be attributed to a parent group. Feed is
 // bought as one total stock; the split only ever happens at consumption.
@@ -1036,6 +1037,7 @@ export async function addHatcheryExpense(req: Request, res: Response) {
 
     return res.status(201).json(expense);
   } catch (err: any) {
+    if (err instanceof CashflowError) return res.status(err.status).json({ error: err.message });
     return res.status(400).json({ error: err.message });
   }
 }
@@ -1489,7 +1491,7 @@ export async function addEggSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { eggTypeId, date, count, unitPrice, partyId, note } = req.body;
+    const { eggTypeId, date, count, unitPrice, partyId, note, accountId } = req.body;
 
     if (!eggTypeId || !date) {
       return res.status(400).json({ error: "eggTypeId and date are required" });
@@ -1531,6 +1533,8 @@ export async function addEggSale(req: Request, res: Response) {
         unitPrice: unitPriceNum,
         partyId: partyId || undefined,
         note,
+        accountId: typeof accountId === "string" && accountId ? accountId : undefined,
+        recordedById: (req as any).staffUserId || ownerId,
       });
     });
 
@@ -1556,7 +1560,7 @@ export async function deleteEggSale(req: Request, res: Response) {
     if (!sale) return res.status(404).json({ error: "Sale not found" });
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await HatcheryEggService.deleteEggSale(tx, saleId);
+      await HatcheryEggService.deleteEggSale(tx, saleId, ownerId);
     });
 
     return res.json({ success: true });
@@ -1616,7 +1620,7 @@ export async function addParentSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: batchId } = req.params;
-    const { date, maleCount, femaleCount, totalWeightKg, ratePerKg, partyId, note } =
+    const { date, maleCount, femaleCount, totalWeightKg, ratePerKg, partyId, note, accountId } =
       req.body;
 
     const male = Number(maleCount ?? 0);
@@ -1736,6 +1740,27 @@ export async function addParentSale(req: Request, res: Response) {
           amount,
           new Date(date)
         );
+      } else if (amount > 0) {
+        // No party and real cash moved. A free give-away (rate 0) skips
+        // the mirror — nothing actually changed hands.
+        const { ensureCashAccountId, postHatcheryCashSaleMovement } = await import(
+          "../services/hatcheryCashflowAutoPost"
+        );
+        const resolvedAccountId =
+          typeof accountId === "string" && accountId
+            ? accountId
+            : await ensureCashAccountId(tx, ownerId);
+        await postHatcheryCashSaleMovement({
+          tx,
+          userId: ownerId,
+          saleId: created.id,
+          accountId: resolvedAccountId,
+          amount,
+          date: new Date(date),
+          kind: "parent",
+          recordedById: (req as any).staffUserId || ownerId,
+          notes: note ?? null,
+        });
       }
 
       return created;
@@ -1766,6 +1791,11 @@ export async function deleteParentSale(req: Request, res: Response) {
       if (sale.partyId) {
         const { HatcheryPartyService } = await import("../services/hatcheryPartyService");
         await HatcheryPartyService.reverseSale(tx, saleId, "parent_sale");
+      } else {
+        const { deleteHatcheryCashSaleMovement } = await import(
+          "../services/hatcheryCashflowAutoPost"
+        );
+        await deleteHatcheryCashSaleMovement(tx, ownerId, saleId);
       }
 
       await tx.hatcheryParentSale.delete({ where: { id: saleId } });

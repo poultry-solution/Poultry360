@@ -3,6 +3,8 @@ import axiosInstance from "@/common/lib/axios";
 import { toast } from "sonner";
 import { farmerCashflowKeys } from "@/fetchers/farmer/farmerCashflowQueries";
 import { dealerCashflowKeys } from "@/fetchers/dealer/dealerCashflowQueries";
+import { companyCashflowKeys } from "@/fetchers/company/companyCashflowQueries";
+import { hatcheryCashflowKeys } from "@/fetchers/hatchery/hatcheryCashflowQueries";
 
 // ==================== TYPES ====================
 
@@ -280,12 +282,16 @@ export function useAddStaffPayment(owner: StaffOwner) {
       qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.invalidateQueries({ queryKey: staffKeys.detail(owner, staffId) });
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, staffId) });
-      // Farmer + Dealer salary payments are auto-posted to their cashbook;
-      // drop the right cache so the new OUT shows up without a page refresh.
+      // Salary payments are auto-posted to the owner's cashbook; drop the
+      // right cache so the new OUT shows up without a page refresh.
       if (owner === "farmer") {
         qc.invalidateQueries({ queryKey: farmerCashflowKeys.all });
       } else if (owner === "dealer") {
         qc.invalidateQueries({ queryKey: dealerCashflowKeys.all });
+      } else if (owner === "company") {
+        qc.invalidateQueries({ queryKey: companyCashflowKeys.all });
+      } else if (owner === "hatchery") {
+        qc.invalidateQueries({ queryKey: hatcheryCashflowKeys.all });
       }
       toast.success("Payment recorded");
     },
@@ -314,6 +320,12 @@ export function useDeleteStaffPayment(owner: StaffOwner) {
       qc.invalidateQueries({ queryKey: staffKeys.transactions(owner, staffId) });
       if (owner === "farmer") {
         qc.invalidateQueries({ queryKey: farmerCashflowKeys.all });
+      } else if (owner === "dealer") {
+        qc.invalidateQueries({ queryKey: dealerCashflowKeys.all });
+      } else if (owner === "company") {
+        qc.invalidateQueries({ queryKey: companyCashflowKeys.all });
+      } else if (owner === "hatchery") {
+        qc.invalidateQueries({ queryKey: hatcheryCashflowKeys.all });
       }
       toast.success("Payment deleted");
     },
@@ -343,6 +355,17 @@ export function useDeleteStaff(owner: StaffOwner) {
       qc.invalidateQueries({ queryKey: staffKeys.summary(owner) });
       qc.removeQueries({ queryKey: staffKeys.detail(owner, id) });
       qc.removeQueries({ queryKey: staffKeys.transactions(owner, id) });
+      // Deleting a staff member cascades their salary payments, which drops
+      // the matching Cash & Bank mirrors — refresh the right cashbook cache.
+      if (owner === "farmer") {
+        qc.invalidateQueries({ queryKey: farmerCashflowKeys.all });
+      } else if (owner === "dealer") {
+        qc.invalidateQueries({ queryKey: dealerCashflowKeys.all });
+      } else if (owner === "company") {
+        qc.invalidateQueries({ queryKey: companyCashflowKeys.all });
+      } else if (owner === "hatchery") {
+        qc.invalidateQueries({ queryKey: hatcheryCashflowKeys.all });
+      }
       toast.success("Staff deleted");
     },
     onError: (err: any) => {

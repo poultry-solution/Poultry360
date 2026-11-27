@@ -206,3 +206,71 @@ export async function deleteHatcheryBatchExpenseMovement(
     hatcheryBatchExpenseId,
   );
 }
+
+// ─── Cash sale (no-party sale — cash IN at the point of sale) ───────────────
+//
+// Egg / chick / parent-bird sales normally go to a named party and show up as
+// a receivable (HatcheryPartyTxn.SALE). When the sale has no party, no
+// receivable is created and the money moves right then — so we mirror it
+// directly here. Keyed by the sale id, which is a globally unique cuid across
+// all three sale tables, so there is no sourceId collision risk under
+// (userId, sourceType, sourceId).
+//
+// We reuse the shared SALE_PAYMENT source type (same one farmer uses for its
+// cash sales) rather than introducing a new enum value — a hatchery owner's
+// User.role is HATCHERY, so they can't have farmer SALE_PAYMENT mirrors to
+// conflict with.
+
+export type HatcheryCashSaleKind = "egg" | "chick" | "parent";
+
+export interface HatcheryCashSalePostInput {
+  tx: Tx;
+  userId: string;
+  /** `HatcheryEggSale.id`, `HatcheryChickSale.id` or `HatcheryParentSale.id`. */
+  saleId: string;
+  accountId: string;
+  amount: number;
+  date: Date;
+  kind: HatcheryCashSaleKind;
+  recordedById: string;
+  notes?: string | null;
+}
+
+const CASH_SALE_PARTY_NAME: Record<HatcheryCashSaleKind, string> = {
+  egg: "Cash sale — Eggs",
+  chick: "Cash sale — Chicks",
+  parent: "Cash sale — Parent birds",
+};
+
+/**
+ * Posts a cash IN against the chosen account for a no-party hatchery sale.
+ * Only call from the sale service when `partyId` is absent — otherwise the
+ * party receivable path handles bookkeeping and the mirror arrives later with
+ * the HatcheryPartyPayment.
+ */
+export async function postHatcheryCashSaleMovement(
+  input: HatcheryCashSalePostInput,
+): Promise<void> {
+  await upsertSourceMovement({
+    tx: input.tx,
+    userId: input.userId,
+    accountId: input.accountId,
+    sourceType: CashSourceType.SALE_PAYMENT,
+    sourceId: input.saleId,
+    direction: CashMovementDirection.IN,
+    category: CashCategory.SALE_RECEIPT,
+    amount: input.amount,
+    date: input.date,
+    partyName: CASH_SALE_PARTY_NAME[input.kind],
+    notes: input.notes,
+    recordedById: input.recordedById,
+  });
+}
+
+export async function deleteHatcheryCashSaleMovement(
+  tx: Tx,
+  userId: string,
+  saleId: string,
+): Promise<void> {
+  await deleteSourceMovement(tx, userId, CashSourceType.SALE_PAYMENT, saleId);
+}

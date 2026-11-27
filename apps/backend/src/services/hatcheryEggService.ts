@@ -1,6 +1,11 @@
 import { Prisma, HatcheryEggTxnType } from "@prisma/client";
 import { HatcheryPartyService } from "./hatcheryPartyService";
 import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
+import {
+  deleteHatcheryCashSaleMovement,
+  ensureCashAccountId,
+  postHatcheryCashSaleMovement,
+} from "./hatcheryCashflowAutoPost";
 
 export class HatcheryEggService {
   /**
@@ -138,6 +143,10 @@ export class HatcheryEggService {
       unitPrice: number;
       partyId?: string;
       note?: string;
+      /** Cash & Bank account for no-party cash sales; defaults to the owner's Cash account. */
+      accountId?: string;
+      /** Resolved to the owner at the sink via resolveRecordedById. */
+      recordedById?: string;
     }
   ) {
     const {
@@ -149,6 +158,8 @@ export class HatcheryEggService {
       unitPrice,
       partyId,
       note,
+      accountId,
+      recordedById,
     } = data;
 
     if (!Number.isInteger(count) || count <= 0) {
@@ -223,6 +234,21 @@ export class HatcheryEggService {
         amount,
         date
       );
+    } else if (amount > 0) {
+      // No party on this sale and real money moved → mirror to Cash & Bank.
+      // A free give-away (unitPrice 0) creates no cash movement.
+      const resolvedAccountId = accountId || (await ensureCashAccountId(tx, hatcheryOwnerId));
+      await postHatcheryCashSaleMovement({
+        tx,
+        userId: hatcheryOwnerId,
+        saleId: sale.id,
+        accountId: resolvedAccountId,
+        amount,
+        date,
+        kind: "egg",
+        recordedById: recordedById ?? hatcheryOwnerId,
+        notes: note ?? null,
+      });
     }
 
     return sale;
@@ -233,7 +259,8 @@ export class HatcheryEggService {
    */
   static async deleteEggSale(
     tx: Prisma.TransactionClient,
-    saleId: string
+    saleId: string,
+    hatcheryOwnerId: string,
   ) {
     const sale = await tx.hatcheryEggSale.findUniqueOrThrow({
       where: { id: saleId },
@@ -252,6 +279,10 @@ export class HatcheryEggService {
 
     if (sale.partyId) {
       await HatcheryPartyService.reverseSale(tx, saleId, "egg_sale");
+    } else {
+      // Mirror fires only on no-party sales (see sellEggs). Delete safely —
+      // deleteMany is a no-op if nothing matches.
+      await deleteHatcheryCashSaleMovement(tx, hatcheryOwnerId, saleId);
     }
 
     await tx.hatcheryEggSale.delete({ where: { id: saleId } });

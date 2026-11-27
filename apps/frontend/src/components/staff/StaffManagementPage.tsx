@@ -33,6 +33,7 @@ import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 import { useGetCashflowAccountOptions as useGetDealerCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
 import { useGetCashflowAccountOptions as useGetCompanyCashflowAccountOptions } from "@/fetchers/company/companyCashflowQueries";
+import { useGetCashflowAccountOptions as useGetHatcheryCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
 import {
   useDeleteStaff,
   useCreateStaff,
@@ -740,6 +741,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 }
               />
             )}
+            {owner === "hatchery" && (
+              <HatcherySalaryAccountPicker
+                value={payForm.accountId}
+                onChange={(accountId) =>
+                  setPayForm((form) => ({ ...form, accountId }))
+                }
+              />
+            )}
             <div>
               <Label>{text("note", "Note")}</Label>
               <Input
@@ -1315,6 +1324,36 @@ function CompanySalaryAccountPicker({
   onChange: (accountId: string) => void;
 }) {
   const { data: accounts } = useGetCompanyCashflowAccountOptions();
+  const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
+  const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
+
+  if (activeAccounts.length <= 1) return null;
+
+  return (
+    <div>
+      <Label>Paid from</Label>
+      <AccountPicker
+        accounts={activeAccounts}
+        value={value || cashId}
+        onChange={onChange}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        Default: Cash. Pick a bank if the salary was paid from there.
+      </p>
+    </div>
+  );
+}
+
+/** Hatchery twin — same UX, reads the hatchery's accounts. Mounted only for
+ *  Hatchery so other modules never fetch the hatchery cashflow API. */
+function HatcherySalaryAccountPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (accountId: string) => void;
+}) {
+  const { data: accounts } = useGetHatcheryCashflowAccountOptions();
   const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
   const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
 

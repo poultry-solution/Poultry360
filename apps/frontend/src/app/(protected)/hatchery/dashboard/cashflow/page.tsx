@@ -47,6 +47,8 @@ import {
   convertADtoBS,
   toNepalDayAd,
 } from "@/common/lib/nepali-date";
+import { useAuth } from "@/common/store/store";
+import { CashflowNoAccess } from "@/components/hatchery/CashflowNoAccess";
 
 function thisMonthBsRange() {
   const todayBs = convertADtoBS(toNepalDayAd(new Date()));
@@ -78,7 +80,7 @@ function useOpeningBalanceBannerDismissed(): [boolean, () => void] {
   return [dismissed, dismiss];
 }
 
-export default function HatcheryCashflowPage() {
+function HatcheryCashflowPageContent() {
   const [range, setRange] = useState(thisMonthBsRange);
   const [cashCountOpen, setCashCountOpen] = useState(false);
   const [dir, setDir] = useState<"IN" | "OUT" | null>(null);
@@ -402,4 +404,14 @@ export default function HatcheryCashflowPage() {
       />
     </div>
   );
+}
+
+// Staff need the Cash & Bank permission. Without it the server refuses the
+// data, so say so instead of showing an empty page with red toasts.
+export default function HatcheryCashflowPage() {
+  const { user } = useAuth();
+  if (user?.isStaff === true && !user.permissions?.includes("HATCHERY_VIEW_CASH_HISTORY")) {
+    return <CashflowNoAccess />;
+  }
+  return <HatcheryCashflowPageContent />;
 }

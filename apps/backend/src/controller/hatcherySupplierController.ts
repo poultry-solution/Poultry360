@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { HatcherySupplierService } from "../services/hatcherySupplierService";
 import bcrypt from "bcrypt";
+import { CashflowError } from "../common/cashflow/errors";
 import {
   ACCOUNT_FEATURE_KEYS,
   isAccountFeatureEnabled,
@@ -468,9 +469,14 @@ export const addHatcherySupplierTransaction = async (
 
     return res.status(400).json({ message: "Unsupported transaction type" });
   } catch (err: any) {
+    if (err instanceof CashflowError) {
+      return res.status(err.status).json({ message: err.message });
+    }
     console.error("addHatcherySupplierTransaction:", err);
     if (err.message === "Supplier not found")
       return res.status(404).json({ message: err.message });
+    if (err.message === "Payment date cannot be in the future")
+      return res.status(400).json({ message: err.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };

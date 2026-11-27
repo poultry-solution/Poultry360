@@ -6,6 +6,7 @@ import {
   postHatcheryPartyPaymentMovement,
 } from "./hatcheryCashflowAutoPost";
 import { derivePaymentMethodFromAccountType } from "../common/cashflow/paymentMethod";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 type PrismaTx = Prisma.TransactionClient;
 
 export class HatcheryPartyService {
@@ -158,6 +159,10 @@ export class HatcheryPartyService {
     if (!party) throw new Error("Party not found");
 
     if (amount <= 0) throw new Error("Payment amount must be positive");
+
+    if (toNepalDayKey(date) > toNepalDayKey(new Date())) {
+      throw new Error("Payment date cannot be in the future");
+    }
 
     return prisma.$transaction(async (tx: PrismaTx) => {
       // Cashflow v2: resolve the account up front so we can both store it on

@@ -30,7 +30,7 @@ function handle(err: unknown, res: Response, scope: string): Response {
   return res.status(500).json({ message: "Internal server error" });
 }
 
-async function assertDeletePassword(req: Request): Promise<void> {
+export async function assertDeletePassword(req: Request): Promise<void> {
   const password = req.body?.password;
   if (typeof password !== "string" || password.length === 0) {
     throw new CashflowError("Password confirmation is required", 400);

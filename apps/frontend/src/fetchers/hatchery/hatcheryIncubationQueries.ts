@@ -372,6 +372,8 @@ export function useAddChickSale(incubationBatchId: string) {
       unitPrice: number;
       partyId?: string;
       note?: string;
+      /** Cash & Bank account for no-party cash sales. Omit when partyId is set. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post(
         `/hatchery/incubations/${incubationBatchId}/chick-sales`,
@@ -384,6 +386,7 @@ export function useAddChickSale(incubationBatchId: string) {
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
       qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }
@@ -401,6 +404,7 @@ export function useDeleteChickSale(incubationBatchId: string) {
       qc.invalidateQueries({ queryKey: incubationKeys.chickSales(incubationBatchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
       qc.invalidateQueries({ queryKey: ["hatchery-produced-chick-stock"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }

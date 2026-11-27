@@ -1,6 +1,11 @@
 import { Prisma, HatcheryChickGrade, HatcheryChickTxnType } from "@prisma/client";
 import { HatcheryPartyService } from "./hatcheryPartyService";
 import { generateNextHatcheryInvoiceNumber } from "../utils/hatcheryInvoiceNumber";
+import {
+  deleteHatcheryCashSaleMovement,
+  ensureCashAccountId,
+  postHatcheryCashSaleMovement,
+} from "./hatcheryCashflowAutoPost";
 
 export class HatcheryChickSalesService {
   /**
@@ -17,6 +22,9 @@ export class HatcheryChickSalesService {
       unitPrice: number;
       partyId?: string;
       note?: string;
+      /** Cash & Bank account for no-party cash sales; defaults to Cash. */
+      accountId?: string;
+      recordedById?: string;
     }
   ) {
     const {
@@ -28,6 +36,8 @@ export class HatcheryChickSalesService {
       unitPrice,
       partyId,
       note,
+      accountId,
+      recordedById,
     } = data;
 
     if (!Number.isInteger(count) || count <= 0) {
@@ -101,6 +111,21 @@ export class HatcheryChickSalesService {
         amount,
         date
       );
+    } else if (amount > 0) {
+      // No party and real money moved → mirror. Free cull sales (price 0)
+      // skip the mirror because nothing actually changed hands.
+      const resolvedAccountId = accountId || (await ensureCashAccountId(tx, hatcheryOwnerId));
+      await postHatcheryCashSaleMovement({
+        tx,
+        userId: hatcheryOwnerId,
+        saleId: sale.id,
+        accountId: resolvedAccountId,
+        amount,
+        date,
+        kind: "chick",
+        recordedById: recordedById ?? hatcheryOwnerId,
+        notes: note ?? null,
+      });
     }
 
     return sale;
@@ -151,6 +176,8 @@ export class HatcheryChickSalesService {
 
     if (sale.partyId) {
       await HatcheryPartyService.reverseSale(tx, saleId, "chick_sale");
+    } else {
+      await deleteHatcheryCashSaleMovement(tx, hatcheryOwnerId, saleId);
     }
 
     await tx.hatcheryChickSale.delete({ where: { id: saleId } });

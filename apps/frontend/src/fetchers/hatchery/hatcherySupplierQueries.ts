@@ -269,6 +269,7 @@ export const useAddHatcherySupplierPurchase = () => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 };
@@ -334,6 +335,7 @@ export const useDeleteHatcherySupplierTransaction = () => {
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.lists() });
       qc.invalidateQueries({ queryKey: hatcherySupplierKeys.statistics() });
       qc.invalidateQueries({ queryKey: ["hatcheryInventory"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 };

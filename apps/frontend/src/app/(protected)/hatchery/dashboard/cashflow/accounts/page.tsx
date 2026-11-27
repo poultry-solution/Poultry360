@@ -27,12 +27,14 @@ import {
 } from "@/fetchers/hatchery/hatcheryCashflowQueries";
 import { formatCashAmount } from "@/components/cash-in-hand/cashFormat";
 import { accountNote } from "@/components/cashflow/cashflowText";
+import { useAuth } from "@/common/store/store";
+import { CashflowNoAccess } from "@/components/hatchery/CashflowNoAccess";
 
 type EditState =
   | { mode: "add" }
   | { mode: "edit"; account: CashAccount };
 
-export default function HatcheryCashflowAccountsPage() {
+function HatcheryCashflowAccountsPageContent() {
   const [showArchived, setShowArchived] = useState(false);
   const accountsQ = useGetCashflowAccounts(showArchived);
   const create = useCreateBankAccount();
@@ -303,4 +305,12 @@ function message(e: unknown, fallback: string): string {
     (e as { response?: { data?: { message?: string } } })?.response?.data
       ?.message ?? fallback
   );
+}
+
+export default function HatcheryCashflowAccountsPage() {
+  const { user } = useAuth();
+  if (user?.isStaff === true && !user.permissions?.includes("HATCHERY_VIEW_CASH_HISTORY")) {
+    return <CashflowNoAccess />;
+  }
+  return <HatcheryCashflowAccountsPageContent />;
 }

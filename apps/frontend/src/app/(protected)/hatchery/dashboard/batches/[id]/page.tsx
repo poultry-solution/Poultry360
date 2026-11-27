@@ -68,6 +68,7 @@ import {
 } from "@/fetchers/hatchery/hatcheryBatchQueries";
 import { useGetCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
+import { HatcheryCashAccountField } from "@/components/hatchery/HatcheryCashAccountField";
 import {
   useGetHatcheryInventory,
   type HatcheryInventoryItemType,
@@ -1974,6 +1975,7 @@ function SalesTab({
   const [eggCount, setEggCount] = useState("");
   const [eggUnitPrice, setEggUnitPrice] = useState("");
   const [eggPartyId, setEggPartyId] = useState("");
+  const [eggCashAccountId, setEggCashAccountId] = useState("");
   const [eggNote, setEggNote] = useState("");
   const [eggFormError, setEggFormError] = useState<string | null>(null);
   const [deleteEggSaleId, setDeleteEggSaleId] = useState<string | null>(null);
@@ -1991,6 +1993,7 @@ function SalesTab({
   const [parentTotalWeight, setParentTotalWeight] = useState("");
   const [parentRatePerKg, setParentRatePerKg] = useState("");
   const [parentPartyId, setParentPartyId] = useState("");
+  const [parentCashAccountId, setParentCashAccountId] = useState("");
   const [parentNote, setParentNote] = useState("");
   const [parentFormError, setParentFormError] = useState<string | null>(null);
   const [deleteParentSaleId, setDeleteParentSaleId] = useState<string | null>(null);
@@ -2058,6 +2061,7 @@ function SalesTab({
         unitPrice: Number(eggUnitPrice),
         partyId: eggPartyId || undefined,
         note: eggNote || undefined,
+        accountId: eggPartyId ? undefined : eggCashAccountId || undefined,
       });
       setEggCount("");
       setEggUnitPrice("");
@@ -2092,6 +2096,7 @@ function SalesTab({
         ratePerKg: parseFloat(parentRatePerKg),
         partyId: parentPartyId || undefined,
         note: parentNote || undefined,
+        accountId: parentPartyId ? undefined : parentCashAccountId || undefined,
       });
       setParentMaleCount("");
       setParentFemaleCount("");
@@ -2360,6 +2365,9 @@ function SalesTab({
                 {partySelect(eggPartyId, setEggPartyId)}
               </label>
             </div>
+            {!eggPartyId ? (
+              <HatcheryCashAccountField label="Received into" value={eggCashAccountId} onChange={setEggCashAccountId} />
+            ) : null}
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <label className="block">
                 <FieldLabel>Note (optional)</FieldLabel>
@@ -2496,6 +2504,9 @@ function SalesTab({
               </label>
               {submitButton(addParentSaleMutation.isPending, !canSellParents)}
             </div>
+            {!parentPartyId ? (
+              <HatcheryCashAccountField label="Received into" value={parentCashAccountId} onChange={setParentCashAccountId} />
+            ) : null}
             {(parentAmount !== null || parentAvgWeight !== null) && (
               <p className="text-sm text-gray-600">
                 {parentAvgWeight !== null && <>Average {parentAvgWeight} kg per bird</>}

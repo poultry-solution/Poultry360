@@ -158,9 +158,10 @@ export function useAddHatcheryPartyPayment(partyId: string) {
 export function useDeleteHatcheryPartyPayment(partyId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (paymentId: string) => {
+    mutationFn: async (vars: { paymentId: string; password: string }) => {
       await axiosInstance.delete(
-        `/hatchery/parties/${partyId}/payments/${paymentId}`
+        `/hatchery/parties/${partyId}/payments/${vars.paymentId}`,
+        { data: { password: vars.password } },
       );
     },
     onSuccess: () => {
@@ -168,6 +169,7 @@ export function useDeleteHatcheryPartyPayment(partyId: string) {
       qc.invalidateQueries({ queryKey: ["hatchery-party-payments", partyId] });
       qc.invalidateQueries({ queryKey: ["hatchery-party-txns", partyId] });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }

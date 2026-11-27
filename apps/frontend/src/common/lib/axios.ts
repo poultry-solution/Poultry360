@@ -68,8 +68,13 @@ axiosInstance.interceptors.response.use(
     }
 
     // --- Normalize and toast error ---
+    // Backends in this repo aren't consistent about the key: some return
+    // `message`, others return `error`. Read both so a clear 400 like
+    // "Payment date cannot be in the future" doesn't fall through to the
+    // generic "Request failed with status code 400" toast.
     const message =
       error?.response?.data?.message ||
+      error?.response?.data?.error ||
       error?.message ||
       "Something went wrong. Please try again.";
 

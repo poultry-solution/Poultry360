@@ -48,6 +48,7 @@ import {
 } from "@/common/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useHatcheryParties } from "@/fetchers/hatchery/hatcheryPartyQueries";
+import { HatcheryCashAccountField } from "@/components/hatchery/HatcheryCashAccountField";
 import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
 import { SaleSavedPrompt } from "../../sales/_components/SaleSavedPrompt";
 import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
@@ -952,6 +953,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
   const [count, setCount] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [partyId, setPartyId] = useState("");
+  const [cashAccountId, setCashAccountId] = useState("");
   const [note, setNote] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -991,6 +993,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
         unitPrice: parseFloat(unitPrice),
         partyId: partyId || undefined,
         note: note || undefined,
+        accountId: partyId ? undefined : cashAccountId || undefined,
       });
       setCount("");
       setUnitPrice("");
@@ -1156,6 +1159,9 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
               </select>
             </label>
           </div>
+          {!partyId ? (
+            <HatcheryCashAccountField label="Received into" value={cashAccountId} onChange={setCashAccountId} />
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_max-content] sm:items-end">
             <label className="block">
               <FieldLabel>Note (optional)</FieldLabel>

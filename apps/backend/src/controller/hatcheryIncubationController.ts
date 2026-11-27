@@ -339,7 +339,7 @@ export async function addChickSale(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: incubationBatchId } = req.params;
-    const { grade, date, count, unitPrice, partyId, note } = req.body;
+    const { grade, date, count, unitPrice, partyId, note, accountId } = req.body;
 
     if (!grade || !date) {
       return res.status(400).json({ error: "grade and date are required" });
@@ -390,6 +390,8 @@ export async function addChickSale(req: Request, res: Response) {
         unitPrice: unitPriceNum,
         partyId: partyId || undefined,
         note,
+        accountId: typeof accountId === "string" && accountId ? accountId : undefined,
+        recordedById: (req as any).staffUserId || ownerId,
       });
     });
 

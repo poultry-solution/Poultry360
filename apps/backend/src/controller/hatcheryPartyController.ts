@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { HatcheryPartyService } from "../services/hatcheryPartyService";
 import prisma from "../utils/prisma";
+import { assertDeletePassword } from "./hatcheryCashflowController";
+import { CashflowError } from "../common/cashflow/errors";
 
 function getOwnerId(req: Request): string {
   // Hatchery controllers in this codebase use req.userId from auth middleware.
@@ -130,6 +132,7 @@ export async function addPartyPayment(req: Request, res: Response) {
     });
     return res.status(201).json(payment);
   } catch (err: any) {
+    if (err instanceof CashflowError) return res.status(err.status).json({ error: err.message });
     if (err.message === "Party not found") return res.status(404).json({ error: err.message });
     return res.status(400).json({ error: err.message });
   }
@@ -139,6 +142,8 @@ export async function deletePartyPayment(req: Request, res: Response) {
   try {
     const ownerId = getOwnerId(req);
     const { id: partyId, paymentId } = req.params;
+
+    await assertDeletePassword(req);
 
     // Fixes bug §9 LOW "Payment can be deleted through another party's
     // link". Owner check lives in the service; this adds the URL-level
@@ -153,6 +158,7 @@ export async function deletePartyPayment(req: Request, res: Response) {
     await HatcheryPartyService.deletePayment(ownerId, paymentId);
     return res.json({ success: true });
   } catch (err: any) {
+    if (err instanceof CashflowError) return res.status(err.status).json({ error: err.message });
     if (err.message === "Payment not found") return res.status(404).json({ error: err.message });
     if (err.message === "Not authorized") return res.status(403).json({ error: err.message });
     return res.status(500).json({ error: err.message });

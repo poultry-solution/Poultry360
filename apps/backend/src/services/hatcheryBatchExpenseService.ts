@@ -9,6 +9,7 @@ import {
   ensureCashAccountId,
   postHatcheryBatchExpenseMovement,
 } from "./hatcheryCashflowAutoPost";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 // Feed attribution recorded alongside an expense. Validated by the caller;
 // null throughout for non-feed expenses, including the initial CHICKS
@@ -40,6 +41,10 @@ export class HatcheryBatchExpenseService {
     } & FeedAttribution
   ) {
     const { batchId, hatcheryOwnerId, date, category, inventoryItemId, quantity, note } = data;
+
+    if (toNepalDayKey(date) > toNepalDayKey(new Date())) {
+      throw new Error("Expense date cannot be in the future");
+    }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       throw new Error("quantity must be greater than 0");
@@ -137,6 +142,10 @@ export class HatcheryBatchExpenseService {
       recordedById?: string;
     } & FeedAttribution
   ) {
+    if (toNepalDayKey(data.date) > toNepalDayKey(new Date())) {
+      throw new Error("Expense date cannot be in the future");
+    }
+
     const resolvedAccountId =
       data.accountId && data.accountId.trim()
         ? data.accountId.trim()

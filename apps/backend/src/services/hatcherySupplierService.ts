@@ -11,6 +11,7 @@ import {
   ensureCashAccountId,
   postHatcherySupplierPaymentMovement,
 } from "./hatcheryCashflowAutoPost";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 
 export class HatcherySupplierService {
   // ==================== BALANCE HELPERS ====================
@@ -223,6 +224,10 @@ export class HatcherySupplierService {
       accountId,
       recordedById,
     } = data;
+
+    if (toNepalDayKey(date) > toNepalDayKey(new Date())) {
+      throw new Error("Payment date cannot be in the future");
+    }
 
     return prisma.$transaction(async (tx) => {
       const supplier = await tx.hatcherySupplier.findFirst({

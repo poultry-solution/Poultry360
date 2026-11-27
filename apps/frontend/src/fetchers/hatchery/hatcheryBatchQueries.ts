@@ -665,6 +665,8 @@ export function useAddHatcheryEggSale(batchId: string) {
       unitPrice: number;
       partyId?: string;
       note?: string;
+      /** Cash & Bank account for no-party cash sales. Omit when partyId is set. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/egg-sales`, payload);
       return data as HatcheryEggSale;
@@ -674,6 +676,7 @@ export function useAddHatcheryEggSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryEggInventory"] });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }
@@ -689,6 +692,7 @@ export function useDeleteHatcheryEggSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatcheryEggInventory"] });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }
@@ -720,6 +724,8 @@ export function useAddHatcheryParentSale(batchId: string) {
       ratePerKg: number;
       partyId?: string;
       note?: string;
+      /** Cash & Bank account for no-party cash sales. Omit when partyId is set. */
+      accountId?: string;
     }) => {
       const { data } = await axiosInstance.post(`/hatchery/batches/${batchId}/parent-sales`, payload);
       return data as HatcheryParentSale;
@@ -728,6 +734,7 @@ export function useAddHatcheryParentSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.parentSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }
@@ -742,6 +749,7 @@ export function useDeleteHatcheryParentSale(batchId: string) {
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.parentSales(batchId) });
       qc.invalidateQueries({ queryKey: hatcheryBatchKeys.detail(batchId) });
       qc.invalidateQueries({ queryKey: ["hatchery-parties"] });
+      qc.invalidateQueries({ queryKey: ["hatchery-cashflow"] });
     },
   });
 }

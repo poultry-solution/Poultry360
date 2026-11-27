@@ -29,10 +29,12 @@ import {
 import { useGetCashflowAccountOptions } from "@/fetchers/hatchery/hatcheryCashflowQueries";
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import axiosInstance from "@/common/lib/axios";
+import { toast } from "sonner";
 import { BusinessDownloadDialog, fetchAllPages, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
 import { HatcherySaleBill } from "../../sales/_components/HatcherySaleBill";
 import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
 import { formatRupeesExact } from "@/common/lib/utils";
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import { DateInput } from "@/common/components/ui/date-input";
 import {
@@ -69,6 +71,7 @@ export default function HatcheryPartyDetailPage() {
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [billSale, setBillSale] = useState<{ type: HatcherySaleType; id: string } | null>(null);
   const [pendingDeletePayment, setPendingDeletePayment] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
 
   const { data: party, isLoading: partyLoading } = useHatcheryParty(id);
   const { data: txnsData, isLoading: txnsLoading } = useHatcheryPartyTxns(id);
@@ -177,7 +180,11 @@ export default function HatcheryPartyDetailPage() {
         <span className="text-green-600 font-semibold">{formatRupeesExact(row.amount)}</span>
       ),
     },
-    { key: "method", label: "Method" },
+    {
+      key: "method",
+      label: "Method",
+      render: (_, row) => <span>{formatPaymentMethod(row.method)}</span>,
+    },
     { key: "note", label: "Note" },
     {
       key: "id",
@@ -329,28 +336,57 @@ export default function HatcheryPartyDetailPage() {
 
       <AlertDialog
         open={!!pendingDeletePayment}
-        onOpenChange={(open) => !open && setPendingDeletePayment(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeletePayment(null);
+            setDeletePassword("");
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the payment and adjusts the party balance. You can
-              re-record it if needed.
+              This removes the payment, adjusts the party balance, and removes
+              the matching Cash &amp; Bank entry. Enter your password to confirm.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Password</label>
+            <Input
+              type="password"
+              placeholder="Enter your password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              autoFocus
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (pendingDeletePayment) {
-                  deletePayment.mutate(pendingDeletePayment);
+              disabled={!deletePassword || deletePayment.isPending}
+              onClick={async (event) => {
+                event.preventDefault();
+                if (!pendingDeletePayment || !deletePassword) return;
+                try {
+                  await deletePayment.mutateAsync({
+                    paymentId: pendingDeletePayment,
+                    password: deletePassword,
+                  });
+                  toast.success("Payment deleted");
+                  setPendingDeletePayment(null);
+                  setDeletePassword("");
+                } catch (err: any) {
+                  toast.error(
+                    err?.response?.data?.error ??
+                      err?.response?.data?.message ??
+                      "Could not delete the payment",
+                  );
                 }
-                setPendingDeletePayment(null);
               }}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete payment
+              {deletePayment.isPending ? "Deleting..." : "Delete payment"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
