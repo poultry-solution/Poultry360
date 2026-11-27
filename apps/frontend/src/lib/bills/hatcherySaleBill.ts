@@ -8,17 +8,15 @@ import { billFileName } from "./billFileName";
  * (see `hatcherySaleController.ts`). Decimal columns arrive as strings from
  * Prisma; everything is coerced through `Number(...)`.
  *
- * Totals: `total` only. If a party is attached, `totals.note` carries the
- * running party balance so the buyer sees it on the printed bill — this is
- * what the owner asked for instead of Paid/Due rows.
+ * Totals: `total` only. Paid/Due rows are suppressed via `totals.note` because
+ * hatchery sales have no partial-payment field — every sale is binary: full
+ * credit (party balance) or full cash (no party). The note carries the right
+ * phrase for each case so the printed bill stays unambiguous.
  */
 
 const WALK_IN_NAME = "Walk-in";
-
-/** PDF explicitly uses `रू` (Nepali rupee) for the balance-now note. */
-function partyBalanceNote(balance: number): string {
-  return `Party balance now: रू ${balance.toLocaleString("en-IN")}`;
-}
+const CASH_RECEIVED_NOTE = "Cash received at the time of sale.";
+const CREDIT_SALE_NOTE = "Credit sale — amount added to the party's account.";
 
 /** Chick grade labels — PDF: "Day-old chicks: grade A" etc. CULL reads better
  *  without the "grade" prefix. */
@@ -56,9 +54,11 @@ function toCommon(
     lines: [line],
     totals: {
       total: Number(sale?.amount ?? 0),
-      note: party ? partyBalanceNote(Number(party.balance ?? 0)) : undefined,
+      note: party ? CREDIT_SALE_NOTE : CASH_RECEIVED_NOTE,
     },
-    fileName: billFileName(invoiceNumber, partyName),
+    // Walk-in cash sales skip the party segment so the file name reads
+    // `Bill-HB-0095` instead of `Bill-HB-0095-Walk-in`.
+    fileName: billFileName(invoiceNumber, party?.name),
   };
 }
 
@@ -87,6 +87,9 @@ export function parentSaleToBill(sale: any, business: BillBusiness): BillData {
       id: sale?.id,
       name: "Parent birds",
       quantity,
+      // Qty column shows weight in kg, not bird count; the bird breakdown
+      // lives in the extra `Birds (M/F)` column.
+      quantityUnit: "kg",
       rate,
       total: Number(sale?.amount ?? quantity * rate),
       extra: {

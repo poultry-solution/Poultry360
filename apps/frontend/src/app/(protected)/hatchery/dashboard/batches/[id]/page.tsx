@@ -15,8 +15,8 @@ import {
   CheckCircle,
   LockIcon,
   UnlockIcon,
-  FileText,
   Share2,
+  ReceiptText,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -2192,8 +2192,15 @@ function SalesTab({
     );
 
   const billButton = (type: HatcherySaleType, id: string) => (
-    <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setBillSale({ type, id })}>
-      <FileText className="mr-1 h-3.5 w-3.5" /> Bill
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-7 w-7 cursor-pointer p-0"
+      onClick={() => setBillSale({ type, id })}
+      title="Open bill"
+      aria-label="Open bill"
+    >
+      <ReceiptText className="h-3.5 w-3.5" />
     </Button>
   );
 

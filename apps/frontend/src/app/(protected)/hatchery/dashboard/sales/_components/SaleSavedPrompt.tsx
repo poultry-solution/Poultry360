@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/common/components/ui/dialog";
 import type { HatcherySaleType } from "@/fetchers/hatchery/hatcherySaleQueries";
+import { useI18n } from "@/i18n/useI18n";
 import { hatcheryBillPrintHref } from "./HatcherySaleBill";
 
 type SavedSale = { type: HatcherySaleType; id: string };
@@ -34,6 +35,7 @@ export function SaleSavedPrompt({
   onShare: (sale: SavedSale) => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   return (
     <Dialog
       open={!!savedSale}
@@ -43,14 +45,12 @@ export function SaleSavedPrompt({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Sale saved</DialogTitle>
-          <DialogDescription>
-            Your sale is recorded. What would you like to do next?
-          </DialogDescription>
+          <DialogTitle>{t("bills.savedTitle")}</DialogTitle>
+          <DialogDescription>{t("bills.savedBody")}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onDismiss}>
-            Later
+            {t("bills.later")}
           </Button>
           <Button
             variant="outline"
@@ -63,7 +63,7 @@ export function SaleSavedPrompt({
               onDismiss();
             }}
           >
-            <Printer className="mr-2 h-4 w-4" /> Print
+            <Printer className="mr-2 h-4 w-4" /> {t("bills.print")}
           </Button>
           <Button
             onClick={() => {
@@ -71,7 +71,7 @@ export function SaleSavedPrompt({
               onDismiss();
             }}
           >
-            <Share2 className="mr-2 h-4 w-4" /> Share bill
+            <Share2 className="mr-2 h-4 w-4" /> {t("bills.shareBill")}
           </Button>
         </DialogFooter>
       </DialogContent>

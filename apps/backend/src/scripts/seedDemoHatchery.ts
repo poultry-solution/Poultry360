@@ -741,7 +741,6 @@ async function main() {
     address: account.location,
     panNumber: "609876543",
     phone: account.phone,
-    footerNote: "Thank you! Healthy chicks, every week.",
   });
 
   const suppliers: Array<[SupplierKey, string, string, string]> = [

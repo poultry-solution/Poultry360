@@ -12,7 +12,7 @@ import {
   Plus,
   FlaskConical,
   CheckCircle,
-  FileText,
+  ReceiptText,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -1045,8 +1045,15 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
     );
 
   const billButton = (r: ChickSale) => (
-    <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => setBillSaleId(r.id)}>
-      <FileText className="mr-1 h-3.5 w-3.5" /> Bill
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-7 w-7 cursor-pointer p-0"
+      onClick={() => setBillSaleId(r.id)}
+      title="Open bill"
+      aria-label="Open bill"
+    >
+      <ReceiptText className="h-3.5 w-3.5" />
     </Button>
   );
 
