@@ -132,7 +132,7 @@ export const useCreateCompanySale = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: companySaleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: companySaleKeys.statistics() });
-      queryClient.invalidateQueries({ queryKey: ["companyProducts"] });
+      queryClient.invalidateQueries({ queryKey: companyProductKeys.all });
     },
   });
 };
