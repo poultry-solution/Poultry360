@@ -507,7 +507,7 @@ export default function Sidebar({
             <h1 className=" text-foreground font-[family-name:var(--font-caveat)] text-4xl">
               Poultry360
             </h1>
-            <p className="text-xs text-muted-foreground">{roleInfo.subtitle}</p>
+            <p className="truncate text-xs text-muted-foreground">{roleInfo.subtitle}</p>
           </div>
         </div>
 
