@@ -22,12 +22,7 @@ import dealerRoutes from "../../src/router/dealerCashflowRoutes";
 import companyRoutes from "../../src/router/companyCashflowRoutes";
 
 import * as hatcheryService from "../../src/services/hatcheryCashflowService";
-import { getAccountOptions as getFarmerAccountOptions } from "../../src/controller/farmerCashflowController";
-import { getAccountOptions as getDealerAccountOptions } from "../../src/controller/dealerCashflowController";
 import { getAccountOptions as getHatcheryAccountOptions } from "../../src/controller/hatcheryCashflowController";
-
-import farmerRoutes from "../../src/router/farmerCashflowRoutes";
-import dealerRoutes from "../../src/router/dealerCashflowRoutes";
 import hatcheryRoutes from "../../src/router/hatcheryCashflowRoutes";
 
 const db = prisma as any;
@@ -51,6 +46,7 @@ beforeEach(() => {
 describe.each([
   ["farmer", getFarmerAccountOptions, farmerService],
   ["dealer", getDealerAccountOptions, dealerService],
+  ["company", getCompanyAccountOptions, companyService],
   ["hatchery", getHatcheryAccountOptions, hatcheryService],
 ])("GET /%s/cashflow/account-options", (_role, handler, service) => {
   it("returns only active account names, with no balances", async () => {

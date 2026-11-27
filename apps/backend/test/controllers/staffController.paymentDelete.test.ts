@@ -211,7 +211,10 @@ describe("Delete staff payment", () => {
       expect(mockedPrisma.staff.delete).toHaveBeenCalled();
     });
 
-    it("skips mirror cleanup for COMPANY role (no cashbook yet)", async () => {
+    it("cleans up cashbook mirrors for COMPANY-owned staff payments", async () => {
+      // COMPANY was added to the mirror-eligible role gate when the company
+      // Cash & Bank module landed. Deleting a company staff member must remove
+      // their STAFF_PAYMENT mirrors just like OWNER / DEALER / HATCHERY do.
       mockedPrisma.staff.findFirst.mockResolvedValue({ id: "staff-1", status: "STOPPED" });
       mockedPrisma.user.findUnique.mockResolvedValue({ id: "owner-1", password: "hashed" });
       mockedPrisma.staffPayment.findMany.mockResolvedValue([
@@ -227,7 +230,10 @@ describe("Delete staff payment", () => {
         response,
       );
 
-      expect(mirror).not.toHaveBeenCalled();
+      expect(mirror).toHaveBeenCalledTimes(1);
+      expect(mirror).toHaveBeenCalledWith({
+        where: { userId: "owner-1", sourceType: "STAFF_PAYMENT", sourceId: "payment-1" },
+      });
       expect(mockedPrisma.staff.delete).toHaveBeenCalled();
     });
   });
