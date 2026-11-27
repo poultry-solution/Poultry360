@@ -5,6 +5,7 @@ import {
   getCompanySaleById,
   getCompanySalesStatistics,
   searchDealersForCompany,
+  deleteCompanySale,
 } from "../controller/companySaleController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
 import { StaffPermission } from "@prisma/client";
@@ -34,6 +35,7 @@ router.get("/statistics", requireStaffPermission(StaffPermission.COMPANY_VIEW_FI
 // Get company sale by ID
 router.get("/:id", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS), getCompanySaleById);
 
-// Add payment to sale
+// Delete company sale
+router.delete("/:id", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS), deleteCompanySale);
 
 export default router;

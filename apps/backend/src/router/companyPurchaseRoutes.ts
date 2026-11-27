@@ -4,6 +4,7 @@ import {
   getCompanyPurchases,
   getCompanyPurchasesAggregated,
   getCompanyPurchaseById,
+  deleteCompanyPurchase,
 } from "../controller/companyPurchaseController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
 import { StaffPermission } from "@prisma/client";
@@ -21,5 +22,6 @@ router.post("/", createCompanyPurchase);
 router.get("/", getCompanyPurchases);
 router.get("/aggregated", getCompanyPurchasesAggregated);
 router.get("/:id", getCompanyPurchaseById);
+router.delete("/:id", deleteCompanyPurchase);
 
 export default router;

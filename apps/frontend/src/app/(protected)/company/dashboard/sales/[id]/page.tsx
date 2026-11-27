@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -7,6 +8,7 @@ import {
   Phone,
   Package,
   FileText,
+  Trash2,
 } from "lucide-react";
 import {
   Card,
@@ -20,11 +22,13 @@ import { DataTable, Column } from "@/common/components/ui/data-table";
 import { Badge } from "@/common/components/ui/badge";
 import { useGetCompanySaleById } from "@/fetchers/company/companySaleQueries";
 import { DateDisplay } from "@/common/components/ui/date-display";
+import { DeleteCompanySaleDialog } from "@/components/company/DeleteCompanySaleDialog";
 
 export default function CompanySaleDetailPage() {
   const router = useRouter();
   const params = useParams();
   const saleId = params?.id as string;
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: saleData, isLoading } = useGetCompanySaleById(saleId);
   const sale = saleData?.data;
@@ -77,15 +81,25 @@ export default function CompanySaleDetailPage() {
             </p>
           </div>
         </div>
-        {sale.dealer && (
+        <div className="flex items-center gap-2">
+          {sale.dealer && (
+            <Button
+              onClick={() => router.push(`/company/dashboard/dealers/${sale.dealerId}/account`)}
+              variant="outline"
+            >
+              <User className="mr-2 h-4 w-4" />
+              View Dealer Account
+            </Button>
+          )}
           <Button
-            onClick={() => router.push(`/company/dashboard/dealers/${sale.dealerId}/account`)}
             variant="outline"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
           >
-            <User className="mr-2 h-4 w-4" />
-            View Dealer Account
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Sale
           </Button>
-        )}
+        </div>
       </div>
 
       {/* Sale Summary Card */}
@@ -264,6 +278,11 @@ export default function CompanySaleDetailPage() {
         </CardContent>
       </Card>
 
+      <DeleteCompanySaleDialog
+        saleId={deleteOpen ? saleId : null}
+        onClose={() => setDeleteOpen(false)}
+        onSuccess={() => router.push("/company/dashboard/sales")}
+      />
     </div>
   );
 }

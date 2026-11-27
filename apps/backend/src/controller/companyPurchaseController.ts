@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
+import { CompanyPurchaseService } from "../services/companyPurchaseService";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== CREATE PURCHASE ====================
 export const createCompanyPurchase = async (req: Request, res: Response): Promise<any> => {
@@ -331,5 +334,82 @@ export const getCompanyPurchaseById = async (req: Request, res: Response): Promi
   } catch (error) {
     console.error("Get company purchase error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE PURCHASE ====================
+export const deleteCompanyPurchase = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { password } = req.body ?? {};
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Password confirmation is required for deletion",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion cancelled.",
+      });
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    const purchase = await prisma.companyPurchase.findFirst({
+      where: { id, companyId: company.id },
+      select: { id: true, totalAmount: true },
+    });
+    if (!purchase) return res.status(404).json({ message: "Purchase not found" });
+
+    try {
+      await CompanyPurchaseService.deletePurchase({
+        purchaseId: id,
+        companyId: company.id,
+      });
+    } catch (err: any) {
+      const msg = err.message || "Failed to delete purchase";
+      if (msg.startsWith("Cannot delete purchase:")) {
+        return res.status(400).json({ success: false, message: msg });
+      }
+      throw err;
+    }
+
+    await writeBusinessAudit(req, {
+      action: "company.purchase.deleted",
+      targetType: "CompanyPurchase",
+      targetId: id,
+      description: "Deleted a purchase and reversed raw-material stock",
+      businessType: "COMPANY",
+      businessId: company.id,
+      metadata: { totalAmount: Number(purchase.totalAmount) },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Purchase deleted and stock reverted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete company purchase error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };

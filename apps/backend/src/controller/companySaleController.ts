@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
+import bcrypt from "bcrypt";
 import prisma from "../utils/prisma";
 import { parseNepalRange } from "../utils/dealerSaleDateRange";
 import { CompanyService } from "../services/companyService";
+import { writeBusinessAudit } from "../services/businessAuditService";
 
 // ==================== SEARCH DEALERS FOR COMPANY ====================
 export const searchDealersForCompany = async (
@@ -416,5 +418,74 @@ export const getCompanySalesStatistics = async (
   } catch (error: any) {
     console.error("Get company sales statistics error:", error);
     return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE SALE ====================
+export const deleteCompanySale = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { id } = req.params;
+    const { password } = req.body ?? {};
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Password confirmation is required for deletion",
+      });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Deletion cancelled.",
+      });
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    const sale = await prisma.companySale.findFirst({
+      where: { id, companyId: company.id },
+      select: { id: true, totalAmount: true, invoiceNumber: true },
+    });
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+
+    await CompanyService.deleteSale({ saleId: id, companyId: company.id });
+
+    await writeBusinessAudit(req, {
+      action: "company.sale.deleted",
+      targetType: "CompanySale",
+      targetId: id,
+      description: "Deleted a sale and returned its stock",
+      businessType: "COMPANY",
+      businessId: company.id,
+      metadata: {
+        totalAmount: Number(sale.totalAmount),
+        invoiceNumber: sale.invoiceNumber,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Sale deleted and inventory reverted successfully",
+    });
+  } catch (error: any) {
+    console.error("Delete company sale error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };

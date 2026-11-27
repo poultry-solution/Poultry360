@@ -1,5 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { companyDealerAccountKeys } from "./companyDealerAccountQueries";
+import { companyLedgerKeys } from "./companyLedgerQueries";
+import { companyProductKeys } from "./companyProductQueries";
 
 // Query keys
 export const companySaleKeys = {
@@ -136,4 +139,25 @@ export const useCreateCompanySale = () => {
 
 // useAddCompanySalePayment removed - use CompanyDealerPayment for account-based payments
 // Payments are now recorded at the dealer account level, not per-sale
+
+// Delete company sale (password-gated). Backend reverses dealer balance,
+// product stock, and the sale's ledger entry inside one transaction.
+export const useDeleteCompanySale = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ saleId, password }: { saleId: string; password: string }) => {
+      const { data } = await axiosInstance.delete(`/company/sales/${saleId}`, {
+        data: { password },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companySaleKeys.all });
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.all });
+      queryClient.invalidateQueries({ queryKey: companyLedgerKeys.all });
+      queryClient.invalidateQueries({ queryKey: companyProductKeys.all });
+    },
+  });
+};
 

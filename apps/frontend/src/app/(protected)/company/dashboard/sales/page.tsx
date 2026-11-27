@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,10 +21,12 @@ import { DateDisplay } from "@/common/components/ui/date-display";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 import { toNepalDayAd } from "@/common/lib/nepali-date";
+import { DeleteCompanySaleDialog } from "@/components/company/DeleteCompanySaleDialog";
 
 export default function CompanySalesPage() {
   const router = useRouter();
   const [page, setPage] = useState(1);
+  const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
 
   // Get sales
   const { data: salesData, isLoading } = useGetCompanySales({
@@ -140,18 +142,36 @@ export default function CompanySalesPage() {
               },
               {
                 key: 'id',
-                label: 'View',
+                label: 'Actions',
                 align: 'right',
-                width: '60px',
+                width: '100px',
                 render: (val) => (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => router.push(`/company/dashboard/sales/${val}`)}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/company/dashboard/sales/${val}`);
+                      }}
+                      title="View sale"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteSaleId(val as string);
+                      }}
+                      title="Delete sale"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )
               }
             ] as Column[]}
@@ -188,6 +208,11 @@ export default function CompanySalesPage() {
           )}
         </CardContent>
       </Card>
+
+      <DeleteCompanySaleDialog
+        saleId={deleteSaleId}
+        onClose={() => setDeleteSaleId(null)}
+      />
     </div>
   );
 }

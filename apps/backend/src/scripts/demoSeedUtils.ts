@@ -49,6 +49,15 @@ export const DEMO_ACCOUNTS = {
     location: "Ratnanagar-5, Chitwan",
     passwordEnv: "P360_DEMO_HATCHERY_PASSWORD",
   },
+  company: {
+    id: "p360-demo-user-company-v1",
+    phone: "+9779800360041",
+    role: UserRole.COMPANY,
+    name: "Prakash Demo Company",
+    businessName: "Himalaya Feed Industries",
+    location: "Birgunj-4, Parsa",
+    passwordEnv: "P360_DEMO_COMPANY_PASSWORD",
+  },
 } as const;
 
 export const DEFAULT_DEMO_PASSWORD = "Poultry360Demo!";

@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { companyRawMaterialKeys } from "./companyRawMaterialQueries";
+import { companySupplierKeys } from "./companySupplierQueries";
 
 export const companyPurchaseKeys = {
   all: ["company-purchases"] as const,
@@ -114,6 +116,26 @@ export function useCreateCompanyPurchase() {
         });
       }
       qc.invalidateQueries({ queryKey: ["company-raw-materials"] });
+    },
+  });
+}
+
+// Delete a company purchase (password-gated). Backend reverses the raw-material
+// stock atomically; if any material has been partially consumed since, returns
+// 400 and leaves everything untouched.
+export function useDeleteCompanyPurchase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ purchaseId, password }: { purchaseId: string; password: string }) => {
+      const { data } = await axiosInstance.delete(`/company/purchases/${purchaseId}`, {
+        data: { password },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: companyPurchaseKeys.all });
+      qc.invalidateQueries({ queryKey: companySupplierKeys.all });
+      qc.invalidateQueries({ queryKey: companyRawMaterialKeys.all });
     },
   });
 }

@@ -24,6 +24,7 @@ import {
 } from "@/fetchers/company/companySupplierQueries";
 import { CompanyCashAccountField } from "@/components/company/CompanyCashAccountField";
 import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
+import { DeleteCompanyPurchaseDialog } from "@/components/company/DeleteCompanyPurchaseDialog";
 import { DateInput } from "@/common/components/ui/date-input";
 import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 import { DateDisplay } from "@/common/components/ui/date-display";
@@ -50,54 +51,15 @@ type PurchaseRow = {
   _billImageUrl?: string | null;
 };
 
-const purchaseColumns: Column<PurchaseRow>[] = [
-  { key: "item", label: "Item", render: (_, row) => row.rawMaterial?.name ?? "—" },
-  {
-    key: "qty",
-    label: "Qty",
-    render: (_, row) =>
-      `${Number(row.quantity)} ${row.rawMaterial?.unit ?? ""}`.trim() || "—",
-  },
-  {
-    key: "rate",
-    label: "Rate",
-    render: (_, row) =>
-      `रू ${Number(row.unitPrice).toFixed(2)}/${row.rawMaterial?.unit ?? ""}`,
-  },
-  {
-    key: "amount",
-    label: "Amount",
-    align: "right",
-    render: (_, row) => formatCurrency(row.totalAmount),
-  },
-  {
-    key: "date",
-    label: "Date",
-    render: (_, row) => <DateDisplay date={row._purchaseDate} />,
-  },
-  {
-    key: "note",
-    label: "Note",
-    render: (_, row) => row._purchaseNotes ?? "—",
-  },
-];
-
-const purchaseBillColumn: Column<PurchaseRow> = {
-  key: "bill",
-  label: "Bill",
-  render: (_, row) =>
-    row._billImageUrl ? (
-      <a
-        href={row._billImageUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline"
-      >
-        View
-      </a>
-    ) : (
-      "—"
-    ),
+// One row per purchase (invoice-like). Items are rolled up into a summary
+// cell so a single Delete button maps to a single purchase.
+type PurchaseGroupRow = {
+  id: string;
+  date: string;
+  notes?: string | null;
+  billImageUrl?: string | null;
+  totalAmount: number | string;
+  items: Array<{ rawMaterial?: { name?: string; unit?: string }; quantity: number | string }>;
 };
 
 type PaymentRow = {
@@ -133,6 +95,7 @@ export default function SupplierLedgerPage() {
   const [payDate, setPayDate] = useState(getNepalTodayAd());
   const [payNotes, setPayNotes] = useState("");
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentRow | null>(null);
+  const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
 
   const { data: ledgerData, isLoading } = useGetSupplierLedger(id);
   const recordPaymentMutation = useRecordSupplierPayment(id);
@@ -149,6 +112,8 @@ export default function SupplierLedgerPage() {
   const purchases = ledger?.purchases ?? [];
   const payments = ledger?.payments ?? [];
 
+  // Per-item rows kept only for the CSV/PDF export below; the on-screen
+  // Purchases tab now renders `purchaseGroupRows` (one row per purchase).
   const purchaseRows: PurchaseRow[] = purchases.flatMap((p: { date: string; notes?: string | null; billImageUrl?: string | null; items?: any[] }) =>
     (p.items || []).map((item: any, index: number) => ({
       ...item,
@@ -157,9 +122,94 @@ export default function SupplierLedgerPage() {
       _billImageUrl: index === 0 ? p.billImageUrl : null,
     }))
   );
-  const visiblePurchaseColumns = isPurchaseBillEnabled
-    ? [...purchaseColumns, purchaseBillColumn]
-    : purchaseColumns;
+
+  // One row per purchase for the on-screen Purchases tab. Each purchase gets
+  // a single Delete button; the download flow still uses the per-item
+  // `purchaseRows` above so historic CSV/PDF exports stay unchanged.
+  const purchaseGroupRows: PurchaseGroupRow[] = (purchases ?? []).map(
+    (p: { id: string; date: string; notes?: string | null; billImageUrl?: string | null; totalAmount?: number | string; items?: any[] }) => ({
+      id: p.id,
+      date: p.date,
+      notes: p.notes,
+      billImageUrl: p.billImageUrl,
+      totalAmount:
+        p.totalAmount ??
+        (p.items || []).reduce((sum: number, item: any) => sum + Number(item.totalAmount ?? 0), 0),
+      items: (p.items || []).map((item: any) => ({
+        rawMaterial: item.rawMaterial,
+        quantity: item.quantity,
+      })),
+    }),
+  );
+
+  const purchaseGroupColumns: Column<PurchaseGroupRow>[] = [
+    {
+      key: "date",
+      label: "Date",
+      render: (_, row) => <DateDisplay date={row.date} />,
+    },
+    {
+      key: "items",
+      label: "Items",
+      render: (_, row) =>
+        row.items.length === 0
+          ? "—"
+          : row.items
+              .map(
+                (item) =>
+                  `${item.rawMaterial?.name ?? "—"} (${Number(item.quantity)} ${item.rawMaterial?.unit ?? ""})`.trim(),
+              )
+              .join(", "),
+    },
+    {
+      key: "totalAmount",
+      label: "Amount",
+      align: "right",
+      render: (_, row) => formatCurrency(row.totalAmount),
+    },
+    {
+      key: "notes",
+      label: "Note",
+      render: (_, row) => row.notes ?? "—",
+    },
+    ...(isPurchaseBillEnabled
+      ? [
+          {
+            key: "bill",
+            label: "Bill",
+            render: (_: unknown, row: PurchaseGroupRow) =>
+              row.billImageUrl ? (
+                <a
+                  href={row.billImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  View
+                </a>
+              ) : (
+                "—"
+              ),
+          } as Column<PurchaseGroupRow>,
+        ]
+      : []),
+    {
+      key: "id",
+      label: "",
+      align: "center",
+      render: (_, row) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-600 hover:text-red-700"
+          aria-label="Delete purchase"
+          onClick={() => setDeletePurchaseId(row.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
 
   const paymentRows: PaymentRow[] = payments.map((pmt: any) => ({
     id: pmt.id,
@@ -299,9 +349,9 @@ export default function SupplierLedgerPage() {
         <TabsContent value="purchases" className="mt-4">
           <Card>
             <CardContent className="p-0">
-              <DataTable<PurchaseRow>
-                data={purchaseRows}
-                columns={visiblePurchaseColumns}
+              <DataTable<PurchaseGroupRow>
+                data={purchaseGroupRows}
+                columns={purchaseGroupColumns}
                 emptyMessage='No purchases yet. Use "Add Entry" to record a purchase.'
                 getRowKey={(row) => row.id}
               />
@@ -334,6 +384,11 @@ export default function SupplierLedgerPage() {
         confirmLabel="Delete payment"
         submitting={deletePaymentMutation.isPending}
         onConfirm={handleDeletePayment}
+      />
+
+      <DeleteCompanyPurchaseDialog
+        purchaseId={deletePurchaseId}
+        onClose={() => setDeletePurchaseId(null)}
       />
 
       <Dialog open={payOpen} onOpenChange={setPayOpen}>

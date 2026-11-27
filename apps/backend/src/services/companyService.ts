@@ -281,6 +281,57 @@ export class CompanyService {
     });
   }
 
+  /**
+   * Delete a company sale: restore product stock, undo the dealer's balance
+   * and totalSales, and remove the sale's ledger SALE entry. Cascades drop
+   * CompanySaleItem + SaleDiscount rows automatically.
+   *
+   * Payment guard intentionally omitted — CompanyDealerPayment is account-
+   * level (no sale link), so no row in the DB says "this payment was for
+   * that sale." Decrementing balance is symmetric with create: if the dealer
+   * had already paid, balance drops into advance (negative), which is
+   * correct bookkeeping. Running balances on subsequent ledger entries
+   * drift by this sale's amount — same limitation as DealerService.
+   */
+  static async deleteSale(data: { saleId: string; companyId: string }) {
+    return await prisma.$transaction(async (tx) => {
+      const sale = await tx.companySale.findUnique({
+        where: { id: data.saleId },
+        include: { items: true },
+      });
+
+      if (!sale) throw new Error("Sale not found");
+      if (sale.companyId !== data.companyId) throw new Error("Unauthorized");
+
+      const totalAmount = new Prisma.Decimal(sale.totalAmount);
+
+      for (const item of sale.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { currentStock: { increment: new Prisma.Decimal(item.quantity) } },
+        });
+      }
+
+      if (sale.accountId) {
+        await tx.companyDealerAccount.update({
+          where: { id: sale.accountId },
+          data: {
+            balance: { decrement: totalAmount },
+            totalSales: { decrement: totalAmount },
+          },
+        });
+      }
+
+      await tx.companyLedgerEntry.deleteMany({
+        where: { companySaleId: data.saleId },
+      });
+
+      await tx.companySale.delete({ where: { id: data.saleId } });
+
+      return { success: true };
+    });
+  }
+
 
   /**
    * Get ledger entries with filters
