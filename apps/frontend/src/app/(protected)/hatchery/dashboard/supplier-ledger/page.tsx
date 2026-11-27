@@ -824,7 +824,8 @@ export default function HatcherySupplierLedgerPage() {
       label: "From",
       width: "110px",
       render: (value) => {
-        const name = cashflowAccounts.find((a) => a.id === value)?.name ?? "Cash";
+        // Payments saved before Cash & Bank have no account: show "—", not "Cash".
+        const name = value ? cashflowAccounts.find((a) => a.id === value)?.name ?? "—" : "—";
         return <span className="text-sm">{name}</span>;
       },
     },

@@ -178,10 +178,10 @@ export class HatcheryPartyService {
       const derivedMethod = derivePaymentMethodFromAccountType(
         resolvedAccount?.type ?? null,
       );
-      // Prefer the account-derived method so new writes stay consistent with
-      // the picker. If a caller still passes `data.method`, respect it (lets
-      // historical API clients record custom labels like "CHEQUE").
-      const method = data.method && data.method.trim() ? data.method : derivedMethod;
+      // The method always follows the account (Cash → CASH, Bank →
+      // BANK_TRANSFER), so the label can't disagree with where the money went.
+      // Old payments keep the method they were saved with.
+      const method = derivedMethod;
 
       const payment = await tx.hatcheryPartyPayment.create({
         data: {

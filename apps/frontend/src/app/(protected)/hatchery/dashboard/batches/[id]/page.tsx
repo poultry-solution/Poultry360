@@ -1086,6 +1086,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
       setAmount("");
       setAmountTyped(false);
       setNote("");
+      setAccountId(""); // back to Cash for the next expense
     } catch (err: any) {
       const data = err?.response?.data;
       setFormError(data?.message ?? data?.error ?? "Could not add the expense. Please try again.");
@@ -1254,7 +1255,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[180px_180px_minmax(0,1fr)]">
               <div>
                 <FieldLabel>Date</FieldLabel>
-                <DateInput value={date} onChange={setDate} className="w-full" />
+                <DateInput value={date} onChange={setDate} max={today()} className="w-full" />
               </div>
               <label className="block">
                 <FieldLabel>Type</FieldLabel>
@@ -1424,7 +1425,7 @@ function ExpensesTab({ batchId }: { batchId: string }) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[180px_minmax(0,1fr)]">
               <div>
                 <FieldLabel>Date</FieldLabel>
-                <DateInput value={date} onChange={setDate} className="w-full" />
+                <DateInput value={date} onChange={setDate} max={today()} className="w-full" />
               </div>
               <label className="block">
                 <FieldLabel>What was it for</FieldLabel>
@@ -2067,6 +2068,7 @@ function SalesTab({
       setEggUnitPrice("");
       setEggPartyId("");
       setEggNote("");
+      setEggCashAccountId(""); // back to Cash for the next sale
       if (sale?.id) setSavedSale({ type: "egg_sale", id: sale.id });
     } catch (err: any) {
       setEggFormError(errorText(err, "Could not save the sale. Please try again."));
@@ -2104,6 +2106,7 @@ function SalesTab({
       setParentRatePerKg("");
       setParentPartyId("");
       setParentNote("");
+      setParentCashAccountId(""); // back to Cash for the next sale
       if (sale?.id) setSavedSale({ type: "parent_sale", id: sale.id });
     } catch (err: any) {
       setParentFormError(errorText(err, "Could not save the sale. Please try again."));
@@ -2324,7 +2327,7 @@ function SalesTab({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[170px_minmax(0,1fr)_120px_130px_minmax(0,1.2fr)]">
               <div className="col-span-2 sm:col-span-1">
                 <FieldLabel>Date</FieldLabel>
-                <DateInput value={eggDate} onChange={setEggDate} className="w-full" />
+                <DateInput value={eggDate} onChange={setEggDate} max={today()} className="w-full" />
               </div>
               <label className="col-span-2 block sm:col-span-1">
                 <FieldLabel>Egg type</FieldLabel>
@@ -2466,7 +2469,7 @@ function SalesTab({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-[170px_120px_120px_90px_150px_140px]">
               <div className="col-span-2 sm:col-span-4 lg:col-span-1">
                 <FieldLabel>Date</FieldLabel>
-                <DateInput value={parentDate} onChange={setParentDate} className="w-full" />
+                <DateInput value={parentDate} onChange={setParentDate} max={today()} className="w-full" />
               </div>
               <label className="block">
                 <FieldLabel>Female</FieldLabel>

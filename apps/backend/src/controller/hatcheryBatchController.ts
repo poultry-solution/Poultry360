@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 import {
   Prisma,
   HatcheryBatchStatus,
@@ -1496,6 +1497,11 @@ export async function addEggSale(req: Request, res: Response) {
     if (!eggTypeId || !date) {
       return res.status(400).json({ error: "eggTypeId and date are required" });
     }
+    // Sales with no party go straight into Cash & Bank, so a future date would
+    // hide money until that day. Compare Nepal days, not UTC.
+    if (toNepalDayKey(new Date(date)) > toNepalDayKey(new Date())) {
+      return res.status(400).json({ error: "Sale date cannot be in the future" });
+    }
     const countNum = Number(count);
     if (!Number.isInteger(countNum) || countNum <= 0) {
       return res
@@ -1638,6 +1644,11 @@ export async function addParentSale(req: Request, res: Response) {
       return res.status(400).json({
         error: "date, totalWeightKg, and ratePerKg are required",
       });
+    }
+    // Sales with no party go straight into Cash & Bank, so a future date would
+    // hide money until that day. Compare Nepal days, not UTC.
+    if (toNepalDayKey(new Date(date)) > toNepalDayKey(new Date())) {
+      return res.status(400).json({ error: "Sale date cannot be in the future" });
     }
     if (
       !Number.isInteger(male) ||

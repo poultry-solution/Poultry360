@@ -999,6 +999,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
       setUnitPrice("");
       setPartyId("");
       setNote("");
+      setCashAccountId(""); // back to Cash for the next sale
       if (sale?.id) setSavedSale({ type: "chick_sale", id: sale.id });
     } catch (e: any) {
       setErr(apiErrorText(e, "Could not save the sale. Please try again."));
@@ -1110,7 +1111,7 @@ function ChickSalesTab({ batchId, batch }: { batchId: string; batch: any }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[170px_190px_120px_140px_minmax(0,1fr)]">
             <div className="col-span-2 sm:col-span-1">
               <FieldLabel>Date</FieldLabel>
-              <DateInput value={date} onChange={setDate} className="w-full" />
+              <DateInput value={date} onChange={setDate} max={getNepalTodayAd()} className="w-full" />
             </div>
             <label className="col-span-2 block sm:col-span-1">
               <FieldLabel>Grade</FieldLabel>

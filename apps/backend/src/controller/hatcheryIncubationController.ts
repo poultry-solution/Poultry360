@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { toNepalDayKey } from "../utils/nepalBsDate";
 import { Prisma, HatcheryChickGrade } from "@prisma/client";
 import prisma from "../utils/prisma";
 import { HatcheryIncubationService } from "../services/hatcheryIncubationService";
@@ -343,6 +344,11 @@ export async function addChickSale(req: Request, res: Response) {
 
     if (!grade || !date) {
       return res.status(400).json({ error: "grade and date are required" });
+    }
+    // Sales with no party go straight into Cash & Bank, so a future date would
+    // hide money until that day. Compare Nepal days, not UTC.
+    if (toNepalDayKey(new Date(date)) > toNepalDayKey(new Date())) {
+      return res.status(400).json({ error: "Sale date cannot be in the future" });
     }
     if (!Object.values(HatcheryChickGrade).includes(grade as HatcheryChickGrade)) {
       return res.status(400).json({ error: "grade must be A, B, or CULL" });

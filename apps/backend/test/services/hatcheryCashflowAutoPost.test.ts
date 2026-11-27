@@ -16,9 +16,11 @@ jest.mock("../../src/utils/nepalBsDate", () => ({
 import { CashflowError } from "../../src/common/cashflow/errors";
 import {
   deleteHatcheryBatchExpenseMovement,
+  deleteHatcheryCashSaleMovement,
   deleteHatcheryPartyPaymentMovement,
   deleteHatcherySupplierPaymentMovement,
   postHatcheryBatchExpenseMovement,
+  postHatcheryCashSaleMovement,
   postHatcheryPartyPaymentMovement,
   postHatcherySupplierPaymentMovement,
 } from "../../src/services/hatcheryCashflowAutoPost";
@@ -324,6 +326,75 @@ describe("deleteHatcheryBatchExpenseMovement", () => {
         sourceType: "HATCHERY_BATCH_EXPENSE",
         sourceId: "hbe-1",
       },
+    });
+  });
+});
+
+// ─── Cash sale (egg / chick / parent bird sold with no party) — IN ──────────
+
+describe("postHatcheryCashSaleMovement", () => {
+  const input = (t: MockedTx, kind: "egg" | "chick" | "parent") => ({
+    tx: t as unknown as Prisma.TransactionClient,
+    userId: "hatchery-user-1",
+    saleId: `sale-${kind}`,
+    accountId: "acc-bank",
+    amount: 900,
+    date: baseDate,
+    kind,
+    recordedById: "hatchery-user-1",
+  });
+
+  it.each([
+    ["egg", "Cash sale — Eggs"],
+    ["chick", "Cash sale — Chicks"],
+    ["parent", "Cash sale — Parent birds"],
+  ] as const)("posts money IN as a sale receipt for a %s cash sale", async (kind, partyName) => {
+    const t = tx();
+    t.cashAccount.findUnique.mockResolvedValue(activeAccount());
+    t.cashMovement.findFirst.mockResolvedValue(null);
+
+    await postHatcheryCashSaleMovement(input(t, kind));
+
+    expect(t.cashMovement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "hatchery-user-1",
+        accountId: "acc-bank",
+        direction: "IN",
+        category: "SALE_RECEIPT",
+        sourceType: "SALE_PAYMENT",
+        sourceId: `sale-${kind}`,
+        partyName,
+        bsDate: "2083-04-10",
+        amount: new Prisma.Decimal(900),
+      }),
+    });
+  });
+
+  it("refuses another business's account and writes nothing", async () => {
+    const t = tx();
+    t.cashAccount.findUnique.mockResolvedValue(activeAccount({ userId: "someone-else" }));
+    await expect(postHatcheryCashSaleMovement(input(t, "egg"))).rejects.toBeInstanceOf(CashflowError);
+    expect(t.cashMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses an archived account and writes nothing", async () => {
+    const t = tx();
+    t.cashAccount.findUnique.mockResolvedValue(activeAccount({ archivedAt: new Date() }));
+    await expect(postHatcheryCashSaleMovement(input(t, "chick"))).rejects.toMatchObject({ status: 409 });
+    expect(t.cashMovement.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteHatcheryCashSaleMovement", () => {
+  it("removes only that sale's SALE_PAYMENT entry for the owner", async () => {
+    const t = tx();
+    await deleteHatcheryCashSaleMovement(
+      t as unknown as Prisma.TransactionClient,
+      "hatchery-user-1",
+      "sale-egg",
+    );
+    expect(t.cashMovement.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "hatchery-user-1", sourceType: "SALE_PAYMENT", sourceId: "sale-egg" },
     });
   });
 });
