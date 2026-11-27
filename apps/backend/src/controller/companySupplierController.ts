@@ -1,6 +1,14 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
+import { CashflowError } from "../common/cashflow/errors";
+import { toNepalDayKey } from "../utils/nepalBsDate";
+import {
+  deleteCompanySupplierPaymentMovements,
+  postCompanySupplierPaymentMovement,
+  resolveCompanyPaymentAccount,
+} from "../services/companyCashflowAutoPost";
+import { assertDeletePassword } from "./companyCashflowController";
 
 // ==================== LIST SUPPLIERS ====================
 export const listSuppliers = async (req: Request, res: Response): Promise<any> => {
@@ -161,8 +169,17 @@ export const deleteSupplier = async (req: Request, res: Response): Promise<any> 
       return res.status(404).json({ message: "Supplier not found" });
     }
 
-    await prisma.supplier.delete({
-      where: { id },
+    // Payments go with the supplier (cascade), so remove their Cash & Bank
+    // entries in the same transaction.
+    await prisma.$transaction(async (tx) => {
+      const payments = await tx.companySupplierPayment.findMany({
+        where: { supplierId: id, companyId: company.id },
+        select: { id: true },
+      });
+      await deleteCompanySupplierPaymentMovements(tx, userId as string, payments.map((p) => p.id));
+      await tx.supplier.delete({
+        where: { id },
+      });
     });
 
     return res.status(200).json({
@@ -248,12 +265,24 @@ export const getSupplierLedger = async (req: Request, res: Response): Promise<an
 // ==================== RECORD PAYMENT TO SUPPLIER ====================
 export const recordSupplierPayment = async (req: Request, res: Response): Promise<any> => {
   try {
-    const userId = req.userId;
+    const userId = req.userId as string;
     const { id: supplierId } = req.params;
-    const { amount, paymentMethod, paymentDate, notes, reference } = req.body;
+    const { amount, accountId, paymentDate, notes, reference } = req.body;
 
-    if (amount == null || Number(amount) <= 0) {
+    const value = Number(amount);
+    if (amount == null || !Number.isFinite(value) || value <= 0) {
       return res.status(400).json({ message: "Amount is required and must be positive" });
+    }
+    let paidOn = new Date();
+    if (paymentDate) {
+      paidOn = new Date(paymentDate);
+      if (Number.isNaN(paidOn.getTime())) {
+        return res.status(400).json({ message: "Valid payment date is required" });
+      }
+      // Compare Nepal days, not UTC days.
+      if (toNepalDayKey(paidOn) > toNepalDayKey(new Date())) {
+        return res.status(400).json({ message: "Payment date cannot be in the future" });
+      }
     }
 
     const company = await prisma.company.findUnique({
@@ -271,18 +300,38 @@ export const recordSupplierPayment = async (req: Request, res: Response): Promis
       return res.status(404).json({ message: "Supplier not found" });
     }
 
-    const payment = await prisma.companySupplierPayment.create({
-      data: {
-        companyId: company.id,
-        supplierId,
-        amount: new Prisma.Decimal(amount),
-        paymentMethod: paymentMethod || "CASH",
-        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        notes: notes?.trim() || null,
-        reference: reference?.trim() || null,
-        recordedById: userId,
-      },
-    });
+    // Payment + Cash & Bank entry together. Method follows the account.
+    const payment = await prisma.$transaction(async (tx) => {
+      const cash = await resolveCompanyPaymentAccount(
+        tx,
+        userId,
+        typeof accountId === "string" && accountId ? accountId : null,
+      );
+      const created = await tx.companySupplierPayment.create({
+        data: {
+          companyId: company.id,
+          supplierId,
+          amount: new Prisma.Decimal(value),
+          paymentMethod: cash.paymentMethod,
+          paymentDate: paidOn,
+          notes: notes?.trim() || null,
+          reference: reference?.trim() || null,
+          recordedById: userId,
+        },
+      });
+      await postCompanySupplierPaymentMovement({
+        tx,
+        userId,
+        paymentId: created.id,
+        accountId: cash.accountId,
+        amount: value,
+        date: paidOn,
+        partyName: supplier.name,
+        notes: created.notes,
+        recordedById: req.actorType === "STAFF" ? req.staffUserId ?? userId : userId,
+      });
+      return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     return res.status(201).json({
       success: true,
@@ -290,7 +339,49 @@ export const recordSupplierPayment = async (req: Request, res: Response): Promis
       message: "Payment recorded successfully",
     });
   } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Record supplier payment error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ==================== DELETE PAYMENT TO SUPPLIER ====================
+// Needs the password of the person signed in (owner or staff). Also removes
+// the Cash & Bank entry. The supplier balance is worked out from sums, so
+// nothing else changes.
+export const deleteSupplierPayment = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const { id: supplierId, paymentId } = req.params;
+
+    await assertDeletePassword(req);
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.companySupplierPayment.findFirst({
+        where: { id: paymentId, supplierId, companyId: company.id },
+        select: { id: true },
+      });
+      if (!payment) throw new CashflowError("Payment not found", 404);
+      await deleteCompanySupplierPaymentMovements(tx, userId, [payment.id]);
+      await tx.companySupplierPayment.delete({ where: { id: payment.id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return res.status(200).json({ success: true, message: "Payment deleted" });
+  } catch (error) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    console.error("Delete supplier payment error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };

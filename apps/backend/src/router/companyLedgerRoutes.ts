@@ -3,7 +3,6 @@ import {
   getCompanyLedgerEntries,
   getCompanyLedgerParties,
   getCompanyLedgerSummary,
-  addCompanyPayment,
 } from "../controller/companyLedgerController";
 import { authMiddleware, requireStaffPermission } from "../middelware/middelware";
 import { StaffPermission } from "@prisma/client";
@@ -28,6 +27,5 @@ router.get("/parties", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPE
 router.get("/summary", requireStaffPermission(StaffPermission.COMPANY_VIEW_FINANCIAL_SUMMARIES), getCompanyLedgerSummary);
 
 // Add payment
-router.post("/payments", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS), addCompanyPayment);
 
 export default router;

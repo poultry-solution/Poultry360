@@ -3,7 +3,6 @@ import {
   createCompanySale,
   getCompanySales,
   getCompanySaleById,
-  addCompanySalePayment,
   getCompanySalesStatistics,
   searchDealersForCompany,
 } from "../controller/companySaleController";
@@ -36,6 +35,5 @@ router.get("/statistics", requireStaffPermission(StaffPermission.COMPANY_VIEW_FI
 router.get("/:id", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS), getCompanySaleById);
 
 // Add payment to sale
-router.post("/:id/payments", requireStaffPermission(StaffPermission.COMPANY_MANAGE_OPERATIONS), addCompanySalePayment);
 
 export default router;

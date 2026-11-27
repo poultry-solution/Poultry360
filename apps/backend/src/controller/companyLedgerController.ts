@@ -2,7 +2,6 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyService } from "../services/companyService";
-import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
 import { parseNepalRange } from "../utils/dealerSaleDateRange";
 
 // ==================== GET COMPANY LEDGER ENTRIES ====================
@@ -215,54 +214,5 @@ export const getCompanyLedgerSummary = async (
   } catch (error: any) {
     console.error("Get company ledger summary error:", error);
     return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// ==================== ADD COMPANY PAYMENT ====================
-export const addCompanyPayment = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
-  try {
-    const userId = req.userId;
-    const { dealerId, saleId, amount, paymentMethod, date, notes } = req.body;
-
-    // Validation
-    if (!dealerId || !amount || amount <= 0) {
-      return res.status(400).json({
-        message: "Dealer ID and valid amount are required",
-      });
-    }
-
-    // Get company
-    const company = await prisma.company.findUnique({
-      where: { ownerId: userId },
-      select: { id: true },
-    });
-
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    // Record payment to dealer's account (account-based system only)
-    await CompanyDealerAccountService.recordPayment({
-      companyId: company.id,
-      dealerId,
-      amount: Number(amount),
-      paymentMethod: paymentMethod || "CASH",
-      paymentDate: date ? new Date(date) : new Date(),
-      notes,
-      recordedById: userId as string,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Payment recorded successfully",
-    });
-  } catch (error: any) {
-    console.error("Add company payment error:", error);
-    return res
-      .status(400)
-      .json({ message: error.message || "Internal server error" });
   }
 };

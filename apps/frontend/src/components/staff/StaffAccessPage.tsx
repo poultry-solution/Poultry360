@@ -71,6 +71,7 @@ const STAFF_ACCESS_MODULES: Record<StaffModule, {
     permissionDescription: "Company operations access is included with every staff login. Choose any additional areas this staff member needs.",
     permissions: [
       { permission: "COMPANY_VIEW_FINANCIAL_SUMMARIES", label: "Financial summaries", description: "Private aggregate dashboard and ledger totals" },
+      { permission: "COMPANY_VIEW_CASH_HISTORY", label: "Cash & Bank", description: "See cash and bank balances and all entries" },
       { permission: "COMPANY_VIEW_ANALYTICS", label: "Analytics", description: "Company reports and performance analytics" },
       { permission: "COMPANY_VIEW_STAFF_MANAGEMENT", label: "Staff salary management", description: "View and manage payroll staff records" },
     ],

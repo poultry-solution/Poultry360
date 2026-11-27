@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -10,6 +11,7 @@ import {
     FileText,
     DollarSign,
     Filter,
+    Trash2,
 } from "lucide-react";
 import {
     Card,
@@ -36,7 +38,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/common/components/ui/dialog";
-import { useGetAllCompanyPayments } from "@/fetchers/company/companyDealerAccountQueries";
+import { useDeleteDealerPayment, useGetAllCompanyPayments } from "@/fetchers/company/companyDealerAccountQueries";
+import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
+import { toast } from "sonner";
 import { useGetCompanyDealers } from "@/fetchers/company/companyDealerQueries";
 import Image from "next/image";
 import { DateDisplay } from "@/common/components/ui/date-display";
@@ -47,6 +51,25 @@ export default function AllPaymentsPage() {
     const [search, setSearch] = useState("");
     const [selectedDealerId, setSelectedDealerId] = useState<string>("ALL");
     const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
+    const [paymentToDelete, setPaymentToDelete] = useState<
+        { id: string; dealerId: string; dealerName: string; amount: number } | null
+    >(null);
+    const deletePaymentMutation = useDeleteDealerPayment();
+
+    const handleDeletePayment = async (password: string) => {
+        if (!paymentToDelete) return;
+        try {
+            await deletePaymentMutation.mutateAsync({
+                dealerId: paymentToDelete.dealerId,
+                paymentId: paymentToDelete.id,
+                password,
+            });
+            toast.success("Payment deleted");
+            setPaymentToDelete(null);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Could not delete the payment");
+        }
+    };
 
     // Queries
     const { data: paymentsData, isLoading: paymentsLoading } =
@@ -69,14 +92,6 @@ export default function AllPaymentsPage() {
 
     const formatCurrency = (amount: number) => {
         return `रू ${amount.toFixed(2)}`;
-    };
-
-    const formatPaymentMethod = (method: string) => {
-        if (!method) return "N/A";
-        return method
-            .split("_")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(" ");
     };
 
     // Filter payments based on search (client-side for now as API search isn't implemented)
@@ -236,10 +251,48 @@ export default function AllPaymentsPage() {
                                         <span className="text-muted-foreground text-xs">-</span>
                                     ),
                             },
+                            {
+                                key: "id",
+                                label: "",
+                                align: "center",
+                                width: "60px",
+                                render: (_val, row) => (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700"
+                                        aria-label="Delete payment"
+                                        onClick={() =>
+                                            setPaymentToDelete({
+                                                id: row.id,
+                                                dealerId: row.dealerId,
+                                                dealerName: row.dealerName,
+                                                amount: Number(row.amount),
+                                            })
+                                        }
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                ),
+                            },
                         ] as Column[]}
                     />
                 </CardContent>
             </Card>
+
+            <CashflowDeleteConfirmDialog
+                open={paymentToDelete !== null}
+                onOpenChange={(open) => !open && setPaymentToDelete(null)}
+                title="Delete this payment?"
+                description={
+                    paymentToDelete
+                        ? `रू ${paymentToDelete.amount.toFixed(2)} from ${paymentToDelete.dealerName} will be removed. The dealer's balance and Cash & Bank go back to how they were before this payment.`
+                        : ""
+                }
+                confirmLabel="Delete payment"
+                submitting={deletePaymentMutation.isPending}
+                onConfirm={handleDeletePayment}
+            />
 
             {/* View Receipt Dialog */}
             <Dialog

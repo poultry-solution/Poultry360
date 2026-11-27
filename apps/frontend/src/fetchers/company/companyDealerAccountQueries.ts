@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
 import type { BalanceLimitCheckResult } from "@myapp/shared-types";
+import { companyCashflowKeys } from "./companyCashflowQueries";
 
 // Query keys
 export const companyDealerAccountKeys = {
@@ -109,7 +110,8 @@ export interface AccountStatement {
 export interface RecordPaymentInput {
   dealerId: string;
   amount: number;
-  paymentMethod?: string;
+  /** Cash & Bank account the money went into. Missing → Cash. */
+  accountId?: string;
   paymentDate?: Date;
   notes?: string;
   reference?: string;
@@ -219,13 +221,31 @@ export const useRecordDealerPayment = () => {
       );
       return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: companyDealerAccountKeys.detail(variables.dealerId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: companyDealerAccountKeys.lists(),
-      });
+    onSuccess: () => {
+      // Balance, statement, payment lists and Cash & Bank all change.
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["companyDealers"] });
+      queryClient.invalidateQueries({ queryKey: companyCashflowKeys.all });
+    },
+  });
+};
+
+// Delete a payment from a dealer (password of the person signed in)
+export const useDeleteDealerPayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { dealerId: string; paymentId: string; password: string }) => {
+      const { data } = await axiosInstance.delete(
+        `/company/dealers/${input.dealerId}/payments/${input.paymentId}`,
+        { data: { password: input.password } }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyDealerAccountKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["companyDealers"] });
+      queryClient.invalidateQueries({ queryKey: companyCashflowKeys.all });
     },
   });
 };

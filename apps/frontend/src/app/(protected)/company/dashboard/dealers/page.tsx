@@ -50,6 +50,7 @@ import {
   useRecordDealerPayment,
 } from "@/fetchers/company/companyDealerAccountQueries";
 import { DateInput } from "@/common/components/ui/date-input";
+import { CompanyCashAccountField } from "@/components/company/CompanyCashAccountField";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
 
 interface Dealer {
@@ -142,7 +143,7 @@ export default function CompanyDealersPage() {
   const [paymentData, setPaymentData] = useState({
     dealerId: "",
     amount: 0,
-    paymentMethod: "CASH",
+    accountId: "",
     paymentDate: getNepalTodayAd(),
     notes: "",
     reference: "",
@@ -166,7 +167,7 @@ export default function CompanyDealersPage() {
       await recordPaymentMutation.mutateAsync({
         dealerId: paymentData.dealerId,
         amount: paymentData.amount,
-        paymentMethod: paymentData.paymentMethod,
+        accountId: paymentData.accountId || undefined,
         paymentDate: new Date(paymentData.paymentDate),
         notes: paymentData.notes,
         reference: paymentData.reference,
@@ -178,7 +179,7 @@ export default function CompanyDealersPage() {
       setPaymentData({
         dealerId: "",
         amount: 0,
-        paymentMethod: "CASH",
+        accountId: "",
         paymentDate: getNepalTodayAd(),
         notes: "",
         reference: "",
@@ -503,7 +504,7 @@ export default function CompanyDealersPage() {
 
       {/* Record Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleRecordPayment}>
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
@@ -553,32 +554,17 @@ export default function CompanyDealersPage() {
                 />
               </div>
 
-              <div className="space-y-2 ">
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
-                <Select
-                  value={paymentData.paymentMethod}
-                  onValueChange={(value) =>
-                    setPaymentData({ ...paymentData, paymentMethod: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <CompanyCashAccountField
+                label="Received into"
+                value={paymentData.accountId}
+                onChange={(id) => setPaymentData((prev) => ({ ...prev, accountId: id }))}
+              />
 
               <div className="space-y-2">
-                <Label htmlFor="paymentDate">Payment Date *</Label>
                 <DateInput
                   label="Payment Date"
                   value={paymentData.paymentDate}
+                  max={getNepalTodayAd()}
                   onChange={(val) =>
                     setPaymentData({ ...paymentData, paymentDate: val })
                   }

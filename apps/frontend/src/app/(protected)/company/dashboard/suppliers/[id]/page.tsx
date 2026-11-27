@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, ArrowLeft, DollarSign } from "lucide-react";
+import { Plus, ArrowLeft, DollarSign, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/common/components/ui/card";
 import { Button } from "@/common/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/common/components/ui/tabs";
@@ -17,12 +17,20 @@ import {
 } from "@/common/components/ui/dialog";
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
-import { useGetSupplierLedger, useRecordSupplierPayment } from "@/fetchers/company/companySupplierQueries";
+import {
+  useDeleteSupplierPayment,
+  useGetSupplierLedger,
+  useRecordSupplierPayment,
+} from "@/fetchers/company/companySupplierQueries";
+import { CompanyCashAccountField } from "@/components/company/CompanyCashAccountField";
+import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
+import { DateInput } from "@/common/components/ui/date-input";
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 import { DateDisplay } from "@/common/components/ui/date-display";
 import { DataTable, Column } from "@/common/components/ui/data-table";
 import { toast } from "sonner";
 import { BusinessDownloadDialog, filterRowsByDate } from "@/components/downloads/BusinessDownloadDialog";
-import { toNepalDayAd } from "@/common/lib/nepali-date";
+import { getNepalTodayAd, toNepalDayAd } from "@/common/lib/nepali-date";
 import {
   ACCOUNT_FEATURE_KEYS,
   useAccountFeature,
@@ -112,7 +120,7 @@ const paymentColumns: Column<PaymentRow>[] = [
     align: "right",
     render: (_, row) => formatCurrency(row.amount),
   },
-  { key: "paymentMethod", label: "Method", render: (_, row) => row.paymentMethod ?? "—" },
+  { key: "paymentMethod", label: "Method", render: (_, row) => (row.paymentMethod ? formatPaymentMethod(row.paymentMethod) : "—") },
   { key: "notes", label: "Note", render: (_, row) => row.notes ?? "—" },
 ];
 
@@ -121,11 +129,14 @@ export default function SupplierLedgerPage() {
   const id = params.id as string;
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
-  const [payMethod, setPayMethod] = useState("CASH");
+  const [payAccountId, setPayAccountId] = useState("");
+  const [payDate, setPayDate] = useState(getNepalTodayAd());
   const [payNotes, setPayNotes] = useState("");
+  const [paymentToDelete, setPaymentToDelete] = useState<PaymentRow | null>(null);
 
   const { data: ledgerData, isLoading } = useGetSupplierLedger(id);
   const recordPaymentMutation = useRecordSupplierPayment(id);
+  const deletePaymentMutation = useDeleteSupplierPayment(id);
   const { isEnabled: isPurchaseBillEnabled } = useAccountFeature(
     ACCOUNT_FEATURE_KEYS.COMPANY_PURCHASE_BILL_UPLOAD
   );
@@ -187,17 +198,51 @@ export default function SupplierLedgerPage() {
     try {
       await recordPaymentMutation.mutateAsync({
         amount: amt,
-        paymentMethod: payMethod,
+        accountId: payAccountId || undefined,
+        paymentDate: payDate,
         notes: payNotes.trim() || undefined,
       });
       toast.success("Payment recorded");
       setPayOpen(false);
       setPayAmount("");
       setPayNotes("");
+      setPayAccountId("");
+      setPayDate(getNepalTodayAd());
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to record payment");
     }
   };
+
+  const handleDeletePayment = async (password: string) => {
+    if (!paymentToDelete) return;
+    try {
+      await deletePaymentMutation.mutateAsync({ paymentId: paymentToDelete.id, password });
+      toast.success("Payment deleted");
+      setPaymentToDelete(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Could not delete the payment");
+    }
+  };
+
+  const paymentColumnsWithDelete: Column<PaymentRow>[] = [
+    ...paymentColumns,
+    {
+      key: "id",
+      label: "",
+      align: "center",
+      render: (_, row) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-600 hover:text-red-700"
+          aria-label="Delete payment"
+          onClick={() => setPaymentToDelete(row)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
 
   if (!id) return null;
   if (!isLoading && !supplier) {
@@ -268,7 +313,7 @@ export default function SupplierLedgerPage() {
             <CardContent className="p-0">
               <DataTable<PaymentRow>
                 data={paymentRows}
-                columns={paymentColumns}
+                columns={paymentColumnsWithDelete}
                 emptyMessage='No payments yet. Use "Pay" to record a payment.'
                 getRowKey={(row) => row.id}
               />
@@ -276,6 +321,20 @@ export default function SupplierLedgerPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CashflowDeleteConfirmDialog
+        open={paymentToDelete !== null}
+        onOpenChange={(open) => !open && setPaymentToDelete(null)}
+        title="Delete this payment?"
+        description={
+          paymentToDelete
+            ? `रू ${Number(paymentToDelete.amount).toFixed(2)} will be removed. The amount you owe ${supplier?.name ?? "this supplier"} and Cash & Bank go back to how they were before this payment.`
+            : ""
+        }
+        confirmLabel="Delete payment"
+        submitting={deletePaymentMutation.isPending}
+        onConfirm={handleDeletePayment}
+      />
 
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
@@ -298,14 +357,9 @@ export default function SupplierLedgerPage() {
                 className="mt-1"
               />
             </div>
+            <CompanyCashAccountField label="Paid from" value={payAccountId} onChange={setPayAccountId} />
             <div>
-              <Label>Payment method</Label>
-              <Input
-                value={payMethod}
-                onChange={(e) => setPayMethod(e.target.value)}
-                placeholder="CASH, BANK, etc."
-                className="mt-1"
-              />
+              <DateInput label="Payment date" value={payDate} onChange={setPayDate} max={getNepalTodayAd()} />
             </div>
             <div>
               <Label>Notes (optional)</Label>

@@ -1,5 +1,36 @@
 import prisma from "../utils/prisma";
 import { Prisma } from "@prisma/client";
+import { CashflowError } from "../common/cashflow/errors";
+import {
+  deleteCompanyDealerPaymentMovement,
+  postCompanyDealerPaymentMovement,
+  resolveCompanyPaymentAccount,
+} from "./companyCashflowAutoPost";
+
+/**
+ * A company may only work with its own dealers: ones it created
+ * (dealer.userId = company owner) or ones already linked to it by an account.
+ * Returns the dealer name for Cash & Bank entries.
+ */
+export async function assertCompanyDealer(
+  tx: Prisma.TransactionClient | typeof prisma,
+  companyId: string,
+  ownerUserId: string,
+  dealerId: string,
+): Promise<{ name: string }> {
+  const dealer = await tx.dealer.findUnique({
+    where: { id: dealerId },
+    select: { name: true, userId: true },
+  });
+  if (!dealer) throw new CashflowError("Dealer not found", 404);
+  if (dealer.userId === ownerUserId) return { name: dealer.name };
+  const linked = await tx.companyDealerAccount.findUnique({
+    where: { companyId_dealerId: { companyId, dealerId } },
+    select: { id: true },
+  });
+  if (!linked) throw new CashflowError("Dealer not found", 404);
+  return { name: dealer.name };
+}
 
 export class CompanyDealerAccountService {
   /**
@@ -95,17 +126,31 @@ export class CompanyDealerAccountService {
    */
   static async recordPayment(data: {
     companyId: string;
+    /** Company owner's User id: the Cash & Bank book is keyed by it. */
+    ownerUserId: string;
     dealerId: string;
     amount: number;
-    paymentMethod?: string;
+    /** Cash & Bank account the money went into. Missing → Cash. */
+    cashAccountId?: string | null;
     paymentDate?: Date;
     notes?: string;
     reference?: string;
     receiptImageUrl?: string;
     proofImageUrl?: string;
     recordedById: string;
+    /** Staff id when a staff member saves it (for the Cash & Bank entry). */
+    cashRecordedById?: string;
   }) {
     return await prisma.$transaction(async (tx) => {
+      const dealer = await assertCompanyDealer(tx, data.companyId, data.ownerUserId, data.dealerId);
+      // Payment method follows the account (Cash → CASH, Bank → BANK_TRANSFER).
+      const { accountId: cashAccountId, paymentMethod } = await resolveCompanyPaymentAccount(
+        tx,
+        data.ownerUserId,
+        data.cashAccountId,
+      );
+      const paymentDate = data.paymentDate || new Date();
+
       // Use upsert to ensure account exists (prevents race conditions)
       const account = await tx.companyDealerAccount.upsert({
         where: {
@@ -117,7 +162,7 @@ export class CompanyDealerAccountService {
         update: {
           balance: { decrement: new Prisma.Decimal(data.amount) },
           totalPayments: { increment: new Prisma.Decimal(data.amount) },
-          lastPaymentDate: data.paymentDate || new Date(),
+          lastPaymentDate: paymentDate,
         },
         create: {
           companyId: data.companyId,
@@ -125,7 +170,7 @@ export class CompanyDealerAccountService {
           balance: new Prisma.Decimal(-data.amount), // Negative = advance payment
           totalSales: new Prisma.Decimal(0),
           totalPayments: new Prisma.Decimal(data.amount),
-          lastPaymentDate: data.paymentDate || new Date(),
+          lastPaymentDate: paymentDate,
         },
       });
 
@@ -137,8 +182,8 @@ export class CompanyDealerAccountService {
         data: {
           accountId: account.id,
           amount: new Prisma.Decimal(data.amount),
-          paymentMethod: data.paymentMethod || "CASH",
-          paymentDate: data.paymentDate || new Date(),
+          paymentMethod,
+          paymentDate,
           notes: data.notes,
           reference: data.reference,
           receiptImageUrl: data.receiptImageUrl,
@@ -148,11 +193,83 @@ export class CompanyDealerAccountService {
         },
       });
 
+      await postCompanyDealerPaymentMovement({
+        tx,
+        userId: data.ownerUserId,
+        paymentId: payment.id,
+        accountId: cashAccountId,
+        amount: data.amount,
+        date: paymentDate,
+        partyName: dealer.name,
+        notes: data.notes ?? null,
+        recordedById: data.cashRecordedById ?? data.recordedById,
+      });
+
       return {
         payment,
         account,
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  /**
+   * Delete one dealer payment and undo it everywhere: the dealer's balance and
+   * total, the "Balance" snapshot on every payment saved after it, the last
+   * payment date, and the Cash & Bank entry.
+   */
+  static async deletePayment(data: {
+    companyId: string;
+    ownerUserId: string;
+    dealerId: string;
+    paymentId: string;
+  }) {
+    return await prisma.$transaction(async (tx) => {
+      await assertCompanyDealer(tx, data.companyId, data.ownerUserId, data.dealerId);
+      const payment = await tx.companyDealerPayment.findUnique({
+        where: { id: data.paymentId },
+        select: {
+          id: true,
+          amount: true,
+          createdAt: true,
+          account: { select: { id: true, companyId: true, dealerId: true } },
+        },
+      });
+      if (
+        !payment ||
+        payment.account.companyId !== data.companyId ||
+        payment.account.dealerId !== data.dealerId
+      ) {
+        throw new CashflowError("Payment not found", 404);
+      }
+
+      const accountId = payment.account.id;
+      await tx.companyDealerPayment.delete({ where: { id: payment.id } });
+
+      // Every payment saved after this one showed a balance that already had
+      // this amount taken off.
+      await tx.companyDealerPayment.updateMany({
+        where: { accountId, createdAt: { gt: payment.createdAt } },
+        data: { balanceAfter: { increment: payment.amount } },
+      });
+
+      const latest = await tx.companyDealerPayment.findFirst({
+        where: { accountId },
+        orderBy: { paymentDate: "desc" },
+        select: { paymentDate: true },
+      });
+      const account = await tx.companyDealerAccount.update({
+        where: { id: accountId },
+        data: {
+          balance: { increment: payment.amount },
+          totalPayments: { decrement: payment.amount },
+          lastPaymentDate: latest?.paymentDate ?? null,
+        },
+      });
+
+      await deleteCompanyDealerPaymentMovement(tx, data.ownerUserId, payment.id);
+
+      return { paymentId: payment.id, amount: Number(payment.amount), account };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   /**

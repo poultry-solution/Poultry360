@@ -32,6 +32,7 @@ import { StaffAttendanceCalendar } from "@/components/staff/StaffAttendanceCalen
 import { AccountPicker } from "@/components/cashflow/AccountPicker";
 import { useGetCashflowAccountOptions } from "@/fetchers/farmer/farmerCashflowQueries";
 import { useGetCashflowAccountOptions as useGetDealerCashflowAccountOptions } from "@/fetchers/dealer/dealerCashflowQueries";
+import { useGetCashflowAccountOptions as useGetCompanyCashflowAccountOptions } from "@/fetchers/company/companyCashflowQueries";
 import {
   useDeleteStaff,
   useCreateStaff,
@@ -723,6 +724,14 @@ export default function StaffManagementPage({ owner, titlePrefix }: StaffManagem
                 }
               />
             )}
+            {owner === "company" && (
+              <CompanySalaryAccountPicker
+                value={payForm.accountId}
+                onChange={(accountId) =>
+                  setPayForm((form) => ({ ...form, accountId }))
+                }
+              />
+            )}
             {owner === "farmer" && (
               <FarmerSalaryAccountPicker
                 value={payForm.accountId}
@@ -1276,6 +1285,36 @@ function DealerSalaryAccountPicker({
   onChange: (accountId: string) => void;
 }) {
   const { data: accounts } = useGetDealerCashflowAccountOptions();
+  const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
+  const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
+
+  if (activeAccounts.length <= 1) return null;
+
+  return (
+    <div>
+      <Label>Paid from</Label>
+      <AccountPicker
+        accounts={activeAccounts}
+        value={value || cashId}
+        onChange={onChange}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        Default: Cash. Pick a bank if the salary was paid from there.
+      </p>
+    </div>
+  );
+}
+
+/** Company twin — same UX, reads the company's accounts. Mounted only for
+ *  Company so other modules never fetch the company cashflow API. */
+function CompanySalaryAccountPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (accountId: string) => void;
+}) {
+  const { data: accounts } = useGetCompanyCashflowAccountOptions();
   const activeAccounts = (accounts ?? []).filter((account) => account.archivedAt === null);
   const cashId = activeAccounts.find((account) => account.type === "CASH")?.id ?? "";
 
