@@ -88,7 +88,8 @@ export type StaffPermission =
   | "COMPANY_MANAGE_OPERATIONS"
   | "COMPANY_VIEW_FINANCIAL_SUMMARIES"
   | "COMPANY_VIEW_ANALYTICS"
-  | "COMPANY_VIEW_STAFF_MANAGEMENT";
+  | "COMPANY_VIEW_STAFF_MANAGEMENT"
+  | "COMPANY_VIEW_CASH_HISTORY";
 
 export interface LoginCredentials {
   emailOrPhone: string;

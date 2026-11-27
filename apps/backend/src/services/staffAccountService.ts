@@ -107,6 +107,7 @@ export const STAFF_ACCOUNT_MODULES = {
       StaffPermission.COMPANY_VIEW_FINANCIAL_SUMMARIES,
       StaffPermission.COMPANY_VIEW_ANALYTICS,
       StaffPermission.COMPANY_VIEW_STAFF_MANAGEMENT,
+      StaffPermission.COMPANY_VIEW_CASH_HISTORY,
     ],
     getBusiness: async (ownerId) => {
       const company = await prisma.company.findUnique({

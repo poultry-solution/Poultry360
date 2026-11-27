@@ -6,14 +6,18 @@ jest.mock("../../src/utils/prisma", () => {
 });
 jest.mock("../../src/services/farmerCashflowService");
 jest.mock("../../src/services/dealerCashflowService");
+jest.mock("../../src/services/companyCashflowService");
 
 import prisma from "../../src/utils/prisma";
 import * as farmerService from "../../src/services/farmerCashflowService";
 import * as dealerService from "../../src/services/dealerCashflowService";
+import * as companyService from "../../src/services/companyCashflowService";
 import { getAccountOptions as getFarmerAccountOptions } from "../../src/controller/farmerCashflowController";
 import { getAccountOptions as getDealerAccountOptions } from "../../src/controller/dealerCashflowController";
+import { getAccountOptions as getCompanyAccountOptions } from "../../src/controller/companyCashflowController";
 import farmerRoutes from "../../src/router/farmerCashflowRoutes";
 import dealerRoutes from "../../src/router/dealerCashflowRoutes";
+import companyRoutes from "../../src/router/companyCashflowRoutes";
 
 const db = prisma as any;
 
@@ -36,6 +40,7 @@ beforeEach(() => {
 describe.each([
   ["farmer", getFarmerAccountOptions, farmerService],
   ["dealer", getDealerAccountOptions, dealerService],
+  ["company", getCompanyAccountOptions, companyService],
 ])("GET /%s/cashflow/account-options", (_role, handler, service) => {
   it("returns only active account names, with no balances", async () => {
     const res = makeResponse();
@@ -60,6 +65,7 @@ describe.each([
 describe.each([
   ["farmer", farmerRoutes],
   ["dealer", dealerRoutes],
+  ["company", companyRoutes],
 ])("%s cashflow router order", (_role, router) => {
   it("serves /account-options after the login check and before the permission check", () => {
     const stack = (router as any).stack as Array<{ route?: { path: string } }>;

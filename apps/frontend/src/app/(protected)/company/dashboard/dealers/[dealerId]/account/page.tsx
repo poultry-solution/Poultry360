@@ -11,6 +11,7 @@ import {
   Plus,
   Receipt,
   Image as ImageIcon,
+  Trash2,
 } from "lucide-react";
 import {
   Card,
@@ -33,13 +34,6 @@ import {
 import { Label } from "@/common/components/ui/label";
 import { Input } from "@/common/components/ui/input";
 import { Textarea } from "@/common/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/common/components/ui/select";
 import { ImageUpload } from "@/common/components/ui/image-upload";
 import { toast } from "sonner";
 import { DateDisplay } from "@/common/components/ui/date-display";
@@ -49,8 +43,12 @@ import {
   useGetDealerAccount,
   useGetDealerAccountStatement,
   useRecordDealerPayment,
+  useDeleteDealerPayment,
   useSetDealerBalanceLimit,
 } from "@/fetchers/company/companyDealerAccountQueries";
+import { CompanyCashAccountField } from "@/components/company/CompanyCashAccountField";
+import { CashflowDeleteConfirmDialog } from "@/components/cashflow/CashflowDeleteConfirmDialog";
+import { formatPaymentMethod } from "@/common/lib/paymentMethod";
 import axiosInstance from "@/common/lib/axios";
 import { BusinessDownloadDialog, fetchAllPages } from "@/components/downloads/BusinessDownloadDialog";
 
@@ -65,7 +63,7 @@ export default function DealerAccountPage() {
   const [newBalanceLimit, setNewBalanceLimit] = useState<string>("");
   const [paymentData, setPaymentData] = useState({
     amount: 0,
-    paymentMethod: "CASH",
+    accountId: "",
     paymentDate: getNepalTodayAd(),
     notes: "",
     reference: "",
@@ -80,6 +78,19 @@ export default function DealerAccountPage() {
 
   // Mutations
   const recordPaymentMutation = useRecordDealerPayment();
+  const deletePaymentMutation = useDeleteDealerPayment();
+  const [paymentToDelete, setPaymentToDelete] = useState<{ id: string; amount: number } | null>(null);
+
+  const handleDeletePayment = async (password: string) => {
+    if (!paymentToDelete) return;
+    try {
+      await deletePaymentMutation.mutateAsync({ dealerId, paymentId: paymentToDelete.id, password });
+      toast.success("Payment deleted");
+      setPaymentToDelete(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Could not delete the payment");
+    }
+  };
   const setBalanceLimitMutation = useSetDealerBalanceLimit();
 
   const handleUpdateBalanceLimit = async () => {
@@ -107,7 +118,7 @@ export default function DealerAccountPage() {
       await recordPaymentMutation.mutateAsync({
         dealerId,
         amount: paymentData.amount,
-        paymentMethod: paymentData.paymentMethod,
+        accountId: paymentData.accountId || undefined,
         paymentDate: new Date(paymentData.paymentDate),
         notes: paymentData.notes,
         reference: paymentData.reference,
@@ -117,7 +128,7 @@ export default function DealerAccountPage() {
       setIsPaymentDialogOpen(false);
       setPaymentData({
         amount: 0,
-        paymentMethod: "CASH",
+        accountId: "",
         paymentDate: getNepalTodayAd(),
         notes: "",
         reference: "",
@@ -146,7 +157,7 @@ export default function DealerAccountPage() {
         { label: "Type", value: (row: any) => row.label },
         { label: "Reference", value: (row: any) => row.reference || "" },
         { label: "Amount", value: (row: any) => Number(row.amount || 0).toFixed(2) },
-        { label: "Method", value: (row: any) => row.paymentMethod || "" },
+        { label: "Method", value: (row: any) => formatPaymentMethod(row.paymentMethod) },
         { label: "Note", value: (row: any) => row.notes || "" },
       ];
     return {
@@ -499,7 +510,7 @@ export default function DealerAccountPage() {
                               </Badge>
                             )}
                             <Badge variant="outline" className="text-xs">
-                              {payment.paymentMethod}
+                              {formatPaymentMethod(payment.paymentMethod)}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">
@@ -532,6 +543,16 @@ export default function DealerAccountPage() {
                         <p className="text-xs text-gray-700">
                           Balance: {formatCurrency(payment.balanceAfter)}
                         </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1 h-7 px-2 text-red-600 hover:text-red-700"
+                          onClick={() => setPaymentToDelete({ id: payment.id, amount: payment.amount })}
+                        >
+                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -542,9 +563,23 @@ export default function DealerAccountPage() {
         </CardContent>
       </Card>
 
+      <CashflowDeleteConfirmDialog
+        open={paymentToDelete !== null}
+        onOpenChange={(open) => !open && setPaymentToDelete(null)}
+        title="Delete this payment?"
+        description={
+          paymentToDelete
+            ? `रू ${paymentToDelete.amount.toFixed(2)} will be removed. The dealer's balance and Cash & Bank go back to how they were before this payment.`
+            : ""
+        }
+        confirmLabel="Delete payment"
+        submitting={deletePaymentMutation.isPending}
+        onConfirm={handleDeletePayment}
+      />
+
       {/* Record Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleRecordPayment}>
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
@@ -612,32 +647,17 @@ export default function DealerAccountPage() {
                 />
               </div>
 
-              <div className="space-y-2 ">
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
-                <Select
-                  value={paymentData.paymentMethod}
-                  onValueChange={(value) =>
-                    setPaymentData({ ...paymentData, paymentMethod: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
-                    <SelectItem value="CHEQUE">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <CompanyCashAccountField
+                label="Received into"
+                value={paymentData.accountId}
+                onChange={(id) => setPaymentData((prev) => ({ ...prev, accountId: id }))}
+              />
 
               <div className="space-y-2">
-                <Label htmlFor="paymentDate">Payment Date *</Label>
                 <DateInput
                   label="Payment Date"
                   value={paymentData.paymentDate}
+                  max={getNepalTodayAd()}
                   onChange={(val) =>
                     setPaymentData({ ...paymentData, paymentDate: val })
                   }

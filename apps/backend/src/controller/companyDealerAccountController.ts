@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import prisma from "../utils/prisma";
 import { CompanyDealerAccountService } from "../services/companyDealerAccountService";
 import { parseNepalRange } from "../utils/dealerSaleDateRange";
+import { CashflowError } from "../common/cashflow/errors";
+import { toNepalDayKey } from "../utils/nepalBsDate";
+import { assertDeletePassword } from "./companyCashflowController";
 
 // ==================== GET DEALER ACCOUNT (COMPANY SIDE) ====================
 export const getDealerAccount = async (
@@ -113,11 +116,11 @@ export const recordDealerPayment = async (
   res: Response
 ): Promise<any> => {
   try {
-    const userId = req.userId;
+    const userId = req.userId as string;
     const { dealerId } = req.params;
     const {
       amount,
-      paymentMethod,
+      accountId,
       paymentDate,
       notes,
       reference,
@@ -126,10 +129,22 @@ export const recordDealerPayment = async (
     } = req.body;
 
     // Validation
-    if (!amount || Number(amount) <= 0) {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
       return res.status(400).json({
         message: "Valid payment amount is required",
       });
+    }
+    let paidOn = new Date();
+    if (paymentDate) {
+      paidOn = new Date(paymentDate);
+      if (Number.isNaN(paidOn.getTime())) {
+        return res.status(400).json({ message: "Valid payment date is required" });
+      }
+      // Compare Nepal days, not UTC days.
+      if (toNepalDayKey(paidOn) > toNepalDayKey(new Date())) {
+        return res.status(400).json({ message: "Payment date cannot be in the future" });
+      }
     }
 
     // Get company
@@ -142,18 +157,20 @@ export const recordDealerPayment = async (
       return res.status(404).json({ message: "Company not found" });
     }
 
-    // Record payment
+    // Record payment (+ Cash & Bank entry in the same transaction)
     const result = await CompanyDealerAccountService.recordPayment({
       companyId: company.id,
+      ownerUserId: userId,
       dealerId,
-      amount: Number(amount),
-      paymentMethod,
-      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+      amount: value,
+      cashAccountId: typeof accountId === "string" && accountId ? accountId : null,
+      paymentDate: paidOn,
       notes,
       reference,
       receiptImageUrl,
       proofImageUrl,
-      recordedById: userId as string,
+      recordedById: userId,
+      cashRecordedById: req.actorType === "STAFF" ? req.staffUserId ?? userId : userId,
     });
 
     return res.status(201).json({
@@ -170,10 +187,62 @@ export const recordDealerPayment = async (
       message: "Payment recorded successfully",
     });
   } catch (error: any) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
     console.error("Record dealer payment error:", error);
     return res.status(500).json({
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
+  }
+};
+
+// ==================== DELETE PAYMENT (COMPANY SIDE) ====================
+// Needs the password of the person signed in (owner or staff).
+export const deleteDealerPayment = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const userId = req.userId as string;
+    const { dealerId, paymentId } = req.params;
+
+    await assertDeletePassword(req);
+
+    const company = await prisma.company.findUnique({
+      where: { ownerId: userId },
+      select: { id: true },
+    });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const result = await CompanyDealerAccountService.deletePayment({
+      companyId: company.id,
+      ownerUserId: userId,
+      dealerId,
+      paymentId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        paymentId: result.paymentId,
+        account: {
+          id: result.account.id,
+          balance: Number(result.account.balance),
+          totalSales: Number(result.account.totalSales),
+          totalPayments: Number(result.account.totalPayments),
+        },
+      },
+      message: "Payment deleted",
+    });
+  } catch (error: any) {
+    if (error instanceof CashflowError) {
+      return res.status(error.status).json({ message: error.message });
+    }
+    console.error("Delete dealer payment error:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 

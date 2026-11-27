@@ -5,6 +5,7 @@ import {
   getSupplierById,
   updateSupplier,
   deleteSupplier,
+  deleteSupplierPayment,
   getSupplierLedger,
   recordSupplierPayment,
 } from "../controller/companySupplierController";
@@ -24,6 +25,7 @@ router.get("/", listSuppliers);
 router.post("/", createSupplier);
 router.get("/:id/ledger", getSupplierLedger);
 router.post("/:id/payments", recordSupplierPayment);
+router.delete("/:id/payments/:paymentId", deleteSupplierPayment);
 router.get("/:id", getSupplierById);
 router.put("/:id", updateSupplier);
 router.delete("/:id", deleteSupplier);

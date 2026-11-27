@@ -136,28 +136,3 @@ export const useGetCompanyLedgerSummary = (params?: {
   });
 };
 
-// Add payment
-export const useAddCompanyPaym = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (input: {
-      dealerId: string;
-      saleId?: string;
-      amount: number;
-      paymentMethod?: string;
-      date?: string;
-      notes?: string;
-    }) => {
-      const { data } = await axiosInstance.post(
-        "/company/ledger/payments",
-        input
-      );
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyLedgerKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["company-sales"] });
-    },
-  });
-};

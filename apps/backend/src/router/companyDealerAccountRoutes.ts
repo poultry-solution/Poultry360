@@ -3,6 +3,7 @@ import {
   getDealerAccount,
   getDealerAccountStatement,
   recordDealerPayment,
+  deleteDealerPayment,
   setDealerBalanceLimit,
   checkDealerBalanceLimit,
   getAllDealerAccounts,
@@ -61,6 +62,13 @@ router.post(
   "/company/dealers/:dealerId/payments",
   ...companyMutation,
   recordDealerPayment
+);
+
+// Delete a payment from a dealer (needs password; also removes the Cash & Bank entry)
+router.delete(
+  "/company/dealers/:dealerId/payments/:paymentId",
+  ...companyMutation,
+  deleteDealerPayment
 );
 
 

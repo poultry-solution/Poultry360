@@ -96,6 +96,19 @@ export class CompanyService {
       if (!dealer) {
         throw new Error("Dealer not found");
       }
+      // Only this company's own dealers: created by the company owner, or
+      // already linked to the company by an account.
+      const owner = await tx.company.findUnique({
+        where: { id: companyId },
+        select: { ownerId: true },
+      });
+      if (dealer.userId !== owner?.ownerId) {
+        const linked = await tx.companyDealerAccount.findUnique({
+          where: { companyId_dealerId: { companyId, dealerId } },
+          select: { id: true },
+        });
+        if (!linked) throw new Error("Dealer not found");
+      }
 
       const isCredit = paymentMethod === "CREDIT";
 

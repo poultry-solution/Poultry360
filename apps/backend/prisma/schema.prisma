@@ -2654,11 +2654,13 @@ enum CashSourceType {
   BROILER_SETTLEMENT_PROCEEDS  // BroilerSaleSettlement totalProceeds leg (IN)
   BROILER_SETTLEMENT_PAYOUT    // BroilerSaleSettlement farmerPayout leg (OUT)
   DEALER_BROILER_PURCHASE      // DealerBroilerPurchase cash paid upfront to source farmer (OUT)
+  COMPANY_DEALER_PAYMENT       // company CompanyDealerPayment (IN)
+  COMPANY_SUPPLIER_PAYMENT     // company CompanySupplierPayment (OUT)
 }
 
 // One CASH account per owner user + 0..N BANK accounts. Every CashMovement
-// row points at exactly one of these. Shared across farmer (role OWNER) and
-// dealer (role DEALER) tenants, keyed by `userId` of the owner — a User has
+// row points at exactly one of these. Shared across farmer (role OWNER),
+// dealer (role DEALER) and company (role COMPANY, /company/cashflow) tenants, keyed by `userId` of the owner — a User has
 // exactly one role, so no cross-tenant ambiguity. Route-level role guards
 // ([OWNER] on /farmer/cashflow, [DEALER] on /dealer/cashflow) prevent one
 // tenant from reading the other's accounts; the dealerCashflowService also
@@ -2898,6 +2900,7 @@ enum StaffPermission {
   COMPANY_VIEW_FINANCIAL_SUMMARIES
   COMPANY_VIEW_ANALYTICS
   COMPANY_VIEW_STAFF_MANAGEMENT
+  COMPANY_VIEW_CASH_HISTORY
 }
 
 model Staff {

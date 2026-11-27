@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "@/common/lib/axios";
+import { companyCashflowKeys } from "./companyCashflowQueries";
 
 export const companySupplierKeys = {
   all: ["company-suppliers"] as const,
@@ -122,7 +123,8 @@ export function useRecordSupplierPayment(supplierId: string) {
   return useMutation({
     mutationFn: async (body: {
       amount: number;
-      paymentMethod?: string;
+      /** Cash & Bank account the money was paid from. Missing → Cash. */
+      accountId?: string;
       paymentDate?: string;
       notes?: string;
       reference?: string;
@@ -133,6 +135,26 @@ export function useRecordSupplierPayment(supplierId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: companySupplierKeys.ledger(supplierId) });
       qc.invalidateQueries({ queryKey: companySupplierKeys.lists() });
+      qc.invalidateQueries({ queryKey: companyCashflowKeys.all });
+    },
+  });
+}
+
+/** Delete one supplier payment (password of the person signed in). */
+export function useDeleteSupplierPayment(supplierId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { paymentId: string; password: string }) => {
+      const { data } = await axiosInstance.delete(
+        `/company/suppliers/${supplierId}/payments/${input.paymentId}`,
+        { data: { password: input.password } }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: companySupplierKeys.ledger(supplierId) });
+      qc.invalidateQueries({ queryKey: companySupplierKeys.lists() });
+      qc.invalidateQueries({ queryKey: companyCashflowKeys.all });
     },
   });
 }

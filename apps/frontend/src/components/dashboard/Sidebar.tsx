@@ -245,6 +245,13 @@ export const companyNavigation: NavigationItem[] = [
     requiredStaffPermission: "COMPANY_MANAGE_OPERATIONS",
   },
   {
+    nameKey: "sidebar.nav.cashAndBank",
+    href: "/company/dashboard/cashflow",
+    icon: Wallet,
+    // Cash details are private by default for staff. Company owners always see it.
+    requiredStaffPermission: "COMPANY_VIEW_CASH_HISTORY",
+  },
+  {
     nameKey: "sidebar.nav.analytics",
     href: "/company/dashboard/analytics",
     icon: BarChart3,
