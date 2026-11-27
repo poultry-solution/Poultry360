@@ -327,7 +327,7 @@ export async function listChickSales(req: Request, res: Response) {
 
     const sales = await prisma.hatcheryChickSale.findMany({
       where: { incubationBatchId },
-      orderBy: { date: "desc" },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
     });
 
     return res.json(sales);

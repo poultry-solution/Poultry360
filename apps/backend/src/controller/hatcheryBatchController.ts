@@ -1484,7 +1484,7 @@ export async function listEggSales(req: Request, res: Response) {
     const [sales, totalRows, salesAgg] = await Promise.all([
       prisma.hatcheryEggSale.findMany({
         where: { batchId },
-        orderBy: { date: "desc" },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
         skip,
         take: pageLimit,
         include: { eggType: { select: { id: true, name: true, isHatchable: true } } },
@@ -1619,7 +1619,7 @@ export async function listParentSales(req: Request, res: Response) {
     const [sales, totalRows, salesAgg] = await Promise.all([
       prisma.hatcheryParentSale.findMany({
         where: { batchId },
-        orderBy: { date: "desc" },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }, { id: "desc" }],
         skip,
         take: pageLimit,
       }),
