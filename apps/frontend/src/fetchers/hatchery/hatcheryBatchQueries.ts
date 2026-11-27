@@ -63,6 +63,9 @@ export interface HatcheryBatchDetail extends HatcheryBatch {
       };
       incubation: {
         incubationCount: number;
+        /** Incubations with a hatch result; hatch % uses only these. */
+        hatchedIncubationCount: number;
+        runningIncubationCount: number;
         eggsSetTotal: number;
         candlingLossTotal: number;
         fertileEggsTotal: number;

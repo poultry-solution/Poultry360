@@ -229,6 +229,7 @@ model User {
 
   // Batch share links this account created
   batchShareLinks BatchShareLink[]
+  hatcheryBatchShareLinks HatcheryBatchShareLink[]
 
   // Dealer sales relationships
   dealerSalesReceived DealerSale[] @relation("DealerSalesToFarmer")
@@ -494,6 +495,28 @@ model BatchShareLink {
   @@index([batchId])
   @@index([createdById])
 }
+/// Read-only link to one hatchery parent batch (and its incubations) for a vet.
+/// Never carries money. Same rules as BatchShareLink.
+model HatcheryBatchShareLink {
+  id               String        @id @default(cuid())
+  token            String        @unique
+  hatcheryBatchId  String
+  hatcheryBatch    HatcheryBatch @relation(fields: [hatcheryBatchId], references: [id], onDelete: Cascade)
+  /// Account owner (staff links are saved under the owner)
+  createdById      String
+  createdBy        User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdByStaffId String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  showNotes        Boolean       @default(false)
+  viewCount        Int           @default(0)
+  lastViewedAt     DateTime?
+  createdAt        DateTime      @default(now())
+
+  @@index([hatcheryBatchId])
+  @@index([createdById])
+}
+
 
 model BatchFcrHistory {
   id                         String   @id @default(cuid())
@@ -3382,6 +3405,7 @@ model HatcheryBatch {
   updatedAt DateTime @updatedAt
 
   noteEntries HatcheryNote[]
+  shareLinks  HatcheryBatchShareLink[]
   reminders   Reminder[]
 
   @@unique([hatcheryOwnerId, code])
