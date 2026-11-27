@@ -36,6 +36,8 @@ const hatcheryActivityCopy: Record<string, HatcheryActivityCopy> = {
   "DELETE batches/record": { description: "Deleted a batch", targetType: "Hatchery batch" },
   "POST batches/record/close": { description: "Closed a batch", targetType: "Hatchery batch" },
   "POST batches/record/reopen": { description: "Reopened a batch", targetType: "Hatchery batch" },
+  "POST batches/record/share-links": { description: "Shared a batch report link", targetType: "Hatchery batch share link" },
+  "DELETE batches/record/share-links/record": { description: "Turned off a batch share link", targetType: "Hatchery batch share link" },
 
   // Batch-scoped activity
   "POST batches/record/mortalities": { description: "Recorded batch mortality", targetType: "Hatchery mortality" },

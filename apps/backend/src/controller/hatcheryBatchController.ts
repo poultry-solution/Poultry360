@@ -278,6 +278,24 @@ export async function getHatcheryBatch(req: Request, res: Response) {
         }),
       ]);
 
+    // Hatch % only counts incubations that have hatched. Eggs still in the
+    // setter or hatcher have no chicks yet, so counting them pulled the % down.
+    const hatchedWhere = { parentBatchId: id, hatcheryOwnerId: ownerId, hatchResults: { some: {} } };
+    const [hatchedIncubationAgg, hatchedCandlingLossAgg] = await Promise.all([
+      prisma.hatcheryIncubationBatch.aggregate({
+        where: hatchedWhere,
+        _count: { id: true },
+        _sum: { eggsSetCount: true },
+      }),
+      prisma.hatcheryIncubationLoss.aggregate({
+        where: {
+          incubationBatch: hatchedWhere,
+          type: { in: [HatcheryIncubationLossType.INFERTILE, HatcheryIncubationLossType.EARLY_DEAD] },
+        },
+        _sum: { count: true },
+      }),
+    ]);
+
     const round2 = (n: number) => Math.round(n * 100) / 100;
 
     const totalExpensesAmount = Number(totalExpenses._sum.amount ?? 0);
@@ -298,10 +316,14 @@ export async function getHatcheryBatch(req: Request, res: Response) {
     const eggsSetTotal = incubationAgg._sum.eggsSetCount ?? 0;
     const candlingLossTotal = candlingLossAgg._sum.count ?? 0;
     const fertileEggsTotal = eggsSetTotal - candlingLossTotal;
+    const hatchedIncubationCount = hatchedIncubationAgg._count.id ?? 0;
+    const runningIncubationCount = incubationCount - hatchedIncubationCount;
+    const hatchedEggsSet = hatchedIncubationAgg._sum.eggsSetCount ?? 0;
+    const hatchedFertileEggs = hatchedEggsSet - (hatchedCandlingLossAgg._sum.count ?? 0);
     const weightedHatchabilityPct =
-      fertileEggsTotal > 0 ? round2((producedTotal / fertileEggsTotal) * 100) : 0;
+      hatchedFertileEggs > 0 ? round2((producedTotal / hatchedFertileEggs) * 100) : 0;
     const weightedHatchOfTotalPct =
-      eggsSetTotal > 0 ? round2((producedTotal / eggsSetTotal) * 100) : 0;
+      hatchedEggsSet > 0 ? round2((producedTotal / hatchedEggsSet) * 100) : 0;
     const totalRelevantCost = totalExpensesAmount;
     const saleableTotal = producedA + producedB;
     const costPerProducedChick =
@@ -348,6 +370,8 @@ export async function getHatcheryBatch(req: Request, res: Response) {
           },
           incubation: {
             incubationCount,
+            hatchedIncubationCount,
+            runningIncubationCount,
             eggsSetTotal,
             candlingLossTotal,
             fertileEggsTotal,

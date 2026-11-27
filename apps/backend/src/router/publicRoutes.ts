@@ -18,6 +18,10 @@ import {
   reversePublicLocation,
 } from "../controller/listForSaleController";
 import { getPublicBatchShare } from "../controller/batchShareController";
+import {
+  getPublicHatcheryBatchShare,
+  getPublicHatcheryIncubationShare,
+} from "../controller/hatcheryBatchShareController";
 
 const router = Router();
 
@@ -48,5 +52,9 @@ router.get("/locations/reverse", reversePublicLocation);
 
 // Batch share link (read-only health report, no money)
 router.get("/batch-share/:token", getPublicBatchShare);
+
+// Hatchery batch share link (parent batch + its incubations, no money)
+router.get("/hatchery-batch-share/:token", getPublicHatcheryBatchShare);
+router.get("/hatchery-batch-share/:token/incubations/:incubationId", getPublicHatcheryIncubationShare);
 
 export default router;

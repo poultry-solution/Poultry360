@@ -33,6 +33,11 @@ import {
   updateHatcheryBatchNote,
   deleteHatcheryBatchNote,
 } from "../controller/hatcheryNoteController";
+import {
+  createHatcheryBatchShareLink,
+  deleteHatcheryBatchShareLink,
+  getHatcheryBatchShareLinks,
+} from "../controller/hatcheryBatchShareController";
 
 const router = express.Router();
 
@@ -82,5 +87,10 @@ router.delete("/:id/egg-sales/:saleId", deleteEggSale);
 router.get("/:id/parent-sales", listParentSales);
 router.post("/:id/parent-sales", addParentSale);
 router.delete("/:id/parent-sales/:saleId", deleteParentSale);
+
+// Share links (read-only report for a vet, no money)
+router.get("/:id/share-links", getHatcheryBatchShareLinks);
+router.post("/:id/share-links", createHatcheryBatchShareLink);
+router.delete("/:id/share-links/:linkId", deleteHatcheryBatchShareLink);
 
 export default router;

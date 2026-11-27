@@ -2,6 +2,7 @@
 
 import { HatcheryNotesTab } from "@/components/hatchery/HatcheryNotesTab";
 import { RemindMeButton } from "@/components/reminders/RemindMeButton";
+import { ShareHatcheryBatchModal } from "@/components/hatchery/ShareHatcheryBatchModal";
 import { useEffect, useState, useMemo } from "react";
 import { getNepalTodayAd } from "@/common/lib/nepali-date";
 import { useParams, useRouter } from "next/navigation";
@@ -15,6 +16,7 @@ import {
   LockIcon,
   UnlockIcon,
   FileText,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/common/components/ui/button";
 import { Input } from "@/common/components/ui/input";
@@ -178,6 +180,7 @@ export default function HatcheryBatchDetailPage() {
   // of the hatchery handoff.
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const isClosed = batch?.status === "CLOSED";
 
@@ -252,6 +255,16 @@ export default function HatcheryBatchDetailPage() {
         {isClosed ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <RemindMeButton module="hatchery" link={{ hatcheryBatchId: batch.id }} className="h-9" />
+            {batch.type === "PARENT_FLOCK" && (
+              <Button
+                variant="outline"
+                className="h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setShowShareModal(true)}
+              >
+                <Share2 className="h-4 w-4 mr-1" />
+                Share
+              </Button>
+            )}
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
@@ -277,6 +290,16 @@ export default function HatcheryBatchDetailPage() {
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <RemindMeButton module="hatchery" link={{ hatcheryBatchId: batch.id }} className="h-9" />
+            {batch.type === "PARENT_FLOCK" && (
+              <Button
+                variant="outline"
+                className="h-9 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => setShowShareModal(true)}
+              >
+                <Share2 className="h-4 w-4 mr-1" />
+                Share
+              </Button>
+            )}
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
@@ -360,6 +383,15 @@ export default function HatcheryBatchDetailPage() {
         />
       )}
       {activeTab === "notes" && <HatcheryNotesTab kind="batch" id={id} />}
+
+      {batch.type === "PARENT_FLOCK" && (
+        <ShareHatcheryBatchModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          batchId={batch.id}
+          batchCode={batch.code}
+        />
+      )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -479,7 +511,11 @@ function OverviewTab({ batch }: { batch: HatcheryBatchDetail }) {
       </OverviewGroup>
 
       <OverviewGroup title="Hatching" cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-        <OverviewTile label="Incubations done" value={(inc?.incubationCount ?? 0).toLocaleString()} sub="Finished" />
+        <OverviewTile
+          label="Incubations done"
+          value={(inc?.hatchedIncubationCount ?? 0).toLocaleString()}
+          sub={(inc?.runningIncubationCount ?? 0) > 0 ? `${inc?.runningIncubationCount} still running` : "Finished"}
+        />
         <OverviewTile label="Removed at candling" value={(inc?.candlingLossTotal ?? 0).toLocaleString()} sub="Infertile + early dead" />
         <OverviewTile label="Fertile eggs" value={(inc?.fertileEggsTotal ?? 0).toLocaleString()} sub="After candling" />
         <OverviewTile
